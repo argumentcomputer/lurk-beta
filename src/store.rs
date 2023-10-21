@@ -1361,7 +1361,7 @@ impl<F: LurkField> Store<F> {
     /// Fill the cache for Scalars. Only Ptrs which have been interned since last hydration will be hashed, so it is
     /// safe to call this incrementally. However, for best proving performance, we should call exactly once so all
     /// hashing can be batched, e.g. on the GPU.
-    #[tracing::instrument(skip_all, name = "Store::hydrate_scalar_cache")]
+    // #[tracing::instrument(skip_all, name = "Store::hydrate_scalar_cache")]
     pub fn hydrate_scalar_cache(&self) {
         self.ensure_constants();
 

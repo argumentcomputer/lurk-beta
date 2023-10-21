@@ -77,16 +77,14 @@ where
         |instance: &Instance<'a, F, C, M>| nova::public_params(instance.rc, instance.lang());
     let disk_cache = DiskCache::<F, C, M>::new(disk_cache_path).unwrap();
 
-    let mut bytes = vec![];
-    let pp = disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
-        if let Some((pp, remaining)) = unsafe { decode(&mut bytes) } {
-            assert!(remaining.is_empty());
-            eprintln!("Using disk-cached public params for {}", instance.key());
-            Ok(pp)
-        } else {
-            Err(Error::CacheError("failed to decode bytes".into()))
-        }
-    });
+    let mut mmap = disk_cache.read_mmap(instance)?;
+    let pp = if let Some((pp, remaining)) = unsafe { decode(&mut mmap) } {
+        assert!(remaining.is_empty());
+        eprintln!("Using disk-cached public params for {}", instance.key());
+        Ok(pp)
+    } else {
+        Err(Error::CacheError("failed to decode bytes".into()))
+    };
 
     match pp {
         Ok(pp) => Ok(bind(pp)),
@@ -115,17 +113,7 @@ where
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C, M>::new(disk_cache_path).unwrap();
-
-    let mut bytes = vec![];
-    disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
-        if let Some((pp, remaining)) = unsafe { decode::<NovaCircuitShape<F>>(&mut bytes) } {
-            assert!(remaining.is_empty());
-            eprintln!("Using disk-cached public params for {}", instance.key());
-            Ok(pp.clone())
-        } else {
-            Err(Error::CacheError("failed to decode bytes".into()))
-        }
-    })
+    disk_cache.read_abomonated(instance)
 }
 
 pub fn supernova_aux_params<
@@ -144,18 +132,7 @@ where
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C, M>::new(disk_cache_path).unwrap();
-
-    let mut bytes = vec![];
-    disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
-        if let Some((aux_params, remaining)) =
-            unsafe { decode::<SuperNovaAuxParams<F>>(&mut bytes) }
-        {
-            assert!(remaining.is_empty());
-            Ok(aux_params.clone())
-        } else {
-            Err(Error::CacheError("failed to decode bytes".into()))
-        }
-    })
+    disk_cache.read_abomonated(instance)
 }
 
 /// Attempts to extract abomonated public parameters.
@@ -222,6 +199,26 @@ where
     };
 
     Ok(pp)
+}
+
+
+
+pub fn nova_public_params<
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'static,
+    M: MultiFrameTrait<'static, F, C>,
+>(
+    instance: &Instance<'static, F, C, M>,
+    disk_cache_path: &Utf8Path,
+) -> Result<PublicParams<F, M>, Error>
+where
+    F::CK1: Sync + Send,
+    F::CK2: Sync + Send,
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    let disk_cache = DiskCache::<F, C, M>::new(disk_cache_path).unwrap();
+    disk_cache.read_abomonated(instance)
 }
 
 #[cfg(test)]

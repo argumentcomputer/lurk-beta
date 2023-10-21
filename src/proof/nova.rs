@@ -215,6 +215,7 @@ pub fn circuit_cache_key<
 }
 
 /// Generates the public parameters for the Nova proving system.
+#[tracing::instrument(skip_all, name = "nova::public_params")]
 pub fn public_params<
     'a,
     F: CurveCycleEquipped,

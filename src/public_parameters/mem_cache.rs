@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use abomonation::{decode, Abomonation};
+use abomonation::Abomonation;
 use camino::Utf8Path;
 use nova::traits::Group;
 use once_cell::sync::Lazy;
@@ -58,15 +58,12 @@ impl PublicParamMemCache {
 
         // read the file if it exists, otherwise initialize
         if instance.abomonated {
-            let mut bytes = vec![];
-            match disk_cache.read_bytes(instance, &mut bytes) {
-                Ok(()) => {
-                    info!("loading abomonated {}", instance.key());
-                    let (pp, rest) = unsafe { decode::<PublicParams<F, M>>(&mut bytes).unwrap() };
-                    assert!(rest.is_empty());
-                    Ok(Arc::new(pp.clone())) // this clone is VERY expensive
+            match disk_cache.read_abomonated(instance) {
+                Ok(pp) => {
+                    // info!("loading abomonated {}", instance.key());
+                    Ok(Arc::new(pp))
                 }
-                Err(Error::IOError(e)) => {
+                Err(e) => {
                     warn!("{e}");
                     info!("Generating fresh public parameters");
                     let pp = default(instance);
@@ -79,21 +76,9 @@ impl PublicParamMemCache {
                         .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
                     Ok(pp)
                 }
-                _ => unreachable!(),
             }
         } else {
-            // read the file if it exists, otherwise initialize
-            if let Ok(pp) = disk_cache.read(instance) {
-                info!("loading abomonated {}", instance.key());
-                Ok(Arc::new(pp))
-            } else {
-                let pp = default(instance);
-                disk_cache
-                    .write(instance, &*pp)
-                    .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
-                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
-                Ok(pp)
-            }
+            todo!("not supported!")
         }
     }
 

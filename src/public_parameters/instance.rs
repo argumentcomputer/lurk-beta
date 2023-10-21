@@ -36,7 +36,7 @@
 //! done by `start-bits`, `end-bits`, and `glue` in the hash.
 
 use std::{
-    fs::File,
+    fs::{File, OpenOptions},
     io::{self, BufReader, BufWriter},
     marker::PhantomData,
     sync::Arc,
@@ -140,6 +140,7 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
+    #[tracing::instrument(skip_all, name = "Instance::new")]
     pub fn new(rc: usize, lang: Arc<Lang<F, C>>, abomonated: bool, kind: Kind) -> Self {
         let cache_key = match kind {
             Kind::NovaPublicParams => nova::circuit_cache_key::<'a, F, C, M>(rc, lang.clone()),
@@ -232,7 +233,11 @@ where
         let cache_key: F = compute_cache_key(&metadata);
         let cache_key_str = format!("{:?}", cache_key);
 
-        let instance_file = File::open(disk_cache_path.join(&cache_key_str))?;
+        let instance_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(disk_cache_path.join(&cache_key_str))?;
 
         let metadata_file = disk_cache_path.join(cache_key_str).with_extension("json");
         let metadata_file = File::open(metadata_file)?;

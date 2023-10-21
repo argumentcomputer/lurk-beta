@@ -507,7 +507,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
         let (_, (new_expr, new_env, new_cont)) =
             frames.iter().fold((0, acc), |(i, allocated_io), frame| {
-                info!("synthesizing frame {i}");
+                debug!("synthesizing frame {i}");
                 if let Some(next_input) = frame.input {
                     // Ensure all intermediate allocated I/O values match the provided execution trace.
 

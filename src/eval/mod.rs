@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 use std::marker::PhantomData;
-use tracing::info;
+use tracing::debug;
 
 pub mod lang;
 
@@ -243,7 +243,7 @@ impl<F: LurkField, C: Coprocessor<F>> Evaluable<F, Witness<F>, C> for IO<F> {
     }
 
     fn log(&self, store: &Store<F>, i: usize) {
-        info!(
+        debug!(
             "Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}{}",
             i,
             self.expr.fmt_to_string(store, initial_lurk_state()),
@@ -509,7 +509,7 @@ where
         Ok(frames)
     }
 
-    #[tracing::instrument(skip_all, name = "Evaluator::generate_frames")]
+    // #[tracing::instrument(skip_all, name = "Evaluator::generate_frames")]
     pub fn generate_frames<Fp: Fn(usize) -> bool>(
         expr: Ptr<F>,
         env: Ptr<F>,

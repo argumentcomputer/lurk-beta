@@ -1,13 +1,13 @@
 use std::fs::create_dir_all;
-use std::io::{BufReader, BufWriter, Read};
 use std::marker::PhantomData;
 
-use abomonation::{encode, Abomonation};
+use abomonation::{decode, encode, Abomonation};
 use camino::{Utf8Path, Utf8PathBuf};
+use memmap::MmapMut;
 use nova::traits::Group;
 
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::{CurveCycleEquipped, PublicParams, G1, G2};
+use crate::proof::nova::{CurveCycleEquipped, G1, G2};
 use crate::proof::MultiFrameTrait;
 use crate::public_parameters::error::Error;
 
@@ -39,38 +39,26 @@ where
         })
     }
 
-    pub(crate) fn read(
+    #[tracing::instrument(skip_all, name = "read_abomonated")]
+    pub(crate) fn read_abomonated<V: Abomonation + Clone>(
         &self,
         instance: &Instance<'a, F, C, M>,
-    ) -> Result<PublicParams<F, M>, Error> {
+    ) -> Result<V, Error> {
         let file = instance.open(&self.dir)?;
-        let reader = BufReader::new(file);
-        bincode::deserialize_from(reader).map_err(|e| {
-            Error::CacheError(format!("Public param cache deserialization error: {}", e))
-        })
+        unsafe {
+            let mut mmap = MmapMut::map_mut(&file)?;
+            let (data, rest) = tracing::info_span!("decode").in_scope(|| {
+                decode::<V>(&mut mmap).ok_or(Error::CacheError("failed to decode bytes".into()))
+            })?;
+            assert!(rest.is_empty());
+            Ok(tracing::info_span!("clone").in_scope(|| data.clone()))
+        }
     }
 
-    pub(crate) fn read_bytes(
-        &self,
-        instance: &Instance<'a, F, C, M>,
-        byte_sink: &mut Vec<u8>,
-    ) -> Result<(), Error> {
+    pub(crate) fn read_mmap(&self, instance: &Instance<'a, F, C, M>) -> Result<MmapMut, Error> {
         let file = instance.open(&self.dir)?;
-        let mut reader = BufReader::new(file);
-        reader.read_to_end(byte_sink)?;
-        Ok(())
-    }
-
-    pub(crate) fn write(
-        &self,
-        instance: &Instance<'a, F, C, M>,
-        data: &PublicParams<F, M>,
-    ) -> Result<(), Error> {
-        let file = instance.create(&self.dir)?;
-        let writer = BufWriter::new(&file);
-        bincode::serialize_into(writer, &data).map_err(|e| {
-            Error::CacheError(format!("Public param cache serialization error: {}", e))
-        })
+        let mmap = unsafe { MmapMut::map_mut(&file)? };
+        Ok(mmap)
     }
 
     pub(crate) fn write_abomonated<V: Abomonation>(
