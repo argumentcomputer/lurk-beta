@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (0039d739d 2023-10-18)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (249624b50 2023-10-20)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -6484,19 +6484,6 @@
 <a href="#6484" id="6484">6484</a>
 <a href="#6485" id="6485">6485</a>
 <a href="#6486" id="6486">6486</a>
-<a href="#6487" id="6487">6487</a>
-<a href="#6488" id="6488">6488</a>
-<a href="#6489" id="6489">6489</a>
-<a href="#6490" id="6490">6490</a>
-<a href="#6491" id="6491">6491</a>
-<a href="#6492" id="6492">6492</a>
-<a href="#6493" id="6493">6493</a>
-<a href="#6494" id="6494">6494</a>
-<a href="#6495" id="6495">6495</a>
-<a href="#6496" id="6496">6496</a>
-<a href="#6497" id="6497">6497</a>
-<a href="#6498" id="6498">6498</a>
-<a href="#6499" id="6499">6499</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -12255,16 +12242,14 @@
         lang::{Coproc, Lang},
         Evaluable, IO,
     };
-    <span class="kw">use </span><span class="kw">crate</span>::proof::groth16::Groth16Prover;
+    <span class="kw">use </span><span class="kw">crate</span>::proof::nova::{public_params, NovaProver};
     <span class="kw">use </span><span class="kw">crate</span>::proof::{Provable, Prover};
     <span class="kw">use </span><span class="kw">crate</span>::store::Store;
     <span class="kw">use </span>bellpepper::util_cs::metric_cs::MetricCS;
     <span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
     <span class="kw">use </span>bellpepper_core::{Comparable, Delta};
-    <span class="kw">use </span>bellperson::groth16;
-    <span class="kw">use </span>blstrs::{Bls12, Scalar <span class="kw">as </span>Fr};
     <span class="kw">use </span>ff::{Field, PrimeField};
-    <span class="kw">use </span>pairing::Engine;
+    <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
 
     <span class="kw">const </span>DEFAULT_REDUCTION_COUNT: usize = <span class="number">1</span>;
 
@@ -12283,20 +12268,11 @@
         <span class="kw">let </span>lang = Arc::new(raw_lang.clone());
         <span class="kw">let </span>(<span class="kw">_</span>, witness, meta) = input.reduce(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>lang).unwrap();
 
-        <span class="kw">let </span>public_params = Groth16Prover::&lt;Bls12, Coproc&lt;Fr&gt;, Fr, MultiFrame&lt;<span class="lifetime">&#39;_</span>, Fr, Coproc&lt;Fr&gt;&gt;&gt;::create_groth_params(
+        <span class="kw">let </span>public_params = public_params(DEFAULT_REDUCTION_COUNT, lang.clone());
+        <span class="kw">let </span>nova_prover = NovaProver::&lt;Fr, Coproc&lt;Fr&gt;, MultiFrame&lt;<span class="lifetime">&#39;_</span>, Fr, Coproc&lt;Fr&gt;&gt;&gt;::new(
             DEFAULT_REDUCTION_COUNT,
-            lang.clone(),
-        )
-        .unwrap();
-        <span class="kw">let </span>groth_prover =
-            Groth16Prover::&lt;Bls12, Coproc&lt;Fr&gt;, Fr, MultiFrame&lt;<span class="lifetime">&#39;_</span>, Fr, Coproc&lt;Fr&gt;&gt;&gt;::new(
-                DEFAULT_REDUCTION_COUNT,
-                raw_lang,
-            );
-        <span class="kw">let </span>groth_params = <span class="kw-2">&amp;</span>public_params.<span class="number">0</span>;
-
-        <span class="kw">let </span>vk = <span class="kw-2">&amp;</span>groth_params.vk;
-        <span class="kw">let </span>pvk = groth16::prepare_verifying_key(vk);
+            raw_lang,
+        );
 
         store.hydrate_scalar_cache();
         <span class="kw">let </span>test_with_output = |output: IO&lt;Fr&gt;, expect_success: bool, store: <span class="kw-2">&amp;</span>Store&lt;Fr&gt;| {
@@ -12307,28 +12283,23 @@
                 lang.clone(),
                 DEFAULT_REDUCTION_COUNT,
             ));
-            <span class="kw">let </span>blank_multiframe = MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::blank(
-                folding_config.clone(),
-                Meta::Lurk,
-            );
+            <span class="kw">let </span>blank_multiframe =
+                MultiFrame::&lt;Fr, Coproc&lt;Fr&gt;&gt;::blank(folding_config.clone(), Meta::Lurk);
 
             blank_multiframe
                 .synthesize(<span class="kw-2">&amp;mut </span>cs_blank)
                 .expect(<span class="string">&quot;failed to synthesize&quot;</span>);
 
-            <span class="kw">let </span>multiframes = MultiFrame::from_frames(
-                DEFAULT_REDUCTION_COUNT,
-                <span class="kw-2">&amp;</span>[Frame {
-                    input,
-                    output,
-                    i: <span class="number">0</span>,
-                    witness,
-                    meta,
-                    _p: Default::default(),
-                }],
-                store,
-                folding_config,
-            );
+            <span class="kw">let </span>frames = [Frame {
+                input,
+                output,
+                i: <span class="number">0</span>,
+                witness,
+                meta,
+                _p: Default::default(),
+            }];
+            <span class="kw">let </span>multiframes =
+                MultiFrame::from_frames(DEFAULT_REDUCTION_COUNT, <span class="kw-2">&amp;</span>frames, store, folding_config);
 
             <span class="kw">let </span>multiframe = <span class="kw-2">&amp;</span>multiframes[<span class="number">0</span>];
 
@@ -12342,20 +12313,23 @@
             <span class="macro">assert!</span>(delta == Delta::Equal);
 
             <span class="comment">// println!(&quot;{}&quot;, print_cs(&amp;cs));
-            </span><span class="macro">assert_eq!</span>(<span class="number">11823</span>, cs.num_constraints());
+            </span><span class="macro">assert_eq!</span>(<span class="number">11463</span>, cs.num_constraints());
             <span class="macro">assert_eq!</span>(<span class="number">13</span>, cs.num_inputs());
-            <span class="macro">assert_eq!</span>(<span class="number">11479</span>, cs.aux().len());
+            <span class="macro">assert_eq!</span>(<span class="number">11119</span>, cs.aux().len());
 
             <span class="kw">let </span>public_inputs = multiframe.public_inputs();
-            <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
 
-            <span class="kw">let </span>proof = groth_prover
-                .prove(multiframe.clone(), groth_params, <span class="kw-2">&amp;mut </span>rng)
+            <span class="kw">let </span>(proof, ..) = nova_prover
+                .prove(<span class="kw-2">&amp;</span>public_params, <span class="kw-2">&amp;</span>frames, store, <span class="kw-2">&amp;</span>lang)
                 .unwrap();
             <span class="kw">let </span>cs_verified = cs.is_satisfied() &amp;&amp; cs.verify(<span class="kw-2">&amp;</span>public_inputs);
-            <span class="kw">let </span>verified = multiframe
-                .clone()
-                .verify_groth16_proof(<span class="kw-2">&amp;</span>pvk, <span class="kw-2">&amp;</span>proof)
+            <span class="kw">let </span>verified = proof
+                .verify(
+                    <span class="kw-2">&amp;</span>public_params,
+                    <span class="number">1</span>,
+                    <span class="kw-2">&amp;</span>input.to_inputs(store),
+                    <span class="kw-2">&amp;</span>output.to_inputs(store),
+                )
                 .unwrap();
 
             <span class="kw">if </span>expect_success {
@@ -12444,7 +12418,7 @@
                 lang.clone(),
                 DEFAULT_REDUCTION_COUNT,
             ));
-            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
+            MultiFrame::&lt;Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
@@ -12529,7 +12503,7 @@
                 lang.clone(),
                 DEFAULT_REDUCTION_COUNT,
             ));
-            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
+            MultiFrame::&lt;Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
@@ -12617,7 +12591,7 @@
                 DEFAULT_REDUCTION_COUNT,
             ));
 
-            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
+            MultiFrame::&lt;Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
@@ -12704,7 +12678,7 @@
                 DEFAULT_REDUCTION_COUNT,
             ));
 
-            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
+            MultiFrame::&lt;Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
