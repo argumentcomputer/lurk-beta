@@ -43,7 +43,7 @@ use crate::{
     },
     coprocessor::Coprocessor,
     eval::lang::Lang,
-    field::{FWrap, LurkField},
+    field::{FWrap, LanguageField, LurkField},
     tag::ExprTag::{Comm, Num, Sym},
 };
 
@@ -1485,12 +1485,19 @@ impl Func {
             }
         }
         let globals = &mut HashSet::default();
+        let bit_decomp_cost = match F::FIELD {
+            LanguageField::Pallas => 298,
+            LanguageField::Vesta => 301,
+            LanguageField::BLS12_381 => 388,
+            _ => todo!(),
+        };
+
         // fixed cost for each slot
         let slot_constraints = 289 * self.slot.hash4
             + 337 * self.slot.hash6
             + 388 * self.slot.hash8
             + 265 * self.slot.commitment
-            + 388 * self.slot.bit_decomp;
+            + bit_decomp_cost * self.slot.bit_decomp;
         let num_constraints = recurse(&self.body, globals, store, false);
         slot_constraints + num_constraints + globals.len()
     }
