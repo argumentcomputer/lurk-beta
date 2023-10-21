@@ -10,7 +10,6 @@ repository = "https://github.com/lurk-lab/lurk-rs"
 
 [dependencies]
 anyhow = { workspace = true }
-blstrs =  { workspace = true }
 camino = { workspace = true }
 clap = { workspace = true }
 fcomm = { path = "../fcomm" }

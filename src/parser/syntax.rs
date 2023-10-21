@@ -436,8 +436,8 @@ pub fn parse_maybe_meta<F: LurkField>(
 
 #[cfg(test)]
 pub mod tests {
-    use blstrs::Scalar;
     use nom::Parser;
+    use pasta_curves::pallas::Scalar;
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
 
@@ -867,7 +867,7 @@ pub mod tests {
         ));
         assert!(test(
             parse_num(),
-            "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000",
+            "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000000",
             Some(Syntax::Num(
                 Pos::No,
                 Num::Scalar(<Scalar as ff::Field>::ZERO - Scalar::from(1u64))
@@ -875,7 +875,7 @@ pub mod tests {
         ));
         assert!(test(
             parse_num(),
-            "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+            "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001",
             None,
         ));
         assert!(test(parse_num(), "-0", Some(num!(0))));
@@ -891,7 +891,7 @@ pub mod tests {
     #[test]
     fn unit_parse_syntax_misc() {
         let vec: Vec<u8> = vec![
-            0x6e, 0x2e, 0x50, 0x55, 0xdc, 0xf6, 0x14, 0x86, 0xb0, 0x3b, 0xb8, 0x0e, 0xd2, 0xb3,
+            0x3e, 0x2e, 0x50, 0x55, 0xdc, 0xf6, 0x14, 0x86, 0xb0, 0x3b, 0xb8, 0x0e, 0xd2, 0xb3,
             0xf1, 0xa3, 0x5c, 0x30, 0xe1, 0x22, 0xde, 0xfe, 0xba, 0xe8, 0x24, 0xfa, 0xe4, 0xed,
             0x32, 0x40, 0x8e, 0x87,
         ]
@@ -908,7 +908,7 @@ pub mod tests {
         ));
         assert!(test(
             parse_syntax(state(), false, true),
-            "(0x6e2e5055dcf61486b03bb80ed2b3f1a35c30e122defebae824fae4ed32408e87)",
+            "(0x3e2e5055dcf61486b03bb80ed2b3f1a35c30e122defebae824fae4ed32408e87)",
             Some(list!([num!(Num::Scalar(f_from_le_bytes(&vec)))])),
         ));
         assert!(test(

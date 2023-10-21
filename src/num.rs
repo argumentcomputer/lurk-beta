@@ -292,9 +292,9 @@ impl<'de, F: LurkField> Deserialize<'de> for Num<F> {
 mod tests {
     use super::*;
 
-    use blstrs::Scalar;
-    use blstrs::Scalar as Fr;
     use ff::Field;
+    use pasta_curves::pallas::Scalar;
+    use pasta_curves::pallas::Scalar as Fr;
 
     #[test]
     fn test_add_assign() {

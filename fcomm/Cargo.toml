@@ -17,7 +17,6 @@ anyhow = { workspace = true }
 base64 = { workspace = true }
 bellpepper-core = { workspace = true }
 bincode = { workspace = true }
-blstrs = { workspace = true }
 camino = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 clap-verbosity-flag = "2.0"

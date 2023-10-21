@@ -3,10 +3,9 @@
 //! This module offers a connection the the backend proving engine of Lurk.
 //! Abstracted behind the `Prover` and `Verifier` traits, the proving engine
 //! has two instantiations:
-//! - the Groth16/SnarkPack proving system, implemented in the `groth16` module
 //! - the Nova proving system, implemented in the `nova` module.
-/// An adapter to a Groth16 proving system implementation.
-pub mod groth16;
+//! - the SuperNova proving system, implemented in the `supernova` module.
+
 /// An adapter to a Nova proving system implementation.
 pub mod nova;
 
@@ -180,39 +179,6 @@ pub trait Provable<F: LurkField> {
     fn public_input_size(&self) -> usize;
     /// Returns the number of reductions in the provable structure.
     fn reduction_count(&self) -> usize;
-}
-
-/// Verifies a sequence of constraint systems (CSs) for sequentiality & validity.
-pub fn verify_sequential_css<
-    'a,
-    F: LurkField + Copy,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
->(
-    css: &SequentialCS<F, M>,
-) -> Result<bool, SynthesisError> {
-    let mut previous_frame: Option<&M> = None;
-
-    for (i, (multiframe, cs)) in css.iter().enumerate() {
-        if let Some(prev) = previous_frame {
-            if !prev.precedes(multiframe) {
-                tracing::debug!("frame {}: not preceeding frame", i);
-                return Ok(false);
-            }
-        }
-        if !cs.is_satisfied() {
-            tracing::debug!("frame {}: cs not satisfied", i);
-            return Ok(false);
-        }
-
-        let public_inputs = multiframe.public_inputs();
-        if !cs.verify(&public_inputs) {
-            tracing::debug!("frame {}: cs not verified", i);
-            return Ok(false);
-        }
-        previous_frame = Some(multiframe);
-    }
-    Ok(true)
 }
 
 /// A trait for a prover that works with a field `F`.

@@ -1688,11 +1688,11 @@ mod tests {
         lem::{slot::SlotsCounter, store::Store},
     };
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
-    use blstrs::Scalar as Fr;
+    use pasta_curves::pallas::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 9390;
-    const NUM_CONSTRAINTS: usize = 11322;
+    const NUM_AUX: usize = 9120;
+    const NUM_CONSTRAINTS: usize = 11052;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,

@@ -77,7 +77,7 @@ impl<F: LurkField> Store<F> {
 //#[cfg(test)]
 //mod test {
 //    use crate::writer::Write;
-//    use blstrs::Scalar as Fr;
+//    use pasta_curves::pallas::Scalar as Fr;
 //
 //    use super::*;
 //

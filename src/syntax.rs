@@ -185,7 +185,7 @@ impl<F: LurkField> Store<F> {
 mod test {
     use super::*;
     use crate::Symbol;
-    use blstrs::Scalar as Fr;
+    use pasta_curves::pallas::Scalar as Fr;
 
     #[test]
     fn display_syntax() {
