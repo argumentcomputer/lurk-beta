@@ -36,7 +36,7 @@ concurrency:
 jobs:
   cuda:
     name: Rust tests on CUDA
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-ci]
     env:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITITES: compute,utility
@@ -63,13 +63,12 @@ jobs:
       - name: CUDA tests
         env: 
           EC_GPU_FRAMEWORK: cuda
-        # Temporarily skipping CLI test due to cudaMallocAsync error: https://github.com/lurk-lab/lurk-rs/issues/596
         run: |
-          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda -E 'all() - test(test_prove_and_verify)'
+          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda
 
   opencl:
     name: Rust tests on OpenCL
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-ci]
     env:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITITES: compute,utility
@@ -98,6 +97,5 @@ jobs:
       - name: OpenCL tests
         env:
           EC_GPU_FRAMEWORK: opencl
-        # Temporarily skipping CLI test due to cudaMallocAsync error: https://github.com/lurk-lab/lurk-rs/issues/596
         run: |
-          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl -E 'all() - test(test_prove_and_verify)'
+          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl
