@@ -124,6 +124,7 @@ where
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
     pub fn prove_recursively(
         pp: &PublicParams<F, M>,
+        recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>>>,
         _store: &M::Store,
         nivc_steps: &[M],
         z0: Vec<F>,
@@ -131,7 +132,7 @@ where
         // Is this assertion strictly necessary?
         assert!(!nivc_steps.is_empty());
 
-        let mut recursive_snark_option: Option<RecursiveSNARK<G1<F>, G2<F>>> = None;
+        let mut recursive_snark_option: Option<RecursiveSNARK<G1<F>, G2<F>>> = recursive_snark;
 
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
@@ -281,7 +282,7 @@ where
 
         let num_steps = nivc_steps.len();
         let (proof, last_running_claim) =
-            Proof::prove_recursively(pp, store, &nivc_steps, z0.clone())?;
+            Proof::prove_recursively(pp, None, store, &nivc_steps, z0.clone())?;
 
         Ok((proof, z0, zi, num_steps, last_running_claim))
     }
@@ -306,6 +307,45 @@ where
         )?;
         info!("got {} evaluation frames", frames.len());
         self.prove(pp, &frames, store, lang)
+    }
+
+    /// Returns the first step of the [RecursiveSNARK] to be proved
+    pub fn recursive_snark(
+        &self,
+        pp: &PublicParams<F, M>,
+        frames: &[M::EvalFrame],
+        store: &'a M::Store,
+        lang: &Arc<Lang<F, C>>,
+    ) -> Result<(RecursiveSNARK<G1<F>, G2<F>>, Vec<F>, Vec<F>, usize), ProofError> {
+        store.hydrate_z_cache();
+        let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
+        let zi =
+            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
+        let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), self.reduction_count()));
+
+        let nivc_steps = M::from_frames(self.reduction_count(), frames, store, folding_config);
+
+        let num_steps = nivc_steps.len();
+
+        let z0_primary = &z0;
+        let z0_secondary = Proof::<F, C, M>::z0_secondary();
+
+        let augmented_circuit_index: &usize = &nivc_steps[0].circuit_index();
+        let program_counter = F::from(*augmented_circuit_index as u64);
+
+        let recursive_snark = RecursiveSNARK::iter_base_step(
+            &pp.pp,
+            *augmented_circuit_index,
+            &nivc_steps[0],
+            &nivc_steps[0].secondary_circuit(),
+            Some(program_counter),
+            *augmented_circuit_index,
+            nivc_steps[0].num_circuits(),
+            z0_primary,
+            &z0_secondary,
+        )
+        .unwrap();
+        Ok((recursive_snark, z0, zi, num_steps))
     }
 }
 
