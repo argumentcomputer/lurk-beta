@@ -1,10 +1,5 @@
 mod meta_cmd;
 
-use std::cell::RefCell;
-use std::fs::read_to_string;
-use std::rc::Rc;
-use std::sync::Arc;
-
 use anyhow::{bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use rustyline::{
@@ -14,35 +9,40 @@ use rustyline::{
     Config, Editor,
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
+use std::{cell::RefCell, collections::HashMap, fs::read_to_string, rc::Rc, sync::Arc};
 use tracing::info;
 
-use super::{backend::Backend, commitment::Commitment, field_data::load, paths::commitment_path};
-
 use crate::{
-    circuit::MultiFrame,
     cli::paths::{proof_path, public_params_dir},
-    eval::{
-        lang::{Coproc, Lang},
-        Evaluator, Frame, Witness, IO,
-    },
+    eval::lang::{Coproc, Lang},
     field::LurkField,
-    lurk_sym_ptr, parser,
+    lem::{
+        eval::{evaluate, evaluate_simple},
+        interpreter::Frame,
+        multiframe::MultiFrame,
+        pointers::Ptr,
+        store::Store,
+        Tag,
+    },
+    parser,
     proof::{nova::NovaProver, Prover},
-    ptr::Ptr,
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
     },
     state::State,
-    store::Store,
     tag::{ContTag, ExprTag},
-    writer::Write,
-    z_ptr::ZExprPtr,
-    z_store::ZStore,
-    Num, Symbol,
+    Symbol,
 };
 
-use super::lurk_proof::{LurkProof, LurkProofMeta};
+use super::{
+    backend::Backend,
+    commitment::Commitment,
+    field_data::load,
+    lurk_proof::{LurkProof, LurkProofMeta},
+    paths::commitment_path,
+    zstore::{populate_store, populate_z_store, ZStore},
+};
 
 use meta_cmd::MetaCmd;
 
@@ -58,8 +58,8 @@ impl Validator for InputValidator {
 }
 
 #[allow(dead_code)]
-struct Evaluation<F: LurkField, C> {
-    frames: Vec<Frame<IO<F>, Witness<F>, F, C>>,
+struct Evaluation<F: LurkField> {
+    frames: Vec<Frame<F>>,
     iterations: usize,
 }
 
@@ -72,9 +72,9 @@ pub struct Repl<F: LurkField> {
     rc: usize,
     limit: usize,
     backend: Backend,
-    evaluation: Option<Evaluation<F, Coproc<F>>>,
+    evaluation: Option<Evaluation<F>>,
     pwd_path: Utf8PathBuf,
-    meta: std::collections::HashMap<&'static str, MetaCmd<F>>,
+    meta: HashMap<&'static str, MetaCmd<F>>,
 }
 
 pub(crate) fn validate_non_zero(name: &str, x: usize) -> Result<()> {
@@ -143,7 +143,7 @@ impl Repl<F> {
         let current_dir = std::env::current_dir().expect("couldn't capture current directory");
         let pwd_path =
             Utf8PathBuf::from_path_buf(current_dir).expect("path contains invalid Unicode");
-        let env = lurk_sym_ptr!(store, nil);
+        let env = store.intern_nil();
         Repl {
             store,
             state: State::init_lurk_state().rccell(),
@@ -171,23 +171,22 @@ impl Repl<F> {
         let expr_out_key = store.key("expr-out");
         let env_out_key = store.key("env-out");
         let cont_out_key = store.key("cont-out");
-        let cont_tag = store.num(Num::Scalar(conts.0 .0));
-        let cont_val = store.num(Num::Scalar(conts.0 .1));
-        let cont = store.cons(cont_tag, cont_val);
-        let cont_out_tag = store.num(Num::Scalar(conts.1 .0));
-        let cont_out_val = store.num(Num::Scalar(conts.1 .1));
-        let cont_out = store.cons(cont_out_tag, cont_out_val);
-        store.list(&[
+        let (expr, expr_out) = exprs;
+        let (env, env_out) = envs;
+        let ((cont_tag, cont_val), (cont_out_tag, cont_out_val)) = conts;
+        let cont = store.cons(Ptr::num(cont_tag), Ptr::num(cont_val));
+        let cont_out = store.cons(Ptr::num(cont_out_tag), Ptr::num(cont_out_val));
+        store.list(vec![
             expr_key,
-            exprs.0,
+            expr,
             env_key,
-            envs.0,
+            env,
             cont_key,
             cont,
             expr_out_key,
-            exprs.1,
+            expr_out,
             env_out_key,
-            envs.1,
+            env_out,
             cont_out_key,
             cont_out,
         ])
@@ -205,25 +204,29 @@ impl Repl<F> {
             Some(Evaluation { frames, iterations }) => match self.backend {
                 Backend::Nova => {
                     info!("Hydrating the store");
-                    self.store.hydrate_scalar_cache();
+                    self.store.hydrate_z_cache();
 
                     let n_frames = frames.len();
 
                     // saving to avoid clones
                     let input = &frames[0].input;
                     let output = &frames[n_frames - 1].output;
-                    let mut zstore = Some(ZStore::<F>::default());
-                    let expr = self.store.get_z_expr(&input.expr, &mut zstore)?.0;
-                    let env = self.store.get_z_expr(&input.env, &mut zstore)?.0;
-                    let cont = self.store.get_z_cont(&input.cont, &mut zstore)?.0;
-                    let expr_out = self.store.get_z_expr(&output.expr, &mut zstore)?.0;
-                    let env_out = self.store.get_z_expr(&output.env, &mut zstore)?.0;
-                    let cont_out = self.store.get_z_cont(&output.cont, &mut zstore)?.0;
+                    let mut z_store = ZStore::<F>::default();
+                    let mut cache = HashMap::default();
+                    let expr = populate_z_store(&mut z_store, &input[0], &self.store, &mut cache)?;
+                    let env = populate_z_store(&mut z_store, &input[1], &self.store, &mut cache)?;
+                    let cont = populate_z_store(&mut z_store, &input[2], &self.store, &mut cache)?;
+                    let expr_out =
+                        populate_z_store(&mut z_store, &output[0], &self.store, &mut cache)?;
+                    let env_out =
+                        populate_z_store(&mut z_store, &output[1], &self.store, &mut cache)?;
+                    let cont_out =
+                        populate_z_store(&mut z_store, &output[2], &self.store, &mut cache)?;
 
                     let claim = Self::proof_claim(
                         &self.store,
-                        (input.expr, output.expr),
-                        (input.env, output.env),
+                        (input[0], output[0]),
+                        (input[1], output[1]),
                         (cont.parts(), cont_out.parts()),
                     );
 
@@ -273,7 +276,7 @@ impl Repl<F> {
                             expr_out,
                             env_out,
                             cont_out,
-                            zstore: zstore.unwrap(),
+                            z_store,
                         };
 
                         lurk_proof.persist(proof_key)?;
@@ -300,21 +303,24 @@ impl Repl<F> {
     }
 
     fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
-        let commitment: Commitment<F> = load(commitment_path(&hash.hex_digits()))?;
+        let commitment: Commitment<F> = load(&commitment_path(&hash.hex_digits()))?;
         let comm_hash = commitment.hash;
         if &comm_hash != hash {
             bail!("Hash mismatch. Corrupted commitment file.")
         } else {
-            // create a ZExprPtr with the intended hash
-            let comm_zptr = &ZExprPtr::from_parts(ExprTag::Comm, comm_hash);
-            // populate the REPL's store with the data
-            let comm_ptr = self
-                .store
-                .intern_z_expr_ptr(comm_zptr, &commitment.zstore)
-                .unwrap();
+            let (secret, z_payload) = commitment.open()?;
+            let payload = populate_store(
+                &self.store,
+                z_payload,
+                &commitment.z_store,
+                &mut Default::default(),
+            )?;
+            self.store.hide(*secret, payload)?;
             if print_data {
-                let data = self.store.fetch_comm(&comm_ptr).unwrap().1;
-                println!("{}", data.fmt_to_string(&self.store, &self.state.borrow()));
+                println!(
+                    "{}",
+                    payload.fmt_to_string(&self.store, &self.state.borrow())
+                );
             } else {
                 println!("Data is now available");
             }
@@ -330,17 +336,17 @@ impl Repl<F> {
         }
     }
 
-    fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
-        let ret = Evaluator::new(expr_ptr, self.env, &self.store, self.limit, &self.lang).eval()?;
-        match ret.0.cont.tag {
-            ContTag::Terminal => Ok(ret),
+    fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+        let (ptrs, iterations, emitted) =
+            evaluate_simple::<F, Coproc<F>>(None, expr_ptr, &self.store, self.limit)?;
+        match ptrs[2].tag() {
+            Tag::Cont(ContTag::Terminal) => Ok((ptrs, iterations, emitted)),
             t => {
-                let iterations_display = Self::pretty_iterations_display(ret.1);
-                match t {
-                    ContTag::Error => {
-                        bail!("Evaluation encountered an error after {iterations_display}")
-                    }
-                    _ => bail!("Limit reached after {iterations_display}"),
+                let iterations_display = Self::pretty_iterations_display(iterations);
+                if t == &Tag::Cont(ContTag::Error) {
+                    bail!("Evaluation encountered an error after {iterations_display}")
+                } else {
+                    bail!("Limit reached after {iterations_display}")
                 }
             }
         }
@@ -349,65 +355,56 @@ impl Repl<F> {
     fn eval_expr_allowing_error_continuation(
         &mut self,
         expr_ptr: Ptr<F>,
-    ) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
-        let ret = Evaluator::new(expr_ptr, self.env, &self.store, self.limit, &self.lang).eval()?;
-        if matches!(ret.0.cont.tag, ContTag::Terminal | ContTag::Error) {
-            Ok(ret)
+    ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+        let (ptrs, iterations, emitted) =
+            evaluate_simple::<F, Coproc<F>>(None, expr_ptr, &self.store, self.limit)?;
+        if matches!(
+            ptrs[2].tag(),
+            Tag::Cont(ContTag::Terminal) | Tag::Cont(ContTag::Error)
+        ) {
+            Ok((ptrs, iterations, emitted))
         } else {
             bail!(
                 "Limit reached after {}",
-                Self::pretty_iterations_display(ret.1)
+                Self::pretty_iterations_display(iterations)
             )
         }
     }
 
-    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
-        let frames =
-            Evaluator::new(expr_ptr, self.env, &self.store, self.limit, &self.lang).get_frames()?;
-
-        let n_frames = frames.len();
-        let last_frame = &frames[n_frames - 1];
-        let last_output = last_frame.output;
-
-        let iterations = if last_frame.is_complete() {
-            // do not consider the identity frame
-            n_frames - 1
-        } else {
-            n_frames
-        };
-
+    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize)> {
+        let (frames, iterations) =
+            evaluate::<F, Coproc<F>>(None, expr_ptr, &self.store, self.limit)?;
+        let output = frames[frames.len() - 1].output.clone();
         self.evaluation = Some(Evaluation { frames, iterations });
-
-        Ok((last_output, iterations))
+        Ok((output, iterations))
     }
 
-    #[allow(dead_code)]
+    // #[allow(dead_code)]
     fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<F> {
         let first = self.peek1(cmd, args)?;
-        let num = lurk_sym_ptr!(self.store, num);
-        let expr = self.store.list(&[num, first]);
+        let num = self.store.intern_lurk_symbol("num");
+        let expr = self.store.list(vec![num, first]);
         let (expr_io, ..) = self
             .eval_expr(expr)
             .with_context(|| "evaluating first arg")?;
-        let hash = self
-            .store
-            .fetch_num(&expr_io.expr)
-            .expect("must be a number");
-        Ok(hash.into_scalar())
+        let Ptr::Atom(Tag::Expr(ExprTag::Num), hash) = expr_io[0] else {
+            bail!("hash must be a number")
+        };
+        Ok(hash)
     }
 
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         self.eval_expr_and_memoize(expr_ptr)
             .map(|(output, iterations)| {
                 let iterations_display = Self::pretty_iterations_display(iterations);
-                match output.cont.tag {
-                    ContTag::Terminal => {
+                match output[2].tag() {
+                    Tag::Cont(ContTag::Terminal) => {
                         println!(
                             "[{iterations_display}] => {}",
-                            output.expr.fmt_to_string(&self.store, &self.state.borrow())
+                            output[0].fmt_to_string(&self.store, &self.state.borrow())
                         )
                     }
-                    ContTag::Error => {
+                    Tag::Cont(ContTag::Error) => {
                         println!("Evaluation encountered an error after {iterations_display}")
                     }
                     _ => println!("Limit reached after {iterations_display}"),
@@ -437,10 +434,7 @@ impl Repl<F> {
     }
 
     fn handle_form<'a>(&mut self, input: parser::Span<'a>) -> Result<parser::Span<'a>> {
-        let (input, ptr, is_meta) = self
-            .store
-            .read_maybe_meta_with_state(self.state.clone(), input)?;
-
+        let (input, ptr, is_meta) = self.store.read_maybe_meta(self.state.clone(), &input)?;
         if is_meta {
             self.handle_meta(ptr)?;
         } else {
@@ -498,10 +492,7 @@ impl Repl<F> {
             )) {
                 Ok(line) => {
                     editor.save_history(history_path)?;
-                    match self
-                        .store
-                        .read_maybe_meta_with_state(self.state.clone(), parser::Span::new(&line))
-                    {
+                    match self.store.read_maybe_meta(self.state.clone(), &line) {
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {
                                 if let Err(e) = self.handle_meta(expr_ptr) {

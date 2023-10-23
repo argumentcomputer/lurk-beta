@@ -20,6 +20,7 @@ bellpepper = { workspace = true }
 bellpepper-core = { workspace = true }
 bincode = { workspace = true }
 blstrs = { workspace = true }
+bytecount = "=0.6.4"
 camino = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 config = "0.13.3"

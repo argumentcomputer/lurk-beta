@@ -28,11 +28,11 @@ pub(crate) fn de<T: DeserializeOwned + HasFieldModulus>(bytes: &[u8]) -> Result<
     Ok(data)
 }
 
-pub(crate) fn dump<T: Serialize + HasFieldModulus>(t: T, path: Utf8PathBuf) -> Result<()> {
+pub(crate) fn dump<T: Serialize + HasFieldModulus>(t: T, path: &Utf8PathBuf) -> Result<()> {
     Ok(std::fs::write(path, ser(t)?)?)
 }
 
-pub(crate) fn load<T: DeserializeOwned + HasFieldModulus>(path: Utf8PathBuf) -> Result<T> {
+pub(crate) fn load<T: DeserializeOwned + HasFieldModulus>(path: &Utf8PathBuf) -> Result<T> {
     de(&std::fs::read(path)?)
 }
 

@@ -5,6 +5,7 @@ mod field_data;
 mod lurk_proof;
 pub mod paths;
 pub mod repl;
+mod zstore;
 
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
@@ -20,21 +21,19 @@ use std::{
 };
 
 use crate::{
-    circuit::MultiFrame,
     eval::lang::Coproc,
     field::{LanguageField, LurkField},
+    lem::{multiframe::MultiFrame, store::Store},
     public_parameters::instance::Metadata,
-    store::Store,
-    z_data::{from_z_data, ZData},
-    z_store::ZStore,
 };
 
 use crate::cli::{
     paths::set_lurk_dirs,
     repl::{validate_non_zero, Repl},
+    zstore::ZStore,
 };
 
-use self::{backend::Backend, paths::public_params_dir};
+use self::{backend::Backend, field_data::load, paths::public_params_dir};
 
 const DEFAULT_LIMIT: usize = 100_000_000;
 const DEFAULT_RC: usize = 10;
@@ -341,15 +340,13 @@ pub fn get_config(config_path: &Option<Utf8PathBuf>) -> Result<HashMap<String, S
 }
 
 fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
-    zstore_path: &Option<Utf8PathBuf>,
+    z_store_path: &Option<Utf8PathBuf>,
 ) -> Result<Store<F>> {
-    match zstore_path {
+    match z_store_path {
         None => Ok(Store::default()),
-        Some(zstore_path) => {
-            let bytes = fs::read(zstore_path)?;
-            let zdata = ZData::from_bytes(&bytes)?;
-            let zstore: ZStore<F> = from_z_data(&zdata)?;
-            Ok(zstore.to_store())
+        Some(z_store_path) => {
+            let z_store: ZStore<F> = load(z_store_path)?;
+            z_store.to_store()
         }
     }
 }

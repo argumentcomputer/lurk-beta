@@ -302,6 +302,12 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    pub fn add_comm(&self, hash: F, secret: F, payload: Ptr<F>) {
+        self.comms
+            .insert(FWrap::<F>(hash), Box::new((secret, payload)));
+    }
+
+    #[inline]
     pub fn hide(&self, secret: F, payload: Ptr<F>) -> Result<Ptr<F>> {
         Ok(Ptr::comm(
             self.hide_and_return_z_payload(secret, payload)?.0,
@@ -313,8 +319,7 @@ impl<F: LurkField> Store<F> {
         let hash = self
             .poseidon_cache
             .hash3(&[secret, z_ptr.tag_field(), *z_ptr.value()]);
-        self.comms
-            .insert(FWrap::<F>(hash), Box::new((secret, payload)));
+        self.add_comm(hash, secret, payload);
         Ok((hash, z_ptr))
     }
 
@@ -919,10 +924,10 @@ impl<F: LurkField> Ptr<F> {
         store: &Store<F>,
         state: &State,
     ) -> String {
-        match self.get_index2() {
+        match self.get_index4() {
             None => format!("<Malformed {name}>"),
             Some(idx) => {
-                if let Some((a, cont)) = store.fetch_2_ptrs(idx) {
+                if let Some((a, cont, ..)) = store.fetch_4_ptrs(idx) {
                     format!(
                         "{name}{{ {field}: {}, continuation: {} }}",
                         a.fmt_to_string(store, state),
@@ -942,10 +947,10 @@ impl<F: LurkField> Ptr<F> {
         store: &Store<F>,
         state: &State,
     ) -> String {
-        match self.get_index3() {
+        match self.get_index4() {
             None => format!("<Malformed {name}>"),
             Some(idx) => {
-                if let Some((a, b, cont)) = store.fetch_3_ptrs(idx) {
+                if let Some((a, b, cont, _)) = store.fetch_4_ptrs(idx) {
                     let (fa, fb) = fields;
                     format!(
                         "{name}{{ {fa}: {}, {fb}: {}, continuation: {} }}",
