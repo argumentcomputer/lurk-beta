@@ -12,6 +12,7 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
+    lem::pointers::ZPtr,
     proof::{
         nova::{self, CurveCycleEquipped, G1, G2},
         supernova::C2,
@@ -21,16 +22,13 @@ use crate::{
         instance::{Instance, Kind},
         public_params,
     },
-    z_ptr::{ZContPtr, ZExprPtr},
-    z_store::ZStore,
 };
 
-use crate::cli::{
-    field_data::{dump, load},
+use super::{
+    field_data::{dump, load, HasFieldModulus},
     paths::{proof_meta_path, proof_path, public_params_dir},
+    zstore::ZStore,
 };
-
-use super::field_data::HasFieldModulus;
 
 /// Carries extra information to help with visualization, experiments etc.
 ///
@@ -41,13 +39,13 @@ use super::field_data::HasFieldModulus;
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LurkProofMeta<F: LurkField> {
     pub(crate) iterations: usize,
-    pub(crate) expr: ZExprPtr<F>,
-    pub(crate) env: ZExprPtr<F>,
-    pub(crate) cont: ZContPtr<F>,
-    pub(crate) expr_out: ZExprPtr<F>,
-    pub(crate) env_out: ZExprPtr<F>,
-    pub(crate) cont_out: ZContPtr<F>,
-    pub(crate) zstore: ZStore<F>,
+    pub(crate) expr: ZPtr<F>,
+    pub(crate) env: ZPtr<F>,
+    pub(crate) cont: ZPtr<F>,
+    pub(crate) expr_out: ZPtr<F>,
+    pub(crate) env_out: ZPtr<F>,
+    pub(crate) cont_out: ZPtr<F>,
+    pub(crate) z_store: ZStore<F>,
 }
 
 impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
@@ -93,7 +91,7 @@ where
 impl<F: LurkField + Serialize> LurkProofMeta<F> {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
-        dump(self, proof_meta_path(proof_key))
+        dump(self, &proof_meta_path(proof_key))
     }
 }
 
@@ -107,7 +105,7 @@ where
 {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
-        dump(self, proof_path(proof_key))
+        dump(self, &proof_path(proof_key))
     }
 }
 
@@ -125,7 +123,7 @@ where
     <F as CurveCycleEquipped>::CK2: Sync + Send,
 {
     pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
-        let lurk_proof: LurkProof<'_, F, Coproc<F>, M> = load(proof_path(proof_key))?;
+        let lurk_proof: LurkProof<'_, F, Coproc<F>, M> = load(&proof_path(proof_key))?;
         if lurk_proof.verify()? {
             println!("✓ Proof \"{proof_key}\" verified");
         } else {

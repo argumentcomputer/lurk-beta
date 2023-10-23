@@ -1,13 +1,19 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-use crate::field::LurkField;
-use crate::z_store::ZStore;
-use crate::{ptr::Ptr, store::Store};
+use crate::{
+    field::LurkField,
+    lem::{
+        pointers::{Ptr, ZPtr},
+        store::Store,
+    },
+};
 
 use super::{
     field_data::{dump, HasFieldModulus},
     paths::commitment_path,
+    zstore::{populate_z_store, ZStore},
 };
 
 /// Holds data for commitments.
@@ -17,7 +23,7 @@ use super::{
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Commitment<F: LurkField> {
     pub(crate) hash: F,
-    pub(crate) zstore: ZStore<F>,
+    pub(crate) z_store: ZStore<F>,
 }
 
 impl<F: LurkField> HasFieldModulus for Commitment<F> {
@@ -28,14 +34,19 @@ impl<F: LurkField> HasFieldModulus for Commitment<F> {
 
 impl<F: LurkField> Commitment<F> {
     pub(crate) fn new(secret: Option<F>, payload: Ptr<F>, store: &Store<F>) -> Result<Self> {
-        let comm_ptr = match secret {
-            Some(secret) => store.hide(secret, payload),
-            None => store.commit(payload),
-        };
-        let mut zstore = Some(ZStore::<F>::default());
-        let hash = *store.get_z_expr(&comm_ptr, &mut zstore)?.0.value();
-        let zstore = zstore.unwrap();
-        Ok(Self { hash, zstore })
+        let secret = secret.unwrap_or(F::NON_HIDING_COMMITMENT_SECRET);
+        let (hash, z_payload) = store.hide_and_return_z_payload(secret, payload)?;
+        let mut z_store = ZStore::<F>::default();
+        populate_z_store(&mut z_store, &payload, store, &mut HashMap::default())?;
+        z_store.add_comm(hash, secret, z_payload);
+        Ok(Self { hash, z_store })
+    }
+
+    #[inline]
+    pub(crate) fn open(&self) -> Result<&(F, ZPtr<F>)> {
+        self.z_store
+            .open(self.hash)
+            .ok_or_else(|| anyhow!("Couldn't open commitment"))
     }
 }
 
@@ -43,6 +54,6 @@ impl<F: LurkField + Serialize> Commitment<F> {
     #[inline]
     pub(crate) fn persist(self) -> Result<()> {
         let hash_str = &self.hash.hex_digits();
-        dump(self, commitment_path(hash_str))
+        dump(self, &commitment_path(hash_str))
     }
 }

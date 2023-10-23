@@ -2,8 +2,8 @@ use camino::Utf8PathBuf;
 use lurk::{
     cli::{backend::Backend, repl::Repl},
     eval::lang::{Coproc, Lang},
+    lem::store::Store,
     repl::{repl, ReplState},
-    store::Store,
 };
 use pasta_curves::pallas::Scalar as S1;
 use std::path::Path;

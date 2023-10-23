@@ -6,16 +6,13 @@ use serde::de::DeserializeOwned;
 use std::process;
 
 use crate::{
-    circuit::MultiFrame,
     cli::lurk_proof::LurkProof,
     eval::lang::Coproc,
     field::LurkField,
-    lurk_sym_ptr,
+    lem::{multiframe::MultiFrame, pointers::Ptr, Tag},
     package::{Package, SymbolRef},
     proof::nova::{CurveCycleEquipped, G1, G2},
-    ptr::Ptr,
     tag::{ContTag, ExprTag},
-    writer::Write,
 };
 
 use super::Repl;
@@ -64,20 +61,16 @@ impl MetaCmd<F> {
         example: &["!(def foo (lambda () 123))"],
         run: |repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>| {
             let (first, second) = repl.peek2(cmd, args)?;
-            let l = lurk_sym_ptr!(&repl.store, let_);
-            let current_env = lurk_sym_ptr!(&repl.store, current_env);
-            let binding = &repl.store.list(&[first, second]);
-            let bindings = &repl.store.list(&[*binding]);
-            let current_env_call = &repl.store.list(&[current_env]);
-            let expanded = &repl.store.list(&[l, *bindings, *current_env_call]);
-            let (expanded_io, ..) = repl.eval_expr(*expanded)?;
-            repl.env = expanded_io.expr;
-            let (new_binding, _) = &repl.store.car_cdr(&expanded_io.expr)?;
-            let (new_name, _) = repl.store.car_cdr(new_binding)?;
-            println!(
-                "{}",
-                new_name.fmt_to_string(&repl.store, &repl.state.borrow())
-            );
+            let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
+            let l = repl.store.intern_lurk_symbol("let");
+            let current_env = repl.store.intern_lurk_symbol("current-env");
+            let binding = repl.store.list(vec![first, second]);
+            let bindings = repl.store.list(vec![binding]);
+            let current_env_call = repl.store.list(vec![current_env]);
+            let expanded = repl.store.list(vec![l, bindings, current_env_call]);
+            let (expanded_io, ..) = repl.eval_expr(expanded)?;
+            repl.env = expanded_io[0];
+            println!("{new_name}");
             Ok(())
         },
     };
@@ -98,23 +91,16 @@ impl MetaCmd<F> {
         ],
         run: |repl, cmd, args| {
             let (first, second) = repl.peek2(cmd, args)?;
-            let l = lurk_sym_ptr!(&repl.store, letrec);
-            let current_env = lurk_sym_ptr!(&repl.store, current_env);
-            let binding = &repl.store.list(&[first, second]);
-            let bindings = &repl.store.list(&[*binding]);
-            let current_env_call = &repl.store.list(&[current_env]);
-            let expanded = &repl.store.list(&[l, *bindings, *current_env_call]);
-            let (expanded_io, ..) = repl.eval_expr(*expanded)?;
-
-            repl.env = expanded_io.expr;
-
-            let (new_binding_outer, _) = &repl.store.car_cdr(&expanded_io.expr)?;
-            let (new_binding_inner, _) = &repl.store.car_cdr(new_binding_outer)?;
-            let (new_name, _) = repl.store.car_cdr(new_binding_inner)?;
-            println!(
-                "{}",
-                new_name.fmt_to_string(&repl.store, &repl.state.borrow())
-            );
+            let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
+            let l = repl.store.intern_lurk_symbol("letrec");
+            let current_env = repl.store.intern_lurk_symbol("current-env");
+            let binding = repl.store.list(vec![first, second]);
+            let bindings = repl.store.list(vec![binding]);
+            let current_env_call = repl.store.list(vec![current_env]);
+            let expanded = repl.store.list(vec![l, bindings, current_env_call]);
+            let (expanded_io, ..) = repl.eval_expr(expanded)?;
+            repl.env = expanded_io[0];
+            println!("{new_name}");
             Ok(())
         },
     };
@@ -130,7 +116,7 @@ impl MetaCmd<F> {
         run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
-            if first_io.expr.is_nil() {
+            if first_io[0].is_nil() {
                 eprintln!(
                     "`assert` failed. {} evaluates to nil",
                     first.fmt_to_string(&repl.store, &repl.state.borrow())
@@ -157,17 +143,14 @@ impl MetaCmd<F> {
             let (second_io, ..) = repl
                 .eval_expr(second)
                 .with_context(|| "evaluating second arg")?;
-            if !&repl.store.ptr_eq(&first_io.expr, &second_io.expr)? {
+            let (first_io_expr, second_io_expr) = (&first_io[0], &second_io[0]);
+            if !&repl.store.ptr_eq(first_io_expr, second_io_expr)? {
                 eprintln!(
                     "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}",
                     first.fmt_to_string(&repl.store, &repl.state.borrow()),
                     second.fmt_to_string(&repl.store, &repl.state.borrow()),
-                    first_io
-                        .expr
-                        .fmt_to_string(&repl.store, &repl.state.borrow()),
-                    second_io
-                        .expr
-                        .fmt_to_string(&repl.store, &repl.state.borrow())
+                    first_io_expr.fmt_to_string(&repl.store, &repl.state.borrow()),
+                    second_io_expr.fmt_to_string(&repl.store, &repl.state.borrow())
                 );
                 process::exit(1);
             }
@@ -198,7 +181,7 @@ impl MetaCmd<F> {
             let (.., emitted) = repl
                 .eval_expr(second)
                 .with_context(|| "evaluating second arg")?;
-            let (mut first_emitted, mut rest_emitted) = repl.store.car_cdr(&first_io.expr)?;
+            let (mut first_emitted, mut rest_emitted) = repl.store.car_cdr(&first_io[0])?;
             for (i, elem) in emitted.iter().enumerate() {
                 if elem != &first_emitted {
                     eprintln!(
@@ -225,7 +208,7 @@ impl MetaCmd<F> {
         run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr_allowing_error_continuation(first)?;
-            if first_io.cont.tag != ContTag::Error {
+            if first_io[2].tag() != &Tag::Cont(ContTag::Error) {
                 eprintln!(
                     "`assert-error` failed. {} doesn't result on evaluation error.",
                     first.fmt_to_string(&repl.store, &repl.state.borrow())
@@ -253,7 +236,7 @@ impl MetaCmd<F> {
         run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
-            repl.hide(ff::Field::ZERO, first_io.expr)?;
+            repl.hide(ff::Field::ZERO, first_io[0])?;
             Ok(())
         }
     };
@@ -278,15 +261,13 @@ impl MetaCmd<F> {
             let (second_io, ..) = repl
                 .eval_expr(second)
                 .with_context(|| "evaluating second arg")?;
-            let Some(secret) = repl.store.fetch_num(&first_io.expr) else {
+            let Ptr::Atom(Tag::Expr(ExprTag::Num), secret) = first_io[0] else {
                 bail!(
                     "Secret must be a number. Got {}",
-                    first_io
-                        .expr
-                        .fmt_to_string(&repl.store, &repl.state.borrow())
+                    first_io[0].fmt_to_string(&repl.store, &repl.state.borrow())
                 )
             };
-            repl.hide(secret.into_scalar(), second_io.expr)?;
+            repl.hide(secret, second_io[0])?;
             Ok(())
         },
     };
@@ -336,7 +317,7 @@ impl<F: LurkField> MetaCmd<F> {
         description: &[],
         example: &["!(def a 1)", "(current-env)", "!(clear)", "(current-env)"],
         run: |repl, _cmd, _args| {
-            repl.env = lurk_sym_ptr!(&repl.store, nil);
+            repl.env = repl.store.intern_nil();
             Ok(())
         },
     };
@@ -350,10 +331,9 @@ impl MetaCmd<F> {
         description: &[],
         example: &["!(set-env '((a . 1) (b . 2)))", "a"],
         run: |repl, cmd, args| {
-            // The state's env is set to the result of evaluating the first argument.
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
-            repl.env = first_io.expr;
+            repl.env = first_io[0];
             Ok(())
         },
     };
@@ -429,9 +409,9 @@ impl<F: LurkField> MetaCmd<F> {
         run: |repl, _cmd, args| {
             // TODO: handle args
             let (name, _args) = repl.store.car_cdr(args)?;
-            let name = match name.tag {
-                ExprTag::Str => repl.state.borrow_mut().intern(repl.get_string(&name)?),
-                ExprTag::Sym => repl.get_symbol(&name)?.into(),
+            let name = match name.tag() {
+                Tag::Expr(ExprTag::Str) => repl.state.borrow_mut().intern(repl.get_string(&name)?),
+                Tag::Expr(ExprTag::Sym) => repl.get_symbol(&name)?.into(),
                 _ => bail!("Package name must be a string or a symbol"),
             };
             println!("{}", repl.state.borrow().fmt_to_string(&name));
@@ -452,7 +432,7 @@ impl<F: LurkField> MetaCmd<F> {
         run: |repl, _cmd, args| {
             // TODO: handle pkg
             let (mut symbols, _pkg) = repl.store.car_cdr(args)?;
-            if symbols.tag == ExprTag::Sym {
+            if symbols.tag() == &Tag::Expr(ExprTag::Sym) {
                 let sym = SymbolRef::new(repl.get_symbol(&symbols)?);
                 repl.state.borrow_mut().import(&[sym])?;
             } else {
@@ -490,13 +470,13 @@ impl<F: LurkField> MetaCmd<F> {
         ],
         run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
-            match first.tag {
-                ExprTag::Str => {
+            match first.tag() {
+                Tag::Expr(ExprTag::Str) => {
                     let name = repl.get_string(&first)?;
                     let package_name = repl.state.borrow_mut().intern(name);
                     repl.state.borrow_mut().set_current_package(package_name)?;
                 }
-                ExprTag::Sym => {
+                Tag::Expr(ExprTag::Sym) => {
                     let package_name = repl.get_symbol(&first)?;
                     repl.state
                         .borrow_mut()
@@ -524,17 +504,17 @@ impl<F: LurkField> MetaCmd<F> {
         example: &["!(help)", "!(help verify)", "!(help \"load\")"],
         run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
-            match first.tag {
-                ExprTag::Str => {
+            match first.tag() {
+                Tag::Expr(ExprTag::Str) => {
                     let name = repl.get_string(&first)?;
                     Self::meta_help(&name);
                 }
-                ExprTag::Sym => {
+                Tag::Expr(ExprTag::Sym) => {
                     let sym = repl.get_symbol(&first)?;
                     let name = sym.path().last().unwrap();
                     Self::meta_help(name);
                 }
-                ExprTag::Nil => {
+                Tag::Expr(ExprTag::Nil) => {
                     use itertools::Itertools;
                     println!("Available commands:");
                     for (_, i) in MetaCmd::cmds().iter().sorted_by_key(|x| x.0) {

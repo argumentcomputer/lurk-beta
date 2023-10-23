@@ -69,7 +69,6 @@ pub mod pointers;
 mod slot;
 pub mod store;
 mod var_map;
-pub mod zstore;
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
