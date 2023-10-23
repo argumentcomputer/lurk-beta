@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/lurk_proof.rs`."><title>lurk_proof.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (249624b50 2023-10-20)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/lurk_proof.rs`."><title>lurk_proof.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (1c05d50c8 2023-10-21)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -150,8 +150,6 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>::nova::{
@@ -166,6 +164,7 @@
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
+    lem::pointers::ZPtr,
     proof::{
         nova::{<span class="self">self</span>, CurveCycleEquipped, G1, G2},
         supernova::C2,
@@ -175,16 +174,13 @@
         instance::{Instance, Kind},
         public_params,
     },
-    z_ptr::{ZContPtr, ZExprPtr},
-    z_store::ZStore,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::cli::{
-    field_data::{dump, load},
+<span class="kw">use super</span>::{
+    field_data::{dump, load, HasFieldModulus},
     paths::{proof_meta_path, proof_path, public_params_dir},
+    zstore::ZStore,
 };
-
-<span class="kw">use </span><span class="kw">super</span>::field_data::HasFieldModulus;
 
 <span class="doccomment">/// Carries extra information to help with visualization, experiments etc.
 ///
@@ -195,13 +191,13 @@
 </span><span class="attr">#[derive(Serialize, Deserialize)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>LurkProofMeta&lt;F: LurkField&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) iterations: usize,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) expr: ZExprPtr&lt;F&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) env: ZExprPtr&lt;F&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) cont: ZContPtr&lt;F&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) expr_out: ZExprPtr&lt;F&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) env_out: ZExprPtr&lt;F&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) cont_out: ZContPtr&lt;F&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) zstore: ZStore&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) expr: ZPtr&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) env: ZPtr&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cont: ZPtr&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) expr_out: ZPtr&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) env_out: ZPtr&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cont_out: ZPtr&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) z_store: ZStore&lt;F&gt;,
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; HasFieldModulus <span class="kw">for </span>LurkProofMeta&lt;F&gt; {
@@ -247,7 +243,7 @@
 <span class="kw">impl</span>&lt;F: LurkField + Serialize&gt; LurkProofMeta&lt;F&gt; {
     <span class="attr">#[inline]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>persist(<span class="self">self</span>, proof_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        dump(<span class="self">self</span>, proof_meta_path(proof_key))
+        dump(<span class="self">self</span>, <span class="kw-2">&amp;</span>proof_meta_path(proof_key))
     }
 }
 
@@ -261,7 +257,7 @@
 {
     <span class="attr">#[inline]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>persist(<span class="self">self</span>, proof_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        dump(<span class="self">self</span>, proof_path(proof_key))
+        dump(<span class="self">self</span>, <span class="kw-2">&amp;</span>proof_path(proof_key))
     }
 }
 
@@ -279,7 +275,7 @@
     &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::CK2: Sync + Send,
 {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_proof(proof_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>lurk_proof: LurkProof&lt;<span class="lifetime">&#39;_</span>, F, Coproc&lt;F&gt;, M&gt; = load(proof_path(proof_key))<span class="question-mark">?</span>;
+        <span class="kw">let </span>lurk_proof: LurkProof&lt;<span class="lifetime">&#39;_</span>, F, Coproc&lt;F&gt;, M&gt; = load(<span class="kw-2">&amp;</span>proof_path(proof_key))<span class="question-mark">?</span>;
         <span class="kw">if </span>lurk_proof.verify()<span class="question-mark">? </span>{
             <span class="macro">println!</span>(<span class="string">&quot;✓ Proof \&quot;{proof_key}\&quot; verified&quot;</span>);
         } <span class="kw">else </span>{

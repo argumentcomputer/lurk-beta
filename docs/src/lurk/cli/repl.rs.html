@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (249624b50 2023-10-20)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (1c05d50c8 2023-10-21)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -533,21 +533,7 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
-
-<span class="kw">use </span>std::cell::RefCell;
-<span class="kw">use </span>std::fs::read_to_string;
-<span class="kw">use </span>std::rc::Rc;
-<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
@@ -558,35 +544,40 @@
     Config, Editor,
 };
 <span class="kw">use </span>rustyline_derive::{Completer, Helper, Highlighter, Hinter};
+<span class="kw">use </span>std::{cell::RefCell, collections::HashMap, fs::read_to_string, rc::Rc, sync::Arc};
 <span class="kw">use </span>tracing::info;
 
-<span class="kw">use super</span>::{backend::Backend, commitment::Commitment, field_data::load, paths::commitment_path};
-
 <span class="kw">use crate</span>::{
-    circuit::MultiFrame,
     cli::paths::{proof_path, public_params_dir},
-    eval::{
-        lang::{Coproc, Lang},
-        Evaluator, Frame, Witness, IO,
-    },
+    eval::lang::{Coproc, Lang},
     field::LurkField,
-    lurk_sym_ptr, parser,
+    lem::{
+        eval::{evaluate, evaluate_simple},
+        interpreter::Frame,
+        multiframe::MultiFrame,
+        pointers::Ptr,
+        store::Store,
+        Tag,
+    },
+    parser,
     proof::{nova::NovaProver, Prover},
-    ptr::Ptr,
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
     },
     state::State,
-    store::Store,
     tag::{ContTag, ExprTag},
-    writer::Write,
-    z_ptr::ZExprPtr,
-    z_store::ZStore,
-    Num, Symbol,
+    Symbol,
 };
 
-<span class="kw">use </span><span class="kw">super</span>::lurk_proof::{LurkProof, LurkProofMeta};
+<span class="kw">use super</span>::{
+    backend::Backend,
+    commitment::Commitment,
+    field_data::load,
+    lurk_proof::{LurkProof, LurkProofMeta},
+    paths::commitment_path,
+    zstore::{populate_store, populate_z_store, ZStore},
+};
 
 <span class="kw">use </span>meta_cmd::MetaCmd;
 
@@ -602,8 +593,8 @@
 }
 
 <span class="attr">#[allow(dead_code)]
-</span><span class="kw">struct </span>Evaluation&lt;F: LurkField, C&gt; {
-    frames: Vec&lt;Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, F, C&gt;&gt;,
+</span><span class="kw">struct </span>Evaluation&lt;F: LurkField&gt; {
+    frames: Vec&lt;Frame&lt;F&gt;&gt;,
     iterations: usize,
 }
 
@@ -616,9 +607,9 @@
     rc: usize,
     limit: usize,
     backend: Backend,
-    evaluation: <span class="prelude-ty">Option</span>&lt;Evaluation&lt;F, Coproc&lt;F&gt;&gt;&gt;,
+    evaluation: <span class="prelude-ty">Option</span>&lt;Evaluation&lt;F&gt;&gt;,
     pwd_path: Utf8PathBuf,
-    meta: std::collections::HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, MetaCmd&lt;F&gt;&gt;,
+    meta: HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, MetaCmd&lt;F&gt;&gt;,
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>validate_non_zero(name: <span class="kw-2">&amp;</span>str, x: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -687,7 +678,7 @@
         <span class="kw">let </span>current_dir = std::env::current_dir().expect(<span class="string">&quot;couldn&#39;t capture current directory&quot;</span>);
         <span class="kw">let </span>pwd_path =
             Utf8PathBuf::from_path_buf(current_dir).expect(<span class="string">&quot;path contains invalid Unicode&quot;</span>);
-        <span class="kw">let </span>env = <span class="macro">lurk_sym_ptr!</span>(store, nil);
+        <span class="kw">let </span>env = store.intern_nil();
         Repl {
             store,
             state: State::init_lurk_state().rccell(),
@@ -715,23 +706,22 @@
         <span class="kw">let </span>expr_out_key = store.key(<span class="string">&quot;expr-out&quot;</span>);
         <span class="kw">let </span>env_out_key = store.key(<span class="string">&quot;env-out&quot;</span>);
         <span class="kw">let </span>cont_out_key = store.key(<span class="string">&quot;cont-out&quot;</span>);
-        <span class="kw">let </span>cont_tag = store.num(Num::Scalar(conts.<span class="number">0 </span>.<span class="number">0</span>));
-        <span class="kw">let </span>cont_val = store.num(Num::Scalar(conts.<span class="number">0 </span>.<span class="number">1</span>));
-        <span class="kw">let </span>cont = store.cons(cont_tag, cont_val);
-        <span class="kw">let </span>cont_out_tag = store.num(Num::Scalar(conts.<span class="number">1 </span>.<span class="number">0</span>));
-        <span class="kw">let </span>cont_out_val = store.num(Num::Scalar(conts.<span class="number">1 </span>.<span class="number">1</span>));
-        <span class="kw">let </span>cont_out = store.cons(cont_out_tag, cont_out_val);
-        store.list(<span class="kw-2">&amp;</span>[
+        <span class="kw">let </span>(expr, expr_out) = exprs;
+        <span class="kw">let </span>(env, env_out) = envs;
+        <span class="kw">let </span>((cont_tag, cont_val), (cont_out_tag, cont_out_val)) = conts;
+        <span class="kw">let </span>cont = store.cons(Ptr::num(cont_tag), Ptr::num(cont_val));
+        <span class="kw">let </span>cont_out = store.cons(Ptr::num(cont_out_tag), Ptr::num(cont_out_val));
+        store.list(<span class="macro">vec!</span>[
             expr_key,
-            exprs.<span class="number">0</span>,
+            expr,
             env_key,
-            envs.<span class="number">0</span>,
+            env,
             cont_key,
             cont,
             expr_out_key,
-            exprs.<span class="number">1</span>,
+            expr_out,
             env_out_key,
-            envs.<span class="number">1</span>,
+            env_out,
             cont_out_key,
             cont_out,
         ])
@@ -749,25 +739,29 @@
             <span class="prelude-val">Some</span>(Evaluation { frames, iterations }) =&gt; <span class="kw">match </span><span class="self">self</span>.backend {
                 Backend::Nova =&gt; {
                     <span class="macro">info!</span>(<span class="string">&quot;Hydrating the store&quot;</span>);
-                    <span class="self">self</span>.store.hydrate_scalar_cache();
+                    <span class="self">self</span>.store.hydrate_z_cache();
 
                     <span class="kw">let </span>n_frames = frames.len();
 
                     <span class="comment">// saving to avoid clones
                     </span><span class="kw">let </span>input = <span class="kw-2">&amp;</span>frames[<span class="number">0</span>].input;
                     <span class="kw">let </span>output = <span class="kw-2">&amp;</span>frames[n_frames - <span class="number">1</span>].output;
-                    <span class="kw">let </span><span class="kw-2">mut </span>zstore = <span class="prelude-val">Some</span>(ZStore::&lt;F&gt;::default());
-                    <span class="kw">let </span>expr = <span class="self">self</span>.store.get_z_expr(<span class="kw-2">&amp;</span>input.expr, <span class="kw-2">&amp;mut </span>zstore)<span class="question-mark">?</span>.<span class="number">0</span>;
-                    <span class="kw">let </span>env = <span class="self">self</span>.store.get_z_expr(<span class="kw-2">&amp;</span>input.env, <span class="kw-2">&amp;mut </span>zstore)<span class="question-mark">?</span>.<span class="number">0</span>;
-                    <span class="kw">let </span>cont = <span class="self">self</span>.store.get_z_cont(<span class="kw-2">&amp;</span>input.cont, <span class="kw-2">&amp;mut </span>zstore)<span class="question-mark">?</span>.<span class="number">0</span>;
-                    <span class="kw">let </span>expr_out = <span class="self">self</span>.store.get_z_expr(<span class="kw-2">&amp;</span>output.expr, <span class="kw-2">&amp;mut </span>zstore)<span class="question-mark">?</span>.<span class="number">0</span>;
-                    <span class="kw">let </span>env_out = <span class="self">self</span>.store.get_z_expr(<span class="kw-2">&amp;</span>output.env, <span class="kw-2">&amp;mut </span>zstore)<span class="question-mark">?</span>.<span class="number">0</span>;
-                    <span class="kw">let </span>cont_out = <span class="self">self</span>.store.get_z_cont(<span class="kw-2">&amp;</span>output.cont, <span class="kw-2">&amp;mut </span>zstore)<span class="question-mark">?</span>.<span class="number">0</span>;
+                    <span class="kw">let </span><span class="kw-2">mut </span>z_store = ZStore::&lt;F&gt;::default();
+                    <span class="kw">let </span><span class="kw-2">mut </span>cache = HashMap::default();
+                    <span class="kw">let </span>expr = populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>input[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>env = populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>input[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>cont = populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>input[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>expr_out =
+                        populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>output[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>env_out =
+                        populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>output[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>cont_out =
+                        populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>output[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache)<span class="question-mark">?</span>;
 
                     <span class="kw">let </span>claim = <span class="self">Self</span>::proof_claim(
                         <span class="kw-2">&amp;</span><span class="self">self</span>.store,
-                        (input.expr, output.expr),
-                        (input.env, output.env),
+                        (input[<span class="number">0</span>], output[<span class="number">0</span>]),
+                        (input[<span class="number">1</span>], output[<span class="number">1</span>]),
                         (cont.parts(), cont_out.parts()),
                     );
 
@@ -817,7 +811,7 @@
                             expr_out,
                             env_out,
                             cont_out,
-                            zstore: zstore.unwrap(),
+                            z_store,
                         };
 
                         lurk_proof.persist(proof_key)<span class="question-mark">?</span>;
@@ -844,21 +838,24 @@
     }
 
     <span class="kw">fn </span>fetch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>F, print_data: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>commitment: Commitment&lt;F&gt; = load(commitment_path(<span class="kw-2">&amp;</span>hash.hex_digits()))<span class="question-mark">?</span>;
+        <span class="kw">let </span>commitment: Commitment&lt;F&gt; = load(<span class="kw-2">&amp;</span>commitment_path(<span class="kw-2">&amp;</span>hash.hex_digits()))<span class="question-mark">?</span>;
         <span class="kw">let </span>comm_hash = commitment.hash;
         <span class="kw">if </span><span class="kw-2">&amp;</span>comm_hash != hash {
             <span class="macro">bail!</span>(<span class="string">&quot;Hash mismatch. Corrupted commitment file.&quot;</span>)
         } <span class="kw">else </span>{
-            <span class="comment">// create a ZExprPtr with the intended hash
-            </span><span class="kw">let </span>comm_zptr = <span class="kw-2">&amp;</span>ZExprPtr::from_parts(ExprTag::Comm, comm_hash);
-            <span class="comment">// populate the REPL&#39;s store with the data
-            </span><span class="kw">let </span>comm_ptr = <span class="self">self
-                </span>.store
-                .intern_z_expr_ptr(comm_zptr, <span class="kw-2">&amp;</span>commitment.zstore)
-                .unwrap();
+            <span class="kw">let </span>(secret, z_payload) = commitment.open()<span class="question-mark">?</span>;
+            <span class="kw">let </span>payload = populate_store(
+                <span class="kw-2">&amp;</span><span class="self">self</span>.store,
+                z_payload,
+                <span class="kw-2">&amp;</span>commitment.z_store,
+                <span class="kw-2">&amp;mut </span>Default::default(),
+            )<span class="question-mark">?</span>;
+            <span class="self">self</span>.store.hide(<span class="kw-2">*</span>secret, payload)<span class="question-mark">?</span>;
             <span class="kw">if </span>print_data {
-                <span class="kw">let </span>data = <span class="self">self</span>.store.fetch_comm(<span class="kw-2">&amp;</span>comm_ptr).unwrap().<span class="number">1</span>;
-                <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, data.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow()));
+                <span class="macro">println!</span>(
+                    <span class="string">&quot;{}&quot;</span>,
+                    payload.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
+                );
             } <span class="kw">else </span>{
                 <span class="macro">println!</span>(<span class="string">&quot;Data is now available&quot;</span>);
             }
@@ -874,17 +871,17 @@
         }
     }
 
-    <span class="kw">fn </span>eval_expr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
-        <span class="kw">let </span>ret = Evaluator::new(expr_ptr, <span class="self">self</span>.env, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="self">self</span>.limit, <span class="kw-2">&amp;</span><span class="self">self</span>.lang).eval()<span class="question-mark">?</span>;
-        <span class="kw">match </span>ret.<span class="number">0</span>.cont.tag {
-            ContTag::Terminal =&gt; <span class="prelude-val">Ok</span>(ret),
+    <span class="kw">fn </span>eval_expr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&lt;F&gt;&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
+        <span class="kw">let </span>(ptrs, iterations, emitted) =
+            evaluate_simple::&lt;F, Coproc&lt;F&gt;&gt;(<span class="prelude-val">None</span>, expr_ptr, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="self">self</span>.limit)<span class="question-mark">?</span>;
+        <span class="kw">match </span>ptrs[<span class="number">2</span>].tag() {
+            Tag::Cont(ContTag::Terminal) =&gt; <span class="prelude-val">Ok</span>((ptrs, iterations, emitted)),
             t =&gt; {
-                <span class="kw">let </span>iterations_display = <span class="self">Self</span>::pretty_iterations_display(ret.<span class="number">1</span>);
-                <span class="kw">match </span>t {
-                    ContTag::Error =&gt; {
-                        <span class="macro">bail!</span>(<span class="string">&quot;Evaluation encountered an error after {iterations_display}&quot;</span>)
-                    }
-                    <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Limit reached after {iterations_display}&quot;</span>),
+                <span class="kw">let </span>iterations_display = <span class="self">Self</span>::pretty_iterations_display(iterations);
+                <span class="kw">if </span>t == <span class="kw-2">&amp;</span>Tag::Cont(ContTag::Error) {
+                    <span class="macro">bail!</span>(<span class="string">&quot;Evaluation encountered an error after {iterations_display}&quot;</span>)
+                } <span class="kw">else </span>{
+                    <span class="macro">bail!</span>(<span class="string">&quot;Limit reached after {iterations_display}&quot;</span>)
                 }
             }
         }
@@ -893,65 +890,56 @@
     <span class="kw">fn </span>eval_expr_allowing_error_continuation(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         expr_ptr: Ptr&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
-        <span class="kw">let </span>ret = Evaluator::new(expr_ptr, <span class="self">self</span>.env, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="self">self</span>.limit, <span class="kw-2">&amp;</span><span class="self">self</span>.lang).eval()<span class="question-mark">?</span>;
-        <span class="kw">if </span><span class="macro">matches!</span>(ret.<span class="number">0</span>.cont.tag, ContTag::Terminal | ContTag::Error) {
-            <span class="prelude-val">Ok</span>(ret)
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&lt;F&gt;&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
+        <span class="kw">let </span>(ptrs, iterations, emitted) =
+            evaluate_simple::&lt;F, Coproc&lt;F&gt;&gt;(<span class="prelude-val">None</span>, expr_ptr, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="self">self</span>.limit)<span class="question-mark">?</span>;
+        <span class="kw">if </span><span class="macro">matches!</span>(
+            ptrs[<span class="number">2</span>].tag(),
+            Tag::Cont(ContTag::Terminal) | Tag::Cont(ContTag::Error)
+        ) {
+            <span class="prelude-val">Ok</span>((ptrs, iterations, emitted))
         } <span class="kw">else </span>{
             <span class="macro">bail!</span>(
                 <span class="string">&quot;Limit reached after {}&quot;</span>,
-                <span class="self">Self</span>::pretty_iterations_display(ret.<span class="number">1</span>)
+                <span class="self">Self</span>::pretty_iterations_display(iterations)
             )
         }
     }
 
-    <span class="kw">fn </span>eval_expr_and_memoize(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, usize)&gt; {
-        <span class="kw">let </span>frames =
-            Evaluator::new(expr_ptr, <span class="self">self</span>.env, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="self">self</span>.limit, <span class="kw-2">&amp;</span><span class="self">self</span>.lang).get_frames()<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>n_frames = frames.len();
-        <span class="kw">let </span>last_frame = <span class="kw-2">&amp;</span>frames[n_frames - <span class="number">1</span>];
-        <span class="kw">let </span>last_output = last_frame.output;
-
-        <span class="kw">let </span>iterations = <span class="kw">if </span>last_frame.is_complete() {
-            <span class="comment">// do not consider the identity frame
-            </span>n_frames - <span class="number">1
-        </span>} <span class="kw">else </span>{
-            n_frames
-        };
-
+    <span class="kw">fn </span>eval_expr_and_memoize(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&lt;F&gt;&gt;, usize)&gt; {
+        <span class="kw">let </span>(frames, iterations) =
+            evaluate::&lt;F, Coproc&lt;F&gt;&gt;(<span class="prelude-val">None</span>, expr_ptr, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="self">self</span>.limit)<span class="question-mark">?</span>;
+        <span class="kw">let </span>output = frames[frames.len() - <span class="number">1</span>].output.clone();
         <span class="self">self</span>.evaluation = <span class="prelude-val">Some</span>(Evaluation { frames, iterations });
-
-        <span class="prelude-val">Ok</span>((last_output, iterations))
+        <span class="prelude-val">Ok</span>((output, iterations))
     }
 
-    <span class="attr">#[allow(dead_code)]
+    <span class="comment">// #[allow(dead_code)]
     </span><span class="kw">fn </span>get_comm_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;F&gt; {
         <span class="kw">let </span>first = <span class="self">self</span>.peek1(cmd, args)<span class="question-mark">?</span>;
-        <span class="kw">let </span>num = <span class="macro">lurk_sym_ptr!</span>(<span class="self">self</span>.store, num);
-        <span class="kw">let </span>expr = <span class="self">self</span>.store.list(<span class="kw-2">&amp;</span>[num, first]);
+        <span class="kw">let </span>num = <span class="self">self</span>.store.intern_lurk_symbol(<span class="string">&quot;num&quot;</span>);
+        <span class="kw">let </span>expr = <span class="self">self</span>.store.list(<span class="macro">vec!</span>[num, first]);
         <span class="kw">let </span>(expr_io, ..) = <span class="self">self
             </span>.eval_expr(expr)
             .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>hash = <span class="self">self
-            </span>.store
-            .fetch_num(<span class="kw-2">&amp;</span>expr_io.expr)
-            .expect(<span class="string">&quot;must be a number&quot;</span>);
-        <span class="prelude-val">Ok</span>(hash.into_scalar())
+        <span class="kw">let </span>Ptr::Atom(Tag::Expr(ExprTag::Num), hash) = expr_io[<span class="number">0</span>] <span class="kw">else </span>{
+            <span class="macro">bail!</span>(<span class="string">&quot;hash must be a number&quot;</span>)
+        };
+        <span class="prelude-val">Ok</span>(hash)
     }
 
     <span class="kw">fn </span>handle_non_meta(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="self">self</span>.eval_expr_and_memoize(expr_ptr)
             .map(|(output, iterations)| {
                 <span class="kw">let </span>iterations_display = <span class="self">Self</span>::pretty_iterations_display(iterations);
-                <span class="kw">match </span>output.cont.tag {
-                    ContTag::Terminal =&gt; {
+                <span class="kw">match </span>output[<span class="number">2</span>].tag() {
+                    Tag::Cont(ContTag::Terminal) =&gt; {
                         <span class="macro">println!</span>(
                             <span class="string">&quot;[{iterations_display}] =&gt; {}&quot;</span>,
-                            output.expr.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
+                            output[<span class="number">0</span>].fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
                         )
                     }
-                    ContTag::Error =&gt; {
+                    Tag::Cont(ContTag::Error) =&gt; {
                         <span class="macro">println!</span>(<span class="string">&quot;Evaluation encountered an error after {iterations_display}&quot;</span>)
                     }
                     <span class="kw">_ </span>=&gt; <span class="macro">println!</span>(<span class="string">&quot;Limit reached after {iterations_display}&quot;</span>),
@@ -981,10 +969,7 @@
     }
 
     <span class="kw">fn </span>handle_form&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
-        <span class="kw">let </span>(input, ptr, is_meta) = <span class="self">self
-            </span>.store
-            .read_maybe_meta_with_state(<span class="self">self</span>.state.clone(), input)<span class="question-mark">?</span>;
-
+        <span class="kw">let </span>(input, ptr, is_meta) = <span class="self">self</span>.store.read_maybe_meta(<span class="self">self</span>.state.clone(), <span class="kw-2">&amp;</span>input)<span class="question-mark">?</span>;
         <span class="kw">if </span>is_meta {
             <span class="self">self</span>.handle_meta(ptr)<span class="question-mark">?</span>;
         } <span class="kw">else </span>{
@@ -1042,10 +1027,7 @@
             )) {
                 <span class="prelude-val">Ok</span>(line) =&gt; {
                     editor.save_history(history_path)<span class="question-mark">?</span>;
-                    <span class="kw">match </span><span class="self">self
-                        </span>.store
-                        .read_maybe_meta_with_state(<span class="self">self</span>.state.clone(), parser::Span::new(<span class="kw-2">&amp;</span>line))
-                    {
+                    <span class="kw">match </span><span class="self">self</span>.store.read_maybe_meta(<span class="self">self</span>.state.clone(), <span class="kw-2">&amp;</span>line) {
                         <span class="prelude-val">Ok</span>((<span class="kw">_</span>, expr_ptr, is_meta)) =&gt; {
                             <span class="kw">if </span>is_meta {
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_meta(expr_ptr) {

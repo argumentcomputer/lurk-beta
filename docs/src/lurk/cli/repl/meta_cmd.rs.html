@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (249624b50 2023-10-20)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (1c05d50c8 2023-10-21)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -574,26 +574,6 @@
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::Utf8Path;
@@ -602,16 +582,13 @@
 <span class="kw">use </span>std::process;
 
 <span class="kw">use crate</span>::{
-    circuit::MultiFrame,
     cli::lurk_proof::LurkProof,
     eval::lang::Coproc,
     field::LurkField,
-    lurk_sym_ptr,
+    lem::{multiframe::MultiFrame, pointers::Ptr, Tag},
     package::{Package, SymbolRef},
     proof::nova::{CurveCycleEquipped, G1, G2},
-    ptr::Ptr,
     tag::{ContTag, ExprTag},
-    writer::Write,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::Repl;
@@ -660,20 +637,16 @@
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(def foo (lambda () 123))&quot;</span>],
         run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| {
             <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
-            <span class="kw">let </span>l = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, let_);
-            <span class="kw">let </span>current_env = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, current_env);
-            <span class="kw">let </span>binding = <span class="kw-2">&amp;</span>repl.store.list(<span class="kw-2">&amp;</span>[first, second]);
-            <span class="kw">let </span>bindings = <span class="kw-2">&amp;</span>repl.store.list(<span class="kw-2">&amp;</span>[<span class="kw-2">*</span>binding]);
-            <span class="kw">let </span>current_env_call = <span class="kw-2">&amp;</span>repl.store.list(<span class="kw-2">&amp;</span>[current_env]);
-            <span class="kw">let </span>expanded = <span class="kw-2">&amp;</span>repl.store.list(<span class="kw-2">&amp;</span>[l, <span class="kw-2">*</span>bindings, <span class="kw-2">*</span>current_env_call]);
-            <span class="kw">let </span>(expanded_io, ..) = repl.eval_expr(<span class="kw-2">*</span>expanded)<span class="question-mark">?</span>;
-            repl.env = expanded_io.expr;
-            <span class="kw">let </span>(new_binding, <span class="kw">_</span>) = <span class="kw-2">&amp;</span>repl.store.car_cdr(<span class="kw-2">&amp;</span>expanded_io.expr)<span class="question-mark">?</span>;
-            <span class="kw">let </span>(new_name, <span class="kw">_</span>) = repl.store.car_cdr(new_binding)<span class="question-mark">?</span>;
-            <span class="macro">println!</span>(
-                <span class="string">&quot;{}&quot;</span>,
-                new_name.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
-            );
+            <span class="kw">let </span>new_name = first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow());
+            <span class="kw">let </span>l = repl.store.intern_lurk_symbol(<span class="string">&quot;let&quot;</span>);
+            <span class="kw">let </span>current_env = repl.store.intern_lurk_symbol(<span class="string">&quot;current-env&quot;</span>);
+            <span class="kw">let </span>binding = repl.store.list(<span class="macro">vec!</span>[first, second]);
+            <span class="kw">let </span>bindings = repl.store.list(<span class="macro">vec!</span>[binding]);
+            <span class="kw">let </span>current_env_call = repl.store.list(<span class="macro">vec!</span>[current_env]);
+            <span class="kw">let </span>expanded = repl.store.list(<span class="macro">vec!</span>[l, bindings, current_env_call]);
+            <span class="kw">let </span>(expanded_io, ..) = repl.eval_expr(expanded)<span class="question-mark">?</span>;
+            repl.env = expanded_io[<span class="number">0</span>];
+            <span class="macro">println!</span>(<span class="string">&quot;{new_name}&quot;</span>);
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -694,23 +667,16 @@
         ],
         run: |repl, cmd, args| {
             <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
-            <span class="kw">let </span>l = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, letrec);
-            <span class="kw">let </span>current_env = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, current_env);
-            <span class="kw">let </span>binding = <span class="kw-2">&amp;</span>repl.store.list(<span class="kw-2">&amp;</span>[first, second]);
-            <span class="kw">let </span>bindings = <span class="kw-2">&amp;</span>repl.store.list(<span class="kw-2">&amp;</span>[<span class="kw-2">*</span>binding]);
-            <span class="kw">let </span>current_env_call = <span class="kw-2">&amp;</span>repl.store.list(<span class="kw-2">&amp;</span>[current_env]);
-            <span class="kw">let </span>expanded = <span class="kw-2">&amp;</span>repl.store.list(<span class="kw-2">&amp;</span>[l, <span class="kw-2">*</span>bindings, <span class="kw-2">*</span>current_env_call]);
-            <span class="kw">let </span>(expanded_io, ..) = repl.eval_expr(<span class="kw-2">*</span>expanded)<span class="question-mark">?</span>;
-
-            repl.env = expanded_io.expr;
-
-            <span class="kw">let </span>(new_binding_outer, <span class="kw">_</span>) = <span class="kw-2">&amp;</span>repl.store.car_cdr(<span class="kw-2">&amp;</span>expanded_io.expr)<span class="question-mark">?</span>;
-            <span class="kw">let </span>(new_binding_inner, <span class="kw">_</span>) = <span class="kw-2">&amp;</span>repl.store.car_cdr(new_binding_outer)<span class="question-mark">?</span>;
-            <span class="kw">let </span>(new_name, <span class="kw">_</span>) = repl.store.car_cdr(new_binding_inner)<span class="question-mark">?</span>;
-            <span class="macro">println!</span>(
-                <span class="string">&quot;{}&quot;</span>,
-                new_name.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
-            );
+            <span class="kw">let </span>new_name = first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow());
+            <span class="kw">let </span>l = repl.store.intern_lurk_symbol(<span class="string">&quot;letrec&quot;</span>);
+            <span class="kw">let </span>current_env = repl.store.intern_lurk_symbol(<span class="string">&quot;current-env&quot;</span>);
+            <span class="kw">let </span>binding = repl.store.list(<span class="macro">vec!</span>[first, second]);
+            <span class="kw">let </span>bindings = repl.store.list(<span class="macro">vec!</span>[binding]);
+            <span class="kw">let </span>current_env_call = repl.store.list(<span class="macro">vec!</span>[current_env]);
+            <span class="kw">let </span>expanded = repl.store.list(<span class="macro">vec!</span>[l, bindings, current_env_call]);
+            <span class="kw">let </span>(expanded_io, ..) = repl.eval_expr(expanded)<span class="question-mark">?</span>;
+            repl.env = expanded_io[<span class="number">0</span>];
+            <span class="macro">println!</span>(<span class="string">&quot;{new_name}&quot;</span>);
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -726,7 +692,7 @@
         run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
-            <span class="kw">if </span>first_io.expr.is_nil() {
+            <span class="kw">if </span>first_io[<span class="number">0</span>].is_nil() {
                 <span class="macro">eprintln!</span>(
                     <span class="string">&quot;`assert` failed. {} evaluates to nil&quot;</span>,
                     first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
@@ -753,17 +719,14 @@
             <span class="kw">let </span>(second_io, ..) = repl
                 .eval_expr(second)
                 .with_context(|| <span class="string">&quot;evaluating second arg&quot;</span>)<span class="question-mark">?</span>;
-            <span class="kw">if </span>!<span class="kw-2">&amp;</span>repl.store.ptr_eq(<span class="kw-2">&amp;</span>first_io.expr, <span class="kw-2">&amp;</span>second_io.expr)<span class="question-mark">? </span>{
+            <span class="kw">let </span>(first_io_expr, second_io_expr) = (<span class="kw-2">&amp;</span>first_io[<span class="number">0</span>], <span class="kw-2">&amp;</span>second_io[<span class="number">0</span>]);
+            <span class="kw">if </span>!<span class="kw-2">&amp;</span>repl.store.ptr_eq(first_io_expr, second_io_expr)<span class="question-mark">? </span>{
                 <span class="macro">eprintln!</span>(
                     <span class="string">&quot;`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}&quot;</span>,
                     first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
                     second.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
-                    first_io
-                        .expr
-                        .fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
-                    second_io
-                        .expr
-                        .fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
+                    first_io_expr.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
+                    second_io_expr.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
                 );
                 process::exit(<span class="number">1</span>);
             }
@@ -794,7 +757,7 @@
             <span class="kw">let </span>(.., emitted) = repl
                 .eval_expr(second)
                 .with_context(|| <span class="string">&quot;evaluating second arg&quot;</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span>(<span class="kw-2">mut </span>first_emitted, <span class="kw-2">mut </span>rest_emitted) = repl.store.car_cdr(<span class="kw-2">&amp;</span>first_io.expr)<span class="question-mark">?</span>;
+            <span class="kw">let </span>(<span class="kw-2">mut </span>first_emitted, <span class="kw-2">mut </span>rest_emitted) = repl.store.car_cdr(<span class="kw-2">&amp;</span>first_io[<span class="number">0</span>])<span class="question-mark">?</span>;
             <span class="kw">for </span>(i, elem) <span class="kw">in </span>emitted.iter().enumerate() {
                 <span class="kw">if </span>elem != <span class="kw-2">&amp;</span>first_emitted {
                     <span class="macro">eprintln!</span>(
@@ -821,7 +784,7 @@
         run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr_allowing_error_continuation(first)<span class="question-mark">?</span>;
-            <span class="kw">if </span>first_io.cont.tag != ContTag::Error {
+            <span class="kw">if </span>first_io[<span class="number">2</span>].tag() != <span class="kw-2">&amp;</span>Tag::Cont(ContTag::Error) {
                 <span class="macro">eprintln!</span>(
                     <span class="string">&quot;`assert-error` failed. {} doesn&#39;t result on evaluation error.&quot;</span>,
                     first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
@@ -849,7 +812,7 @@
         run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
-            repl.hide(ff::Field::ZERO, first_io.expr)<span class="question-mark">?</span>;
+            repl.hide(ff::Field::ZERO, first_io[<span class="number">0</span>])<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(())
         }
     };
@@ -874,15 +837,13 @@
             <span class="kw">let </span>(second_io, ..) = repl
                 .eval_expr(second)
                 .with_context(|| <span class="string">&quot;evaluating second arg&quot;</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="prelude-val">Some</span>(secret) = repl.store.fetch_num(<span class="kw-2">&amp;</span>first_io.expr) <span class="kw">else </span>{
+            <span class="kw">let </span>Ptr::Atom(Tag::Expr(ExprTag::Num), secret) = first_io[<span class="number">0</span>] <span class="kw">else </span>{
                 <span class="macro">bail!</span>(
                     <span class="string">&quot;Secret must be a number. Got {}&quot;</span>,
-                    first_io
-                        .expr
-                        .fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
+                    first_io[<span class="number">0</span>].fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
                 )
             };
-            repl.hide(secret.into_scalar(), second_io.expr)<span class="question-mark">?</span>;
+            repl.hide(secret, second_io[<span class="number">0</span>])<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -932,7 +893,7 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(def a 1)&quot;</span>, <span class="string">&quot;(current-env)&quot;</span>, <span class="string">&quot;!(clear)&quot;</span>, <span class="string">&quot;(current-env)&quot;</span>],
         run: |repl, _cmd, _args| {
-            repl.env = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, nil);
+            repl.env = repl.store.intern_nil();
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -946,10 +907,9 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(set-env &#39;((a . 1) (b . 2)))&quot;</span>, <span class="string">&quot;a&quot;</span>],
         run: |repl, cmd, args| {
-            <span class="comment">// The state&#39;s env is set to the result of evaluating the first argument.
-            </span><span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
-            repl.env = first_io.expr;
+            repl.env = first_io[<span class="number">0</span>];
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -1025,9 +985,9 @@
         run: |repl, _cmd, args| {
             <span class="comment">// TODO: handle args
             </span><span class="kw">let </span>(name, _args) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
-            <span class="kw">let </span>name = <span class="kw">match </span>name.tag {
-                ExprTag::Str =&gt; repl.state.borrow_mut().intern(repl.get_string(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>),
-                ExprTag::Sym =&gt; repl.get_symbol(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>.into(),
+            <span class="kw">let </span>name = <span class="kw">match </span>name.tag() {
+                Tag::Expr(ExprTag::Str) =&gt; repl.state.borrow_mut().intern(repl.get_string(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>),
+                Tag::Expr(ExprTag::Sym) =&gt; repl.get_symbol(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>.into(),
                 <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Package name must be a string or a symbol&quot;</span>),
             };
             <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, repl.state.borrow().fmt_to_string(<span class="kw-2">&amp;</span>name));
@@ -1048,7 +1008,7 @@
         run: |repl, _cmd, args| {
             <span class="comment">// TODO: handle pkg
             </span><span class="kw">let </span>(<span class="kw-2">mut </span>symbols, _pkg) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
-            <span class="kw">if </span>symbols.tag == ExprTag::Sym {
+            <span class="kw">if </span>symbols.tag() == <span class="kw-2">&amp;</span>Tag::Expr(ExprTag::Sym) {
                 <span class="kw">let </span>sym = SymbolRef::new(repl.get_symbol(<span class="kw-2">&amp;</span>symbols)<span class="question-mark">?</span>);
                 repl.state.borrow_mut().import(<span class="kw-2">&amp;</span>[sym])<span class="question-mark">?</span>;
             } <span class="kw">else </span>{
@@ -1086,13 +1046,13 @@
         ],
         run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
-            <span class="kw">match </span>first.tag {
-                ExprTag::Str =&gt; {
+            <span class="kw">match </span>first.tag() {
+                Tag::Expr(ExprTag::Str) =&gt; {
                     <span class="kw">let </span>name = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
                     <span class="kw">let </span>package_name = repl.state.borrow_mut().intern(name);
                     repl.state.borrow_mut().set_current_package(package_name)<span class="question-mark">?</span>;
                 }
-                ExprTag::Sym =&gt; {
+                Tag::Expr(ExprTag::Sym) =&gt; {
                     <span class="kw">let </span>package_name = repl.get_symbol(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
                     repl.state
                         .borrow_mut()
@@ -1120,17 +1080,17 @@
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(help)&quot;</span>, <span class="string">&quot;!(help verify)&quot;</span>, <span class="string">&quot;!(help \&quot;load\&quot;)&quot;</span>],
         run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
-            <span class="kw">match </span>first.tag {
-                ExprTag::Str =&gt; {
+            <span class="kw">match </span>first.tag() {
+                Tag::Expr(ExprTag::Str) =&gt; {
                     <span class="kw">let </span>name = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
                     <span class="self">Self</span>::meta_help(<span class="kw-2">&amp;</span>name);
                 }
-                ExprTag::Sym =&gt; {
+                Tag::Expr(ExprTag::Sym) =&gt; {
                     <span class="kw">let </span>sym = repl.get_symbol(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
                     <span class="kw">let </span>name = sym.path().last().unwrap();
                     <span class="self">Self</span>::meta_help(name);
                 }
-                ExprTag::Nil =&gt; {
+                Tag::Expr(ExprTag::Nil) =&gt; {
                     <span class="kw">use </span>itertools::Itertools;
                     <span class="macro">println!</span>(<span class="string">&quot;Available commands:&quot;</span>);
                     <span class="kw">for </span>(<span class="kw">_</span>, i) <span class="kw">in </span>MetaCmd::cmds().iter().sorted_by_key(|x| x.<span class="number">0</span>) {
