@@ -33,6 +33,12 @@ pub struct AllocatedPtr<F: PrimeField> {
     hash: AllocatedNum<F>,
 }
 
+impl<F: LurkField> From<AllocatedPtr<F>> for AllocatedContPtr<F> {
+    fn from(other: AllocatedPtr<F>) -> Self {
+        Self::from_parts(&other.tag, &other.hash)
+    }
+}
+
 impl<F: LurkField> Debug for AllocatedPtr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let tag = format!(
@@ -546,6 +552,12 @@ impl<F: LurkField> AllocatedPtr<F> {
 pub struct AllocatedContPtr<F: LurkField> {
     tag: AllocatedNum<F>,
     hash: AllocatedNum<F>,
+}
+
+impl<F: LurkField> From<AllocatedContPtr<F>> for AllocatedPtr<F> {
+    fn from(other: AllocatedContPtr<F>) -> Self {
+        Self::from_parts(other.tag, other.hash)
+    }
 }
 
 impl<F: LurkField> Debug for AllocatedContPtr<F> {
