@@ -43,7 +43,7 @@ fn test_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a,
     expected_cont: Option<M::ContPtr>,
     expected_emitted: Option<&[M::Ptr]>,
     expected_iterations: usize,
-    lang: Option<Arc<Lang<F, C>>>,
+    lang: &Option<Arc<Lang<F, C>>>,
 )
 // technical bounds that would disappear once associated_type_bounds stabilizes
 where
@@ -62,7 +62,7 @@ where
             chunk_size,
             false,
             None,
-            lang.clone(),
+            lang,
         )
     }
 }
@@ -78,7 +78,7 @@ fn nova_test_full_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFram
     reduction_count: usize,
     check_nova: bool,
     limit: Option<usize>,
-    lang: Option<Arc<Lang<F, C>>>,
+    lang: &Option<Arc<Lang<F, C>>>,
 )
 // technical bounds that would disappear once associated_type_bounds stabilizes
 where
@@ -104,7 +104,7 @@ where
     };
 
     if let Some(l) = lang {
-        f(l)
+        f(l.clone())
     } else {
         let lang = Lang::new();
         f(Arc::new(lang))
@@ -162,12 +162,7 @@ where
 
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, nova_prover.reduction_count()));
 
-    let multiframes = M::from_frames(
-        nova_prover.reduction_count(),
-        &frames,
-        s,
-        folding_config.clone(),
-    );
+    let multiframes = M::from_frames(nova_prover.reduction_count(), &frames, s, &folding_config);
     let len = multiframes.len();
 
     let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);

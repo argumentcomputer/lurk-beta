@@ -589,7 +589,7 @@ impl Cli {
                 }
                 cli_config(circom_args.config.as_ref(), Some(&cli_settings));
 
-                create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
+                create_circom_gadget(&circom_args.circom_folder, &circom_args.name)?;
                 Ok(())
             }
             Command::PublicParams(public_params_args) => {

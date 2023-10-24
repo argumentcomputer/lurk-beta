@@ -35,22 +35,22 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use std::collections::BTreeMap;
 
-    fn test_roundtrip<T>(zd: T)
+    fn test_roundtrip<T>(zd: &T)
     where
         T: Serialize + for<'de> Deserialize<'de> + PartialEq + std::fmt::Debug,
     {
-        assert_eq!(zd, from_z_data(&to_z_data(&zd).unwrap()).unwrap());
+        assert_eq!(*zd, from_z_data(&to_z_data(zd).unwrap()).unwrap());
     }
 
     #[test]
     fn serde_simple_roundtrip() {
-        test_roundtrip((1u8, 2u8));
-        test_roundtrip((1u32, 2u64));
-        test_roundtrip(String::from("Hello world"));
-        test_roundtrip(vec!['a', 'b', 'c']);
-        test_roundtrip(vec![0u8, 1u8, 2u8]);
-        test_roundtrip(vec![String::from("Hello"), String::from("World")]);
-        test_roundtrip(BTreeMap::from([
+        test_roundtrip(&(1u8, 2u8));
+        test_roundtrip(&(1u32, 2u64));
+        test_roundtrip(&String::from("Hello world"));
+        test_roundtrip(&['a', 'b', 'c']);
+        test_roundtrip(&[0u8, 1u8, 2u8]);
+        test_roundtrip(&[String::from("Hello"), String::from("World")]);
+        test_roundtrip(&BTreeMap::from([
             (String::from("Hello"), 0u8),
             (String::from("World"), 1u8),
         ]));

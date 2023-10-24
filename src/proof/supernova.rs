@@ -278,7 +278,7 @@ where
             M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
         let folding_config = Arc::new(FoldingConfig::new_nivc(lang, self.reduction_count));
 
-        let nivc_steps = M::from_frames(self.reduction_count(), frames, store, folding_config);
+        let nivc_steps = M::from_frames(self.reduction_count(), frames, store, &folding_config);
 
         let num_steps = nivc_steps.len();
         let (proof, last_running_claim) =
@@ -323,7 +323,7 @@ where
             M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
         let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), self.reduction_count()));
 
-        let nivc_steps = M::from_frames(self.reduction_count(), frames, store, folding_config);
+        let nivc_steps = M::from_frames(self.reduction_count(), frames, store, &folding_config);
 
         let num_steps = nivc_steps.len();
 
@@ -544,7 +544,7 @@ pub fn circuit_cache_keys<
     M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
 >(
     rc: usize,
-    lang: Arc<Lang<F, C>>,
+    lang: &Arc<Lang<F, C>>,
 ) -> CircuitDigests<G1<F>>
 where
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,

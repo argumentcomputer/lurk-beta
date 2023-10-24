@@ -516,7 +516,7 @@ fn parse_type(m: &NestedMeta) -> Type {
 fn try_from_match_arms(
     name: &Ident,
     variant_names: &[&Ident],
-    ty: syn::Path,
+    ty: &syn::Path,
 ) -> proc_macro2::TokenStream {
     let mut match_arms = quote! {};
     for variant in variant_names {
@@ -591,7 +591,7 @@ pub fn derive_try_from_repr(input: TokenStream) -> TokenStream {
             panic!("TryFromRepr macro requires a repr parameter, which couldn't be parsed: {e:?}");
         }
         Ok(ty) => {
-            let match_arms = try_from_match_arms(name, &variants, ty.clone());
+            let match_arms = try_from_match_arms(name, &variants, &ty);
             let name_str = name.to_string();
             quote! {
                 impl std::convert::TryFrom<#ty> for #name {

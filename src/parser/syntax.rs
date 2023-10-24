@@ -90,7 +90,7 @@ pub fn parse_symbol_limbs<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_
 }
 
 fn intern_path<'a, F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: &Rc<RefCell<State>>,
     upto: LocatedSpan<&'a str>,
     path: &[String],
     keyword: Option<bool>,
@@ -124,13 +124,7 @@ pub fn parse_absolute_symbol<F: LurkField>(
             value(true, char(symbol::KEYWORD_MARKER)),
         ))(from)?;
         let (upto, path) = parse_symbol_limbs()(i)?;
-        intern_path(
-            state.clone(),
-            upto,
-            &path,
-            Some(is_key),
-            create_unknown_packages,
-        )
+        intern_path(&state, upto, &path, Some(is_key), create_unknown_packages)
     }
 }
 
@@ -141,7 +135,7 @@ pub fn parse_relative_symbol<F: LurkField>(
     move |from: Span<'_>| {
         let (i, _) = peek(none_of(",~#(){}[]1234567890."))(from)?;
         let (upto, path) = parse_symbol_limbs()(i)?;
-        intern_path(state.clone(), upto, &path, None, create_unknown_packages)
+        intern_path(&state, upto, &path, None, create_unknown_packages)
     }
 }
 
@@ -154,13 +148,7 @@ pub fn parse_raw_symbol<F: LurkField>(
         let (i, mut path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
         let (upto, _) = many_till(parse_space, tag(")"))(i)?;
         path.reverse();
-        intern_path(
-            state.clone(),
-            upto,
-            &path,
-            Some(false),
-            create_unknown_packages,
-        )
+        intern_path(&state, upto, &path, Some(false), create_unknown_packages)
     }
 }
 
@@ -173,13 +161,7 @@ pub fn parse_raw_keyword<F: LurkField>(
         let (i, mut path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
         let (upto, _) = many_till(parse_space, tag(")"))(i)?;
         path.reverse();
-        intern_path(
-            state.clone(),
-            upto,
-            &path,
-            Some(true),
-            create_unknown_packages,
-        )
+        intern_path(&state, upto, &path, Some(true), create_unknown_packages)
     }
 }
 

@@ -144,7 +144,7 @@ where
         let cache_key = match kind {
             Kind::NovaPublicParams => nova::circuit_cache_key::<'a, F, C, M>(rc, lang.clone()),
             Kind::SuperNovaAuxParams => {
-                supernova::circuit_cache_keys::<'a, F, C, M>(rc, lang.clone()).digest()
+                supernova::circuit_cache_keys::<F, C, M>(rc, &lang).digest()
             }
             Kind::SuperNovaCircuitParams(circuit_index) => {
                 supernova::circuit_cache_key::<'a, F, C, M>(rc, lang.clone(), circuit_index)

@@ -278,6 +278,8 @@ const META_PACKAGE_SYMBOLS_NAMES: [&str; 19] = [
 
 #[cfg(test)]
 pub mod test {
+    use std::sync::Arc;
+
     use super::{lurk_sym, State, LURK_PACKAGE_SYMBOLS_NAMES};
     use crate::{
         package::{Package, SymbolRef},
@@ -285,8 +287,8 @@ pub mod test {
     };
 
     #[inline]
-    fn test_printing_helper(state: &State, symbol: SymbolRef, expected: &str) {
-        assert_eq!(state.fmt_to_string(&symbol), expected.to_string());
+    fn test_printing_helper(state: &State, symbol: &SymbolRef, expected: &str) {
+        assert_eq!(state.fmt_to_string(symbol), expected.to_string());
     }
 
     #[test]
@@ -295,33 +297,33 @@ pub mod test {
 
         LURK_PACKAGE_SYMBOLS_NAMES
             .iter()
-            .for_each(|s| test_printing_helper(&state, lurk_sym(s).into(), s));
+            .for_each(|s| test_printing_helper(&state, &Arc::new(lurk_sym(s)), s));
 
         let user_sym = state.intern("user-sym");
-        test_printing_helper(&state, user_sym.clone(), "user-sym");
+        test_printing_helper(&state, &user_sym, "user-sym");
 
         let my_package_name = SymbolRef::new(Symbol::sym(&["my-package"]));
         let mut my_package = Package::new(my_package_name.clone());
         let my_symbol = my_package.intern("my-symbol");
         state.add_package(my_package);
 
-        test_printing_helper(&state, my_symbol.clone(), ".my-package.my-symbol");
+        test_printing_helper(&state, &my_symbol, ".my-package.my-symbol");
 
         let lambda_sym = SymbolRef::new(lurk_sym("lambda"));
 
         state.set_current_package(my_package_name).unwrap();
-        test_printing_helper(&state, my_symbol, "my-symbol");
-        test_printing_helper(&state, lambda_sym.clone(), ".lurk.lambda");
+        test_printing_helper(&state, &my_symbol, "my-symbol");
+        test_printing_helper(&state, &lambda_sym, ".lurk.lambda");
 
         state.import(&[lambda_sym.clone()]).unwrap();
-        test_printing_helper(&state, lambda_sym, "lambda");
-        test_printing_helper(&state, user_sym, ".lurk.user.user-sym");
+        test_printing_helper(&state, &lambda_sym, "lambda");
+        test_printing_helper(&state, &user_sym, ".lurk.user.user-sym");
 
         let path = ["my-package", "my-other-symbol"];
         state.intern_path(&path, false, false).unwrap();
         test_printing_helper(
             &state,
-            SymbolRef::new(Symbol::sym(&path)),
+            &SymbolRef::new(Symbol::sym(&path)),
             "my-other-symbol",
         );
     }

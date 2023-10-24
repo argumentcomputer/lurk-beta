@@ -289,7 +289,7 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
 // TODO: define standard patterns for such modularity.
 pub fn install<F: LurkField>(
     s: &Store<F>,
-    state: Rc<RefCell<State>>,
+    state: &Rc<RefCell<State>>,
     lang: &mut Lang<F, TrieCoproc<F>>,
 ) {
     lang.add_binding((".lurk.trie.new", NewCoprocessor::default().into()), s);

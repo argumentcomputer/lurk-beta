@@ -20,7 +20,7 @@ use lurk::{
 
 const REDUCTION_COUNT: usize = 10;
 
-fn sha256_nivc<F: LurkField>(store: &mut Store<F>, n: usize, input: Vec<usize>) -> Ptr<F> {
+fn sha256_nivc<F: LurkField>(store: &mut Store<F>, n: usize, input: &[usize]) -> Ptr<F> {
     assert_eq!(n, input.len());
     let input = input
         .iter()
@@ -67,7 +67,7 @@ fn main() {
     let store = &mut Store::<Fr>::new();
     let cproc_sym = user_sym(&format!("sha256_nivc_{n}"));
 
-    let call = sha256_nivc(store, n, (0..n).collect());
+    let call = sha256_nivc(store, n, &(0..n).collect::<Vec<_>>());
 
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,

@@ -259,7 +259,7 @@ impl Open {
 
             if let Some(out_path) = &self.proof {
                 let proof =
-                    Opening::open_and_prove(s, &request, limit, false, &prover, &pp, lang_rc)
+                    Opening::open_and_prove(s, &request, limit, false, &prover, &pp, &lang_rc)
                         .expect("proof opening");
 
                 handle_proof(out_path, proof);
@@ -269,7 +269,7 @@ impl Open {
                     .expect("committed function not found");
                 let input = request.input.eval(s, limit, lang).unwrap();
 
-                let claim = Opening::apply(s, input, function, limit, self.chain, lang)
+                let claim = Opening::apply(s, input, &function, limit, self.chain, lang)
                     .expect("claim apply");
                 handle_claim(claim).expect("handle claim")
             }
@@ -300,17 +300,16 @@ impl Open {
             let input_path = self.input.as_ref().expect("input missing");
             let input =
                 input(s, input_path, eval_input, limit, self.quote_input, lang).expect("input");
-            let lang_rc = Arc::new(lang.clone());
 
             if let Some(out_path) = &self.proof {
                 let proof = Opening::apply_and_prove(
-                    s, input, function, limit, self.chain, false, &prover, &pp, lang_rc,
+                    s, input, &function, limit, self.chain, false, &prover, &pp, &lang_rc,
                 )
                 .expect("apply and prove");
 
                 handle_proof(out_path, proof);
             } else {
-                let claim = Opening::apply(s, input, function, limit, self.chain, lang).unwrap();
+                let claim = Opening::apply(s, input, &function, limit, self.chain, lang).unwrap();
 
                 handle_claim(claim).unwrap();
             }
@@ -378,7 +377,7 @@ impl Prove {
                 )
                 .unwrap();
 
-                Proof::eval_and_prove(s, expr, None, limit, false, &prover, &pp, lang_rc).unwrap()
+                Proof::eval_and_prove(s, expr, None, limit, false, &prover, &pp, &lang_rc).unwrap()
             }
         };
 

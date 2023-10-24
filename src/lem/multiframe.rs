@@ -95,7 +95,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        input: Vec<AllocatedPtr<F>>,
+        input: &[AllocatedPtr<F>],
         frames: &[Frame<F>],
         slots_witnesses: Option<&[SlotsWitness<F>]>,
     ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
@@ -186,7 +186,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                         &mut chunk_cs,
                         g,
                         store,
-                        chunk_input,
+                        &chunk_input,
                         chunk,
                         Some(chunk_slots_witnesses),
                     )
@@ -379,13 +379,13 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                     cs,
                     g,
                     store,
-                    input,
+                    &input,
                     frames,
                     Some(&slots_witnesses),
                 )
             }
         } else {
-            self.synthesize_frames_sequential(cs, g, store, input, frames, None)
+            self.synthesize_frames_sequential(cs, g, store, &input, frames, None)
         }
     }
 
@@ -420,12 +420,12 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         reduction_count: usize,
         frames: &[Frame<F>],
         store: &'a Self::Store,
-        folding_config: Arc<FoldingConfig<F, C>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
         let total_frames = frames.len();
         let n = (total_frames + reduction_count - 1) / reduction_count;
         let mut multi_frames = Vec::with_capacity(n);
-        match &*folding_config {
+        match &**folding_config {
             FoldingConfig::IVC(lang, _) => {
                 let lurk_step = Arc::new(make_eval_step_from_lang(lang, true));
                 for chunk in frames.chunks(reduction_count) {

@@ -70,7 +70,7 @@ fn synthesize<M: measurement::Measurement>(
                 Arc::new(FoldingConfig::new_ivc(lang_rc.clone(), *reduction_count));
 
             let multiframe =
-                MultiFrame::from_frames(*reduction_count, &frames, &store, folding_config)[0]
+                MultiFrame::from_frames(*reduction_count, &frames, &store, &folding_config)[0]
                     .clone();
 
             b.iter_batched(
