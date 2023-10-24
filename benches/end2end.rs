@@ -2,7 +2,7 @@ use camino::Utf8Path;
 use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode,
 };
-use pasta_curves::pallas::Scalar as Fr;
+use pasta_curves::pallas::Scalar as Fq;
 
 use lurk::{
     circuit::circuit_frame::MultiFrame,
@@ -22,7 +22,6 @@ use lurk::{
     state::State,
     store::Store,
 };
-use pasta_curves::pallas;
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
@@ -59,7 +58,7 @@ fn end2end_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -88,7 +87,7 @@ fn end2end_benchmark(c: &mut Criterion) {
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         b.iter(|| {
-            let ptr = go_base::<pallas::Scalar>(&store, state.clone(), s.0, s.1);
+            let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
             let _result = prover
                 .evaluate_and_prove(&pp, ptr, env, &store, limit, &lang_pallas_rc)
                 .unwrap();
@@ -107,8 +106,7 @@ fn store_benchmark(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
 
-    let bls12_store = Store::<Fr>::default();
-    let pallas_store = Store::<pallas::Scalar>::default();
+    let pallas_store = Store::<Fq>::default();
 
     let state = State::init_lurk_state().rccell();
 
@@ -117,18 +115,10 @@ fn store_benchmark(c: &mut Criterion) {
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
 
-        let bls12_id = BenchmarkId::new("store_go_base_bls12", &parameter_string);
-        group.bench_with_input(bls12_id, &size, |b, &s| {
-            b.iter(|| {
-                let result = go_base::<Fr>(&bls12_store, state.clone(), s.0, s.1);
-                black_box(result)
-            })
-        });
-
         let pasta_id = BenchmarkId::new("store_go_base_pallas", &parameter_string);
         group.bench_with_input(pasta_id, &size, |b, &s| {
             b.iter(|| {
-                let result = go_base::<pallas::Scalar>(&pallas_store, state.clone(), s.0, s.1);
+                let result = go_base::<Fq>(&pallas_store, state.clone(), s.0, s.1);
                 black_box(result)
             })
         });
@@ -146,8 +136,7 @@ fn hydration_benchmark(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
 
-    let bls12_store = Store::<Fr>::default();
-    let pallas_store = Store::<pallas::Scalar>::default();
+    let pallas_store = Store::<Fq>::default();
 
     let state = State::init_lurk_state().rccell();
 
@@ -157,17 +146,9 @@ fn hydration_benchmark(c: &mut Criterion) {
         let parameter_string = format!("_{}_{}", size.0, size.1);
 
         {
-            let benchmark_id = BenchmarkId::new("hydration_go_base_bls12", &parameter_string);
-            group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let _ptr = go_base::<Fr>(&bls12_store, state.clone(), s.0, s.1);
-                b.iter(|| bls12_store.hydrate_scalar_cache())
-            });
-        }
-
-        {
             let benchmark_id = BenchmarkId::new("hydration_go_base_pallas", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let _ptr = go_base::<pallas::Scalar>(&pallas_store, state.clone(), s.0, s.1);
+                let _ptr = go_base::<Fq>(&pallas_store, state.clone(), s.0, s.1);
                 b.iter(|| pallas_store.hydrate_scalar_cache())
             });
         }
@@ -186,10 +167,8 @@ fn eval_benchmark(c: &mut Criterion) {
         .sample_size(60);
 
     let limit = 1_000_000_000;
-    let lang_bls12 = Lang::<Fr, Coproc<Fr>>::new();
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let bls12_store = Store::<Fr>::default();
-    let pallas_store = Store::<pallas::Scalar>::default();
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let pallas_store = Store::<Fq>::default();
 
     let state = State::init_lurk_state().rccell();
 
@@ -199,26 +178,9 @@ fn eval_benchmark(c: &mut Criterion) {
         let parameter_string = format!("_{}_{}", size.0, size.1);
 
         {
-            let benchmark_id = BenchmarkId::new("eval_go_base_bls12", &parameter_string);
-            group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let ptr = go_base::<Fr>(&bls12_store, state.clone(), s.0, s.1);
-                b.iter(|| {
-                    Evaluator::new(
-                        ptr,
-                        empty_sym_env(&bls12_store),
-                        &bls12_store,
-                        limit,
-                        &lang_bls12,
-                    )
-                    .eval()
-                })
-            });
-        }
-
-        {
             let benchmark_id = BenchmarkId::new("eval_go_base_pallas", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let ptr = go_base::<pallas::Scalar>(&pallas_store, state.clone(), s.0, s.1);
+                let ptr = go_base::<Fq>(&pallas_store, state.clone(), s.0, s.1);
                 b.iter(|| {
                     Evaluator::new(
                         ptr,
@@ -280,7 +242,7 @@ fn prove_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
@@ -302,7 +264,7 @@ fn prove_benchmark(c: &mut Criterion) {
     .unwrap();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
-        let ptr = go_base::<pallas::Scalar>(&store, state.clone(), s.0, s.1);
+        let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
         let frames = MultiFrame::get_evaluation_frames(
             |count| prover.needs_frame_padding(count),
@@ -332,7 +294,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
@@ -357,7 +319,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
     .unwrap();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
-        let ptr = go_base::<pallas::Scalar>(&store, state.clone(), s.0, s.1);
+        let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
         let frames = prover
             .get_evaluation_frames(
@@ -388,7 +350,7 @@ fn verify_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
@@ -450,7 +412,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
