@@ -178,10 +178,6 @@ name = "fibonacci"
 harness = false
 
 [[bench]]
-name = "fibonacci_lem"
-harness = false
-
-[[bench]]
 name = "synthesis"
 harness = false
 
