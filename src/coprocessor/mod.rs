@@ -12,7 +12,7 @@ use crate::field::LurkField;
 use crate::lem::{circuit::GlobalAllocator, pointers::Ptr as LEMPtr, store::Store as LEMStore};
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
-use crate::tag::Tag;
+use crate::tag::{ExprTag, Tag};
 use crate::z_data::z_ptr::ZExprPtr;
 
 pub mod circom;
@@ -51,6 +51,22 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
                 cont: s.intern_cont_error(),
             };
         };
+
+        if argv[0].tag != ExprTag::Num {
+            return IO {
+                expr: argv[0],
+                env,
+                cont: s.intern_cont_error(),
+            };
+        };
+
+        if argv[1].tag != ExprTag::Num {
+            return IO {
+                expr: argv[1],
+                env,
+                cont: s.intern_cont_error(),
+            };
+        }
 
         let result = self.simple_evaluate(s, &argv);
 
@@ -136,9 +152,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
             &[&g.quote_ptr, &result_expr],
         )?;
 
-        // FIXME: technically, the error is defined to be rest -- which is the cdr of input_expr.tes
-        //let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
-        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &input_expr)?;
+        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
 
         let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &input_env)?;
         let new_cont = pick_cont_ptr!(cs, &arity_is_correct, &result_cont, &g.error_ptr_cont)?;
@@ -241,10 +255,11 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
 
 #[cfg(test)]
 pub(crate) mod test {
+    use bellpepper_core::num::AllocatedNum;
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::circuit::gadgets::constraints::{add, alloc_equal, and, boolean_to_num, mul};
+    use crate::circuit::gadgets::constraints::{add, alloc_equal, and, mul};
     use crate::lem::Tag as LEMTag;
     use crate::tag::{ContTag, ExprTag, Tag};
     use std::marker::PhantomData;
@@ -255,6 +270,51 @@ pub(crate) mod test {
         pub(crate) _p: PhantomData<F>,
     }
 
+    impl<F: LurkField> DumbCoprocessor<F> {
+        fn synthesize_aux<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            input_exprs: &[AllocatedPtr<F>],
+            input_env: &AllocatedPtr<F>,
+            input_cont: &AllocatedPtr<F>,
+            num_tag: &AllocatedNum<F>,
+            cont_error: &AllocatedPtr<F>,
+        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
+            let a = input_exprs[0].clone();
+            let b = &input_exprs[1];
+
+            let a_is_num = alloc_equal(&mut cs.namespace(|| "fst is num"), a.tag(), num_tag)?;
+            let b_is_num = alloc_equal(&mut cs.namespace(|| "snd is num"), b.tag(), num_tag)?;
+            let types_are_correct = and(
+                &mut cs.namespace(|| "types are correct"),
+                &a_is_num,
+                &b_is_num,
+            )?;
+
+            // a^2 + b = c
+            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
+            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
+            let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
+
+            let result_expr0 =
+                AllocatedPtr::pick(&mut cs.namespace(|| "result_expr0"), &a_is_num, &c_ptr, &a)?;
+            let result_expr1 = AllocatedPtr::pick(
+                &mut cs.namespace(|| "result_expr"),
+                &b_is_num,
+                &result_expr0,
+                &b,
+            )?;
+            let result_cont = AllocatedPtr::pick(
+                &mut cs.namespace(|| "result_cont"),
+                &types_are_correct,
+                &input_cont,
+                &cont_error,
+            )?;
+
+            Ok((result_expr1, input_env.clone(), result_cont))
+        }
+    }
+
     impl<F: LurkField> CoCircuit<F> for DumbCoprocessor<F> {
         fn arity(&self) -> usize {
             2
@@ -263,7 +323,7 @@ pub(crate) mod test {
         fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
-            _g: &GlobalAllocations<F>,
+            g: &GlobalAllocations<F>,
             _store: &Store<F>,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,
@@ -271,17 +331,18 @@ pub(crate) mod test {
             _not_dummy: &Boolean,
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
         {
-            let a = input_exprs[0].clone();
-            let b = &input_exprs[1];
+            let input_ptr: AllocatedPtr<F> = (input_cont.clone()).into();
 
-            // FIXME: Check tags.
+            let (expr, env, cont) = self.synthesize_aux(
+                cs,
+                input_exprs,
+                input_env,
+                &input_ptr,
+                &g.num_tag,
+                &g.error_ptr,
+            )?;
 
-            // a^2 + b = c
-            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
-            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
-            let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
-
-            Ok((c_ptr, input_env.clone(), input_cont.clone()))
+            Ok((expr, env, cont.into()))
         }
 
         fn synthesize_lem<CS: ConstraintSystem<F>>(
@@ -290,75 +351,14 @@ pub(crate) mod test {
             g: &GlobalAllocator<F>,
             s: &LEMStore<F>,
             _not_dummy: &Boolean,
-            args: &[AllocatedPtr<F>],
-            env: &AllocatedPtr<F>,
-            cont: &AllocatedPtr<F>,
+            input_exprs: &[AllocatedPtr<F>],
+            input_env: &AllocatedPtr<F>,
+            input_cont: &AllocatedPtr<F>,
         ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
-            let a = &args[0];
-            let b = &args[1];
-
             let num_tag = g
                 .get_allocated_const(LEMTag::Expr(ExprTag::Num).to_field())
                 .expect("Num tag should have been allocated");
 
-            let a_is_num = alloc_equal(&mut cs.namespace(|| "fst is num"), a.tag(), num_tag)?;
-            let b_is_num = alloc_equal(&mut cs.namespace(|| "snd is num"), b.tag(), num_tag)?;
-            let tags_are_num = and(&mut cs.namespace(|| "tags are num"), &a_is_num, &b_is_num)?;
-
-            let a_is_not_num = boolean_to_num(
-                &mut cs.namespace(|| "fst is num as allocated num"),
-                &a_is_num.not(),
-            )?;
-            let a_is_num = boolean_to_num(
-                &mut cs.namespace(|| "fst is not num as allocated num"),
-                &a_is_num,
-            )?;
-            let expr_err_tag_a = mul(
-                &mut cs.namespace(|| "fst component of error tag"),
-                &a_is_not_num,
-                a.tag(),
-            )?;
-            let expr_err_tag_b = mul(
-                &mut cs.namespace(|| "snd component of error tag"),
-                &a_is_num,
-                b.tag(),
-            )?;
-            let expr_err_tag = add(
-                &mut cs.namespace(|| "error tag"),
-                &expr_err_tag_a,
-                &expr_err_tag_b,
-            )?;
-            let expr_err_hash_a = mul(
-                &mut cs.namespace(|| "fst component of error hash"),
-                &a_is_not_num,
-                a.hash(),
-            )?;
-            let expr_err_hash_b = mul(
-                &mut cs.namespace(|| "snd component of error hash"),
-                &a_is_num,
-                b.hash(),
-            )?;
-            let expr_err_hash = add(
-                &mut cs.namespace(|| "error hash"),
-                &expr_err_hash_a,
-                &expr_err_hash_b,
-            )?;
-            let expr_err = AllocatedPtr::from_parts(expr_err_tag, expr_err_hash);
-
-            // a^2 + b = c
-            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
-            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
-            let expr_ok = AllocatedPtr::from_parts(num_tag.clone(), c);
-
-            let expr = AllocatedPtr::pick(
-                &mut cs.namespace(|| "pick expr"),
-                &tags_are_num,
-                &expr_ok,
-                &expr_err,
-            )?;
-
-            // the following is a temporary shim for compatibility with Lurk Alpha
-            // otherwise we could just have a pointer whose value is zero
             let err_cont_ptr = LEMPtr::null(LEMTag::Cont(ContTag::Error));
             let err_cont_z_ptr = s.hash_ptr(&err_cont_ptr).expect("hash_ptr failed");
             let allocated_error_tag = g
@@ -370,13 +370,10 @@ pub(crate) mod test {
             let cont_err =
                 AllocatedPtr::from_parts(allocated_error_tag.clone(), allocated_error_hash.clone());
 
-            let cont = AllocatedPtr::pick(
-                &mut cs.namespace(|| "pick cont"),
-                &tags_are_num,
-                cont,
-                &cont_err,
-            )?;
-            Ok(vec![expr, env.clone(), cont])
+            let (expr, env, cont) =
+                self.synthesize_aux(cs, input_exprs, input_env, input_cont, num_tag, &cont_err)?;
+
+            Ok(vec![expr, env, cont])
         }
     }
 
