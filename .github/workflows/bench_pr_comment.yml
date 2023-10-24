@@ -12,9 +12,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  run-benchmark:
+  cpu-benchmark:
     name: run end2end benchmark
-    runs-on: ubuntu-benchmark-runner
+    runs-on: buildjet-32vcpu-ubuntu-2204
     if:
       github.event.issue.pull_request
       && github.event.issue.state == 'open'
