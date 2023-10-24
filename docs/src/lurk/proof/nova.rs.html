@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (1c05d50c8 2023-10-21)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (cd674d617 2023-10-24)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -681,6 +681,50 @@
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
 <a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -989,17 +1033,13 @@
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
         lang: <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
-        store.hydrate_z_cache();
-        <span class="kw">let </span>z0 = M::io_to_scalar_vector(store, frames[<span class="number">0</span>].input()).map_err(|e| e.into())<span class="question-mark">?</span>;
-        <span class="kw">let </span>zi =
-            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())<span class="question-mark">?</span>;
-        <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), <span class="self">self</span>.reduction_count()));
-        <span class="kw">let </span>circuits = M::from_frames(<span class="self">self</span>.reduction_count(), frames, store, folding_config);
+        <span class="kw">let </span>(recursive_snark, circuits, z0, zi, num_steps) =
+            <span class="self">self</span>.recursive_snark(pp, frames, store, lang)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>num_steps = circuits.len();
         <span class="kw">let </span>proof = Proof::prove_recursively(
             pp,
             store,
+            <span class="prelude-val">Some</span>(recursive_snark),
             <span class="kw-2">&amp;</span>circuits,
             <span class="self">self</span>.reduction_count,
             z0.clone(),
@@ -1029,6 +1069,53 @@
         )<span class="question-mark">?</span>;
         <span class="self">self</span>.prove(pp, <span class="kw-2">&amp;</span>frames, store, lang)
     }
+
+    <span class="doccomment">/// Returns the first step of the [RecursiveSNARK] to be proved
+    </span><span class="kw">pub fn </span>recursive_snark(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
+        frames: <span class="kw-2">&amp;</span>[M::EvalFrame],
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
+        lang: <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
+        (
+            RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+            Vec&lt;M&gt;,
+            Vec&lt;F&gt;,
+            Vec&lt;F&gt;,
+            usize,
+        ),
+        ProofError,
+    &gt; {
+        store.hydrate_z_cache();
+        <span class="kw">let </span>z0 = M::io_to_scalar_vector(store, frames[<span class="number">0</span>].input()).map_err(|e| e.into())<span class="question-mark">?</span>;
+        <span class="kw">let </span>zi =
+            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), <span class="self">self</span>.reduction_count()));
+        <span class="kw">let </span>circuits = M::from_frames(<span class="self">self</span>.reduction_count(), frames, store, folding_config);
+
+        <span class="macro">assert!</span>(!circuits.is_empty());
+        <span class="macro">assert_eq!</span>(circuits[<span class="number">0</span>].arity(), z0.len());
+        <span class="kw">let </span>num_steps = circuits.len();
+
+        <span class="kw">let </span>z0_primary = <span class="kw-2">&amp;</span>z0;
+        <span class="kw">let </span>z0_secondary = Proof::&lt;F, C, M&gt;::z0_secondary();
+
+        <span class="prelude-val">Ok</span>((
+            RecursiveSNARK::new(
+                <span class="kw-2">&amp;</span>pp.pp,
+                <span class="kw-2">&amp;</span>circuits[<span class="number">0</span>],
+                <span class="kw-2">&amp;</span>TrivialCircuit::default(),
+                z0_primary.clone(),
+                z0_secondary.clone(),
+            ),
+            circuits,
+            z0,
+            zi,
+            num_steps,
+        ))
+    }
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt; Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
@@ -1041,6 +1128,7 @@
     </span><span class="kw">pub fn </span>prove_recursively(
         pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
         store: <span class="kw-2">&amp;</span>M::Store,
+        recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt;,
         circuits: <span class="kw-2">&amp;</span>[M],
         num_iters_per_step: usize,
         z0: Vec&lt;F&gt;,
@@ -1061,7 +1149,7 @@
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;circuits.len: {}&quot;</span>, circuits.len());
 
         <span class="comment">// produce a recursive SNARK
-        </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt; = recursive_snark;
 
         <span class="comment">// the shadowing here is voluntary
         </span><span class="kw">let </span>recursive_snark = <span class="kw">if </span>CONFIG.parallelism.recursive_steps.is_parallel() {
