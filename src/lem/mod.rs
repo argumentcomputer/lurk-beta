@@ -253,6 +253,8 @@ pub enum Op {
     Cproc(Vec<Var>, Symbol, Vec<Var>),
     /// `Call(ys, f, xs)` binds `ys` to the results of `f` applied to `xs`
     Call(Vec<Var>, Box<Func>, Vec<Var>),
+    /// `Copy(x, y)` binds `x` to a copy of what `y` is bound to
+    Copy(Var, Var),
     /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     Null(Var, Tag),
     /// `Lit(x, l)` binds `x` to the pointer representing that `Lit`
@@ -375,6 +377,10 @@ impl Func {
                         out.iter().for_each(|var| is_unique(var, map));
                         func.input_params.iter().for_each(|var| is_unique(var, map));
                         recurse(&func.body, func.output_size, map)?;
+                    }
+                    Op::Copy(tgt, src) => {
+                        is_bound(src, map)?;
+                        is_unique(tgt, map);
                     }
                     Op::Null(tgt, _tag) => {
                         is_unique(tgt, map);
@@ -598,6 +604,9 @@ impl Block {
                     let out = insert_many(map, uniq, &out);
                     let func = Box::new(func.deconflict(map, uniq)?);
                     ops.push(Op::Call(out, func, inp))
+                }
+                Op::Copy(tgt, src) => {
+                    ops.push(Op::Copy(insert_one(map, uniq, &tgt), map.get_cloned(&src)?))
                 }
                 Op::Null(tgt, tag) => ops.push(Op::Null(insert_one(map, uniq, &tgt), tag)),
                 Op::Lit(tgt, lit) => ops.push(Op::Lit(insert_one(map, uniq, &tgt), lit)),

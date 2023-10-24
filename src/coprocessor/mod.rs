@@ -244,9 +244,9 @@ pub(crate) mod test {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::circuit::gadgets::constraints::{add, implies_equal, mul};
+    use crate::circuit::gadgets::constraints::{add, alloc_equal, and, boolean_to_num, mul};
     use crate::lem::Tag as LEMTag;
-    use crate::tag::{ExprTag, Tag};
+    use crate::tag::{ContTag, ExprTag, Tag};
     use std::marker::PhantomData;
 
     /// A dumb Coprocessor for testing.
@@ -284,38 +284,99 @@ pub(crate) mod test {
             Ok((c_ptr, input_env.clone(), input_cont.clone()))
         }
 
-        fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+        fn synthesize_lem<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
             g: &GlobalAllocator<F>,
-            _s: &LEMStore<F>,
-            not_dummy: &Boolean,
+            s: &LEMStore<F>,
+            _not_dummy: &Boolean,
             args: &[AllocatedPtr<F>],
-        ) -> Result<AllocatedPtr<F>, SynthesisError> {
-            use crate::lem::Tag::Expr;
+            env: &AllocatedPtr<F>,
+            cont: &AllocatedPtr<F>,
+        ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
             let a = &args[0];
             let b = &args[1];
 
-            let allocated_num_tag = g
-                .get_allocated_const(Expr(ExprTag::Num).to_field())
+            let num_tag = g
+                .get_allocated_const(LEMTag::Expr(ExprTag::Num).to_field())
                 .expect("Num tag should have been allocated");
-            implies_equal(
-                &mut cs.namespace(|| "first arg tag"),
-                not_dummy,
+
+            let a_is_num = alloc_equal(&mut cs.namespace(|| "fst is num"), a.tag(), num_tag)?;
+            let b_is_num = alloc_equal(&mut cs.namespace(|| "snd is num"), b.tag(), num_tag)?;
+            let tags_are_num = and(&mut cs.namespace(|| "tags are num"), &a_is_num, &b_is_num)?;
+
+            let a_is_not_num = boolean_to_num(
+                &mut cs.namespace(|| "fst is num as allocated num"),
+                &a_is_num.not(),
+            )?;
+            let a_is_num = boolean_to_num(
+                &mut cs.namespace(|| "fst is not num as allocated num"),
+                &a_is_num,
+            )?;
+            let expr_err_tag_a = mul(
+                &mut cs.namespace(|| "fst component of error tag"),
+                &a_is_not_num,
                 a.tag(),
-                allocated_num_tag,
-            );
-            implies_equal(
-                &mut cs.namespace(|| "second arg tag"),
-                not_dummy,
+            )?;
+            let expr_err_tag_b = mul(
+                &mut cs.namespace(|| "snd component of error tag"),
+                &a_is_num,
                 b.tag(),
-                allocated_num_tag,
-            );
+            )?;
+            let expr_err_tag = add(
+                &mut cs.namespace(|| "error tag"),
+                &expr_err_tag_a,
+                &expr_err_tag_b,
+            )?;
+            let expr_err_hash_a = mul(
+                &mut cs.namespace(|| "fst component of error hash"),
+                &a_is_not_num,
+                a.hash(),
+            )?;
+            let expr_err_hash_b = mul(
+                &mut cs.namespace(|| "snd component of error hash"),
+                &a_is_num,
+                b.hash(),
+            )?;
+            let expr_err_hash = add(
+                &mut cs.namespace(|| "error hash"),
+                &expr_err_hash_a,
+                &expr_err_hash_b,
+            )?;
+            let expr_err = AllocatedPtr::from_parts(expr_err_tag, expr_err_hash);
 
             // a^2 + b = c
             let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
             let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
-            AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)
+            let expr_ok = AllocatedPtr::from_parts(num_tag.clone(), c);
+
+            let expr = AllocatedPtr::pick(
+                &mut cs.namespace(|| "pick expr"),
+                &tags_are_num,
+                &expr_ok,
+                &expr_err,
+            )?;
+
+            // the following is a temporary shim for compatibility with Lurk Alpha
+            // otherwise we could just have a pointer whose value is zero
+            let err_cont_ptr = LEMPtr::null(LEMTag::Cont(ContTag::Error));
+            let err_cont_z_ptr = s.hash_ptr(&err_cont_ptr).expect("hash_ptr failed");
+            let allocated_error_tag = g
+                .get_allocated_const(err_cont_z_ptr.tag_field())
+                .expect("Error tag should have been allocated");
+            let allocated_error_hash = g
+                .get_allocated_const(*err_cont_z_ptr.value())
+                .expect("Error hash should have been allocated");
+            let cont_err =
+                AllocatedPtr::from_parts(allocated_error_tag.clone(), allocated_error_hash.clone());
+
+            let cont = AllocatedPtr::pick(
+                &mut cs.namespace(|| "pick cont"),
+                &tags_are_num,
+                cont,
+                &cont_err,
+            )?;
+            Ok(vec![expr, env.clone(), cont])
         }
     }
 
@@ -343,14 +404,24 @@ pub(crate) mod test {
             true
         }
 
-        fn evaluate_lem_simple(&self, _s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F> {
-            match (&args[0], &args[1]) {
-                (
-                    LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), a),
-                    LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), b),
-                ) => LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), (*a * *a) + *b),
-                _ => panic!("Invalid input"),
-            }
+        fn evaluate_lem(
+            &self,
+            _s: &LEMStore<F>,
+            args: &[LEMPtr<F>],
+            env: &LEMPtr<F>,
+            cont: &LEMPtr<F>,
+        ) -> Vec<LEMPtr<F>> {
+            let LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), a) = &args[0] else {
+                return vec![args[0], *env, LEMPtr::null(LEMTag::Cont(ContTag::Error))];
+            };
+            let LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), b) = &args[1] else {
+                return vec![args[1], *env, LEMPtr::null(LEMTag::Cont(ContTag::Error))];
+            };
+            vec![
+                LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), (*a * *a) + *b),
+                *env,
+                *cont,
+            ]
         }
     }
 
