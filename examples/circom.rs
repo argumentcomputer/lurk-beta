@@ -32,15 +32,16 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
-use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::circuit::gadgets::circom::CircomGadget;
 use lurk::circuit::gadgets::pointer::AllocatedPtr;
+use lurk::lem::multiframe::MultiFrame;
 
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 
-use lurk::eval::{empty_sym_env, lang::Lang};
+use lurk::eval::lang::Lang;
 use lurk::field::LurkField;
+use lurk::lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore};
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::instance::{Instance, Kind};
@@ -89,6 +90,16 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
         );
         s.intern_num(expected)
     }
+
+    fn simple_evaluate_lem(&self, _s: &LEMStore<F>, _args: &[LEMPtr<F>]) -> LEMPtr<F> {
+        // TODO: actually use the lurk inputs
+        LEMPtr::num(
+            F::from_str_vartime(
+                "55165702627807990590530466439275329993482327026534454077267643456",
+            )
+            .unwrap(),
+        )
+    }
 }
 
 #[derive(Clone, Debug, Coproc)]
@@ -100,21 +111,14 @@ enum Sha256Coproc<F: LurkField> {
 /// `cargo run --release -- circom --name sha256_2 examples/sha256/`
 /// `cargo run --release --example circom`
 fn main() {
-    let store = &mut Store::<Fr>::new();
+    let store = &LEMStore::<Fr>::default();
     let sym_str = Symbol::new(&[".circom_sha256_2"], false); // two inputs
-    let circom_sha256 = CircomSha256::new(0);
-    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
-        store,
-        vec![(
-            sym_str.clone(),
-            CircomCoprocessor::new(circom_sha256).into(),
-        )],
-    );
+    let circom_sha256: CircomSha256<Fr> = CircomSha256::new(0);
+    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    lang.add_coprocessor_lem(sym_str, CircomCoprocessor::new(circom_sha256), store);
 
-    let coproc_expr = format!("{sym_str}");
-
-    let expr = format!("({coproc_expr})");
-    let ptr = store.read(&expr).unwrap();
+    let expr = "(.circom_sha256_2)".to_string();
+    let ptr = store.read_with_default_state(&expr).unwrap();
 
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
         REDUCTION_COUNT,
@@ -141,7 +145,7 @@ fn main() {
 
     let proof_start = Instant::now();
     let (proof, z0, zi, num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, empty_sym_env(store), store, 10000, &lang_rc)
+        .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000, &lang_rc)
         .unwrap();
     let proof_end = proof_start.elapsed();
 

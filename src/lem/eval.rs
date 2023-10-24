@@ -309,13 +309,18 @@ fn car_cdr() -> Func {
 ///     return (cproc, env, cont);
 /// }
 fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
-    let evaluated_args = Var::new("evaluated_args");
+    let evaluated_args = if arity == 0 {
+        Var::new("_evaluated_args")
+    } else {
+        Var::new("evaluated_args")
+    };
     let expr = Var::new("expr");
     let env = Var::new("env");
     let cont = Var::new("cont");
     let nil = Var::new("nil");
     let is_nil = Var::new("is_nil");
     let cproc = Var::new("cproc");
+    let cproc_name = Var::new("cproc_name");
     let cproc_out = vec![expr.clone(), env.clone(), cont.clone()];
     let func_out = vec![expr, env.clone(), cont.clone()];
     let err_block = Block {
@@ -324,7 +329,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     };
     let def_block = Block {
         ops: vec![],
-        ctrl: ctrl!(return (cproc, env, err)),
+        ctrl: ctrl!(return (cproc, env, cont)),
     };
     let mut cproc_inp = (0..arity)
         .map(|i| Var(format!("x{i}").into()))
@@ -361,9 +366,12 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     let mut match_symbol_map = IndexMap::default();
     match_symbol_map.insert(cproc_sym, block);
     block = Block {
-        ops: vec![op!(let (cproc_name, evaluated_args) = decons2(cproc))],
+        ops: vec![Op::Decons2(
+            [cproc_name.clone(), evaluated_args],
+            cproc.clone(),
+        )],
         ctrl: Ctrl::MatchSymbol(
-            Var::new("cproc_name"),
+            cproc_name,
             match_symbol_map,
             Some(Box::new(def_block.clone())),
         ),
@@ -373,11 +381,15 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     let mut match_tag_map = IndexMap::default();
     match_tag_map.insert(Tag::Expr(Cproc), block);
     block = Block {
-        ops: vec![
-            op!(let err: Cont::Error),
-            op!(let nil = Symbol("nil")),
-            op!(let nil = cast(nil, Expr::Nil)),
-        ],
+        ops: if arity == 0 {
+            vec![]
+        } else {
+            vec![
+                op!(let err: Cont::Error),
+                op!(let nil = Symbol("nil")),
+                op!(let nil = cast(nil, Expr::Nil)),
+            ]
+        },
         ctrl: Ctrl::MatchTag(cproc.clone(), match_tag_map, Some(Box::new(def_block))),
     };
     let func_inp = vec![cproc, env, cont];
@@ -481,8 +493,13 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 ///     return (cproc_name, env, err, errctrl);
 /// }
 fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
+    let max_arity = cprocs.iter().fold(0, |acc, (_, a)| std::cmp::max(acc, *a));
     let cproc_name = Var::new("cproc_name");
-    let evaluated_args = Var::new("evaluated_args");
+    let evaluated_args = if max_arity == 0 {
+        Var::new("_evaluated_args")
+    } else {
+        Var::new("evaluated_args")
+    };
     let expr = Var::new("expr");
     let env = Var::new("env");
     let cont = Var::new("cont");
@@ -537,13 +554,21 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
     let def = Some(Box::new(err_block));
     let ctrl = Ctrl::MatchSymbol(cproc_name.clone(), match_symbol_map, def);
     let func_inp = vec![cproc_name, evaluated_args, env, cont];
-    let ops = vec![
-        op!(let err: Cont::Error),
-        op!(let nil = Symbol("nil")),
-        op!(let nil = cast(nil, Expr::Nil)),
-        op!(let makethunk = Symbol("make-thunk")),
-        op!(let errctrl = Symbol("error")),
-    ];
+    let ops = if max_arity == 0 {
+        vec![
+            op!(let err: Cont::Error),
+            op!(let makethunk = Symbol("make-thunk")),
+            op!(let errctrl = Symbol("error")),
+        ]
+    } else {
+        vec![
+            op!(let err: Cont::Error),
+            op!(let makethunk = Symbol("make-thunk")),
+            op!(let errctrl = Symbol("error")),
+            op!(let nil = Symbol("nil")),
+            op!(let nil = cast(nil, Expr::Nil)),
+        ]
+    };
     Func::new(
         "match_and_run_cproc".into(),
         func_inp,

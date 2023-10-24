@@ -23,6 +23,7 @@ pub mod non_wasm {
         cli::paths::{circom_dir, set_lurk_dirs},
         coprocessor::{CoCircuit, Coprocessor},
         field::LurkField,
+        lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore, Tag},
         ptr::Ptr,
         store::Store,
     };
@@ -135,6 +136,29 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
 
             Ok((res, input_env.clone(), input_cont.clone()))
         }
+
+        fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            g: &crate::lem::circuit::GlobalAllocator<F>,
+            _s: &LEMStore<F>,
+            _not_dummy: &bellpepper_core::boolean::Boolean,
+            args: &[AllocatedPtr<F>],
+        ) -> std::result::Result<AllocatedPtr<F>, SynthesisError> {
+            let input = self.gadget.clone().into_circom_input(args);
+            let witness =
+                circom_scotia::calculate_witness(&self.config, input, true).map_err(|e| {
+                    eprintln!("{:?}", e);
+                    SynthesisError::Unsatisfiable
+                })?;
+            let output = circom_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
+            let num_tag = g
+                .get_allocated_const(Tag::Expr(crate::tag::ExprTag::Num).to_field())
+                .expect("Num tag should have been allocated");
+            let res = AllocatedPtr::from_parts(num_tag.clone(), output);
+
+            Ok(res)
+        }
     }
 
     impl<F: LurkField, C: CircomGadget<F> + Debug> Coprocessor<F> for CircomCoprocessor<F, C> {
@@ -145,6 +169,10 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
 
         fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
             self.gadget.simple_evaluate(s, args)
+        }
+
+        fn evaluate_lem_simple(&self, s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F> {
+            self.gadget.simple_evaluate_lem(s, args)
         }
 
         fn has_circuit(&self) -> bool {

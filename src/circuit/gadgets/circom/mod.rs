@@ -2,7 +2,12 @@
 //!
 //! See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
 
-use crate::{field::LurkField, ptr::Ptr, store::Store};
+use crate::{
+    field::LurkField,
+    lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore},
+    ptr::Ptr,
+    store::Store,
+};
 
 use super::pointer::AllocatedPtr;
 
@@ -23,4 +28,6 @@ pub trait CircomGadget<F: LurkField>: Send + Sync + Clone {
     fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)>;
 
     fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
+
+    fn simple_evaluate_lem(&self, s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F>;
 }
