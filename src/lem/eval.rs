@@ -269,9 +269,9 @@ fn car_cdr() -> Func {
 }
 
 /// This `Func` is used to call a standalone coprocessor out of the Lurk's step
-/// function. It checks whether the coprocessor expression corresponds the right
-/// coprocessor. If it doesn't, return the same input. If it does, destructure
-/// the list of arguments and call the coprocessor.
+/// function. It checks whether the coprocessor expression corresponds to the
+/// right coprocessor. If it doesn't, return the same input. If it does,
+/// destructure the list of arguments and call the coprocessor.
 ///
 /// `run_cproc` is meant to be used in the context of NIVC, when the circuit for
 /// each coprocessor is detached from Lurk's universal circuit.
@@ -287,25 +287,33 @@ fn car_cdr() -> Func {
 ///                 // `x` is the name of the coprocessor being called
 ///                 x => {
 ///                     // `n` is the arity of the coprocessor `x`
-///                     if evaluated_args != nil {
+///                     let is_nil = eq_tag(evaluated_args, nil);
+///                     // save a copy of the evaluated arguments for possible arity error
+///                     let evaluated_args_cp = copy(evaluated_args);
+///                     if !is_nil {
 ///                         let (x{n-1}, evaluated_args) = car_cdr(evaluated_args);
-///                         if evaluated_args != nil {
+///                         let is_nil = eq_tag(evaluated_args, nil);
+///                         if !is_nil {
 ///                             ...
 ///                             let (x0, evaluated_args) = car_cdr(evaluated_args);
-///                             if evaluated_args == nil {
+///                             let is_nil = eq_tag(evaluated_args, nil);
+///                             // there must be no remaining arguments
+///                             if is_nil {
 ///                                 Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
 ///                                 return (expr, env, cont);
 ///                             }
-///                             return (cproc_name, env, err);
+///                             return (evaluated_args_cp, env, err);
 ///                         }
-///                         return (cproc_name, env, err);
+///                         return (evaluated_args_cp, env, err);
 ///                     }
-///                     return (cproc_name, env, err);
+///                     return (evaluated_args_cp, env, err);
 ///                 }
 ///             };
+///             // coprocessor not found... just loop
 ///             return (cproc, env, cont);
 ///         }
 ///     };
+///     // not a proper Cproc expression... just loop
 ///     return (cproc, env, cont);
 /// }
 fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
@@ -325,7 +333,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     let func_out = vec![expr, env.clone(), cont.clone()];
     let err_block = Block {
         ops: vec![],
-        ctrl: ctrl!(return (cproc_name, env, err)),
+        ctrl: ctrl!(return (evaluated_args_cp, env, err)),
     };
     let def_block = Block {
         ops: vec![],
@@ -347,7 +355,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
                 Box::new(car_cdr()),
                 vec![evaluated_args.clone()],
             ),
-            Op::EqVal(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+            Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
         ];
         block = if i == 0 {
             Block {
@@ -361,9 +369,19 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
             }
         }
     }
+    if arity > 0 {
+        let ops = vec![
+            Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+            Op::Copy(Var::new("evaluated_args_cp"), evaluated_args.clone()),
+        ];
+        block = Block {
+            ops,
+            ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+        }
+    }
 
     // MatchSymbol
-    let mut match_symbol_map = IndexMap::default();
+    let mut match_symbol_map = IndexMap::with_capacity(1);
     match_symbol_map.insert(cproc_sym, block);
     block = Block {
         ops: vec![Op::Decons2(
@@ -378,7 +396,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     };
 
     // MatchTag
-    let mut match_tag_map = IndexMap::default();
+    let mut match_tag_map = IndexMap::with_capacity(1);
     match_tag_map.insert(Tag::Expr(Cproc), block);
     block = Block {
         ops: if arity == 0 {
@@ -436,7 +454,7 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
             op!(let nil = cast(nil, Expr::Nil)),
             op!(let t = Symbol("t")),
         ];
-        let mut match_symbol_map = IndexMap::default();
+        let mut match_symbol_map = IndexMap::with_capacity(cprocs.len());
         for (cproc, _) in cprocs {
             match_symbol_map.insert(
                 (*cproc).clone(),
@@ -473,27 +491,37 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 ///     match symbol cproc_name {
 ///         x => {
 ///             // `n` is the arity of the coprocessor `x`
-///             if evaluated_args != nil {
+///             let is_nil = eq_tag(evaluated_args, nil);
+///             // save a copy of the evaluated arguments for possible arity error
+///             let evaluated_args_cp = copy(evaluated_args);
+///             if !is_nil {
 ///                 let (x{n-1}, evaluated_args) = car_cdr(evaluated_args);
-///                 if evaluated_args != nil {
+///                 let is_nil = eq_tag(evaluated_args, nil);
+///                 if !is_nil {
 ///                     ...
 ///                     let (x0, evaluated_args) = car_cdr(evaluated_args);
-///                     if evaluated_args == nil {
+///                     let is_nil = eq_tag(evaluated_args, nil);
+///                     // there must be no remaining arguments
+///                     if is_nil {
 ///                         Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
+///                         match cont.tag {
+///                             Cont::Error => {
+///                                 return (expr, env, cont, errctrl);
+///                             }
+///                         };
 ///                         return (expr, env, cont, makethunk);
 ///                     }
-///                     return (cproc_name, env, err, errctrl);
+///                     return (evaluated_args_cp, env, err, errctrl);
 ///                 }
-///                 return (cproc_name, env, err, errctrl);
+///                 return (evaluated_args_cp, env, err, errctrl);
 ///             }
-///             return (cproc_name, env, err, errctrl);
+///             return (evaluated_args_cp, env, err, errctrl);
 ///         }
 ///         ...
-///     };
-///     return (cproc_name, env, err, errctrl);
+///     }
 /// }
 fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
-    let max_arity = cprocs.iter().fold(0, |acc, (_, a)| std::cmp::max(acc, *a));
+    let max_arity = cprocs.iter().fold(0, |acc, (_, a)| acc.max(*a));
     let cproc_name = Var::new("cproc_name");
     let evaluated_args = if max_arity == 0 {
         Var::new("_evaluated_args")
@@ -509,9 +537,23 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
     let func_out = vec![expr, env.clone(), cont.clone(), Var::new("makethunk")];
     let err_block = Block {
         ops: vec![],
-        ctrl: ctrl!(return (cproc_name, env, err, errctrl)),
+        ctrl: ctrl!(return (evaluated_args_cp, env, err, errctrl)),
     };
-    let mut match_symbol_map = IndexMap::default();
+    let err_block_from_cproc = Block {
+        ops: vec![],
+        ctrl: ctrl!(return (expr, env, err, errctrl)),
+    };
+    let mut check_cproc_error_map = IndexMap::with_capacity(1);
+    check_cproc_error_map.insert(Tag::Cont(Error), err_block_from_cproc);
+    let check_cproc_error_ctrl = Ctrl::MatchTag(
+        cont.clone(),
+        check_cproc_error_map,
+        Some(Box::new(Block {
+            ops: vec![],
+            ctrl: Ctrl::Return(func_out),
+        })),
+    );
+    let mut match_symbol_map = IndexMap::with_capacity(cprocs.len());
     for (cproc, arity) in cprocs {
         let cproc = *cproc;
         let arity = *arity;
@@ -526,7 +568,7 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
                 cproc.clone(),
                 cproc_inp.clone(),
             )],
-            ctrl: Ctrl::Return(func_out.clone()),
+            ctrl: check_cproc_error_ctrl.clone(),
         };
         for (i, cproc_arg) in cproc_inp[0..arity].iter().enumerate() {
             let ops = vec![
@@ -535,7 +577,7 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
                     Box::new(car_cdr()),
                     vec![evaluated_args.clone()],
                 ),
-                Op::EqVal(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+                Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
             ];
             block = if i == 0 {
                 Block {
@@ -549,10 +591,19 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
                 }
             }
         }
+        if arity > 0 {
+            let ops = vec![
+                Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+                Op::Copy(Var::new("evaluated_args_cp"), evaluated_args.clone()),
+            ];
+            block = Block {
+                ops,
+                ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+            }
+        }
         match_symbol_map.insert(cproc.clone(), block);
     }
-    let def = Some(Box::new(err_block));
-    let ctrl = Ctrl::MatchSymbol(cproc_name.clone(), match_symbol_map, def);
+    let ctrl = Ctrl::MatchSymbol(cproc_name.clone(), match_symbol_map, None);
     let func_inp = vec![cproc_name, evaluated_args, env, cont];
     let ops = if max_arity == 0 {
         vec![

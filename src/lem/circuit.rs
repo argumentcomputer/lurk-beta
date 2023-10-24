@@ -57,6 +57,7 @@ use super::{
     Block, Ctrl, Func, Op, Tag, Var,
 };
 
+#[derive(Clone)]
 pub enum AllocatedVal<F: LurkField> {
     Pointer(AllocatedPtr<F>),
     Number(AllocatedNum<F>),
@@ -662,6 +663,9 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             }
             Op::Decons4(preimg, img) => {
                 decons_helper!(preimg, img, SlotType::Hash8);
+            }
+            Op::Copy(tgt, src) => {
+                bound_allocations.insert(tgt.clone(), bound_allocations.get_cloned(src)?);
             }
             Op::Null(tgt, tag) => {
                 use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
@@ -1396,7 +1400,7 @@ impl Func {
                         // three implies_u64, one sub and one linear
                         num_constraints += 197;
                     }
-                    Op::Not(..) | Op::Emit(_) | Op::Cproc(..) => (),
+                    Op::Not(..) | Op::Emit(_) | Op::Cproc(..) | Op::Copy(..) => (),
                     Op::Cons2(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));

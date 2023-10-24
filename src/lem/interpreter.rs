@@ -15,6 +15,7 @@ use crate::{
     tag::ExprTag::{Comm, Nil, Num, Sym},
 };
 
+#[derive(Clone)]
 pub enum Val<F: LurkField> {
     Pointer(Ptr<F>),
     Boolean(bool),
@@ -191,6 +192,9 @@ impl Block {
                     inner_call_outputs.push_front(frame.output);
                     hints = frame.hints;
                     hints.call_outputs.extend(inner_call_outputs);
+                }
+                Op::Copy(tgt, src) => {
+                    bindings.insert(tgt.clone(), bindings.get_cloned(src)?);
                 }
                 Op::Null(tgt, tag) => {
                     bindings.insert_ptr(tgt.clone(), Ptr::null(*tag));
