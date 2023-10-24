@@ -39,6 +39,7 @@ jobs:
           # Needed. The name of the branch to compare with
           branchName: ${{ github.ref_name }}
 
+  # TODO: Test timings with different architectures
   gpu-benchmark:
     name: run fibonacci benchmark on GPU
     runs-on: [self-hosted, gpu-bench-aws]
