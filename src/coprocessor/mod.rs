@@ -297,13 +297,17 @@ pub(crate) mod test {
             let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
 
             let result_expr0 =
-                AllocatedPtr::pick(&mut cs.namespace(|| "result_expr0"), &a_is_num, &c_ptr, &a)?;
-            let result_expr1 = AllocatedPtr::pick(
+                AllocatedPtr::pick(&mut cs.namespace(|| "result_expr0"), &b_is_num, &c_ptr, &b)?;
+
+            // If `a` is not a `Num`, then that error takes precedence, and we return `a`. Otherwise, return either the
+            // correct result or `b`, depending on whether `b` is a `Num` or not.
+            let result_expr = AllocatedPtr::pick(
                 &mut cs.namespace(|| "result_expr"),
-                &b_is_num,
+                &a_is_num,
                 &result_expr0,
-                &b,
+                &a,
             )?;
+
             let result_cont = AllocatedPtr::pick(
                 &mut cs.namespace(|| "result_cont"),
                 &types_are_correct,
@@ -311,7 +315,7 @@ pub(crate) mod test {
                 &cont_error,
             )?;
 
-            Ok((result_expr1, input_env.clone(), result_cont))
+            Ok((result_expr, input_env.clone(), result_cont))
         }
     }
 
