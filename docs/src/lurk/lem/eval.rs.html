@@ -1718,6 +1718,31 @@
 <a href="#1718" id="1718">1718</a>
 <a href="#1719" id="1719">1719</a>
 <a href="#1720" id="1720">1720</a>
+<a href="#1721" id="1721">1721</a>
+<a href="#1722" id="1722">1722</a>
+<a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
+<a href="#1737" id="1737">1737</a>
+<a href="#1738" id="1738">1738</a>
+<a href="#1739" id="1739">1739</a>
+<a href="#1740" id="1740">1740</a>
+<a href="#1741" id="1741">1741</a>
+<a href="#1742" id="1742">1742</a>
+<a href="#1743" id="1743">1743</a>
+<a href="#1744" id="1744">1744</a>
+<a href="#1745" id="1745">1745</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2029,13 +2054,18 @@
 ///     return (cproc, env, cont);
 /// }
 </span><span class="kw">fn </span>run_cproc(cproc_sym: Symbol, arity: usize) -&gt; Func {
-    <span class="kw">let </span>evaluated_args = Var::new(<span class="string">&quot;evaluated_args&quot;</span>);
+    <span class="kw">let </span>evaluated_args = <span class="kw">if </span>arity == <span class="number">0 </span>{
+        Var::new(<span class="string">&quot;_evaluated_args&quot;</span>)
+    } <span class="kw">else </span>{
+        Var::new(<span class="string">&quot;evaluated_args&quot;</span>)
+    };
     <span class="kw">let </span>expr = Var::new(<span class="string">&quot;expr&quot;</span>);
     <span class="kw">let </span>env = Var::new(<span class="string">&quot;env&quot;</span>);
     <span class="kw">let </span>cont = Var::new(<span class="string">&quot;cont&quot;</span>);
     <span class="kw">let </span>nil = Var::new(<span class="string">&quot;nil&quot;</span>);
     <span class="kw">let </span>is_nil = Var::new(<span class="string">&quot;is_nil&quot;</span>);
     <span class="kw">let </span>cproc = Var::new(<span class="string">&quot;cproc&quot;</span>);
+    <span class="kw">let </span>cproc_name = Var::new(<span class="string">&quot;cproc_name&quot;</span>);
     <span class="kw">let </span>cproc_out = <span class="macro">vec!</span>[expr.clone(), env.clone(), cont.clone()];
     <span class="kw">let </span>func_out = <span class="macro">vec!</span>[expr, env.clone(), cont.clone()];
     <span class="kw">let </span>err_block = Block {
@@ -2044,7 +2074,7 @@
     };
     <span class="kw">let </span>def_block = Block {
         ops: <span class="macro">vec!</span>[],
-        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(cproc, env, err)),
+        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(cproc, env, cont)),
     };
     <span class="kw">let </span><span class="kw-2">mut </span>cproc_inp = (<span class="number">0</span>..arity)
         .map(|i| Var(<span class="macro">format!</span>(<span class="string">&quot;x{i}&quot;</span>).into()))
@@ -2081,9 +2111,12 @@
     </span><span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::default();
     match_symbol_map.insert(cproc_sym, block);
     block = Block {
-        ops: <span class="macro">vec!</span>[<span class="macro">op!</span>(<span class="kw">let </span>(cproc_name, evaluated_args) = decons2(cproc))],
+        ops: <span class="macro">vec!</span>[Op::Decons2(
+            [cproc_name.clone(), evaluated_args],
+            cproc.clone(),
+        )],
         ctrl: Ctrl::MatchSymbol(
-            Var::new(<span class="string">&quot;cproc_name&quot;</span>),
+            cproc_name,
             match_symbol_map,
             <span class="prelude-val">Some</span>(Box::new(def_block.clone())),
         ),
@@ -2093,11 +2126,15 @@
     </span><span class="kw">let </span><span class="kw-2">mut </span>match_tag_map = IndexMap::default();
     match_tag_map.insert(Tag::Expr(Cproc), block);
     block = Block {
-        ops: <span class="macro">vec!</span>[
-            <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error),
-            <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
-            <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
-        ],
+        ops: <span class="kw">if </span>arity == <span class="number">0 </span>{
+            <span class="macro">vec!</span>[]
+        } <span class="kw">else </span>{
+            <span class="macro">vec!</span>[
+                <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error),
+                <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
+                <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
+            ]
+        },
         ctrl: Ctrl::MatchTag(cproc.clone(), match_tag_map, <span class="prelude-val">Some</span>(Box::new(def_block))),
     };
     <span class="kw">let </span>func_inp = <span class="macro">vec!</span>[cproc, env, cont];
@@ -2201,8 +2238,13 @@
 ///     return (cproc_name, env, err, errctrl);
 /// }
 </span><span class="kw">fn </span>match_and_run_cproc(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)]) -&gt; Func {
+    <span class="kw">let </span>max_arity = cprocs.iter().fold(<span class="number">0</span>, |acc, (<span class="kw">_</span>, a)| std::cmp::max(acc, <span class="kw-2">*</span>a));
     <span class="kw">let </span>cproc_name = Var::new(<span class="string">&quot;cproc_name&quot;</span>);
-    <span class="kw">let </span>evaluated_args = Var::new(<span class="string">&quot;evaluated_args&quot;</span>);
+    <span class="kw">let </span>evaluated_args = <span class="kw">if </span>max_arity == <span class="number">0 </span>{
+        Var::new(<span class="string">&quot;_evaluated_args&quot;</span>)
+    } <span class="kw">else </span>{
+        Var::new(<span class="string">&quot;evaluated_args&quot;</span>)
+    };
     <span class="kw">let </span>expr = Var::new(<span class="string">&quot;expr&quot;</span>);
     <span class="kw">let </span>env = Var::new(<span class="string">&quot;env&quot;</span>);
     <span class="kw">let </span>cont = Var::new(<span class="string">&quot;cont&quot;</span>);
@@ -2257,13 +2299,21 @@
     <span class="kw">let </span>def = <span class="prelude-val">Some</span>(Box::new(err_block));
     <span class="kw">let </span>ctrl = Ctrl::MatchSymbol(cproc_name.clone(), match_symbol_map, def);
     <span class="kw">let </span>func_inp = <span class="macro">vec!</span>[cproc_name, evaluated_args, env, cont];
-    <span class="kw">let </span>ops = <span class="macro">vec!</span>[
-        <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error),
-        <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
-        <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
-        <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>)),
-        <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>)),
-    ];
+    <span class="kw">let </span>ops = <span class="kw">if </span>max_arity == <span class="number">0 </span>{
+        <span class="macro">vec!</span>[
+            <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error),
+            <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>)),
+        ]
+    } <span class="kw">else </span>{
+        <span class="macro">vec!</span>[
+            <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error),
+            <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
+        ]
+    };
     Func::new(
         <span class="string">&quot;match_and_run_cproc&quot;</span>.into(),
         func_inp,
