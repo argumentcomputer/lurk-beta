@@ -1,16 +1,9 @@
-use lurk::field::LurkField;
-use lurk::ptr::Ptr;
-use lurk::store::Store;
-use lurk::writer::Write;
 use lurk::{
-    eval::{
-        empty_sym_env,
-        lang::{Coproc, Lang},
-        Evaluator,
-    },
-    state::State,
+    field::LurkField,
+    lem::{eval::evaluate_simple, pointers::Ptr, store::Store},
+    {eval::lang::Coproc, state::State},
 };
-use pasta_curves::pallas::Scalar;
+use pasta_curves::Fq;
 
 fn fib_expr<F: LurkField>(store: &Store<F>) -> Ptr<F> {
     let program = r#"
@@ -19,7 +12,7 @@ fn fib_expr<F: LurkField>(store: &Store<F>) -> Ptr<F> {
   (fib))
 "#;
 
-    store.read(program).unwrap()
+    store.read_with_default_state(program).unwrap()
 }
 
 // The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation contains a binding of the
@@ -35,20 +28,15 @@ fn fib_limit(n: usize, rc: usize) -> usize {
     rc * (frame / rc + usize::from(frame % rc != 0))
 }
 
-fn lurk_fib(store: &Store<Scalar>, n: usize, _rc: usize) -> Ptr<Scalar> {
-    let lang = Lang::<Scalar, Coproc<Scalar>>::new();
+fn lurk_fib(store: &Store<Fq>, n: usize, _rc: usize) -> Ptr<Fq> {
     let frame_idx = fib_frame(n);
     // let limit = fib_limit(n, rc);
     let limit = frame_idx;
     let fib_expr = fib_expr(store);
 
-    let frames = Evaluator::new(fib_expr, empty_sym_env(store), store, limit, &lang)
-        .get_frames()
-        .unwrap();
+    let (output, ..) = evaluate_simple::<Fq, Coproc<Fq>>(None, fib_expr, store, limit).unwrap();
 
-    let target_frame = frames.last().unwrap();
-
-    let target_env = target_frame.output.env;
+    let target_env = &output[1];
 
     // The result is the value of the second binding (of `A`), in the target env.
     // See relevant excerpt of execution trace below:
@@ -60,13 +48,13 @@ fn lurk_fib(store: &Store<Scalar>, n: usize, _rc: usize) -> Ptr<Scalar> {
     //       saved_env: (((NEXT . <FUNCTION (A) (LAMBDA (B) (NEXT B (+ A B)))>))), body: (FIB), continuation: Tail{ saved_env:
     //       NIL, continuation: Outermost } } }
 
-    let rest_bindings = store.cdr(&target_env).unwrap();
-    let second_binding = store.car(&rest_bindings).unwrap();
-    store.cdr(&second_binding).unwrap()
+    let (_, rest_bindings) = store.car_cdr(target_env).unwrap();
+    let (second_binding, _) = store.car_cdr(&rest_bindings).unwrap();
+    store.car_cdr(&second_binding).unwrap().1
 }
 
 fn main() {
-    let store = &mut Store::<Scalar>::new();
+    let store = &Store::<Fq>::default();
     let n: usize = std::env::args().collect::<Vec<_>>()[1].parse().unwrap();
     let state = State::init_lurk_state();
 
