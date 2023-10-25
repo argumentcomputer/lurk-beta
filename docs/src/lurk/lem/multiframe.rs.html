@@ -834,6 +834,21 @@
 <a href="#834" id="834">834</a>
 <a href="#835" id="835">835</a>
 <a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -845,7 +860,7 @@
 
 <span class="kw">use crate</span>::{
     circuit::gadgets::pointer::AllocatedPtr,
-    config::CONFIG,
+    config::lurk_config,
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
     eval::{lang::Lang, Meta},
@@ -969,13 +984,18 @@
         slots_witnesses: <span class="kw-2">&amp;</span>[SlotsWitness&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;, SynthesisError&gt; {
         <span class="macro">assert!</span>(cs.is_witness_generator());
-        <span class="macro">assert!</span>(CONFIG.parallelism.synthesis.is_parallel());
+        <span class="macro">assert!</span>(lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+            .perf
+            .parallelism
+            .synthesis
+            .is_parallel());
         <span class="macro">assert_eq!</span>(frames.len(), slots_witnesses.len());
         <span class="kw">const </span>MIN_CHUNK_SIZE: usize = <span class="number">10</span>;
 
         <span class="kw">let </span>num_frames = frames.len();
 
-        <span class="kw">let </span>chunk_size = CONFIG
+        <span class="kw">let </span>chunk_size = lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+            .perf
             .parallelism
             .synthesis
             .chunk_size(num_frames, MIN_CHUNK_SIZE);
@@ -1188,12 +1208,22 @@
                     allocations,
                 }
             };
-            <span class="kw">let </span>slots_witnesses = <span class="kw">if </span>CONFIG.parallelism.poseidon_witnesses.is_parallel() {
+            <span class="kw">let </span>slots_witnesses = <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+                .perf
+                .parallelism
+                .poseidon_witnesses
+                .is_parallel()
+            {
                 frames.par_iter().map(gen_slots_witness).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
             } <span class="kw">else </span>{
                 frames.iter().map(gen_slots_witness).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
             };
-            <span class="kw">if </span>CONFIG.parallelism.synthesis.is_parallel() {
+            <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+                .perf
+                .parallelism
+                .synthesis
+                .is_parallel()
+            {
                 <span class="self">self</span>.synthesize_frames_parallel(cs, g, store, input, frames, <span class="kw-2">&amp;</span>slots_witnesses)
             } <span class="kw">else </span>{
                 <span class="self">self</span>.synthesize_frames_sequential(

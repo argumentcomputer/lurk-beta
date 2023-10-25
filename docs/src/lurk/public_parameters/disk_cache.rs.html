@@ -83,6 +83,13 @@
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::create_dir_all;
 <span class="kw">use </span>std::io::{BufReader, BufWriter, Read};
 <span class="kw">use </span>std::marker::PhantomData;
@@ -91,12 +98,19 @@
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
 <span class="kw">use </span>nova::traits::Group;
 
+<span class="kw">use </span><span class="kw">crate</span>::config::lurk_config;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::proof::nova::{CurveCycleEquipped, PublicParams, G1, G2};
 <span class="kw">use </span><span class="kw">crate</span>::proof::MultiFrameTrait;
 <span class="kw">use </span><span class="kw">crate</span>::public_parameters::error::Error;
 
 <span class="kw">use </span><span class="kw">super</span>::instance::Instance;
+
+<span class="doccomment">/// Returns the public parameter disk cache directory, which has
+/// either been configured or defaults to `$HOME/.lurk/public_params`
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>public_params_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf {
+    <span class="kw-2">&amp;</span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>).public_params_dir
+}
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DiskCache&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
 <span class="kw">where

@@ -164,83 +164,308 @@
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
 <a href="#166" id="166">166</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! Global config for parallelism.
-</span><span class="kw">use </span>anyhow::bail;
-<span class="kw">use </span>once_cell::sync::Lazy;
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! Global config for Lurk
+//! Includes settings for cache locations, public parameters, and parallelism.
+</span><span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">pub static </span>CONFIG: Lazy&lt;Config&gt; = Lazy::new(init_config);
+<span class="kw">use </span>camino::Utf8PathBuf;
+<span class="kw">use </span>config::{Config, ConfigError, Environment, File};
+<span class="kw">use </span>once_cell::sync::OnceCell;
+<span class="kw">use </span>serde::Deserialize;
 
-<span class="kw">fn </span>canned_config_from_env() -&gt; <span class="prelude-ty">Option</span>&lt;CannedConfig&gt; {
-    <span class="kw">if let </span><span class="prelude-val">Ok</span>(x) = std::env::var(<span class="string">&quot;LURK_CANNED_CONFIG&quot;</span>) {
-        <span class="kw">let </span>canned = CannedConfig::try_from(x.as_str()).ok();
+<span class="kw">use </span><span class="kw">crate</span>::cli::paths::lurk_default_dir;
 
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="kw-2">&amp;</span>canned);
+<span class="doccomment">/// Global config variable for `Settings`
+</span><span class="kw">pub static </span>LURK_CONFIG: OnceCell&lt;Settings&gt; = OnceCell::new();
 
-        canned
-    } <span class="kw">else </span>{
-        <span class="prelude-val">None
-    </span>}
+<span class="doccomment">/// Global path variable for configuration file
+</span><span class="kw">pub static </span>LURK_CONFIG_FILE: OnceCell&lt;Utf8PathBuf&gt; = OnceCell::new();
+
+<span class="doccomment">/// Gets the `LURK_CONFIG` settings. If uninitialized, sets the global variable
+/// in the following order (greatest to least precedence):
+/// - `settings` map if provided, e.g. with key (&quot;public_params_dir&quot;, &quot;$HOME/lurk-rs/public_params&quot;)
+/// - Env var per setting, e.g. `LURK_PUBLIC_PARAMS_DIR`
+/// - Config file, which also has a configurable location (see `lurk_config_file()`),
+///   and has the following syntax for e.g. TOML:
+///   ```toml
+///   public_params_dir = &quot;/path/to/params&quot;
+///   ```
+///   Other file formats are supported by the `config` crate, but only TOML is tested
+/// - Default values, e.g. `$HOME/.lurk/public_params`
+</span><span class="kw">pub fn </span>lurk_config(
+    file: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Utf8PathBuf&gt;,
+    settings: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span>str, String&gt;&gt;,
+) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Settings {
+    LURK_CONFIG
+        .get_or_init(|| Settings::from_config(lurk_config_file(file), settings).unwrap_or_default())
 }
 
-<span class="attr">#[derive(Default, Debug)]
-</span><span class="kw">pub enum </span>Flow {
-    <span class="attr">#[default]
-    </span>Sequential,
-    Parallel,         <span class="comment">// Try to be smart.
-    </span>ParallelN(usize), <span class="comment">// How many threads to use? (Advisory, might be ignored.)
-</span>}
-
-<span class="kw">impl </span>Flow {
-    <span class="kw">pub fn </span>is_sequential(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Sequential)
-    }
-
-    <span class="kw">pub fn </span>is_parallel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        !<span class="self">self</span>.is_sequential()
-    }
-
-    <span class="kw">pub fn </span>num_threads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Sequential =&gt; <span class="number">1</span>,
-            <span class="self">Self</span>::Parallel =&gt; num_cpus::get(),
-            <span class="self">Self</span>::ParallelN(threads) =&gt; <span class="kw-2">*</span>threads,
-        }
-    }
-
-    <span class="kw">pub fn </span>chunk_size(<span class="kw-2">&amp;</span><span class="self">self</span>, total_n: usize, min_chunk_size: usize) -&gt; usize {
-        <span class="kw">if </span><span class="self">self</span>.is_sequential() {
-            total_n
+<span class="doccomment">/// Gets the `LURK_CONFIG_FILE` path. If uninitialized, sets the global variable
+/// in the following order (greatest to least precedence):
+/// - `config_file` parameter if provided, e.g. &quot;$HOME/lurk-rs/lurk-local.toml&quot;
+/// - `LURK_CONFIG_FILE` env var
+/// - Default location at `$HOME/.lurk/lurk.toml` or `&lt;current_dir&gt;/.config/lurk.toml` on WASM.
+</span><span class="kw">pub fn </span>lurk_config_file(config_file: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Utf8PathBuf&gt;) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf {
+    LURK_CONFIG_FILE.get_or_init(|| {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = config_file {
+            file.clone()
+        } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(file) = std::env::var(<span class="string">&quot;LURK_CONFIG_FILE&quot;</span>) {
+            Utf8PathBuf::from(file)
         } <span class="kw">else </span>{
-            <span class="kw">let </span>num_threads = <span class="self">self</span>.num_threads();
-            <span class="kw">let </span>divides_evenly = total_n % num_threads == <span class="number">0</span>;
+            lurk_default_dir().join(<span class="string">&quot;lurk.toml&quot;</span>)
+        }
+    })
+}
 
-            ((total_n / num_threads) + usize::from(!divides_evenly)).max(min_chunk_size)
+<span class="doccomment">/// Contains the Lurk config settings
+/// The `public_params_dir` setting can also be overriden by a CLI arg if in use
+</span><span class="attr">#[derive(Debug, Deserialize, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>Settings {
+    <span class="doccomment">/// Public parameter disk cache location
+    </span><span class="kw">pub </span>public_params_dir: Utf8PathBuf,
+
+    <span class="doccomment">/// Parallelism &amp; witness gen configs
+    </span><span class="kw">pub </span>perf: PerfConfig,
+}
+
+<span class="kw">impl </span>Settings {
+    <span class="doccomment">/// Loads config settings from a file or env vars
+    /// The public parameter disk cache can also be overriden by a CLI arg if applicable
+    </span><span class="kw">pub fn </span>from_config(
+        config_file: <span class="kw-2">&amp;</span>Utf8PathBuf,
+        settings: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span>str, String&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ConfigError&gt; {
+        <span class="kw">let </span>public_params = <span class="string">&quot;public_params_dir&quot;</span>;
+        <span class="comment">// Settings are read first to last, in order of increasing precedence.
+        // Hence, default values must come first so they are overriden by all other methods.
+        </span>Config::builder()
+            <span class="comment">// Default settings if unspecified in the config file
+            </span>.set_default(public_params, public_params_default_dir().to_string())<span class="question-mark">?
+            </span>.set_default(<span class="string">&quot;perf&quot;</span>, <span class="string">&quot;fully-sequential&quot;</span>.to_string())<span class="question-mark">?
+            </span>.add_source(File::with_name(config_file.as_str()).required(<span class="bool-val">false</span>))
+            <span class="comment">// Then override with any `LURK` environment variables
+            </span>.add_source(Environment::with_prefix(<span class="string">&quot;LURK&quot;</span>))
+            <span class="comment">// Optionally override if settings were specified via CLI arg
+            </span>.set_override_option(public_params, settings.and_then(|s| s.get(public_params).map(|v| v.to_owned())))<span class="question-mark">?
+            </span>.build()
+            .and_then(|c| c.try_deserialize())
+    }
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>Settings {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            public_params_dir: public_params_default_dir(),
+            perf: PerfConfig::default(),
         }
     }
 }
 
-<span class="attr">#[derive(Default, Debug)]
-</span><span class="kw">pub struct </span>ParallelConfig {
-    <span class="kw">pub </span>recursive_steps: Flow,    <span class="comment">// Multiple `StepCircuit`s.
-    </span><span class="kw">pub </span>synthesis: Flow,          <span class="comment">// Synthesis (within one `StepCircuit`)
-    </span><span class="kw">pub </span>poseidon_witnesses: Flow, <span class="comment">// The poseidon witness part of synthesis.
-</span>}
-
-<span class="doccomment">/// Should we use optimized witness-generation when possible?
-</span><span class="attr">#[derive(Debug, Default)]
-</span><span class="kw">pub struct </span>WitnessGeneration {
-    <span class="comment">// NOTE: Neptune itself *will* do this transparently at the level of individual hashes, where possible.
-    // so this configuration is only required for higher-level decisions.
-    </span><span class="kw">pub </span>precompute_neptune: bool,
+<span class="kw">pub fn </span>public_params_default_dir() -&gt; Utf8PathBuf {
+    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="kw">let </span>params_path = home_dir();
+    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    </span><span class="kw">let </span>params_path = Utf8PathBuf::new();
+    params_path.join(<span class="string">&quot;.lurk/public_params&quot;</span>)
 }
 
-<span class="attr">#[derive(Default, Debug)]
-</span><span class="kw">pub struct </span>Config {
-    <span class="kw">pub </span>parallelism: ParallelConfig,
-    <span class="kw">pub </span>witness_generation: WitnessGeneration,
+<span class="comment">// TODO: Should we crash if the user has no home dir?
+</span><span class="doccomment">/// Returns the home directory used by `cargo`` and `rustup`
+</span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">pub fn </span>home_dir() -&gt; Utf8PathBuf {
+    Utf8PathBuf::from_path_buf(home::home_dir().expect(<span class="string">&quot;missing home directory&quot;</span>))
+        .expect(<span class="string">&quot;path contains invalid Unicode&quot;</span>)
 }
 
-<span class="kw">impl </span>Config {
+<span class="doccomment">/// Performance-related configuration settings
+</span><span class="attr">#[derive(Default, Debug, PartialEq, Eq, Deserialize)]
+#[serde(from = <span class="string">&quot;CannedConfig&quot;</span>)]
+</span><span class="kw">pub struct </span>PerfConfig {
+    <span class="doccomment">/// Parallelism settings
+    </span><span class="kw">pub </span>parallelism: ParallelConfig,
+    <span class="doccomment">/// Witness generation settings
+    </span><span class="kw">pub </span>witness_generation: WitnessGeneration,
+}
+
+<span class="kw">impl </span>PerfConfig {
     <span class="kw">fn </span>fully_sequential() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             parallelism: ParallelConfig {
@@ -294,15 +519,82 @@
     }
 }
 
-<span class="attr">#[derive(Debug)]
+<span class="doccomment">/// Parallel configuration settings
+</span><span class="attr">#[derive(Default, Debug, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>ParallelConfig {
+    <span class="doccomment">/// Multiple `StepCircuit`s.
+    </span><span class="kw">pub </span>recursive_steps: Flow,
+    <span class="doccomment">/// Synthesis (within one `StepCircuit`)
+    </span><span class="kw">pub </span>synthesis: Flow,
+    <span class="doccomment">/// The poseidon witness part of synthesis.
+    </span><span class="kw">pub </span>poseidon_witnesses: Flow,
+}
+
+<span class="doccomment">/// Should we use optimized witness-generation when possible?
+</span><span class="attr">#[derive(Debug, Default, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>WitnessGeneration {
+    <span class="doccomment">/// NOTE: Neptune itself *will* do this transparently at the level of individual hashes, where possible.
+    /// so this configuration is only required for higher-level decisions.
+    </span><span class="kw">pub </span>precompute_neptune: bool,
+}
+
+<span class="doccomment">/// The level of parallelism used when synthesizing the Lurk circuit
+</span><span class="attr">#[derive(Default, Debug, PartialEq, Eq)]
+</span><span class="kw">pub enum </span>Flow {
+    <span class="doccomment">/// Runs without parallelism (default)
+    </span><span class="attr">#[default]
+    </span>Sequential,
+    <span class="doccomment">/// Try to be smart about thread management based on # of cpus
+    </span>Parallel,
+    <span class="doccomment">/// How many threads to use? (Advisory, might be ignored.)
+    </span>ParallelN(usize),
+}
+
+<span class="kw">impl </span>Flow {
+    <span class="doccomment">/// Returns `true` on `Flow::Sequential`
+    </span><span class="kw">pub fn </span>is_sequential(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Sequential)
+    }
+
+    <span class="doccomment">/// Returns `true` on `Flow::Parallel` or `Flow::ParallelN`
+    </span><span class="kw">pub fn </span>is_parallel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        !<span class="self">self</span>.is_sequential()
+    }
+
+    <span class="doccomment">/// Returns the number of parallel threads to run
+    </span><span class="kw">pub fn </span>num_threads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Sequential =&gt; <span class="number">1</span>,
+            <span class="self">Self</span>::Parallel =&gt; num_cpus::get(),
+            <span class="self">Self</span>::ParallelN(threads) =&gt; <span class="kw-2">*</span>threads,
+        }
+    }
+
+    <span class="doccomment">/// Returns the number of parallel steps to run per thread with `rayon::prelude::par_chunks()`
+    </span><span class="kw">pub fn </span>chunk_size(<span class="kw-2">&amp;</span><span class="self">self</span>, total_n: usize, min_chunk_size: usize) -&gt; usize {
+        <span class="kw">if </span><span class="self">self</span>.is_sequential() {
+            total_n
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>num_threads = <span class="self">self</span>.num_threads();
+            <span class="kw">let </span>divides_evenly = total_n % num_threads == <span class="number">0</span>;
+
+            ((total_n / num_threads) + usize::from(!divides_evenly)).max(min_chunk_size)
+        }
+    }
+}
+
+<span class="doccomment">/// Shortcut to easily set `PerfConfig`
+</span><span class="attr">#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = <span class="string">&quot;kebab-case&quot;</span>)]
 </span><span class="kw">enum </span>CannedConfig {
-    FullySequential,
+    <span class="attr">#[default]
+    </span>FullySequential,
     MaxParallelSimple,
     ParallelStepsOnly,
     ParallelSynthesis,
 }
 
-<span class="kw">impl </span>From&lt;CannedConfig&gt; <span class="kw">for </span>Config {
+<span class="kw">impl </span>From&lt;CannedConfig&gt; <span class="kw">for </span>PerfConfig {
     <span class="kw">fn </span>from(canned: CannedConfig) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>canned {
             CannedConfig::FullySequential =&gt; <span class="self">Self</span>::fully_sequential(),
@@ -313,21 +605,85 @@
     }
 }
 
-<span class="kw">impl </span>TryFrom&lt;<span class="kw-2">&amp;</span>str&gt; <span class="kw">for </span>CannedConfig {
-    <span class="kw">type </span>Error = anyhow::Error;
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>camino::Utf8Path;
+    <span class="kw">use </span>std::io::prelude::<span class="kw-2">*</span>;
+    <span class="kw">use </span>std::{collections::HashMap, fs::File};
+    <span class="kw">use </span>tempfile::Builder;
 
-    <span class="kw">fn </span>try_from(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="kw">match </span>s {
-            <span class="string">&quot;FULLY-SEQUENTIAL&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::FullySequential),
-            <span class="string">&quot;MAX-PARALLEL-SIMPLE&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::MaxParallelSimple),
-            <span class="string">&quot;PARALLEL-SYNTHESIS&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::ParallelSynthesis),
-            <span class="string">&quot;PARALLEL-STEPS-ONLY&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::ParallelStepsOnly),
-            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Invalid CannedConfig: {s}&quot;</span>),
-        }
+    <span class="kw">use </span><span class="kw">crate</span>::config::{CannedConfig, PerfConfig, Settings};
+
+    <span class="comment">// Tests a generic config file with identical syntax to that used in `LURK_CONFIG`
+    // Doesn&#39;t test `OnceCell` behavior as the tests seem to share memory
+    </span><span class="attr">#[test]
+    </span><span class="kw">fn </span>test_config_lurk() {
+        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
+        <span class="kw">let </span>tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
+        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">&quot;lurk.toml&quot;</span>);
+        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">&quot;public_params&quot;</span>).into_string();
+        <span class="kw">let </span>perf_config = PerfConfig::from(CannedConfig::MaxParallelSimple);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>config_file = File::create(config_dir.clone()).unwrap();
+        config_file
+            .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir}\&quot;\n&quot;</span>).as_bytes())
+            .unwrap();
+        config_file
+            .write_all(<span class="string">&quot;perf = \&quot;max-parallel-simple\&quot;\n&quot;</span>.as_bytes())
+            .unwrap();
+
+        <span class="kw">let </span>config = Settings::from_config(<span class="kw-2">&amp;</span>config_dir, <span class="prelude-val">None</span>).unwrap();
+
+        <span class="macro">assert_eq!</span>(config.public_params_dir, public_params_dir);
+        <span class="macro">assert_eq!</span>(config.perf, perf_config);
     }
-}
 
-<span class="kw">fn </span>init_config() -&gt; Config {
-    canned_config_from_env().map_or_else(Config::fully_sequential, |x| x.into())
+    <span class="comment">// Tests overwriting the config file and CLI argument
+    // Doesn&#39;t test env var as it can overwrite other tests when run in parallel
+    </span><span class="attr">#[test]
+    </span><span class="kw">fn </span>test_config_override() {
+        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
+        <span class="kw">let </span>tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
+        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">&quot;lurk.toml&quot;</span>);
+        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">&quot;public_params&quot;</span>).into_string();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>config_file = File::create(config_dir.clone()).unwrap();
+        config_file
+            .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir}\&quot;\n&quot;</span>).as_bytes())
+            .unwrap();
+        config_file
+            .write_all(<span class="string">&quot;perf = \&quot;parallel-steps-only\&quot;\n&quot;</span>.as_bytes())
+            .unwrap();
+
+        <span class="comment">// Overwrite public params dir to simulate CLI setting
+        </span><span class="kw">let </span>public_params_dir_cli = tmp_dir.join(<span class="string">&quot;public_params_cli&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>overrides = HashMap::new();
+        overrides.insert(<span class="string">&quot;public_params_dir&quot;</span>, public_params_dir_cli.to_string());
+
+        <span class="kw">let </span>config = Settings::from_config(<span class="kw-2">&amp;</span>config_dir, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>overrides)).unwrap();
+
+        <span class="macro">assert_eq!</span>(config.public_params_dir, public_params_dir_cli);
+        <span class="macro">assert_eq!</span>(config.perf, PerfConfig::parallel_steps_only());
+    }
+
+    <span class="comment">// Tests that duplicate config keys result in an error
+    </span><span class="attr">#[test]
+    </span><span class="kw">fn </span>test_config_duplicate() {
+        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
+        <span class="kw">let </span>tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
+        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">&quot;lurk.toml&quot;</span>);
+        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">&quot;public_params&quot;</span>).into_string();
+        <span class="kw">let </span>public_params_dir_dup = tmp_dir.join(<span class="string">&quot;public_params_dup&quot;</span>).into_string();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>config_file = File::create(config_dir.clone()).unwrap();
+        config_file
+            .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir}\&quot;\n&quot;</span>).as_bytes())
+            .unwrap();
+        config_file
+            .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir_dup}\&quot;\n&quot;</span>).as_bytes())
+            .unwrap();
+
+        <span class="macro">assert!</span>(Settings::from_config(<span class="kw-2">&amp;</span>config_dir, <span class="prelude-val">None</span>).is_err())
+    }
 }
 </code></pre></div></section></main></body></html>

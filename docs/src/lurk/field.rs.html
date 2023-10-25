@@ -479,13 +479,16 @@
 <a href="#479" id="479">479</a>
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 </span><span class="doccomment">//! The finite field used in the language.
 //!
 //! This defines the LurkField trait used pervasively in the code base
 //! as an extension of the ff::PrimeField trait, with conveniance methods
 //! relating this field to the expresions of the language.
-</span><span class="kw">use </span>ff::{PrimeField, PrimeFieldBits};
+</span><span class="kw">use </span>clap::ValueEnum;
+<span class="kw">use </span>ff::{PrimeField, PrimeFieldBits};
 <span class="kw">use </span>nova::provider::bn256_grumpkin::bn256;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::convert::TryFrom;
@@ -512,11 +515,12 @@
 /// Because confusion on this point, perhaps combined with cargo-cult copying of incorrect previous usage has led to
 /// inconsistencies and inaccuracies in the code base, please prefer the named Scalar forms when correspondence to a
 /// named `LanguageField` is important.
-</span><span class="attr">#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+</span><span class="attr">#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ValueEnum)]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test)]
 </span><span class="kw">pub enum </span>LanguageField {
     <span class="doccomment">/// The Pallas field,
+    </span><span class="attr">#[default]
     </span>Pallas,
     <span class="doccomment">/// The Vesta field,
     </span>Vesta,

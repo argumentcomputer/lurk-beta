@@ -89,106 +89,13 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
-<span class="kw">use </span>once_cell::sync::OnceCell;
 
-<span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fs;
 
-<span class="kw">use </span><span class="kw">crate</span>::public_parameters::public_params_default_dir;
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>LURK_DIRS: OnceCell&lt;LurkDirs&gt; = OnceCell::new();
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>LurkDirs {
-    public_params: Utf8PathBuf,
-    proofs: Utf8PathBuf,
-    commits: Utf8PathBuf,
-    circom: Utf8PathBuf,
-}
+<span class="kw">use </span><span class="kw">crate</span>::cli::config::cli_config;
+<span class="kw">use </span><span class="kw">crate</span>::public_parameters::disk_cache::public_params_dir;
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">fn </span>home_dir() -&gt; Utf8PathBuf {
@@ -197,81 +104,40 @@
 }
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">fn </span>lurk_dir() -&gt; Utf8PathBuf {
+</span><span class="kw">pub fn </span>lurk_default_dir() -&gt; Utf8PathBuf {
     home_dir().join(Utf8Path::new(<span class="string">&quot;.lurk&quot;</span>))
 }
 
 <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>lurk_dir() -&gt; Utf8PathBuf {
+</span><span class="kw">pub fn </span>lurk_default_dir() -&gt; Utf8PathBuf {
     Utf8PathBuf::from(<span class="string">&quot;.lurk&quot;</span>)
 }
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proofs_default_dir() -&gt; Utf8PathBuf {
-    <span class="kw">let </span>home = home::home_dir().unwrap();
-    Utf8PathBuf::from_path_buf(home.join(<span class="string">&quot;.lurk/proofs&quot;</span>)).expect(<span class="string">&quot;path contains invalid Unicode&quot;</span>)
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proofs_default_dir() -&gt; Utf8PathBuf {
+    lurk_default_dir().join(<span class="string">&quot;proofs&quot;</span>)
 }
 
-<span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proofs_default_dir() -&gt; Utf8PathBuf {
-    Utf8PathBuf::from(<span class="string">&quot;.lurk/public_params&quot;</span>)
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commits_default_dir() -&gt; Utf8PathBuf {
+    lurk_default_dir().join(<span class="string">&quot;commits&quot;</span>)
 }
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commits_default_dir() -&gt; Utf8PathBuf {
-    <span class="kw">let </span>home = home::home_dir().unwrap();
-    Utf8PathBuf::from_path_buf(home.join(<span class="string">&quot;.lurk/commits&quot;</span>)).expect(<span class="string">&quot;path contains invalid Unicode&quot;</span>)
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>circom_default_dir() -&gt; Utf8PathBuf {
+    lurk_default_dir().join(<span class="string">&quot;circom&quot;</span>)
 }
 
-<span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commits_default_dir() -&gt; Utf8PathBuf {
-    Utf8PathBuf::from(<span class="string">&quot;.lurk/commits&quot;</span>)
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proofs_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf {
+    <span class="kw-2">&amp;</span>cli_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>).proofs_dir
 }
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>circom_default_dir() -&gt; Utf8PathBuf {
-    <span class="kw">let </span>home = home::home_dir().unwrap();
-    Utf8PathBuf::from_path_buf(home.join(<span class="string">&quot;.lurk/circom&quot;</span>)).expect(<span class="string">&quot;path contains invalid Unicode&quot;</span>)
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commits_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf {
+    <span class="kw-2">&amp;</span>cli_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>).commits_dir
 }
 
-<span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>circom_default_dir() -&gt; Utf8PathBuf {
-    Utf8PathBuf::from(<span class="string">&quot;.lurk/circom&quot;</span>)
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>circom_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf {
+    <span class="kw-2">&amp;</span>cli_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>).circom_dir
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>public_params_dir() -&gt; Utf8PathBuf {
-    LURK_DIRS
-        .get()
-        .expect(<span class="string">&quot;failed to initialize beforehand with `set_lurk_dirs()`&quot;</span>)
-        .public_params
-        .to_owned()
-}
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proofs_dir() -&gt; Utf8PathBuf {
-    LURK_DIRS
-        .get()
-        .expect(<span class="string">&quot;failed to initialize beforehand with `set_lurk_dirs()`&quot;</span>)
-        .proofs
-        .to_owned()
-}
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commits_dir() -&gt; Utf8PathBuf {
-    LURK_DIRS
-        .get()
-        .expect(<span class="string">&quot;failed to initialize beforehand with `set_lurk_dirs()`&quot;</span>)
-        .commits
-        .to_owned()
-}
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>circom_dir() -&gt; Utf8PathBuf {
-    LURK_DIRS
-        .get()
-        .expect(<span class="string">&quot;failed to initialize beforehand with `set_lurk_dirs()`&quot;</span>)
-        .circom
-        .to_owned()
-}
-
-<span class="kw">fn </span>lurk_leaf_dirs() -&gt; [Utf8PathBuf; <span class="number">4</span>] {
+<span class="kw">fn </span>lurk_leaf_dirs() -&gt; [<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf; <span class="number">4</span>] {
     [
         proofs_dir(),
         commits_dir(),
@@ -280,41 +146,9 @@
     ]
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_lurk_dirs(
-    config: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
-    public_params_dir: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
-    proofs_dir: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
-    commits_dir: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
-    circom_dir: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
-) {
-    <span class="kw">let </span>get_path = |given_path: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;, config_key: <span class="kw-2">&amp;</span>str, default: Utf8PathBuf| {
-        given_path.clone().unwrap_or_else(|| {
-            config
-                .get(config_key)
-                .map_or_else(|| default, Utf8PathBuf::from)
-        })
-    };
-
-    <span class="kw">let </span>public_params = get_path(
-        public_params_dir,
-        <span class="string">&quot;public_params&quot;</span>,
-        public_params_default_dir(),
-    );
-    <span class="kw">let </span>proofs = get_path(proofs_dir, <span class="string">&quot;proofs&quot;</span>, proofs_default_dir());
-    <span class="kw">let </span>commits = get_path(commits_dir, <span class="string">&quot;commits&quot;</span>, commits_default_dir());
-    <span class="kw">let </span>circom = get_path(circom_dir, <span class="string">&quot;circom&quot;</span>, circom_default_dir());
-
-    LURK_DIRS.get_or_init(|| LurkDirs {
-        public_params,
-        proofs,
-        commits,
-        circom,
-    });
-
-    create_lurk_dirs().unwrap();
-}
-
-<span class="doccomment">/// Must call this function after setting `LURK_DIRS` via the `set_lurk_dirs()` function
+<span class="comment">// Creates dirs for public params, proofs, commits, and circom
+// NOTE: call this function after `cli_config()` or `lurk_config()` if non-default
+// config settings are desired, as it will initialize them if unset
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_lurk_dirs() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">for </span>dir <span class="kw">in </span>lurk_leaf_dirs() {
         fs::create_dir_all(dir)<span class="question-mark">?</span>;
@@ -324,7 +158,7 @@
 
 <span class="comment">// Not currently configurable
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>repl_history() -&gt; Utf8PathBuf {
-    lurk_dir().join(Utf8Path::new(<span class="string">&quot;repl-history&quot;</span>))
+    lurk_default_dir().join(Utf8Path::new(<span class="string">&quot;repl-history&quot;</span>))
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commitment_path(name: <span class="kw-2">&amp;</span>str) -&gt; Utf8PathBuf {

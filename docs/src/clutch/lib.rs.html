@@ -594,23 +594,13 @@
 <a href="#594" id="594">594</a>
 <a href="#595" id="595">595</a>
 <a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
 
 </span><span class="kw">use </span>anyhow::{anyhow, bail, Context, Error, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>camino::Utf8PathBuf;
 <span class="kw">use </span>clap::{Arg, ArgAction, Command};
 <span class="kw">use </span>fcomm::{
-    committed_expression_store, file_map::data_dir, nova_proof_cache, Claim, Commitment,
-    CommittedExpression, CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof,
-    PtrEvaluation,
+    committed_expression_store, nova_proof_cache, Claim, Commitment, CommittedExpression,
+    CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
 <span class="kw">use </span>lurk::circuit::circuit_frame::MultiFrame;
 <span class="kw">use </span>lurk::lurk_sym_ptr;
@@ -644,10 +634,6 @@
 <span class="kw">use </span>std::thread;
 
 <span class="kw">const </span>DEFAULT_REDUCTION_COUNT: usize = <span class="number">10</span>;
-
-<span class="kw">pub fn </span>public_param_dir() -&gt; Utf8PathBuf {
-    data_dir().join(<span class="string">&quot;public_params&quot;</span>)
-}
 
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">struct </span>Demo {
@@ -749,9 +735,7 @@
         <span class="kw">let </span>lang_rc = Arc::new(lang.clone());
         <span class="kw">let </span>instance = Instance::new(reduction_count, lang_rc, <span class="bool-val">true</span>, Kind::NovaPublicParams);
         <span class="comment">// Load params from disk cache, or generate them in the background.
-        </span>thread::spawn(<span class="kw">move </span>|| {
-            public_params::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">&#39;_</span>, <span class="kw">_</span>, Coproc&lt;<span class="kw">_</span>&gt;&gt;&gt;(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;</span>public_param_dir())
-        });
+        </span>thread::spawn(<span class="kw">move </span>|| public_params::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">&#39;_</span>, <span class="kw">_</span>, Coproc&lt;<span class="kw">_</span>&gt;&gt;&gt;(<span class="kw-2">&amp;</span>instance));
 
         <span class="self">Self </span>{
             repl_state: ReplState::new(s, limit, command, lang),
@@ -1131,7 +1115,7 @@
             <span class="bool-val">true</span>,
             Kind::NovaPublicParams,
         );
-        <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;</span>public_param_dir())<span class="question-mark">?</span>;
+        <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>proof = <span class="kw">if </span>rest.is_nil() {
             <span class="self">self</span>.last_claim
@@ -1196,7 +1180,7 @@
             <span class="bool-val">true</span>,
             Kind::NovaPublicParams,
         );
-        <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;</span>public_param_dir())<span class="question-mark">?</span>;
+        <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
         <span class="kw">let </span>result = proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span><span class="self">self</span>.lang()).unwrap();
 
         <span class="kw">if </span>result.verified {

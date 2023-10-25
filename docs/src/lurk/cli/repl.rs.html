@@ -548,7 +548,7 @@
 <span class="kw">use </span>tracing::info;
 
 <span class="kw">use crate</span>::{
-    cli::paths::{proof_path, public_params_dir},
+    cli::paths::proof_path,
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
@@ -779,7 +779,7 @@
                         <span class="macro">info!</span>(<span class="string">&quot;Loading public parameters&quot;</span>);
                         <span class="kw">let </span>instance =
                             Instance::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone(), <span class="bool-val">true</span>, Kind::NovaPublicParams);
-                        <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;</span>public_params_dir())<span class="question-mark">?</span>;
+                        <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
 
                         <span class="kw">let </span>prover = NovaProver::&lt;F, Coproc&lt;F&gt;, MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, Coproc&lt;F&gt;&gt;&gt;::new(
                             <span class="self">self</span>.rc,

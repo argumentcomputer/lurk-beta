@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["public_param_dir"],"struct":["ClutchState"]};
+window.SIDEBAR_ITEMS = {"struct":["ClutchState"]};

@@ -6484,6 +6484,14 @@
 <a href="#6484" id="6484">6484</a>
 <a href="#6485" id="6485">6485</a>
 <a href="#6486" id="6486">6486</a>
+<a href="#6487" id="6487">6487</a>
+<a href="#6488" id="6488">6488</a>
+<a href="#6489" id="6489">6489</a>
+<a href="#6490" id="6490">6490</a>
+<a href="#6491" id="6491">6491</a>
+<a href="#6492" id="6492">6492</a>
+<a href="#6493" id="6493">6493</a>
+<a href="#6494" id="6494">6494</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -6501,7 +6509,7 @@
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
-    config::CONFIG,
+    config::lurk_config,
     eval::{empty_sym_env, lang::Lang},
     field::LurkField,
     hash::HashConst,
@@ -6967,7 +6975,13 @@
         frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt;],
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     ) -&gt; (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;) {
-        <span class="kw">if </span>cs.is_witness_generator() &amp;&amp; CONFIG.parallelism.synthesis.is_parallel() {
+        <span class="kw">if </span>cs.is_witness_generator()
+            &amp;&amp; lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+                .perf
+                .parallelism
+                .synthesis
+                .is_parallel()
+        {
             <span class="self">self</span>.synthesize_frames_parallel(cs, store, input_expr, input_env, input_cont, frames, g)
         } <span class="kw">else </span>{
             <span class="self">self</span>.synthesize_frames_sequential(
@@ -7072,14 +7086,16 @@
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     ) -&gt; (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;) {
         <span class="macro">assert!</span>(cs.is_witness_generator());
-        <span class="macro">assert!</span>(CONFIG.parallelism.synthesis.is_parallel());
+        <span class="kw">let </span>config = lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
+        <span class="macro">assert!</span>(config.perf.parallelism.synthesis.is_parallel());
 
         <span class="comment">// TODO: this probably belongs in config, perhaps per-Flow.
         </span><span class="kw">const </span>MIN_CHUNK_SIZE: usize = <span class="number">10</span>;
 
         <span class="kw">let </span>num_frames = frames.len();
 
-        <span class="kw">let </span>chunk_size = CONFIG
+        <span class="kw">let </span>chunk_size = config
+            .perf
             .parallelism
             .synthesis
             .chunk_size(num_frames, MIN_CHUNK_SIZE);
@@ -7138,7 +7154,7 @@
                         };
                     }
 
-                    <span class="kw">if </span>CONFIG.parallelism.poseidon_witnesses.is_parallel() {
+                    <span class="kw">if </span>config.perf.parallelism.poseidon_witnesses.is_parallel() {
                         chunk.par_iter().map(<span class="macro">f!</span>()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
                     } <span class="kw">else </span>{
                         chunk.iter().map(<span class="macro">f!</span>()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()

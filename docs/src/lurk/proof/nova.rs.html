@@ -725,6 +725,11 @@
 <a href="#725" id="725">725</a>
 <a href="#726" id="726">726</a>
 <a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -759,7 +764,7 @@
         },
         CircuitFrame, MultiFrame,
     },
-    config::CONFIG,
+    config::lurk_config,
     coprocessor::Coprocessor,
     error::ProofError,
     eval::{lang::Lang, Meta},
@@ -1152,7 +1157,12 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt; = recursive_snark;
 
         <span class="comment">// the shadowing here is voluntary
-        </span><span class="kw">let </span>recursive_snark = <span class="kw">if </span>CONFIG.parallelism.recursive_steps.is_parallel() {
+        </span><span class="kw">let </span>recursive_snark = <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+            .perf
+            .parallelism
+            .recursive_steps
+            .is_parallel()
+        {
             <span class="kw">let </span>cc = circuits
                 .iter()
                 .map(|c| Mutex::new(c.clone()))
