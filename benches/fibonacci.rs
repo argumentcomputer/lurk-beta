@@ -118,11 +118,21 @@ fn fibo_prove<M: measurement::Measurement>(
     );
 }
 
+fn get_rc_env() -> Vec<usize> {
+    let rc_env = std::env::var("LURK_RC").unwrap_or("100".into());
+    rc_env
+        .split(',')
+        .filter_map(|rc| rc.parse::<usize>().ok())
+        .collect()
+}
+
 fn fibonacci_prove(c: &mut Criterion) {
     set_bench_config();
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
-    let reduction_counts = [100, 600, 700, 800, 900];
+    let reduction_counts = get_rc_env();
+    tracing::debug!("Fibonacci bench RCs: {:?}", &reduction_counts);
     let batch_sizes = [100, 200];
+
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
