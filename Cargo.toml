@@ -21,7 +21,7 @@ bellpepper-core = { workspace = true }
 bincode = { workspace = true }
 blstrs = { workspace = true }
 bytecount = "=0.6.4"
-camino = { workspace = true }
+camino = { workspace = true, features = ["serde1"] }
 clap = { workspace = true, features = ["derive"] }
 config = "0.13.3"
 dashmap = "5.5.0"
@@ -34,7 +34,7 @@ itertools = "0.9"
 lurk-macros = { path = "lurk-macros" }
 lurk-metrics = { path = "lurk-metrics" }
 metrics = { workspace = true }
-neptune = { workspace = true, features = ["arity2","arity4","arity8","arity16","pasta","bls"] }
+neptune = { workspace = true, features = ["arity2", "arity4", "arity8", "arity16", "pasta", "bls"] }
 nom = "7.1.3"
 nom_locate = "4.1.0"
 nova = { workspace = true }
@@ -58,7 +58,7 @@ serde_repr = "0.1.14"
 tap = "1.0.1"
 stable_deref_trait = "1.2.0"
 thiserror = { workspace = true }
-abomonation = { workspace = true}
+abomonation = { workspace = true }
 abomonation_derive = { git = "https://github.com/lurk-lab/abomonation_derive.git" }
 crossbeam = "0.8.2"
 byteorder = "1.4.3"
@@ -69,7 +69,7 @@ ansi_term = "0.12.1"
 tracing = { workspace = true }
 tracing-texray = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-elsa = { version = "1.9.0", git="https://github.com/lurk-lab/elsa", branch = "sync_index_map", features = ["indexmap"] }
+elsa = { version = "1.9.0", git = "https://github.com/lurk-lab/elsa", branch = "sync_index_map", features = ["indexmap"] }
 arc-swap = "1.6.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -78,7 +78,10 @@ pasta-msm = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = "0.8.5"
-rustyline = { version = "11.0", features = ["derive", "with-file-history"], default-features = false }
+rustyline = { version = "11.0", features = [
+    "derive",
+    "with-file-history",
+], default-features = false }
 home = "0.5.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -110,12 +113,7 @@ vergen = { version = "8", features = ["build", "git", "gitcl"] }
 
 [workspace]
 resolver = "2"
-members = [
-    "clutch",
-    "fcomm",
-    "lurk-macros",
-    "lurk-metrics"
-]
+members = ["clutch", "fcomm", "lurk-macros", "lurk-metrics"]
 
 # Dependencies that should be kept in sync through the whole workspace
 [workspace.dependencies]
@@ -199,4 +197,4 @@ harness = false
 
 [patch.crates-io]
 # This is needed to ensure halo2curves, which imports pasta-curves, uses the *same* traits in bn256_grumpkin
-pasta_curves = { git="https://github.com/lurk-lab/pasta_curves", branch="dev" }
+pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch = "dev" }

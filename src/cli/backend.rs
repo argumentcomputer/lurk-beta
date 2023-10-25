@@ -1,8 +1,12 @@
 use anyhow::{bail, Result};
+use clap::ValueEnum;
+use serde::Deserialize;
 
 use crate::field::LanguageField;
 
+#[derive(Clone, Default, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
 pub enum Backend {
+    #[default]
     Nova,
 }
 
@@ -15,12 +19,6 @@ impl std::fmt::Display for Backend {
 }
 
 impl Backend {
-    pub(crate) fn default_field(&self) -> LanguageField {
-        match self {
-            Self::Nova => LanguageField::Pallas,
-        }
-    }
-
     fn compatible_fields(&self) -> Vec<LanguageField> {
         use LanguageField::{Pallas, Vesta};
         match self {

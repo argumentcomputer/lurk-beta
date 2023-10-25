@@ -1,4 +1,3 @@
-use camino::Utf8Path;
 use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode,
 };
@@ -25,7 +24,9 @@ use lurk::{
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
+mod common;
+use common::set_bench_config;
+
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
 fn go_base<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64, b: u64) -> Ptr<F> {
@@ -57,6 +58,7 @@ fn end2end_benchmark(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(120))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
@@ -74,11 +76,7 @@ fn end2end_benchmark(c: &mut Criterion) {
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("end2end_go_base_nova", format!("_{}_{}", size.0, size.1));
@@ -241,6 +239,7 @@ fn prove_benchmark(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(120))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
@@ -251,17 +250,15 @@ fn prove_benchmark(c: &mut Criterion) {
     let benchmark_id = BenchmarkId::new("prove_go_base_nova", format!("_{}_{}", size.0, size.1));
 
     let state = State::init_lurk_state().rccell();
+
+    // use cached public params
     let instance = Instance::new(
         reduction_count,
         lang_pallas_rc.clone(),
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
@@ -293,6 +290,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(120))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
@@ -306,17 +304,15 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
     );
 
     let state = State::init_lurk_state().rccell();
+
+    // use cached public params
     let instance = Instance::new(
         reduction_count,
         lang_pallas_rc.clone(),
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
@@ -349,6 +345,7 @@ fn verify_benchmark(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(10))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
@@ -356,17 +353,15 @@ fn verify_benchmark(c: &mut Criterion) {
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     let state = State::init_lurk_state().rccell();
+
+    // use cached public params
     let instance = Instance::new(
         reduction_count,
         lang_pallas_rc.clone(),
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     let sizes = vec![(10, 0)];
     for size in sizes {
@@ -411,6 +406,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(10))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
@@ -418,17 +414,15 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     let state = State::init_lurk_state().rccell();
+
+    // use cached public params
     let instance = Instance::new(
         reduction_count,
         lang_pallas_rc.clone(),
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     let sizes = vec![(10, 0)];
     for size in sizes {

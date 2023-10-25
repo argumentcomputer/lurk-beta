@@ -13,7 +13,7 @@ use std::{cell::RefCell, collections::HashMap, fs::read_to_string, rc::Rc, sync:
 use tracing::info;
 
 use crate::{
-    cli::paths::{proof_path, public_params_dir},
+    cli::paths::proof_path,
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
@@ -244,7 +244,7 @@ impl Repl<F> {
                         info!("Loading public parameters");
                         let instance =
                             Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
-                        let pp = public_params(&instance, &public_params_dir())?;
+                        let pp = public_params(&instance)?;
 
                         let prover = NovaProver::<F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
                             self.rc,

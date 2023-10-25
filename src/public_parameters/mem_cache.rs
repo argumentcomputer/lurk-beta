@@ -4,7 +4,6 @@ use std::{
 };
 
 use abomonation::{decode, Abomonation};
-use camino::Utf8Path;
 use nova::traits::Group;
 use once_cell::sync::Lazy;
 use tap::TapFallible;
@@ -17,7 +16,10 @@ use crate::{
 };
 use crate::{proof::nova::CurveCycleEquipped, public_parameters::error::Error};
 
-use super::{disk_cache::DiskCache, instance::Instance};
+use super::{
+    disk_cache::{public_params_dir, DiskCache},
+    instance::Instance,
+};
 
 type AnyMap = anymap::Map<dyn core::any::Any + Send + Sync>;
 type PublicParamMap<F, M> = HashMap<(usize, bool), Arc<PublicParams<F, M>>>;
@@ -47,14 +49,13 @@ impl PublicParamMemCache {
         &'static self,
         instance: &Instance<'static, F, C, M>,
         default: Fn,
-        disk_cache_path: &Utf8Path,
     ) -> Result<Arc<PublicParams<F, M>>, Error>
     where
         <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
         <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     {
         // subdirectory search
-        let disk_cache = DiskCache::new(disk_cache_path).unwrap();
+        let disk_cache = DiskCache::new(public_params_dir()).unwrap();
 
         // read the file if it exists, otherwise initialize
         if instance.abomonated {
@@ -108,7 +109,6 @@ impl PublicParamMemCache {
         &'static self,
         instance: &Instance<'static, F, C, M>,
         default: Fn,
-        disk_cache_path: &Utf8Path,
     ) -> Result<Arc<PublicParams<F, M>>, Error>
     where
         F::CK1: Sync + Send,
@@ -125,8 +125,7 @@ impl PublicParamMemCache {
         match param_entry.entry((instance.rc, instance.abomonated)) {
             Entry::Occupied(o) => Ok(o.into_mut()),
             Entry::Vacant(v) => {
-                let val =
-                    self.get_from_disk_cache_or_update_with(instance, default, disk_cache_path)?;
+                let val = self.get_from_disk_cache_or_update_with(instance, default)?;
                 Ok(v.insert(val))
             }
         }

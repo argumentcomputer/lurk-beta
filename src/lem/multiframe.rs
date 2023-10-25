@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
-    config::CONFIG,
+    config::lurk_config,
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
     eval::{lang::Lang, Meta},
@@ -133,13 +133,18 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         slots_witnesses: &[SlotsWitness<F>],
     ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
         assert!(cs.is_witness_generator());
-        assert!(CONFIG.parallelism.synthesis.is_parallel());
+        assert!(lurk_config(None, None)
+            .perf
+            .parallelism
+            .synthesis
+            .is_parallel());
         assert_eq!(frames.len(), slots_witnesses.len());
         const MIN_CHUNK_SIZE: usize = 10;
 
         let num_frames = frames.len();
 
-        let chunk_size = CONFIG
+        let chunk_size = lurk_config(None, None)
+            .perf
             .parallelism
             .synthesis
             .chunk_size(num_frames, MIN_CHUNK_SIZE);
@@ -352,12 +357,22 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                     allocations,
                 }
             };
-            let slots_witnesses = if CONFIG.parallelism.poseidon_witnesses.is_parallel() {
+            let slots_witnesses = if lurk_config(None, None)
+                .perf
+                .parallelism
+                .poseidon_witnesses
+                .is_parallel()
+            {
                 frames.par_iter().map(gen_slots_witness).collect::<Vec<_>>()
             } else {
                 frames.iter().map(gen_slots_witness).collect::<Vec<_>>()
             };
-            if CONFIG.parallelism.synthesis.is_parallel() {
+            if lurk_config(None, None)
+                .perf
+                .parallelism
+                .synthesis
+                .is_parallel()
+            {
                 self.synthesize_frames_parallel(cs, g, store, input, frames, &slots_witnesses)
             } else {
                 self.synthesize_frames_sequential(

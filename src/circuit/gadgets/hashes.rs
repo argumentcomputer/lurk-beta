@@ -8,7 +8,7 @@ use neptune::circuit2_witness::{poseidon_hash_allocated_witness, poseidon_hash_s
 
 use crate::circuit::gadgets::pointer::{AllocatedPtr, AsAllocatedHashComponents};
 
-use crate::config::CONFIG;
+use crate::config::lurk_config;
 use crate::field::{FWrap, LurkField};
 use crate::hash::{HashConst, HashConstants};
 use crate::hash_witness::{
@@ -280,12 +280,16 @@ impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
         let names_and_ptrs = cons_circuit_witness.names_and_ptrs(s);
         let cons_constants: HashConst<'_, F> = s.poseidon_constants().constants(4.into());
 
-        let circuit_witness_blocks =
-            if cs.is_witness_generator() && CONFIG.witness_generation.precompute_neptune {
-                Some(cons_circuit_witness.circuit_witness_blocks(s, cons_constants))
-            } else {
-                None
-            };
+        let circuit_witness_blocks = if cs.is_witness_generator()
+            && lurk_config(None, None)
+                .perf
+                .witness_generation
+                .precompute_neptune
+        {
+            Some(cons_circuit_witness.circuit_witness_blocks(s, cons_constants))
+        } else {
+            None
+        };
 
         for (i, (name, spr)) in names_and_ptrs.iter().enumerate() {
             let cs = &mut cs.namespace(|| format!("slot-{i}"));
@@ -403,12 +407,16 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
         let names_and_ptrs = cont_circuit_witness.names_and_ptrs(s);
         let cont_constants: HashConst<'_, F> = s.poseidon_constants().constants(8.into());
 
-        let circuit_witness_blocks =
-            if cs.is_witness_generator() && CONFIG.witness_generation.precompute_neptune {
-                Some(cont_circuit_witness.circuit_witness_blocks(s, cont_constants))
-            } else {
-                None
-            };
+        let circuit_witness_blocks = if cs.is_witness_generator()
+            && lurk_config(None, None)
+                .perf
+                .witness_generation
+                .precompute_neptune
+        {
+            Some(cont_circuit_witness.circuit_witness_blocks(s, cont_constants))
+        } else {
+            None
+        };
 
         for (i, (name, spr)) in names_and_ptrs.iter().enumerate() {
             let cs = &mut cs.namespace(|| format!("slot-{i}"));

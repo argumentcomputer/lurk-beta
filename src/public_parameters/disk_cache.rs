@@ -6,12 +6,19 @@ use abomonation::{encode, Abomonation};
 use camino::{Utf8Path, Utf8PathBuf};
 use nova::traits::Group;
 
+use crate::config::lurk_config;
 use crate::coprocessor::Coprocessor;
 use crate::proof::nova::{CurveCycleEquipped, PublicParams, G1, G2};
 use crate::proof::MultiFrameTrait;
 use crate::public_parameters::error::Error;
 
 use super::instance::Instance;
+
+/// Returns the public parameter disk cache directory, which has
+/// either been configured or defaults to `$HOME/.lurk/public_params`
+pub(crate) fn public_params_dir() -> &'static Utf8PathBuf {
+    &lurk_config(None, None).public_params_dir
+}
 
 pub(crate) struct DiskCache<'a, F, C, M>
 where

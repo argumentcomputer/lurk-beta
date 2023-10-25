@@ -14,12 +14,16 @@ use lurk::{
         pointers::Ptr,
         store::Store,
     },
-    proof::{
-        nova::{public_params, NovaProver, PublicParams},
-        Prover,
+    proof::{nova::NovaProver, Prover},
+    public_parameters::{
+        self,
+        instance::{Instance, Kind},
     },
     state::State,
 };
+
+mod common;
+use common::set_bench_config;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
@@ -52,17 +56,26 @@ fn end2end_benchmark_lem(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(120))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     // setup
-    let lang = Arc::new(Lang::new());
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+
     let store = Store::default();
     let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
-        NovaProver::new(reduction_count, (*lang).clone());
+        NovaProver::new(reduction_count, (*lang_pallas_rc).clone());
 
-    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
-        public_params(reduction_count, lang.clone());
+    // use cached public params
+    let instance = Instance::new(
+        reduction_count,
+        lang_pallas_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("end2end_go_base_nova", format!("_{}_{}", size.0, size.1));
@@ -73,7 +86,7 @@ fn end2end_benchmark_lem(c: &mut Criterion) {
         b.iter(|| {
             let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
             let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let _result = prover.prove(&pp, &frames, &store, &lang).unwrap();
+            let _result = prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
         })
     });
 
@@ -241,6 +254,7 @@ fn prove_benchmark_lem(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(120))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -251,9 +265,17 @@ fn prove_benchmark_lem(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang = Arc::new(Lang::new());
-    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
-        public_params(reduction_count, lang.clone());
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+
+    // use cached public params
+    let instance = Instance::new(
+        reduction_count,
+        lang_pallas_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
@@ -262,7 +284,7 @@ fn prove_benchmark_lem(c: &mut Criterion) {
         let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
         b.iter(|| {
-            let result = prover.prove(&pp, &frames, &store, &lang).unwrap();
+            let result = prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
             black_box(result);
         })
     });
@@ -278,6 +300,7 @@ fn prove_compressed_benchmark_lem(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(120))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
@@ -290,9 +313,17 @@ fn prove_compressed_benchmark_lem(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang = Arc::new(Lang::new());
-    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
-        public_params(reduction_count, lang.clone());
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+
+    // use cached public params
+    let instance = Instance::new(
+        reduction_count,
+        lang_pallas_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
@@ -300,7 +331,7 @@ fn prove_compressed_benchmark_lem(c: &mut Criterion) {
         let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
         b.iter(|| {
-            let (proof, _, _, _) = prover.prove(&pp, &frames, &store, &lang).unwrap();
+            let (proof, _, _, _) = prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
 
             let compressed_result = proof.compress(&pp).unwrap();
             black_box(compressed_result);
@@ -317,15 +348,24 @@ fn verify_benchmark_lem(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(10))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     let state = State::init_lurk_state().rccell();
 
-    let lang = Arc::new(Lang::new());
-    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
-        public_params(reduction_count, lang.clone());
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+
+    // use cached public params
+    let instance = Instance::new(
+        reduction_count,
+        lang_pallas_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     let sizes = [(10, 0)];
     for size in sizes {
@@ -335,7 +375,8 @@ fn verify_benchmark_lem(c: &mut Criterion) {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, Lang::new());
             let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store, &lang).unwrap();
+            let (proof, z0, zi, num_steps) =
+                prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
 
             b.iter_batched(
                 || z0.clone(),
@@ -360,15 +401,24 @@ fn verify_compressed_benchmark_lem(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(10))
         .sample_size(10);
 
+    set_bench_config();
     let limit = 1_000_000_000;
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     let state = State::init_lurk_state().rccell();
 
-    let lang = Arc::new(Lang::new());
-    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
-        public_params(reduction_count, lang.clone());
+    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+
+    // use cached public params
+    let instance = Instance::new(
+        reduction_count,
+        lang_pallas_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     let sizes = [(10, 0)];
     for size in sizes {
@@ -378,7 +428,8 @@ fn verify_compressed_benchmark_lem(c: &mut Criterion) {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, Lang::new());
             let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store, &lang).unwrap();
+            let (proof, z0, zi, num_steps) =
+                prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
 
             let compressed_proof = proof.compress(&pp).unwrap();
 

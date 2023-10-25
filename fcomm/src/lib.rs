@@ -41,7 +41,6 @@ use lurk_macros::serde_test;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::z_data;
 
-use camino::Utf8PathBuf;
 use lurk::{error::ReductionError, proof::nova::CurveCycleEquipped};
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
@@ -49,7 +48,7 @@ use rand::rngs::OsRng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::file_map::{data_dir, FileMap};
+use crate::file_map::FileMap;
 
 pub mod error;
 pub mod file_map;
@@ -84,10 +83,6 @@ pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
 pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
-}
-
-pub fn public_param_dir() -> Utf8PathBuf {
-    data_dir().join("public_params")
 }
 
 // Number of circuit reductions per step, equivalent to `chunk_frame_count`
@@ -1190,10 +1185,15 @@ mod test {
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Utf8Path::from_path(tmp_dir.path()).unwrap();
         let fcomm_path_val = tmp_dir_path.join("fcomm_data");
-        std::env::set_var(fcomm_path_key, fcomm_path_val.clone());
+
+        std::env::set_var(fcomm_path_key, &fcomm_path_val);
+        std::env::set_var(
+            "LURK_PUBLIC_PARAMS_DIR",
+            fcomm_path_val.join("public_params"),
+        );
         assert_eq!(
-            std::env::var(fcomm_path_key),
-            Ok(fcomm_path_val.clone().into_string())
+            std::env::var(fcomm_path_key).unwrap(),
+            fcomm_path_val.as_str()
         );
 
         let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
@@ -1210,8 +1210,7 @@ mod test {
         let lang_rc = Arc::new(lang.clone());
         let rc = ReductionCount::One;
         let instance = Instance::new(rc.count(), lang_rc.clone(), true, Kind::NovaPublicParams);
-        let pp =
-            public_params(&instance, &fcomm_path_val.join("public_params")).expect("public params");
+        let pp = public_params(&instance).expect("public params");
         let chained = true;
         let s = &mut Store::<S1>::default();
 
