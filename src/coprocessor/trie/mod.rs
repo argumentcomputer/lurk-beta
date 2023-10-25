@@ -34,7 +34,8 @@ use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::eval::lang::Lang;
 use crate::field::{FWrap, LurkField};
-use crate::hash::{HashArity, InversePoseidonCache, PoseidonCache};
+use crate::hash::{HashArity, HashConstants, InversePoseidonCache, PoseidonCache};
+use crate::lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore};
 use crate::num::Num;
 use crate::ptr::Ptr;
 use crate::store::Store;
@@ -71,12 +72,17 @@ impl<F: LurkField> Coprocessor<F> for NewCoprocessor<F> {
     }
 
     fn simple_evaluate(&self, s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
-        let trie: StandardTrie<'_, F> = Trie::new(s);
+        let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
 
         let root = trie.root;
 
         // TODO: Use a custom type.
         s.intern_num(Num::Scalar(root))
+    }
+
+    fn evaluate_lem_simple(&self, s: &LEMStore<F>, _args: &[LEMPtr<F>]) -> LEMPtr<F> {
+        let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
+        LEMPtr::num(trie.root)
     }
 
     fn has_circuit(&self) -> bool {
@@ -101,7 +107,8 @@ impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
         input_cont: &AllocatedContPtr<F>,
         _not_dummy: &Boolean,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let trie: StandardTrie<'_, F> = Trie::new(store);
+        let trie: StandardTrie<'_, F> =
+            Trie::new(&store.poseidon_cache, &store.inverse_poseidon_cache);
 
         // TODO: Use a custom type.
         let root = store.intern_num(Num::Scalar(trie.root));
@@ -112,6 +119,23 @@ impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
             input_env.clone(),
             input_cont.clone(),
         ))
+    }
+
+    fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        _g: &lurk::lem::circuit::GlobalAllocator<F>,
+        s: &LEMStore<F>,
+        _not_dummy: &Boolean,
+        _args: &[AllocatedPtr<F>],
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
+
+        // TODO: Use a custom type.
+        let root = LEMPtr::num(trie.root);
+        let root_z_ptr = s.hash_ptr(&root).unwrap();
+
+        AllocatedPtr::alloc_constant(cs, root_z_ptr)
     }
 }
 
@@ -132,16 +156,72 @@ impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
         // TODO: Check tags.
         let root_scalar = *s.hash_expr(&root_ptr).unwrap().value();
         let key_scalar = *s.hash_expr(&key_ptr).unwrap().value();
-        let trie: StandardTrie<'_, F> = Trie::new_with_root(s, root_scalar);
+        let trie: StandardTrie<'_, F> =
+            Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
 
         let found = trie.lookup_aux(key_scalar).unwrap();
 
         s.intern_maybe_opaque_comm(found)
     }
 
+    fn evaluate_lem_simple(&self, s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F> {
+        let root_ptr = &args[0];
+        let key_ptr = &args[1];
+
+        // TODO: Check tags.
+        let root_scalar = *s.hash_ptr(root_ptr).unwrap().value();
+        let key_scalar = *s.hash_ptr(key_ptr).unwrap().value();
+        let trie: StandardTrie<'_, F> =
+            Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
+
+        LEMPtr::comm(trie.lookup_aux(key_scalar).unwrap())
+    }
+
     fn has_circuit(&self) -> bool {
         true
     }
+}
+
+fn synthesize_lookup_aux<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    root_ptr: &AllocatedPtr<F>,
+    key_ptr: &AllocatedPtr<F>,
+    not_dummy: &Boolean,
+    poseidon_cache: &PoseidonCache<F>,
+    inverse_poseidon_cache: &InversePoseidonCache<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    // TODO: Check tags.
+    let supplied_root_value = root_ptr.hash();
+    let root_value = supplied_root_value.get_value();
+    let key_val = key_ptr.hash();
+    let trie: StandardTrie<'_, F> = if not_dummy.get_value() == Some(true) {
+        Trie::new_with_root(
+            poseidon_cache,
+            inverse_poseidon_cache,
+            root_value.ok_or(SynthesisError::AssignmentMissing)?,
+        )
+    } else {
+        Trie::new(poseidon_cache, inverse_poseidon_cache)
+    };
+
+    let allocated_root_value =
+        AllocatedNum::alloc(&mut cs.namespace(|| "allocated_root_value"), || {
+            Ok(trie.root)
+        })?;
+
+    implies_equal(
+        &mut cs.namespace(|| "enforce_root"),
+        not_dummy,
+        supplied_root_value,
+        &allocated_root_value,
+    );
+
+    trie.synthesize_lookup(
+        cs,
+        &poseidon_cache.constants,
+        &allocated_root_value,
+        key_val,
+    )
 }
 
 impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
@@ -162,30 +242,14 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
 
-        // TODO: Check tags.
-        let supplied_root_value = root_ptr.hash();
-        let root_value = supplied_root_value.get_value();
-        let key_val = key_ptr.hash();
-        let trie: StandardTrie<'_, F> = if not_dummy.get_value() == Some(true) {
-            Trie::new_with_root(s, root_value.ok_or(SynthesisError::AssignmentMissing)?)
-        } else {
-            Trie::new(s)
-        };
-
-        let allocated_root_value =
-            AllocatedNum::alloc(&mut cs.namespace(|| "allocated_root_value"), || {
-                Ok(trie.root)
-            })?;
-
-        implies_equal(
-            &mut cs.namespace(|| "enforce_root"),
+        let result_commitment_val = synthesize_lookup_aux(
+            cs,
+            root_ptr,
+            key_ptr,
             not_dummy,
-            supplied_root_value,
-            &allocated_root_value,
-        );
-
-        let result_commitment_val =
-            trie.synthesize_lookup(cs, s, &allocated_root_value, key_val)?;
+            &s.poseidon_cache,
+            &s.inverse_poseidon_cache,
+        )?;
 
         let result_commitment = AllocatedPtr::alloc_tag(
             &mut cs.namespace(|| "result_commitment"),
@@ -194,6 +258,36 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
         )?;
 
         Ok((result_commitment, input_env.clone(), input_cont.clone()))
+    }
+
+    fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &lurk::lem::circuit::GlobalAllocator<F>,
+        s: &LEMStore<F>,
+        not_dummy: &Boolean,
+        args: &[AllocatedPtr<F>],
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let root_ptr = &args[0];
+        let key_ptr = &args[1];
+
+        let result_commitment_val = synthesize_lookup_aux(
+            cs,
+            root_ptr,
+            key_ptr,
+            not_dummy,
+            &s.poseidon_cache,
+            &s.inverse_poseidon_cache,
+        )?;
+
+        let comm_tag = g
+            .get_allocated_const(ExprTag::Comm.to_field())
+            .expect("Comm tag should have been allocated");
+
+        Ok(AllocatedPtr::from_parts(
+            comm_tag.clone(),
+            result_commitment_val,
+        ))
     }
 }
 
@@ -214,16 +308,77 @@ impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
         let root_scalar = *s.hash_expr(&root_ptr).unwrap().value();
         let key_scalar = *s.hash_expr(&key_ptr).unwrap().value();
         let val_scalar = *s.hash_expr(&val_ptr).unwrap().value();
-        let mut trie: StandardTrie<'_, F> = Trie::new_with_root(s, root_scalar);
+        let mut trie: StandardTrie<'_, F> =
+            Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
         trie.insert(key_scalar, val_scalar).unwrap();
 
         let new_root = trie.root;
         s.intern_num(Num::Scalar(new_root))
     }
 
+    fn evaluate_lem_simple(&self, s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F> {
+        let root_ptr = &args[0];
+        let key_ptr = &args[1];
+        let val_ptr = &args[2];
+        let root_scalar = *s.hash_ptr(root_ptr).unwrap().value();
+        let key_scalar = *s.hash_ptr(key_ptr).unwrap().value();
+        let val_scalar = *s.hash_ptr(val_ptr).unwrap().value();
+        let mut trie: StandardTrie<'_, F> =
+            Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
+        trie.insert(key_scalar, val_scalar).unwrap();
+
+        LEMPtr::num(trie.root)
+    }
+
     fn has_circuit(&self) -> bool {
         true
     }
+}
+
+fn synthesize_insert_aux<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    root_ptr: &AllocatedPtr<F>,
+    key_ptr: &AllocatedPtr<F>,
+    val_ptr: &AllocatedPtr<F>,
+    not_dummy: &Boolean,
+    poseidon_cache: &PoseidonCache<F>,
+    inverse_poseidon_cache: &InversePoseidonCache<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    // TODO: Check tags.
+    let supplied_root_value = root_ptr.hash();
+    let root_value = supplied_root_value.get_value();
+    let key_val = key_ptr.hash();
+    let new_val = val_ptr.hash();
+    let trie: StandardTrie<'_, F> = if not_dummy.get_value() == Some(true) {
+        Trie::new_with_root(
+            poseidon_cache,
+            inverse_poseidon_cache,
+            root_value.ok_or(SynthesisError::AssignmentMissing)?,
+        )
+    } else {
+        Trie::new(poseidon_cache, inverse_poseidon_cache)
+    };
+
+    let allocated_root_value =
+        AllocatedNum::alloc(&mut cs.namespace(|| "allocated_root_value"), || {
+            Ok(trie.root)
+        })?;
+
+    implies_equal(
+        &mut cs.namespace(|| "enforce_root"),
+        not_dummy,
+        supplied_root_value,
+        &allocated_root_value,
+    );
+
+    trie.synthesize_insert(
+        cs,
+        &poseidon_cache.constants,
+        &allocated_root_value,
+        key_val,
+        new_val.clone(),
+    )
+    .map_err(|_e| SynthesisError::Unsatisfiable)
 }
 
 impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
@@ -247,32 +402,15 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
 
         assert_eq!(self.arity(), args.len());
 
-        // TODO: Check tags.
-        let supplied_root_value = root_ptr.hash();
-        let root_value = supplied_root_value.get_value();
-        let key_val = key_ptr.hash();
-        let new_val = val_ptr.hash();
-        let trie: StandardTrie<'_, F> = if not_dummy.get_value() == Some(true) {
-            Trie::new_with_root(s, root_value.ok_or(SynthesisError::AssignmentMissing)?)
-        } else {
-            Trie::new(s)
-        };
-
-        let allocated_root_value =
-            AllocatedNum::alloc(&mut cs.namespace(|| "allocated_root_value"), || {
-                Ok(trie.root)
-            })?;
-
-        implies_equal(
-            &mut cs.namespace(|| "enforce_root"),
+        let new_root_val = synthesize_insert_aux(
+            cs,
+            root_ptr,
+            key_ptr,
+            val_ptr,
             not_dummy,
-            supplied_root_value,
-            &allocated_root_value,
-        );
-
-        let new_root_val = trie
-            .synthesize_insert(cs, s, &allocated_root_value, key_val, new_val.clone())
-            .map_err(|_e| SynthesisError::Unsatisfiable)?;
+            &s.poseidon_cache,
+            &s.inverse_poseidon_cache,
+        )?;
 
         let new_allocated_trie = AllocatedPtr::alloc_tag(
             &mut cs.namespace(|| "new_commitment"),
@@ -282,6 +420,34 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
         )?;
 
         Ok((new_allocated_trie, input_env.clone(), input_cont.clone()))
+    }
+
+    fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &lurk::lem::circuit::GlobalAllocator<F>,
+        s: &LEMStore<F>,
+        not_dummy: &Boolean,
+        args: &[AllocatedPtr<F>],
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let root_ptr = &args[0];
+        let key_ptr = &args[1];
+        let val_ptr = &args[2];
+
+        let new_root_val = synthesize_insert_aux(
+            cs,
+            root_ptr,
+            key_ptr,
+            val_ptr,
+            not_dummy,
+            &s.poseidon_cache,
+            &s.inverse_poseidon_cache,
+        )?;
+
+        let num_tag = g
+            .get_allocated_const(ExprTag::Num.to_field())
+            .expect("Num tag should have been allocated");
+        Ok(AllocatedPtr::from_parts(num_tag.clone(), new_root_val))
     }
 }
 
@@ -304,6 +470,25 @@ pub fn install<F: LurkField>(
 
     let name: Symbol = ".lurk.trie".into();
     let mut package = Package::new(name.into());
+    ["new", "lookup", "insert"].into_iter().for_each(|name| {
+        package.intern(name);
+    });
+    state.borrow_mut().add_package(package);
+}
+
+/// Add the `Trie`-associated functions to a `Lang` with standard bindings.
+// TODO: define standard patterns for such modularity.
+pub fn install_lem<F: LurkField>(
+    s: &LEMStore<F>,
+    state: &Rc<RefCell<State>>,
+    lang: &mut Lang<F, TrieCoproc<F>>,
+) {
+    lang.add_coprocessor_lem(".lurk.trie.new", NewCoprocessor::default(), s);
+    lang.add_coprocessor_lem(".lurk.trie.lookup", LookupCoprocessor::default(), s);
+    lang.add_coprocessor_lem(".lurk.trie.insert", InsertCoprocessor::default(), s);
+
+    let trie_package_name: Symbol = ".lurk.trie".into();
+    let mut package = Package::new(trie_package_name.into());
     ["new", "lookup", "insert"].into_iter().for_each(|name| {
         package.intern(name);
     });
@@ -484,22 +669,30 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
     /// Creates a new `Trie`, saving preimage data in `store`.
     /// HEIGHT must be exactly that required to minimally store all elements of `F`.
-    pub fn new(store: &'a Store<F>) -> Self {
-        Self::new_aux(store, None)
+    pub fn new(
+        poseidon_cache: &'a PoseidonCache<F>,
+        inverse_poseidon_cache: &'a InversePoseidonCache<F>,
+    ) -> Self {
+        Self::new_aux(poseidon_cache, inverse_poseidon_cache, None)
     }
 
     /// Creates a new `Trie`, saving preimage data in `store`.
     /// Height must be at least that required to store `size` elements.
-    pub fn new_with_capacity(store: &'a Store<F>, size: usize) -> Self {
-        Self::new_aux(store, Some(size))
+    pub fn new_with_capacity(
+        poseidon_cache: &'a PoseidonCache<F>,
+        inverse_poseidon_cache: &'a InversePoseidonCache<F>,
+        size: usize,
+    ) -> Self {
+        Self::new_aux(poseidon_cache, inverse_poseidon_cache, Some(size))
     }
 
-    fn new_aux(store: &'a Store<F>, size: Option<usize>) -> Self {
+    fn new_aux(
+        poseidon_cache: &'a PoseidonCache<F>,
+        inverse_poseidon_cache: &'a InversePoseidonCache<F>,
+        size: Option<usize>,
+    ) -> Self {
         // ARITY must be a power of two.
         assert_eq!(1, ARITY.count_ones());
-
-        let poseidon_cache = &store.poseidon_cache;
-        let inverse_poseidon_cache = &store.inverse_poseidon_cache;
 
         // This will panic if ARITY is unsupporteed.
         let _ = HashArity::from(ARITY);
@@ -541,8 +734,12 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     }
 
     /// Create a new `Trie` with specified root.
-    fn new_with_root(store: &'a Store<F>, root: F) -> Self {
-        let mut new = Self::new(store);
+    fn new_with_root(
+        poseidon_cache: &'a PoseidonCache<F>,
+        inverse_poseidon_cache: &'a InversePoseidonCache<F>,
+        root: F,
+    ) -> Self {
+        let mut new = Self::new(poseidon_cache, inverse_poseidon_cache);
 
         new.root = root;
 
@@ -620,14 +817,14 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     fn synthesize_lookup<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        s: &Store<F>,
+        hash_constants: &HashConstants<F>,
         allocated_root: &AllocatedNum<F>,
         key: &AllocatedNum<F>,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         let path = Self::synthesize_path(&mut cs.namespace(|| "path"), key)?;
 
         let val = self
-            .synthesize_lookup_at_path(cs, s, allocated_root, &path)?
+            .synthesize_lookup_at_path(cs, hash_constants, allocated_root, &path)?
             .0;
 
         Ok(val)
@@ -636,7 +833,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     fn synthesize_lookup_at_path<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        s: &Store<F>,
+        hash_constants: &HashConstants<F>,
         allocated_root: &AllocatedNum<F>,
         path: &[Vec<Boolean>],
     ) -> Result<(AllocatedNum<F>, Vec<Vec<AllocatedNum<F>>>), SynthesisError> {
@@ -672,7 +869,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
                     preimage_path.push(allocated_preimage.clone());
 
-                    let hashed = s.poseidon_constants().constants(ARITY.into()).hash(
+                    let hashed = hash_constants.constants(ARITY.into()).hash(
                         &mut cs.namespace(|| format!("poseidon_hash_{i}")),
                         allocated_preimage.clone(),
                         None,
@@ -779,7 +976,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     pub fn synthesize_insert<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        s: &Store<F>,
+        hash_constants: &HashConstants<F>,
         allocated_root: &AllocatedNum<F>,
         key: &AllocatedNum<F>,
         value: AllocatedNum<F>,
@@ -787,7 +984,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         let path = Self::synthesize_path(&mut cs.namespace(|| "path"), key)?;
         self.synthesize_insert_at_path(
             &mut cs.namespace(|| "insert_aux"),
-            s,
+            hash_constants,
             allocated_root,
             &path,
             value,
@@ -797,7 +994,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     fn synthesize_insert_at_path<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        s: &Store<F>,
+        hash_constants: &HashConstants<F>,
         allocated_root: &AllocatedNum<F>,
         path: &[Vec<Boolean>],
         value: AllocatedNum<F>,
@@ -805,7 +1002,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         let preimage_path = self
             .synthesize_lookup_at_path(
                 &mut cs.namespace(|| "found_value"),
-                s,
+                hash_constants,
                 allocated_root,
                 path,
             )?
@@ -813,7 +1010,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
         Self::synthesize_modify_value_at_path(
             &mut cs.namespace(|| "new_root_value"),
-            s,
+            hash_constants,
             path,
             &preimage_path,
             value,
@@ -822,7 +1019,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
     fn synthesize_modify_value_at_path<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        s: &Store<F>,
+        hash_constants: &HashConstants<F>,
         path: &[Vec<Boolean>],
         preimage_path: &[Vec<AllocatedNum<F>>],
         mut value: AllocatedNum<F>,
@@ -846,7 +1043,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
                 })
                 .collect::<Result<Vec<_>, SynthesisError>>()?;
 
-            value = s.poseidon_constants().constants(ARITY.into()).hash(
+            value = hash_constants.constants(ARITY.into()).hash(
                 &mut cs.namespace(|| format!("poseidon_hash_{i}")),
                 new_preimage,
                 None,
@@ -879,12 +1076,24 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Default
 mod test {
     use super::*;
     use ff::PrimeField;
+    use once_cell::sync::OnceCell;
     use pasta_curves::pallas::Scalar as Fr;
+
+    static POSEIDON_CACHE: OnceCell<PoseidonCache<Fr>> = OnceCell::new();
+    static INVERSE_POSEIDON_CACHE: OnceCell<InversePoseidonCache<Fr>> = OnceCell::new();
+
+    fn poseidon_cache() -> &'static PoseidonCache<Fr> {
+        POSEIDON_CACHE.get_or_init(PoseidonCache::default)
+    }
+
+    fn inverse_poseidon_cache() -> &'static InversePoseidonCache<Fr> {
+        INVERSE_POSEIDON_CACHE.get_or_init(InversePoseidonCache::default)
+    }
 
     #[test]
     fn test_empty_roots() {
-        let s = &mut Store::new();
-        let t: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
+        let t: Trie<'_, Fr, 8, 3> =
+            Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 512);
         assert_eq!(Fr::zero(), Trie::<'_, Fr, 8, 3>::empty_element());
         assert_eq!(Fr::zero(), t.empty_root_for_height(0));
         assert_eq!(
@@ -919,24 +1128,27 @@ mod test {
 
     #[test]
     fn test_sizes() {
-        let s = &mut Store::new();
         {
-            let t: Trie<'_, Fr, 8, 1> = Trie::new_with_capacity(s, 8);
+            let t: Trie<'_, Fr, 8, 1> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 8);
             assert_eq!(8, t.leaves());
         }
 
         {
-            let t: Trie<'_, Fr, 8, 2> = Trie::new_with_capacity(s, 64);
+            let t: Trie<'_, Fr, 8, 2> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 64);
             assert_eq!(64, t.leaves());
         }
 
         {
-            let t: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
+            let t: Trie<'_, Fr, 8, 3> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 512);
             assert_eq!(512, t.leaves());
         }
 
         {
-            let t: Trie<'_, Fr, 8, 4> = Trie::new_with_capacity(s, 4096);
+            let t: Trie<'_, Fr, 8, 4> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 4096);
             assert_eq!(1, t.row_size(0));
             assert_eq!(8, t.row_size(1));
             assert_eq!(64, t.row_size(2));
@@ -959,9 +1171,9 @@ mod test {
 
     #[test]
     fn test_hashes() {
-        let s = &mut Store::new();
         {
-            let mut t0: Trie<'_, Fr, 8, 1> = Trie::new_with_capacity(s, 8);
+            let mut t0: Trie<'_, Fr, 8, 1> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 8);
             assert_eq!(
                 scalar_from_u64s([
                     0xa81830c13a876b1c,
@@ -974,7 +1186,8 @@ mod test {
             assert_eq!(t0.empty_root(), t0.root());
         }
         {
-            let mut t1: Trie<'_, Fr, 8, 2> = Trie::new_with_capacity(s, 64);
+            let mut t1: Trie<'_, Fr, 8, 2> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 64);
             assert_eq!(
                 scalar_from_u64s([
                     0x33ff39660bc554aa,
@@ -987,7 +1200,8 @@ mod test {
             assert_eq!(t1.empty_root(), t1.root());
         }
         {
-            let mut t2: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
+            let mut t2: Trie<'_, Fr, 8, 3> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 512);
             assert_eq!(
                 scalar_from_u64s([
                     0xa52e7d0bbbee086b,
@@ -1000,7 +1214,8 @@ mod test {
             assert_eq!(t2.empty_root(), t2.root());
         }
         {
-            let mut t3: Trie<'_, Fr, 8, 4> = Trie::new_with_capacity(s, 4096);
+            let mut t3: Trie<'_, Fr, 8, 4> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 4096);
             assert_eq!(
                 scalar_from_u64s([
                     0xd95987b58e6c5852,
@@ -1021,9 +1236,9 @@ mod test {
 
     #[test]
     fn test_lookup() {
-        let s = &mut Store::new();
         {
-            let t3: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
+            let t3: Trie<'_, Fr, 8, 3> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 512);
 
             let found = t3.lookup(Fr::from_u64(500)).unwrap();
             assert_eq!(None, found);
@@ -1031,9 +1246,9 @@ mod test {
     }
     #[test]
     fn test_lookup_proof() {
-        let s = &mut Store::new();
         {
-            let t3: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
+            let t3: Trie<'_, Fr, 8, 3> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 512);
             let root = t3.root();
             let key = Fr::from_u64(500);
             let proof = t3.prove_lookup(key).unwrap();
@@ -1047,10 +1262,9 @@ mod test {
     #[test]
     fn test_insert() {
         // TODO: Use prop tests.
-
-        let s = &mut Store::new();
         {
-            let mut t3: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
+            let mut t3: Trie<'_, Fr, 8, 3> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 512);
             let key = Fr::from_u64(500);
             let val = Fr::from_u64(123);
 
@@ -1083,9 +1297,9 @@ mod test {
 
     #[test]
     fn test_insert_proof() {
-        let s = &mut Store::new();
         {
-            let mut t3: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
+            let mut t3: Trie<'_, Fr, 8, 3> =
+                Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 512);
             let key = Fr::from_u64(500);
             let val = Fr::from_u64(123);
 

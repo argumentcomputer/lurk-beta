@@ -90,9 +90,9 @@ impl<F: LurkField> AllocatedPtr<F> {
         })
     }
 
-    pub fn alloc_constant<CS: ConstraintSystem<F>>(
+    pub fn alloc_constant<CS: ConstraintSystem<F>, T: Tag>(
         cs: &mut CS,
-        value: ZExprPtr<F>,
+        value: ZPtr<T, F>,
     ) -> Result<Self, SynthesisError> {
         let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag_field());
         let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value());

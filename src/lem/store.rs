@@ -1,7 +1,9 @@
 use anyhow::{bail, Result};
 use arc_swap::ArcSwap;
-use elsa::sync::{FrozenMap, FrozenVec};
-use elsa::sync_index_set::FrozenIndexSet;
+use elsa::{
+    sync::{FrozenMap, FrozenVec},
+    sync_index_set::FrozenIndexSet,
+};
 use indexmap::IndexSet;
 use nom::{sequence::preceded, Parser};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -9,7 +11,7 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
     field::{FWrap, LurkField},
-    hash::PoseidonCache,
+    hash::{InversePoseidonCache, PoseidonCache},
     lem::Tag,
     parser::{syntax, Error, Span},
     state::{lurk_sym, user_sym, State},
@@ -56,6 +58,7 @@ pub struct Store<F: LurkField> {
     ptr_symbol_cache: FrozenMap<Ptr<F>, Box<Symbol>>,
 
     pub poseidon_cache: PoseidonCache<F>,
+    pub inverse_poseidon_cache: InversePoseidonCache<F>,
 
     dehydrated: ArcSwap<FrozenVec<Box<Ptr<F>>>>,
     z_cache: FrozenMap<Ptr<F>, Box<ZPtr<F>>>,
