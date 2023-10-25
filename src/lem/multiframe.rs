@@ -131,7 +131,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         input: Vec<AllocatedPtr<F>>,
         frames: &[Frame<F>],
         slots_witnesses: &[SlotsWitness<F>],
-    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
+    ) -> Vec<AllocatedPtr<F>> {
         assert!(cs.is_witness_generator());
         assert!(lurk_config(None, None)
             .perf
@@ -217,11 +217,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
         if let Some((_, last_chunk_output)) = css.pop() {
             // the final output is the output of the last chunk
-            Ok(last_chunk_output)
+            last_chunk_output
         } else {
             // there were no frames so we just return the input, preserving the
             // same behavior as the sequential version
-            Ok(input)
+            input
         }
     }
 }
@@ -373,7 +373,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                 .synthesis
                 .is_parallel()
             {
-                self.synthesize_frames_parallel(cs, g, store, input, frames, &slots_witnesses)
+                Ok(self.synthesize_frames_parallel(cs, g, store, input, frames, &slots_witnesses))
             } else {
                 self.synthesize_frames_sequential(
                     cs,
