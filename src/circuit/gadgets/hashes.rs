@@ -174,7 +174,7 @@ impl<'a, F: LurkField> HashConst<'a, F> {
     fn cache_hash_witness<CS: ConstraintSystem<F>>(
         &self,
         cs: &CS,
-        preimage: Vec<F>,
+        preimage: &[F],
         hash_circuit_witness_cache: &mut HashCircuitWitnessCache<F>,
     ) {
         macro_rules! hash {
@@ -197,7 +197,7 @@ impl<'a, F: LurkField> HashConst<'a, F> {
 }
 
 impl<'a, F: LurkField> HashConst<'a, F> {
-    pub fn cache_hash_witness_aux(&self, preimage: Vec<F>) -> (Vec<F>, F) {
+    pub fn cache_hash_witness_aux(&self, preimage: &[F]) -> (Vec<F>, F) {
         macro_rules! hash {
             ($c:ident) => {{
                 poseidon_hash_scalar_witness(&preimage, $c)
@@ -286,7 +286,7 @@ impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
                 .witness_generation
                 .precompute_neptune
         {
-            Some(cons_circuit_witness.circuit_witness_blocks(s, cons_constants))
+            Some(cons_circuit_witness.circuit_witness_blocks(s, &cons_constants))
         } else {
             None
         };
@@ -370,7 +370,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
     fn make_hash_cache<CS: ConstraintSystem<F>>(
         cs: &CS,
         names_and_ptrs: &[(ContName, (Option<ContPtr<F>>, Option<Vec<F>>))],
-        hash_constants: HashConst<'_, F>,
+        hash_constants: &HashConst<'_, F>,
     ) -> Option<HashCircuitWitnessCache<F>> {
         if cs.is_witness_generator() {
             let mut c = HashMap::new();
@@ -381,7 +381,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
                     let preimage = p.as_ref().unwrap();
                     (
                         preimage.clone(),
-                        hash_constants.cache_hash_witness_aux(preimage.to_vec()),
+                        hash_constants.cache_hash_witness_aux(preimage),
                     )
                 })
                 .collect::<Vec<_>>();
@@ -413,7 +413,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
                 .witness_generation
                 .precompute_neptune
         {
-            Some(cont_circuit_witness.circuit_witness_blocks(s, cont_constants))
+            Some(cont_circuit_witness.circuit_witness_blocks(s, &cont_constants))
         } else {
             None
         };

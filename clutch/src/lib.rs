@@ -545,7 +545,7 @@ impl ClutchState<F, Coproc<F>> {
                 false,
                 &prover,
                 &pp,
-                self.lang(),
+                &self.lang(),
             )
         }?;
 

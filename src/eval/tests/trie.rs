@@ -9,7 +9,7 @@ fn trie_lang_eval() {
     let state = State::init_lurk_state().rccell();
     let mut lang = Lang::<Fr, TrieCoproc<Fr>>::new();
 
-    install(s, state.clone(), &mut lang);
+    install(s, &state, &mut lang);
 
     let expr = "(let ((trie (.lurk.trie.new)))
                       trie)";

@@ -155,7 +155,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
         reduction_count: usize,
         frames: &[Self::EvalFrame],
         store: &'a Self::Store,
-        folding_config: Arc<FoldingConfig<F, C>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self>;
 
     /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.

@@ -66,7 +66,7 @@ impl Metrics {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum MetricType {
     Counter,
     Gauge,

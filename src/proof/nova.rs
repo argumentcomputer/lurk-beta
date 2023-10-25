@@ -366,7 +366,7 @@ where
             M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
 
         let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), self.reduction_count()));
-        let circuits = M::from_frames(self.reduction_count(), frames, store, folding_config);
+        let circuits = M::from_frames(self.reduction_count(), frames, store, &folding_config);
 
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());

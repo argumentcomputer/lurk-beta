@@ -378,7 +378,7 @@ where
     pub fn circuit_witness_blocks(
         &self,
         s: &Store<F>,
-        hash_constants: HashConst<'_, F>,
+        hash_constants: &HashConst<'_, F>,
     ) -> &HashCircuitWitnessBlocks<F> {
         self.circuit_witness_blocks.get_or_init(|| {
             // TODO: In order to be interesting or useful, this should call a Neptune
@@ -389,7 +389,7 @@ where
                 .map(|(_, scalar_ptr_repr)| {
                     let scalar_ptr_repr = scalar_ptr_repr.as_ref().unwrap();
                     let preimage = scalar_ptr_repr.preimage();
-                    hash_constants.cache_hash_witness_aux(preimage)
+                    hash_constants.cache_hash_witness_aux(&preimage)
                 })
                 .collect::<Vec<_>>()
         })

@@ -633,15 +633,15 @@ impl<'a> Opening<S1> {
     pub fn apply_and_prove(
         s: &'a mut Store<S1>,
         input: Ptr<S1>,
-        function: CommittedExpression<S1>,
+        function: &CommittedExpression<S1>,
         limit: usize,
         chain: bool,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<'_, S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
         pp: &'a PublicParams<S1, MultiFrame<'_, S1, Coproc<S1>>>,
-        lang: Arc<Lang<S1, Coproc<S1>>>,
+        lang: &Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
-        let claim = Self::apply(s, input, function, limit, chain, &lang)?;
+        let claim = Self::apply(s, input, function, limit, chain, lang)?;
         Proof::prove_claim(
             s,
             &claim,
@@ -649,7 +649,7 @@ impl<'a> Opening<S1> {
             only_use_cached_proofs,
             nova_prover,
             pp,
-            &lang,
+            lang,
         )
     }
 
@@ -660,9 +660,9 @@ impl<'a> Opening<S1> {
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<'_, S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
         pp: &'a PublicParams<S1, MultiFrame<'_, S1, Coproc<S1>>>,
-        lang: Arc<Lang<S1, Coproc<S1>>>,
+        lang: &Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
-        let input = request.input.expr.ptr(s, limit, &lang);
+        let input = request.input.expr.ptr(s, limit, lang);
         let commitment = request.commitment;
 
         let function_map = committed_expression_store();
@@ -673,7 +673,7 @@ impl<'a> Opening<S1> {
         Self::apply_and_prove(
             s,
             input,
-            function,
+            &function,
             limit,
             request.chain,
             only_use_cached_proofs,
@@ -698,7 +698,7 @@ impl<'a> Opening<S1> {
             .get(&commitment)
             .ok_or(Error::UnknownCommitment)?;
 
-        Self::apply(s, input, function, limit, chain, lang)
+        Self::apply(s, input, &function, limit, chain, lang)
     }
 
     fn _is_chained(&self) -> bool {
@@ -720,13 +720,13 @@ impl<'a> Opening<S1> {
     pub fn apply(
         s: &Store<S1>,
         input: Ptr<S1>,
-        function: CommittedExpression<S1>,
+        function: &CommittedExpression<S1>,
         limit: usize,
         chain: bool,
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<Claim<S1>, Error> {
         let (commitment, expression) =
-            Commitment::construct_with_fun_application(s, &function, input, limit, lang)?;
+            Commitment::construct_with_fun_application(s, function, input, limit, lang)?;
         let (public_output, _iterations) = evaluate(s, expression, None, limit, lang)?;
 
         let (new_commitment, output_expr) = if chain {
@@ -793,7 +793,7 @@ impl<'a> Proof<'a, S1> {
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<'_, S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
         pp: &'a PublicParams<S1, MultiFrame<'_, S1, Coproc<S1>>>,
-        lang: Arc<Lang<S1, Coproc<S1>>>,
+        lang: &Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let env = supplied_env.unwrap_or_else(|| empty_sym_env(s));
         let cont = s.intern_cont_outermost();
@@ -801,7 +801,7 @@ impl<'a> Proof<'a, S1> {
 
         // TODO: It's a little silly that we evaluate here, but evaluation is also repeated in `NovaProver::evaluate_and_prove()`.
         // Refactor to avoid that.
-        let (public_output, _iterations) = evaluate(s, expr, supplied_env, limit, &lang)?;
+        let (public_output, _iterations) = evaluate(s, expr, supplied_env, limit, lang)?;
 
         let claim = if supplied_env.is_some() {
             // This is a bit of a hack, but the idea is that if the env was supplied it's likely to contain a literal function,
@@ -820,7 +820,7 @@ impl<'a> Proof<'a, S1> {
             only_use_cached_proofs,
             nova_prover,
             pp,
-            &lang,
+            lang,
         )
     }
 
@@ -1237,15 +1237,7 @@ mod test {
             let input = s.read(function_input).expect("Read error");
 
             let proof = Opening::apply_and_prove(
-                s,
-                input,
-                function.clone(),
-                limit,
-                chained,
-                false,
-                &prover,
-                &pp,
-                lang_rc.clone(),
+                s, input, &function, limit, chained, false, &prover, &pp, &lang_rc,
             )
             .expect("apply and prove");
 

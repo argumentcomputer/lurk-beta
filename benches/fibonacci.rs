@@ -30,6 +30,7 @@ enum Version {
     LEM,
 }
 
+#[derive(Clone, Debug, Copy)]
 pub struct ProveParams {
     folding_steps: usize,
     reduction_count: usize,
@@ -60,7 +61,7 @@ mod alpha {
     pub fn prove<M: measurement::Measurement>(
         prove_params: ProveParams,
         c: &mut BenchmarkGroup<'_, M>,
-        state: Rc<RefCell<State>>,
+        state: &Rc<RefCell<State>>,
     ) {
         let ProveParams {
             folding_steps,
@@ -151,7 +152,7 @@ mod lem {
     pub fn prove<M: measurement::Measurement>(
         prove_params: ProveParams,
         c: &mut BenchmarkGroup<'_, M>,
-        state: Rc<RefCell<State>>,
+        state: &Rc<RefCell<State>>,
     ) {
         let ProveParams {
             folding_steps,
@@ -249,7 +250,7 @@ fn fib_bench(c: &mut Criterion) {
                 reduction_count: *reduction_count,
                 version: Version::ALPHA,
             };
-            alpha::prove(alpha_params, &mut group, state.clone());
+            alpha::prove(alpha_params, &mut group, &state);
         }
     }
 
@@ -260,7 +261,7 @@ fn fib_bench(c: &mut Criterion) {
                 reduction_count: *reduction_count,
                 version: Version::ALPHA,
             };
-            lem::prove(lem_params, &mut group, state.clone());
+            lem::prove(lem_params, &mut group, &state);
         }
     }
 }

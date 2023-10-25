@@ -75,9 +75,9 @@ fn get_circom_binary() -> Result<Command> {
     }
 }
 
-pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> Result<()> {
-    let circom_gadget = circom_dir().join(&name);
-    let circom_file = circom_folder.join(&name).with_extension("circom");
+pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, name: &str) -> Result<()> {
+    let circom_gadget = circom_dir().join(name);
+    let circom_file = circom_folder.join(name).with_extension("circom");
 
     // TODO: support for other fields
     let default_field = "vesta";

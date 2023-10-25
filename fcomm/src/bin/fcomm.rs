@@ -259,7 +259,7 @@ impl Open {
 
             if let Some(out_path) = &self.proof {
                 let proof =
-                    Opening::open_and_prove(s, &request, limit, false, &prover, &pp, lang_rc)
+                    Opening::open_and_prove(s, &request, limit, false, &prover, &pp, &lang_rc)
                         .expect("proof opening");
 
                 handle_proof(out_path, proof);
@@ -269,7 +269,7 @@ impl Open {
                     .expect("committed function not found");
                 let input = request.input.eval(s, limit, lang).unwrap();
 
-                let claim = Opening::apply(s, input, function, limit, self.chain, lang)
+                let claim = Opening::apply(s, input, &function, limit, self.chain, lang)
                     .expect("claim apply");
                 handle_claim(claim).expect("handle claim")
             }
@@ -300,17 +300,16 @@ impl Open {
             let input_path = self.input.as_ref().expect("input missing");
             let input =
                 input(s, input_path, eval_input, limit, self.quote_input, lang).expect("input");
-            let lang_rc = Arc::new(lang.clone());
 
             if let Some(out_path) = &self.proof {
                 let proof = Opening::apply_and_prove(
-                    s, input, function, limit, self.chain, false, &prover, &pp, lang_rc,
+                    s, input, &function, limit, self.chain, false, &prover, &pp, &lang_rc,
                 )
                 .expect("apply and prove");
 
                 handle_proof(out_path, proof);
             } else {
-                let claim = Opening::apply(s, input, function, limit, self.chain, lang).unwrap();
+                let claim = Opening::apply(s, input, &function, limit, self.chain, lang).unwrap();
 
                 handle_claim(claim).unwrap();
             }
@@ -378,7 +377,7 @@ impl Prove {
                 )
                 .unwrap();
 
-                Proof::eval_and_prove(s, expr, None, limit, false, &prover, &pp, lang_rc).unwrap()
+                Proof::eval_and_prove(s, expr, None, limit, false, &prover, &pp, &lang_rc).unwrap()
             }
         };
 
@@ -414,15 +413,10 @@ impl Verify {
     }
 }
 
-fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
-    store: &Store<F>,
-    path: P,
-) -> Result<Ptr<F>, Error> {
+fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(store: &Store<F>, path: P) -> Ptr<F> {
     let path = env::current_dir().unwrap().join(path);
     let input = read_to_string(path).unwrap();
-    let src = store.read(&input).unwrap();
-
-    Ok(src)
+    store.read(&input).unwrap()
 }
 
 fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
@@ -431,7 +425,7 @@ fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
     limit: usize,
     lang: &Lang<F, Coproc<F>>,
 ) -> Result<(Ptr<F>, Ptr<F>), Error> {
-    let src = read_from_path(store, path)?;
+    let src = read_from_path(store, path);
     let (
         IO {
             expr,
@@ -447,12 +441,12 @@ fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
 fn read_no_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &Store<F>,
     path: P,
-) -> Result<(Ptr<F>, Ptr<F>), Error> {
-    let src = read_from_path(store, path)?;
+) -> (Ptr<F>, Ptr<F>) {
+    let src = read_from_path(store, path);
 
     let quote = lurk_sym_ptr!(store, quote);
     let quoted = store.list(&[quote, src]);
-    Ok((quoted, src))
+    (quoted, src)
 }
 
 fn _lurk_function<P: AsRef<Path>, F: LurkField + Serialize>(
@@ -460,12 +454,12 @@ fn _lurk_function<P: AsRef<Path>, F: LurkField + Serialize>(
     function_path: P,
     limit: usize,
     lang: &Lang<F, Coproc<F>>,
-) -> Result<(Ptr<F>, Ptr<F>), Error> {
+) -> (Ptr<F>, Ptr<F>) {
     let (function, src) =
         read_eval_from_path(store, function_path, limit, lang).expect("failed to read function");
     assert!(function.is_fun(), "FComm can only commit to functions.");
 
-    Ok((function, src))
+    (function, src)
 }
 
 fn input<P: AsRef<Path>, F: LurkField + Serialize>(
@@ -480,7 +474,7 @@ fn input<P: AsRef<Path>, F: LurkField + Serialize>(
         let (evaled_input, _src) = read_eval_from_path(store, input_path, limit, lang)?;
         evaled_input
     } else {
-        let (quoted, src) = read_no_eval_from_path(store, input_path)?;
+        let (quoted, src) = read_no_eval_from_path(store, input_path);
         if quote_input {
             quoted
         } else {
@@ -499,7 +493,7 @@ fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     lang: &Lang<F, Coproc<F>>,
 ) -> Result<Ptr<F>, Error> {
     if lurk {
-        read_from_path(store, expression_path)
+        Ok(read_from_path(store, expression_path))
     } else {
         let expression = Expression::read_from_json_path(expression_path)?;
         let expr = expression.expr.ptr(store, limit, lang);

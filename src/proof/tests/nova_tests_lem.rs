@@ -31,7 +31,7 @@ fn test_prove_binop() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -51,7 +51,7 @@ fn test_prove_binop_fail() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -72,7 +72,7 @@ fn test_prove_arithmetic_let() {
         Some(terminal),
         None,
         18,
-        None,
+        &None,
     );
 }
 
@@ -93,7 +93,7 @@ fn test_prove_eq() {
         DEFAULT_REDUCTION_COUNT,
         true,
         None,
-        None,
+        &None,
     );
 }
 
@@ -111,7 +111,7 @@ fn test_prove_num_equal() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 
     let expected = s.intern_nil();
@@ -124,7 +124,7 @@ fn test_prove_num_equal() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -141,7 +141,7 @@ fn test_prove_invalid_num_equal() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 
     let expected = Ptr::num_u64(5);
@@ -153,7 +153,7 @@ fn test_prove_invalid_num_equal() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -172,7 +172,7 @@ fn test_prove_equal() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -182,7 +182,7 @@ fn test_prove_equal() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -192,16 +192,25 @@ fn test_prove_equal() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
-    test_aux::<_, _, M1<'_, _>>(s, "(eq 5 5)", Some(t), None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, "(eq 5 5)", Some(t), None, Some(terminal), None, 3, &None);
 }
 
 #[test]
 fn test_prove_quote_end_is_nil_error() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, "(quote (1) (2))", None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        "(quote (1) (2))",
+        None,
+        None,
+        Some(error),
+        None,
+        1,
+        &None,
+    );
 }
 
 #[test]
@@ -217,7 +226,7 @@ fn test_prove_if() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 
     let expected = Ptr::num_u64(6);
@@ -230,7 +239,7 @@ fn test_prove_if() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     )
 }
 
@@ -247,7 +256,7 @@ fn test_prove_if_end_is_nil_error() {
         Some(error),
         None,
         2,
-        None,
+        &None,
     )
 }
 
@@ -265,7 +274,7 @@ fn test_prove_if_fully_evaluates() {
         Some(terminal),
         None,
         5,
-        None,
+        &None,
     );
 }
 
@@ -288,7 +297,7 @@ fn test_prove_recursion1() {
         Some(terminal),
         None,
         66,
-        None,
+        &None,
     );
 }
 
@@ -312,7 +321,7 @@ fn test_prove_recursion2() {
         Some(terminal),
         None,
         93,
-        None,
+        &None,
     );
 }
 
@@ -331,7 +340,7 @@ fn test_prove_unop_regression_aux(chunk_count: usize) {
         chunk_count, // This needs to be 1 to exercise the bug.
         false,
         None,
-        None,
+        &None,
     );
 
     let expected = Ptr::num_u64(1);
@@ -346,7 +355,7 @@ fn test_prove_unop_regression_aux(chunk_count: usize) {
         chunk_count, // This needs to be 1 to exercise the bug.
         false,
         None,
-        None,
+        &None,
     );
 
     let expected = Ptr::num_u64(2);
@@ -361,7 +370,7 @@ fn test_prove_unop_regression_aux(chunk_count: usize) {
         chunk_count, // This needs to be 1 to exercise the bug.
         false,
         None,
-        None,
+        &None,
     );
 
     let expected = Ptr::num_u64(123);
@@ -376,7 +385,7 @@ fn test_prove_unop_regression_aux(chunk_count: usize) {
         chunk_count,
         false,
         None,
-        None,
+        &None,
     )
 }
 
@@ -404,7 +413,7 @@ fn test_prove_emit_output() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -422,7 +431,7 @@ fn test_prove_evaluate() {
         Some(terminal),
         None,
         4,
-        None,
+        &None,
     );
 }
 
@@ -442,7 +451,7 @@ fn test_prove_evaluate2() {
         Some(terminal),
         None,
         9,
-        None,
+        &None,
     );
 }
 
@@ -465,7 +474,7 @@ fn test_prove_evaluate3() {
         Some(terminal),
         None,
         10,
-        None,
+        &None,
     );
 }
 
@@ -489,7 +498,7 @@ fn test_prove_evaluate4() {
         Some(terminal),
         None,
         10,
-        None,
+        &None,
     );
 }
 
@@ -510,7 +519,7 @@ fn test_prove_evaluate5() {
         Some(terminal),
         None,
         13,
-        None,
+        &None,
     );
 }
 
@@ -528,7 +537,7 @@ fn test_prove_evaluate_sum() {
         Some(terminal),
         None,
         6,
-        None,
+        &None,
     );
 }
 
@@ -545,7 +554,7 @@ fn test_prove_binop_rest_is_nil() {
         Some(error),
         None,
         2,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -555,7 +564,7 @@ fn test_prove_binop_rest_is_nil() {
         Some(error),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -568,24 +577,24 @@ fn op_syntax_error<T: Op + Copy>() {
         if !op.supports_arity(0) {
             let expr = format!("({name})");
             tracing::debug!("{:?}", &expr);
-            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
         }
         if !op.supports_arity(1) {
             let expr = format!("({name} 123)");
             tracing::debug!("{:?}", &expr);
-            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
         }
         if !op.supports_arity(2) {
             let expr = format!("({name} 123 456)");
             tracing::debug!("{:?}", &expr);
-            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
         }
 
         if !op.supports_arity(3) {
             let expr = format!("({name} 123 456 789)");
             tracing::debug!("{:?}", &expr);
             let iterations = if op.supports_arity(2) { 2 } else { 1 };
-            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, iterations, None);
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, iterations, &None);
         }
     };
 
@@ -619,7 +628,7 @@ fn test_prove_diff() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -637,7 +646,7 @@ fn test_prove_product() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -655,7 +664,7 @@ fn test_prove_quotient() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -672,7 +681,7 @@ fn test_prove_error_div_by_zero() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -689,7 +698,7 @@ fn test_prove_error_invalid_type_and_not_cons() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -711,7 +720,7 @@ fn test_prove_adder() {
         Some(terminal),
         None,
         13,
-        None,
+        &None,
     );
 }
 
@@ -728,7 +737,7 @@ fn test_prove_current_env_simple() {
         Some(terminal),
         None,
         1,
-        None,
+        &None,
     );
 }
 
@@ -745,7 +754,7 @@ fn test_prove_current_env_rest_is_nil_error() {
         Some(error),
         None,
         1,
-        None,
+        &None,
     );
 }
 
@@ -764,7 +773,7 @@ fn test_prove_let_simple() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -780,7 +789,7 @@ fn test_prove_let_end_is_nil_error() {
         Some(error),
         None,
         1,
-        None,
+        &None,
     );
 }
 
@@ -796,7 +805,7 @@ fn test_prove_letrec_end_is_nil_error() {
         Some(error),
         None,
         1,
-        None,
+        &None,
     );
 }
 
@@ -812,7 +821,7 @@ fn test_prove_lambda_empty_error() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -820,21 +829,21 @@ fn test_prove_lambda_empty_error() {
 fn test_prove_let_empty_error() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, "(let)", None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, "(let)", None, None, Some(error), None, 1, &None);
 }
 
 #[test]
 fn test_prove_let_empty_body_error() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, "(let ((a 1)))", None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, "(let ((a 1)))", None, None, Some(error), None, 1, &None);
 }
 
 #[test]
 fn test_prove_letrec_empty_error() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, "(letrec)", None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, "(letrec)", None, None, Some(error), None, 1, &None);
 }
 
 #[test]
@@ -849,7 +858,7 @@ fn test_prove_letrec_empty_body_error() {
         Some(error),
         None,
         1,
-        None,
+        &None,
     );
 }
 
@@ -866,7 +875,7 @@ fn test_prove_let_body_nil() {
         Some(terminal),
         None,
         4,
-        None,
+        &None,
     );
 }
 
@@ -882,7 +891,7 @@ fn test_prove_let_rest_body_is_nil_error() {
         Some(error),
         None,
         1,
-        None,
+        &None,
     );
 }
 
@@ -898,7 +907,7 @@ fn test_prove_letrec_rest_body_is_nil_error() {
         Some(error),
         None,
         1,
-        None,
+        &None,
     );
 }
 
@@ -916,7 +925,7 @@ fn test_prove_let_null_bindings() {
         Some(terminal),
         None,
         4,
-        None,
+        &None,
     );
 }
 #[test]
@@ -933,7 +942,7 @@ fn test_prove_letrec_null_bindings() {
         Some(terminal),
         None,
         4,
-        None,
+        &None,
     );
 }
 
@@ -954,7 +963,7 @@ fn test_prove_let() {
         Some(terminal),
         None,
         18,
-        None,
+        &None,
     );
 }
 
@@ -979,7 +988,7 @@ fn test_prove_arithmetic() {
         Some(terminal),
         None,
         23,
-        None,
+        &None,
     );
 }
 
@@ -1001,7 +1010,7 @@ fn test_prove_comparison() {
         Some(terminal),
         None,
         21,
-        None,
+        &None,
     );
 }
 
@@ -1030,7 +1039,7 @@ fn test_prove_conditional() {
         Some(terminal),
         None,
         35,
-        None,
+        &None,
     );
 }
 
@@ -1059,7 +1068,7 @@ fn test_prove_conditional2() {
         Some(terminal),
         None,
         32,
-        None,
+        &None,
     );
 }
 
@@ -1085,7 +1094,7 @@ fn test_prove_fundamental_conditional_bug() {
         Some(terminal),
         None,
         32,
-        None,
+        &None,
     );
 }
 
@@ -1103,7 +1112,7 @@ fn test_prove_fully_evaluates() {
         Some(terminal),
         None,
         5,
-        None,
+        &None,
     );
 }
 
@@ -1126,7 +1135,7 @@ fn test_prove_recursion() {
         Some(terminal),
         None,
         66,
-        None,
+        &None,
     );
 }
 
@@ -1148,7 +1157,7 @@ fn test_prove_recursion_multiarg() {
         Some(terminal),
         None,
         69,
-        None,
+        &None,
     );
 }
 
@@ -1173,7 +1182,7 @@ fn test_prove_recursion_optimized() {
         Some(terminal),
         None,
         56,
-        None,
+        &None,
     );
 }
 
@@ -1197,7 +1206,7 @@ fn test_prove_tail_recursion() {
         Some(terminal),
         None,
         93,
-        None,
+        &None,
     );
 }
 
@@ -1222,7 +1231,7 @@ fn test_prove_tail_recursion_somewhat_optimized() {
         None,
         Some(terminal),
         None,
-        81,None
+        81, &None
     );
 }
 
@@ -1248,7 +1257,7 @@ fn test_prove_no_mutual_recursion() {
         Some(terminal),
         None,
         22,
-        None,
+        &None,
     );
 }
 
@@ -1273,7 +1282,7 @@ fn test_prove_no_mutual_recursion_error() {
         Some(error),
         None,
         25,
-        None,
+        &None,
     );
 }
 
@@ -1291,7 +1300,7 @@ fn test_prove_cons1() {
         Some(terminal),
         None,
         5,
-        None,
+        &None,
     );
 }
 
@@ -1299,28 +1308,28 @@ fn test_prove_cons1() {
 fn test_prove_car_end_is_nil_error() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, "(car (1 2) 3)", None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, "(car (1 2) 3)", None, None, Some(error), None, 1, &None);
 }
 
 #[test]
 fn test_prove_cdr_end_is_nil_error() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, "(cdr (1 2) 3)", None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, "(cdr (1 2) 3)", None, None, Some(error), None, 1, &None);
 }
 
 #[test]
 fn test_prove_atom_end_is_nil_error() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, "(atom 123 4)", None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, "(atom 123 4)", None, None, Some(error), None, 1, &None);
 }
 
 #[test]
 fn test_prove_emit_end_is_nil_error() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, "(emit 123 4)", None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, "(emit 123 4)", None, None, Some(error), None, 1, &None);
 }
 
 #[test]
@@ -1336,7 +1345,7 @@ fn test_prove_cons2() {
         Some(terminal),
         None,
         5,
-        None,
+        &None,
     );
 }
 
@@ -1353,7 +1362,7 @@ fn test_prove_zero_arg_lambda1() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -1370,7 +1379,7 @@ fn test_prove_zero_arg_lambda2() {
         Some(terminal),
         None,
         10,
-        None,
+        &None,
     );
 }
 
@@ -1396,7 +1405,7 @@ fn test_prove_zero_arg_lambda3() {
         DEFAULT_REDUCTION_COUNT,
         false,
         None,
-        None,
+        &None,
     );
 }
 
@@ -1412,7 +1421,7 @@ fn test_prove_zero_arg_lambda4() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -1421,7 +1430,16 @@ fn test_prove_zero_arg_lambda5() {
     let s = &Store::<Fr>::default();
     let expected = s.read_with_default_state("(123)").unwrap();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, "(123)", Some(expected), None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        "(123)",
+        Some(expected),
+        None,
+        Some(error),
+        None,
+        1,
+        &None,
+    );
 }
 
 #[test]
@@ -1437,7 +1455,7 @@ fn test_prove_zero_arg_lambda6() {
         Some(error),
         None,
         5,
-        None,
+        &None,
     );
 }
 
@@ -1458,7 +1476,7 @@ fn test_prove_nested_let_closure_regression() {
         Some(terminal),
         None,
         14,
-        None,
+        &None,
     );
 }
 
@@ -1481,7 +1499,7 @@ fn test_prove_minimal_tail_call() {
         Some(terminal),
         None,
         50,
-        None,
+        &None,
     );
 }
 
@@ -1503,7 +1521,7 @@ fn test_prove_cons_in_function1() {
         Some(terminal),
         None,
         15,
-        None,
+        &None,
     );
 }
 
@@ -1525,7 +1543,7 @@ fn test_prove_cons_in_function2() {
         Some(terminal),
         None,
         15,
-        None,
+        &None,
     );
 }
 
@@ -1543,7 +1561,7 @@ fn test_prove_multiarg_eval_bug() {
         Some(terminal),
         None,
         4,
-        None,
+        &None,
     );
 }
 
@@ -1567,7 +1585,7 @@ fn test_prove_multiple_letrec_bindings() {
         Some(terminal),
         None,
         78,
-        None,
+        &None,
     );
 }
 
@@ -1591,7 +1609,7 @@ fn test_prove_tail_call2() {
         Some(terminal),
         None,
         84,
-        None,
+        &None,
     );
 }
 
@@ -1611,7 +1629,7 @@ fn test_prove_multiple_letrecstar_bindings() {
         Some(terminal),
         None,
         22,
-        None,
+        &None,
     );
 }
 
@@ -1631,7 +1649,7 @@ fn test_prove_multiple_letrecstar_bindings_referencing() {
         Some(terminal),
         None,
         31,
-        None,
+        &None,
     );
 }
 
@@ -1662,7 +1680,7 @@ fn test_prove_multiple_letrecstar_bindings_recursive() {
         Some(terminal),
         None,
         242,
-        None,
+        &None,
     );
 }
 
@@ -1684,7 +1702,7 @@ fn test_prove_dont_discard_rest_env() {
         Some(terminal),
         None,
         22,
-        None,
+        &None,
     );
 }
 
@@ -1713,7 +1731,7 @@ fn test_prove_fibonacci() {
         5,
         false,
         None,
-        None,
+        &None,
     );
 }
 
@@ -1757,7 +1775,7 @@ fn test_prove_terminal_continuation_regression() {
         Some(terminal),
         None,
         9,
-        None,
+        &None,
     );
 }
 
@@ -1778,7 +1796,7 @@ fn test_prove_chained_functional_commitment() {
         Some(terminal),
         None,
         39,
-        None,
+        &None,
     );
 }
 
@@ -1795,7 +1813,7 @@ fn test_prove_begin_empty() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -1813,7 +1831,7 @@ fn test_prove_begin_emit() {
         None,
         Some(&expected_emitted),
         13,
-        None,
+        &None,
     );
 }
 
@@ -1830,7 +1848,7 @@ fn test_prove_str_car() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -1847,7 +1865,7 @@ fn test_prove_str_cdr() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -1864,7 +1882,7 @@ fn test_prove_str_car_empty() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -1881,7 +1899,7 @@ fn test_prove_str_cdr_empty() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -1898,7 +1916,7 @@ fn test_prove_strcons() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -1914,7 +1932,7 @@ fn test_prove_str_cons_error() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -1922,7 +1940,7 @@ fn test_prove_str_cons_error() {
 fn test_prove_one_arg_cons_error() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, r#"(cons "")"#, None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, r#"(cons "")"#, None, None, Some(error), None, 1, &None);
 }
 
 #[test]
@@ -1938,7 +1956,7 @@ fn test_prove_car_nil() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -1955,7 +1973,7 @@ fn test_prove_cdr_nil() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -1963,24 +1981,24 @@ fn test_prove_cdr_nil() {
 fn test_prove_car_cdr_invalid_tag_error_sym() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, r#"(car car)"#, None, None, Some(error), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, r#"(cdr car)"#, None, None, Some(error), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, r#"(car car)"#, None, None, Some(error), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, r#"(cdr car)"#, None, None, Some(error), None, 2, &None);
 }
 
 #[test]
 fn test_prove_car_cdr_invalid_tag_error_char() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, r"(car #\a)", None, None, Some(error), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, r"(cdr #\a)", None, None, Some(error), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, r"(car #\a)", None, None, Some(error), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, r"(cdr #\a)", None, None, Some(error), None, 2, &None);
 }
 
 #[test]
 fn test_prove_car_cdr_invalid_tag_error_num() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, r#"(car 42)"#, None, None, Some(error), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, r#"(cdr 42)"#, None, None, Some(error), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, r#"(car 42)"#, None, None, Some(error), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, r#"(cdr 42)"#, None, None, Some(error), None, 2, &None);
 }
 
 #[test]
@@ -1997,7 +2015,7 @@ fn test_prove_car_cdr_of_cons() {
         Some(terminal),
         None,
         5,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -2007,7 +2025,7 @@ fn test_prove_car_cdr_of_cons() {
         Some(terminal),
         None,
         5,
-        None,
+        &None,
     );
 }
 
@@ -2023,7 +2041,7 @@ fn test_prove_car_cdr_invalid_tag_error_lambda() {
         Some(error),
         None,
         2,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -2033,7 +2051,7 @@ fn test_prove_car_cdr_invalid_tag_error_lambda() {
         Some(error),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -2043,7 +2061,16 @@ fn test_prove_hide_open() {
     let expr = "(open (hide 123 456))";
     let expected = Ptr::num_u64(456);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 5, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        5,
+        &None,
+    );
 }
 
 #[test]
@@ -2051,7 +2078,7 @@ fn test_prove_hide_wrong_secret_type() {
     let s = &Store::<Fr>::default();
     let expr = "(hide 'x 456)";
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, &None);
 }
 
 #[test]
@@ -2060,7 +2087,16 @@ fn test_prove_hide_secret() {
     let expr = "(secret (hide 123 456))";
     let expected = Ptr::num_u64(123);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 5, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        5,
+        &None,
+    );
 }
 
 #[test]
@@ -2069,7 +2105,7 @@ fn test_prove_hide_open_sym() {
     let expr = "(open (hide 123 'x))";
     let x = s.intern_user_symbol("x");
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(x), None, Some(terminal), None, 5, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(x), None, Some(terminal), None, 5, &None);
 }
 
 #[test]
@@ -2078,7 +2114,7 @@ fn test_prove_commit_open_sym() {
     let expr = "(open (commit 'x))";
     let x = s.intern_user_symbol("x");
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(x), None, Some(terminal), None, 4, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(x), None, Some(terminal), None, 4, &None);
 }
 
 #[test]
@@ -2087,7 +2123,16 @@ fn test_prove_commit_open() {
     let expr = "(open (commit 123))";
     let expected = Ptr::num_u64(123);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 4, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        4,
+        &None,
+    );
 }
 
 #[test]
@@ -2095,7 +2140,7 @@ fn test_prove_commit_error() {
     let s = &Store::<Fr>::default();
     let expr = "(commit 123 456)";
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 1, &None);
 }
 
 #[test]
@@ -2103,7 +2148,7 @@ fn test_prove_open_error() {
     let s = &Store::<Fr>::default();
     let expr = "(open 123 456)";
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 1, &None);
 }
 
 #[test]
@@ -2111,7 +2156,7 @@ fn test_prove_open_wrong_type() {
     let s = &Store::<Fr>::default();
     let expr = "(open 'asdf)";
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, &None);
 }
 
 #[test]
@@ -2119,7 +2164,7 @@ fn test_prove_secret_wrong_type() {
     let s = &Store::<Fr>::default();
     let expr = "(secret 'asdf)";
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, &None);
 }
 
 #[test]
@@ -2128,7 +2173,16 @@ fn test_prove_commit_secret() {
     let expr = "(secret (commit 123))";
     let expected = Ptr::num_u64(0);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 4, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        4,
+        &None,
+    );
 }
 
 #[test]
@@ -2137,7 +2191,16 @@ fn test_prove_num() {
     let expr = "(num 123)";
     let expected = Ptr::num_u64(123);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        2,
+        &None,
+    );
 }
 
 #[test]
@@ -2146,7 +2209,16 @@ fn test_prove_num_char() {
     let expr = r"(num #\a)";
     let expected = Ptr::num_u64(97);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        2,
+        &None,
+    );
 }
 
 #[test]
@@ -2163,7 +2235,7 @@ fn test_prove_char_num() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
 }
 
@@ -2183,7 +2255,7 @@ fn test_prove_char_coercion() {
         Some(terminal),
         None,
         5,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -2193,7 +2265,7 @@ fn test_prove_char_coercion() {
         Some(terminal),
         None,
         5,
-        None,
+        &None,
     );
 }
 
@@ -2202,7 +2274,7 @@ fn test_prove_commit_num() {
     let s = &Store::<Fr>::default();
     let expr = "(num (commit 123))";
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 4, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 4, &None);
 }
 
 #[test]
@@ -2211,7 +2283,16 @@ fn test_prove_hide_open_comm_num() {
     let expr = "(open (comm (num (hide 123 456))))";
     let expected = Ptr::num_u64(456);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 9, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        9,
+        &None,
+    );
 }
 
 #[test]
@@ -2220,7 +2301,16 @@ fn test_prove_hide_secret_comm_num() {
     let expr = "(secret (comm (num (hide 123 456))))";
     let expected = Ptr::num_u64(123);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 9, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        9,
+        &None,
+    );
 }
 
 #[test]
@@ -2229,7 +2319,16 @@ fn test_prove_commit_open_comm_num() {
     let expr = "(open (comm (num (commit 123))))";
     let expected = Ptr::num_u64(123);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 8, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        8,
+        &None,
+    );
 }
 
 #[test]
@@ -2238,7 +2337,16 @@ fn test_prove_commit_secret_comm_num() {
     let expr = "(secret (comm (num (commit 123))))";
     let expected = Ptr::num_u64(0);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 8, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        8,
+        &None,
+    );
 }
 
 #[test]
@@ -2247,7 +2355,16 @@ fn test_prove_commit_num_open() {
     let expr = "(open (num (commit 123)))";
     let expected = Ptr::num_u64(123);
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 6, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        6,
+        &None,
+    );
 }
 
 #[test]
@@ -2257,9 +2374,9 @@ fn test_prove_num_invalid_tag() {
     let expr1 = "(num \"asdf\")";
     let expr2 = "(num '(1))";
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 2, &None);
 }
 
 #[test]
@@ -2269,9 +2386,9 @@ fn test_prove_comm_invalid_tag() {
     let expr1 = "(comm \"asdf\")";
     let expr2 = "(comm '(1))";
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 2, &None);
 }
 
 #[test]
@@ -2281,9 +2398,9 @@ fn test_prove_char_invalid_tag() {
     let expr1 = "(char \"asdf\")";
     let expr2 = "(char '(1))";
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 2, &None);
 }
 
 #[test]
@@ -2292,7 +2409,7 @@ fn test_prove_terminal_sym() {
     let expr = "(quote x)";
     let x = s.intern_user_symbol("x");
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(x), None, Some(terminal), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(x), None, Some(terminal), None, 1, &None);
 }
 
 #[test]
@@ -2300,7 +2417,7 @@ fn test_prove_terminal_sym() {
 fn test_prove_open_opaque_commit() {
     let s = &Store::<Fr>::default();
     let expr = "(open 123)";
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, 2, &None);
 }
 
 #[test]
@@ -2308,7 +2425,7 @@ fn test_prove_open_opaque_commit() {
 fn test_prove_secret_invalid_tag() {
     let s = &Store::<Fr>::default();
     let expr = "(secret 123)";
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, 2, &None);
 }
 
 #[test]
@@ -2316,7 +2433,7 @@ fn test_prove_secret_invalid_tag() {
 fn test_prove_secret_opaque_commit() {
     let s = &Store::<Fr>::default();
     let expr = "(secret (comm 123))";
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, 2, &None);
 }
 
 #[test]
@@ -2339,7 +2456,7 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -2349,7 +2466,7 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -2359,7 +2476,7 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -2369,7 +2486,7 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         2,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -2379,7 +2496,7 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 
     test_aux::<_, _, M1<'_, _>>(
@@ -2390,7 +2507,7 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         3,
-        None,
+        &None,
     );
 
     test_aux::<_, _, M1<'_, _>>(
@@ -2401,7 +2518,7 @@ fn test_str_car_cdr_cons() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 
     test_aux::<_, _, M1<'_, _>>(
@@ -2412,7 +2529,7 @@ fn test_str_car_cdr_cons() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 
     test_aux::<_, _, M1<'_, _>>(
@@ -2423,7 +2540,7 @@ fn test_str_car_cdr_cons() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -2436,7 +2553,16 @@ fn relational_aux(s: &Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
     };
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        3,
+        &None,
+    );
 }
 
 #[ignore]
@@ -2564,7 +2690,7 @@ fn test_relational_edge_case_identity() {
     let t = s.intern_lurk_symbol("t");
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 19, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 19, &None);
 }
 
 #[test]
@@ -2576,8 +2702,8 @@ fn test_prove_test_eval() {
     let res2 = Ptr::num_u64(20);
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 17, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 9, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 17, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 9, &None);
 }
 
 #[test]
@@ -2593,9 +2719,9 @@ fn test_prove_test_keyword() {
 
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 1, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res3), None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 1, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res3), None, Some(terminal), None, 3, &None);
 }
 
 // The following functional commitment tests were discovered to fail. They are commented out (as tests) for now so
@@ -2611,7 +2737,7 @@ fn test_prove_functional_commitment() {
     let res = Ptr::num_u64(10);
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 25, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 25, &None);
 }
 
 #[test]
@@ -2632,7 +2758,7 @@ fn test_prove_complicated_functional_commitment() {
     let res = Ptr::num_u64(6);
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 108, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 108, &None);
 }
 
 #[test]
@@ -2646,7 +2772,7 @@ fn test_prove_test_fold_cons_regression() {
     let res = Ptr::num_u64(6);
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 152, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 152, &None);
 }
 
 #[test]
@@ -2656,7 +2782,7 @@ fn test_prove_test_lambda_args_regression() {
     let expr = "(cons (lambda (x y) nil) nil)";
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 3, &None);
 }
 
 #[test]
@@ -2666,7 +2792,7 @@ fn test_prove_reduce_sym_contradiction_regression() {
     let expr = "(eval 'a '(nil))";
     let error = Ptr::null(Tag::Cont(Error));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 4, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 4, &None);
 }
 
 #[test]
@@ -2681,7 +2807,7 @@ fn test_prove_test_self_eval_env_not_nil() {
     let expr = "(let ((a 1)) t)";
 
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 3, &None);
 }
 
 #[test]
@@ -2692,7 +2818,7 @@ fn test_prove_test_self_eval_nil() {
     let expr = "nil";
 
     let terminal = Ptr::null(Tag::Cont(Terminal));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 1, &None);
 }
 
 #[test]
@@ -2702,7 +2828,7 @@ fn test_prove_test_env_not_nil_and_binding_nil() {
     let expr = "(let ((a 1) (b 2)) c)";
 
     let error = Ptr::null(Tag::Cont(Error));
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 7, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 7, &None);
 }
 
 #[test]
@@ -2711,7 +2837,7 @@ fn test_prove_test_eval_bad_form() {
     let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env. This tests for error on malformed env.
     let error = Ptr::null(Tag::Cont(Error));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 8, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 8, &None);
 }
 
 #[test]
@@ -2722,7 +2848,7 @@ fn test_prove_test_u64_self_evaluating() {
     let res = Ptr::u64(123);
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 1, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 1, &None);
 }
 
 #[test]
@@ -2737,10 +2863,10 @@ fn test_prove_test_u64_mul() {
     let res2 = Ptr::u64(1);
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 7, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res), None, Some(terminal), None, 6, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr4, Some(res2), None, Some(terminal), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 7, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res), None, Some(terminal), None, 6, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr4, Some(res2), None, Some(terminal), None, 2, &None);
 }
 
 #[test]
@@ -2752,8 +2878,8 @@ fn test_prove_test_u64_add() {
     let res = Ptr::u64(1);
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res), None, Some(terminal), None, 6, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res), None, Some(terminal), None, 6, &None);
 }
 
 #[test]
@@ -2768,9 +2894,9 @@ fn test_prove_test_u64_sub() {
     let res3 = Ptr::u64(0);
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res3), None, Some(terminal), None, 6, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res3), None, Some(terminal), None, 6, &None);
 }
 
 #[test]
@@ -2788,9 +2914,9 @@ fn test_prove_test_u64_div() {
     let terminal = Ptr::null(Tag::Cont(Terminal));
     let error = Ptr::null(Tag::Cont(Error));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, 3, &None);
 }
 
 #[test]
@@ -2808,9 +2934,9 @@ fn test_prove_test_u64_mod() {
     let terminal = Ptr::null(Tag::Cont(Terminal));
     let error = Ptr::null(Tag::Cont(Error));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, 3, &None);
 }
 
 #[test]
@@ -2823,9 +2949,9 @@ fn test_prove_test_num_mod() {
 
     let error = Ptr::null(Tag::Cont(Error));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, 3, &None);
 }
 
 #[test]
@@ -2849,18 +2975,18 @@ fn test_prove_test_u64_comp() {
     let nil = s.intern_nil();
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(nil), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(t), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr4, Some(nil), None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(nil), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(t), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr4, Some(nil), None, Some(terminal), None, 3, &None);
 
-    test_aux::<_, _, M1<'_, _>>(s, expr5, Some(nil), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr6, Some(t), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr7, Some(nil), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr8, Some(t), None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr5, Some(nil), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr6, Some(t), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr7, Some(nil), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr8, Some(t), None, Some(terminal), None, 3, &None);
 
-    test_aux::<_, _, M1<'_, _>>(s, expr9, Some(t), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr10, Some(t), None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr9, Some(t), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr10, Some(t), None, Some(terminal), None, 3, &None);
 }
 
 #[test]
@@ -2876,10 +3002,10 @@ fn test_prove_test_u64_conversion() {
     let res3 = Ptr::u64(2);
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res), None, Some(terminal), None, 2, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res2), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr4, Some(res3), None, Some(terminal), None, 5, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res), None, Some(terminal), None, 2, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res2), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr4, Some(res3), None, Some(terminal), None, 5, &None);
 }
 
 #[test]
@@ -2892,8 +3018,8 @@ fn test_prove_test_u64_num_comparison() {
     let nil = s.intern_nil();
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(nil), None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(nil), None, Some(terminal), None, 3, &None);
 }
 
 #[test]
@@ -2906,8 +3032,8 @@ fn test_prove_test_u64_num_cons() {
     let res2 = s.read_with_default_state("(1u64 . 1)").unwrap();
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, &None);
 }
 
 #[test]
@@ -2917,7 +3043,7 @@ fn test_prove_test_hide_u64_secret() {
     let expr = "(hide 0u64 123)";
     let error = Ptr::null(Tag::Cont(Error));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, &None);
 }
 
 #[test]
@@ -2927,7 +3053,7 @@ fn test_prove_test_mod_by_zero_error() {
     let expr = "(% 0 0)";
     let error = Ptr::null(Tag::Cont(Error));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, &None);
 }
 
 #[test]
@@ -2936,7 +3062,7 @@ fn test_prove_dotted_syntax_error() {
     let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
     let error = Ptr::null(Tag::Cont(Error));
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, &None);
 }
 
 #[test]
@@ -2972,7 +3098,7 @@ fn test_prove_lambda_body_syntax() {
     let s = &Store::<Fr>::default();
     let error = Ptr::null(Tag::Cont(Error));
 
-    test_aux::<_, _, M1<'_, _>>(s, "((lambda ()))", None, None, Some(error), None, 2, None);
+    test_aux::<_, _, M1<'_, _>>(s, "((lambda ()))", None, None, Some(error), None, 2, &None);
     test_aux::<_, _, M1<'_, _>>(
         s,
         "((lambda () 1 2))",
@@ -2981,7 +3107,7 @@ fn test_prove_lambda_body_syntax() {
         Some(error),
         None,
         2,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -2991,7 +3117,7 @@ fn test_prove_lambda_body_syntax() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
     test_aux::<_, _, M1<'_, _>>(
         s,
@@ -3001,7 +3127,7 @@ fn test_prove_lambda_body_syntax() {
         Some(error),
         None,
         3,
-        None,
+        &None,
     );
 }
 
@@ -3016,9 +3142,9 @@ fn test_prove_non_symbol_binding_error() {
         let expr2 = format!("(letrec (({x} 123)) {x})");
         let expr3 = format!("(lambda ({x}) {x})");
 
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
-        test_aux::<_, _, M1<'_, _>>(s, &expr2, None, None, Some(error), None, 1, None);
-        test_aux::<_, _, M1<'_, _>>(s, &expr3, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr2, None, None, Some(error), None, 1, &None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr3, None, None, Some(error), None, 1, &None);
     };
 
     test(":a");
@@ -3044,37 +3170,37 @@ fn test_prove_head_with_sym_mimicking_value() {
     {
         // binop
         let expr = format!("({} 1 1)", hash_num(s, state.clone(), "+"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
     }
     {
         // unop
         let expr = format!("({} '(1 . 2))", hash_num(s, state.clone(), "car"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
     }
     {
         // let_or_letrec
         let expr = format!("({} ((a 1)) a)", hash_num(s, state.clone(), "let"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
     }
     {
         // current-env
         let expr = format!("({})", hash_num(s, state.clone(), "current-env"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
     }
     {
         // lambda
         let expr = format!("({} (x) 123)", hash_num(s, state.clone(), "lambda"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
     }
     {
         // quote
         let expr = format!("({} asdf)", hash_num(s, state.clone(), "quote"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
     }
     {
         // if
         let expr = format!("({} t 123 456)", hash_num(s, state, "if"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, &None);
     }
 }
 
@@ -3112,7 +3238,7 @@ fn test_dumb_lang() {
         None,
         None,
         3,
-        Some(lang.clone()),
+        &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
         s,
@@ -3122,7 +3248,7 @@ fn test_dumb_lang() {
         None,
         None,
         6,
-        Some(lang.clone()),
+        &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
         s,
@@ -3132,7 +3258,7 @@ fn test_dumb_lang() {
         Some(error),
         None,
         4,
-        Some(lang.clone()),
+        &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
         s,
@@ -3142,7 +3268,7 @@ fn test_dumb_lang() {
         Some(error),
         None,
         2,
-        Some(lang),
+        &Some(lang),
     );
 }
 
@@ -3160,7 +3286,7 @@ fn test_prove_lambda_body_nil() {
         Some(terminal),
         None,
         4,
-        None,
+        &None,
     );
 }
 
@@ -3178,7 +3304,7 @@ fn test_letrec_let_nesting() {
         Some(terminal),
         None,
         6,
-        None,
+        &None,
     );
 }
 #[test]
@@ -3194,7 +3320,7 @@ fn test_let_sequencing() {
         Some(terminal),
         None,
         5,
-        None,
+        &None,
     );
 }
 #[test]
@@ -3210,6 +3336,6 @@ fn test_letrec_sequencing() {
         Some(terminal),
         None,
         8,
-        None,
+        &None,
     );
 }

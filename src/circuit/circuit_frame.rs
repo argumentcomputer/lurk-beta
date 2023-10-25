@@ -256,7 +256,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         count: usize,
         frames: &[Self::EvalFrame],
         store: &'a Self::Store,
-        folding_config: Arc<FoldingConfig<F, C>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
         MultiFrame::from_frames(count, frames, store, folding_config)
     }
@@ -326,9 +326,9 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         count: usize,
         frames: &[Frame<IO<F>, Witness<F>, F, C>],
         store: &'a Store<F>,
-        folding_config: Arc<FoldingConfig<F, C>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
-        match &*folding_config {
+        match &**folding_config {
             FoldingConfig::IVC(..) => Self::from_frames_ivc(count, frames, store, folding_config),
             FoldingConfig::NIVC(..) => Self::from_frames_nivc(count, frames, store, folding_config),
         }
@@ -341,7 +341,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         count: usize,
         frames: &[Frame<IO<F>, Witness<F>, F, C>],
         store: &'a Store<F>,
-        folding_config: Arc<FoldingConfig<F, C>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
@@ -394,7 +394,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         count: usize,
         frames: &[Frame<IO<F>, Witness<F>, F, C>],
         store: &'a Store<F>,
-        folding_config: Arc<FoldingConfig<F, C>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
         let mut steps = Vec::new();
         let mut last_meta = frames[0].meta;
@@ -412,7 +412,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                     if last_meta == Meta::Lurk { count } else { 1 },
                     &consecutive_frames,
                     store,
-                    folding_config.clone(),
+                    folding_config,
                 )
                 .into_iter();
 
@@ -488,10 +488,18 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 .synthesis
                 .is_parallel()
         {
-            self.synthesize_frames_parallel(cs, store, input_expr, input_env, input_cont, frames, g)
+            self.synthesize_frames_parallel(
+                cs,
+                store,
+                &input_expr,
+                &input_env,
+                &input_cont,
+                frames,
+                g,
+            )
         } else {
             self.synthesize_frames_sequential(
-                cs, store, input_expr, input_env, input_cont, frames, None, g,
+                cs, store, input_expr, input_env, input_cont, frames, &None, g,
             )
         }
     }
@@ -504,7 +512,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         input_env: AllocatedPtr<F>,
         input_cont: AllocatedContPtr<F>,
         frames: &[CircuitFrame<'_, F, C>],
-        cons_and_cont_witnesses: Option<Vec<(ConsCircuitWitness<F>, ContCircuitWitness<F>)>>,
+        cons_and_cont_witnesses: &Option<Vec<(ConsCircuitWitness<F>, ContCircuitWitness<F>)>>,
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
         let mut hash_circuit_witness_cache = HashMap::new();
@@ -567,7 +575,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                         cs,
                         i,
                         allocated_io,
-                        self.folding_config.clone(),
+                        &self.folding_config,
                         g,
                         &mut hash_circuit_witness_cache,
                         cons_witnesses,
@@ -585,9 +593,9 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        input_expr: AllocatedPtr<F>,
-        input_env: AllocatedPtr<F>,
-        input_cont: AllocatedContPtr<F>,
+        input_expr: &AllocatedPtr<F>,
+        input_env: &AllocatedPtr<F>,
+        input_cont: &AllocatedContPtr<F>,
         frames: &[CircuitFrame<'_, F, C>],
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
@@ -641,7 +649,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                                     store.poseidon_constants().constants(4.into());
 
                                 // Force generating the witness. This is the important part!
-                                cons_circuit_witness.circuit_witness_blocks(store, cons_constants);
+                                cons_circuit_witness.circuit_witness_blocks(store, &cons_constants);
 
                                 let cont_circuit_witness: ContCircuitWitness<F> = frame
                                     .witness
@@ -653,7 +661,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                                     store.poseidon_constants().constants(8.into());
 
                                 // Force generating the witness. This is the important part!
-                                cont_circuit_witness.circuit_witness_blocks(store, cont_constants);
+                                cont_circuit_witness.circuit_witness_blocks(store, &cont_constants);
 
                                 (cons_circuit_witness, cont_circuit_witness)
                             }
@@ -676,7 +684,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                     input_env,
                     input_cont,
                     chunk,
-                    Some(cons_and_cont_witnesses),
+                    &Some(cons_and_cont_witnesses),
                     g,
                 );
 
@@ -750,7 +758,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
         cs: &mut CS,
         i: usize,
         inputs: AllocatedIO<F>,
-        folding_config: Arc<FoldingConfig<F, C>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
         g: &GlobalAllocations<F>,
         _hash_circuit_witness_cache: &mut HashCircuitWitnessCache<F>, // Currently unused.
         cons_circuit_witness: Option<ConsCircuitWitness<F>>,
@@ -1149,7 +1157,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
     allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
-    folding_config: Arc<FoldingConfig<F, C>>,
+    folding_config: &Arc<FoldingConfig<F, C>>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
     debug!("reduce_expression");
@@ -1755,7 +1763,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
     allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
-    folding_config: Arc<FoldingConfig<F, C>>,
+    folding_config: &Arc<FoldingConfig<F, C>>,
     g: &GlobalAllocations<F>,
 ) -> Result<
     (
@@ -5821,7 +5829,7 @@ mod tests {
                 _p: Default::default(),
             }];
             let multiframes =
-                MultiFrame::from_frames(DEFAULT_REDUCTION_COUNT, &frames, store, folding_config);
+                MultiFrame::from_frames(DEFAULT_REDUCTION_COUNT, &frames, store, &folding_config);
 
             let multiframe = &multiframes[0];
 
@@ -5944,7 +5952,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                folding_config,
+                &folding_config,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -6029,7 +6037,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                folding_config,
+                &folding_config,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -6117,7 +6125,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                folding_config,
+                &folding_config,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -6204,7 +6212,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                folding_config,
+                &folding_config,
             )[0]
             .clone()
             .synthesize(&mut cs)

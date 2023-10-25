@@ -28,7 +28,7 @@ pub mod non_wasm {
         store::Store,
     };
 
-    fn print_error(name: &str, available: Vec<String>) -> Result<()> {
+    fn print_error(name: &str, available: &[String]) -> Result<()> {
         let available = available.join("\n    ");
         bail!(
             "
@@ -51,7 +51,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
     fn validate_gadget<F: LurkField, C: CircomGadget<F>>(gadget: &C) -> Result<()> {
         if !circom_dir().exists() {
             std::fs::create_dir_all(circom_dir())?;
-            return print_error(gadget.name(), vec![]);
+            return print_error(gadget.name(), &[]);
         }
 
         let name = gadget.name();
@@ -80,7 +80,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
             return Ok(());
         }
 
-        print_error(gadget.name(), subdirs)
+        print_error(gadget.name(), &subdirs)
     }
 
     /// A concrete instantiation of a [CircomGadget] with a corresponding [CircomConfig] as a coprocessor.

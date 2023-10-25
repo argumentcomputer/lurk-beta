@@ -39,7 +39,7 @@ fn sha256_ivc<F: LurkField>(
     state: Rc<RefCell<State>>,
     arity: usize,
     n: usize,
-    input: Vec<usize>,
+    input: &Vec<usize>,
 ) -> Ptr<F> {
     assert_eq!(n, input.len());
     let input = input
@@ -71,6 +71,7 @@ fn sha256_ivc<F: LurkField>(
     store.read(state, &program).unwrap()
 }
 
+#[derive(Clone, Copy, Debug)]
 struct ProveParams {
     arity: usize,
     n: usize,
@@ -91,7 +92,7 @@ impl ProveParams {
 fn sha256_ivc_prove<M: measurement::Measurement>(
     prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
-    state: Rc<RefCell<State>>,
+    state: &Rc<RefCell<State>>,
 ) {
     let ProveParams {
         arity,
@@ -128,7 +129,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
-                (0..prove_params.n).collect(),
+                &(0..prove_params.n).collect(),
             );
 
             let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
@@ -166,7 +167,7 @@ fn ivc_prove_benchmarks(c: &mut Criterion) {
                 n,
                 reduction_count,
             };
-            sha256_ivc_prove(prove_params, &mut group, state.clone());
+            sha256_ivc_prove(prove_params, &mut group, &state);
         }
     }
 }
@@ -174,7 +175,7 @@ fn ivc_prove_benchmarks(c: &mut Criterion) {
 fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
-    state: Rc<RefCell<State>>,
+    state: &Rc<RefCell<State>>,
 ) {
     let ProveParams {
         arity,
@@ -211,7 +212,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
-                (0..prove_params.n).collect(),
+                &(0..prove_params.n).collect(),
             );
 
             let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
@@ -251,7 +252,7 @@ fn ivc_prove_compressed_benchmarks(c: &mut Criterion) {
                 n,
                 reduction_count,
             };
-            sha256_ivc_prove_compressed(prove_params, &mut group, state.clone());
+            sha256_ivc_prove_compressed(prove_params, &mut group, &state);
         }
     }
 }
@@ -259,7 +260,7 @@ fn ivc_prove_compressed_benchmarks(c: &mut Criterion) {
 fn sha256_nivc_prove<M: measurement::Measurement>(
     prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
-    state: Rc<RefCell<State>>,
+    state: &Rc<RefCell<State>>,
 ) {
     let ProveParams {
         arity,
@@ -296,7 +297,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
-                (0..prove_params.n).collect(),
+                &(0..prove_params.n).collect(),
             );
 
             let prover = SuperNovaProver::new(prove_params.reduction_count, lang.clone());
@@ -334,7 +335,7 @@ fn nivc_prove_benchmarks(c: &mut Criterion) {
                 n,
                 reduction_count,
             };
-            sha256_nivc_prove(prove_params, &mut group, state.clone());
+            sha256_nivc_prove(prove_params, &mut group, &state);
         }
     }
 }

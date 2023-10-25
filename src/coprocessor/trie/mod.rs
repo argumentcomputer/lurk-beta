@@ -289,7 +289,7 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
 // TODO: define standard patterns for such modularity.
 pub fn install<F: LurkField>(
     s: &Store<F>,
-    state: Rc<RefCell<State>>,
+    state: &Rc<RefCell<State>>,
     lang: &mut Lang<F, TrieCoproc<F>>,
 ) {
     lang.add_binding((".lurk.trie.new", NewCoprocessor::default().into()), s);
@@ -740,7 +740,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     ) -> Result<(InsertProof<F, ARITY, HEIGHT>, bool), Error<F>> {
         let old_proof = Self::prove_lookup_at_path(self.root, self.children, path)?;
 
-        let (proof, new_root) = self.modify_value_at_path(path, &old_proof.preimage_path, value)?;
+        let (proof, new_root) = self.modify_value_at_path(path, &old_proof.preimage_path, value);
 
         let inserted = new_root != self.root;
 
@@ -756,7 +756,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         path: &[usize],
         preimage_path: &PreimagePath<F, ARITY>,
         mut value: F,
-    ) -> Result<(PreimagePath<F, ARITY>, F), Error<F>> {
+    ) -> (PreimagePath<F, ARITY>, F) {
         let mut proof = path
             .iter()
             .zip(preimage_path)
@@ -773,7 +773,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
         proof.reverse();
 
-        Ok((proof, value))
+        (proof, value)
     }
 
     pub fn synthesize_insert<CS: ConstraintSystem<F>>(

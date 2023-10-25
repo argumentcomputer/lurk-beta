@@ -163,41 +163,36 @@ fn test_create_open_and_verify_functional_commitment_aux(
 
     test_aux(
         function_source,
-        vec![(function_input, expected_output)],
+        &[(function_input, expected_output)],
         false,
-        tmp_dir,
+        &tmp_dir,
     );
 }
 
 fn test_create_open_and_verify_chained_functional_commitment_aux(
     function_source: &str,
-    expected_io: Vec<(&str, &str)>,
+    expected_io: &[(&str, &str)],
 ) {
     let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
 
-    test_aux(function_source, expected_io, true, tmp_dir);
+    test_aux(function_source, expected_io, true, &tmp_dir);
 }
 
-fn test_aux(
-    function_source: &str,
-    expected_io: Vec<(&str, &str)>,
-    chained: bool,
-    tmp_dir: TempDir,
-) {
+fn test_aux(function_source: &str, expected_io: &[(&str, &str)], chained: bool, tmp_dir: &TempDir) {
     let function = CommittedExpression::<S1> {
         expr: LurkPtr::Source(function_source.into()),
         secret: None,
         commitment: None,
     };
 
-    test_function_aux(function, expected_io, chained, tmp_dir)
+    test_function_aux(&function, expected_io, chained, tmp_dir)
 }
 
 fn test_function_aux(
-    function: CommittedExpression<S1>,
-    expected_io: Vec<(&str, &str)>,
+    function: &CommittedExpression<S1>,
+    expected_io: &[(&str, &str)],
     chained: bool,
-    tmp_dir: TempDir,
+    tmp_dir: &TempDir,
 ) {
     use lurk::writer::Write;
 
@@ -289,9 +284,9 @@ fn test_create_open_and_verify_higher_order_functional_commitment() {
 fn test_create_open_and_verify_chained_functional_commitment() {
     let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
 
-    let expected_io = vec![("5", "5"), ("3", "8")];
+    let expected_io = [("5", "5"), ("3", "8")];
 
-    test_create_open_and_verify_chained_functional_commitment_aux(function_source, expected_io);
+    test_create_open_and_verify_chained_functional_commitment_aux(function_source, &expected_io);
 }
 
 #[test]
