@@ -11,11 +11,15 @@
 
 Lurk is currently in Alpha. Code that runs in the Lurk Alpha release is expected to also run in Lurk Beta, and eventually Lurk 1.0. However, some low-level data representations are anticipated to change, and we will be refactoring the circuit implementation to increase auditability and further our confidence in Lurk's cryptographic security. Also note that since Lurk inherits some security properties from the underlying proving system, those who would rely on Lurk should investigate the security and status of Nova itself. We encourage early adopters to begin writing real applications taking advantage of Lurk so you can begin to familiarize yourself with the programming model. Likewise, we welcome your feedback -- which will help ensure ongoing development meets user need.
 
+For support and discussions, please visit our [Zulip forum](https://zulip.lurk-lab.com/).
+
 # Overview
 
 Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A reference implementation focused on describing and developing the core language can be found in the [`lurk`](https://github.com/lurk-lab/lurk-lisp) repo.
 
 Lurk's distinguishing feature relative to most programming languages is that correct execution of Lurk programs can be directly proved using zk-SNARKs. The resulting proofs are succinct: they are relatively small, can be verified quickly, and they reveal only the information explicitly contained in the statement to be proved.
+
+For more detailed information, refer to the paper: [https://eprint.iacr.org/2023/369](https://eprint.iacr.org/2023/369)
 
 Lurk's distinguishing feature relative to most zk-SNARK authoring languages is that Lurk is Turing complete, so arbitrary computational claims can be made and proved (subject to resource limitations, obviously). Because Lurk is a Lisp, its code is simply Lurk data, and any Lurk data can be directly evaluated as a Lurk program. Lurk constructs compound data using SNARK-friendly Poseidon hashes (provided by [Neptune](https://github.com/lurk-lab/neptune)), so its data is naturally content-addressable.
 
@@ -158,20 +162,6 @@ You can install the `lurk` Repl on your machine with
 ```
 $ cargo install --path .
 ```
-
-## Benchmarking
-
-To trigger a benchmark:
-
-1. Click on the Actions tab in the upper part of the Github UI
-2. Click on the "Benchmarking" section of the left-hand bar
-3. Click on the "Run workflow" pulldown button on the right
-4. Select the branch you want to benchmark, and click on the green "Run workflow" button to benchmark.
-
-Then, check the following link for the benchmark reports:
-
-https://lurk-lab.github.io/lurk-rs/benchmarks/criterion/reports/
-
 
 ## Nix
 
