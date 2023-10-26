@@ -12,7 +12,7 @@ use crate::field::LurkField;
 use crate::lem::{circuit::GlobalAllocator, pointers::Ptr as LEMPtr, store::Store as LEMStore};
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
-use crate::tag::{ExprTag, Tag};
+use crate::tag::Tag;
 use crate::z_data::z_ptr::ZExprPtr;
 
 pub mod circom;
@@ -51,22 +51,6 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
                 cont: s.intern_cont_error(),
             };
         };
-
-        if argv[0].tag != ExprTag::Num {
-            return IO {
-                expr: argv[0],
-                env,
-                cont: s.intern_cont_error(),
-            };
-        };
-
-        if argv[1].tag != ExprTag::Num {
-            return IO {
-                expr: argv[1],
-                env,
-                cont: s.intern_cont_error(),
-            };
-        }
 
         let result = self.simple_evaluate(s, &argv);
 
@@ -297,7 +281,7 @@ pub(crate) mod test {
             let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
 
             let result_expr0 =
-                AllocatedPtr::pick(&mut cs.namespace(|| "result_expr0"), &b_is_num, &c_ptr, &b)?;
+                AllocatedPtr::pick(&mut cs.namespace(|| "result_expr0"), &b_is_num, &c_ptr, b)?;
 
             // If `a` is not a `Num`, then that error takes precedence, and we return `a`. Otherwise, return either the
             // correct result or `b`, depending on whether `b` is a `Num` or not.
@@ -311,8 +295,8 @@ pub(crate) mod test {
             let result_cont = AllocatedPtr::pick(
                 &mut cs.namespace(|| "result_cont"),
                 &types_are_correct,
-                &input_cont,
-                &cont_error,
+                input_cont,
+                cont_error,
             )?;
 
             Ok((result_expr, input_env.clone(), result_cont))
@@ -363,6 +347,8 @@ pub(crate) mod test {
                 .get_allocated_const(LEMTag::Expr(ExprTag::Num).to_field())
                 .expect("Num tag should have been allocated");
 
+            // the following is a temporary shim for compatibility with Lurk Alpha
+            // otherwise we could just have a pointer whose value is zero
             let err_cont_ptr = LEMPtr::null(LEMTag::Cont(ContTag::Error));
             let err_cont_z_ptr = s.hash_ptr(&err_cont_ptr).expect("hash_ptr failed");
             let allocated_error_tag = g
@@ -388,9 +374,41 @@ pub(crate) mod test {
         }
 
         /// It squares the first arg and adds it to the second.
-        fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
-            let a = args[0];
-            let b = args[1];
+        fn evaluate(&self, s: &Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
+            let Some(argv) = s.fetch_list(&args) else {
+                return IO {
+                    expr: args,
+                    env,
+                    cont: s.intern_cont_error(),
+                };
+            };
+
+            if argv.len() != self.eval_arity() {
+                return IO {
+                    expr: args,
+                    env,
+                    cont: s.intern_cont_error(),
+                };
+            };
+
+            let a = argv[0];
+            let b = argv[1];
+
+            if a.tag != ExprTag::Num {
+                return IO {
+                    expr: a,
+                    env,
+                    cont: s.intern_cont_error(),
+                };
+            };
+
+            if b.tag != ExprTag::Num {
+                return IO {
+                    expr: b,
+                    env,
+                    cont: s.intern_cont_error(),
+                };
+            }
 
             let a_num = s.fetch_num(&a).unwrap();
             let b_num = s.fetch_num(&b).unwrap();
@@ -398,7 +416,15 @@ pub(crate) mod test {
             result *= *a_num;
             result += *b_num;
 
-            s.intern_num(result)
+            IO {
+                expr: s.intern_num(result),
+                env,
+                cont,
+            }
+        }
+
+        fn simple_evaluate(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+            unreachable!()
         }
 
         fn has_circuit(&self) -> bool {

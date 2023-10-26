@@ -35,7 +35,10 @@ pub struct AllocatedPtr<F: PrimeField> {
 
 impl<F: LurkField> From<AllocatedPtr<F>> for AllocatedContPtr<F> {
     fn from(other: AllocatedPtr<F>) -> Self {
-        Self::from_parts(&other.tag, &other.hash)
+        AllocatedContPtr {
+            tag: other.tag,
+            hash: other.hash,
+        }
     }
 }
 
@@ -556,7 +559,10 @@ pub struct AllocatedContPtr<F: LurkField> {
 
 impl<F: LurkField> From<AllocatedContPtr<F>> for AllocatedPtr<F> {
     fn from(other: AllocatedContPtr<F>) -> Self {
-        Self::from_parts(other.tag, other.hash)
+        AllocatedPtr {
+            tag: other.tag,
+            hash: other.hash,
+        }
     }
 }
 
@@ -872,13 +878,6 @@ impl<F: LurkField> AllocatedContPtr<F> {
             hash,
         };
         Ok((cont, not_dummy))
-    }
-
-    pub fn from_parts(tag: &AllocatedNum<F>, hash: &AllocatedNum<F>) -> Self {
-        Self {
-            tag: tag.clone(),
-            hash: hash.clone(),
-        }
     }
 }
 
