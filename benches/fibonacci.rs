@@ -259,7 +259,7 @@ fn fib_bench(c: &mut Criterion) {
             let lem_params = ProveParams {
                 folding_steps: *folding_steps,
                 reduction_count: *reduction_count,
-                version: Version::ALPHA,
+                version: Version::LEM,
             };
             lem::prove(lem_params, &mut group, &state);
         }
