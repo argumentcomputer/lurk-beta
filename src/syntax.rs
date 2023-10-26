@@ -15,23 +15,24 @@ use crate::uint::UInt;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 
-// Lurk syntax
+/// Lurk's syntax for parsing
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Syntax<F: LurkField> {
+    /// An element of the finite field `F`
     Num(Pos, Num<F>),
-    // A u64 integer: 1u64, 0xffu64
+    /// A u64 integer: 1u64, 0xffu64
     UInt(Pos, UInt),
-    // A hierarchical symbol foo, foo.bar.baz or keyword :foo
+    /// A hierarchical symbol: foo, foo.bar.baz or keyword :foo
     Symbol(Pos, SymbolRef),
-    // A string literal: "foobar", "foo\nbar"
+    /// A string literal: "foobar", "foo\nbar"
     String(Pos, String),
-    // A character literal: #\A #\λ #\u03BB
+    /// A character literal: 'A', 'λ'
     Char(Pos, char),
-    // A quoted expression: 'a, '(1 2)
+    /// A quoted expression: 'a, '(1 2)
     Quote(Pos, Box<Syntax<F>>),
-    // A nil-terminated cons-list of expressions: (1 2 3)
+    /// A nil-terminated cons-list of expressions: (1 2 3)
     List(Pos, Vec<Syntax<F>>),
-    // An improper cons-list of expressions: (1 2 . 3)
+    /// An improper cons-list of expressions: (1 2 . 3)
     Improper(Pos, Vec<Syntax<F>>, Box<Syntax<F>>),
 }
 
