@@ -1743,6 +1743,57 @@
 <a href="#1743" id="1743">1743</a>
 <a href="#1744" id="1744">1744</a>
 <a href="#1745" id="1745">1745</a>
+<a href="#1746" id="1746">1746</a>
+<a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
+<a href="#1766" id="1766">1766</a>
+<a href="#1767" id="1767">1767</a>
+<a href="#1768" id="1768">1768</a>
+<a href="#1769" id="1769">1769</a>
+<a href="#1770" id="1770">1770</a>
+<a href="#1771" id="1771">1771</a>
+<a href="#1772" id="1772">1772</a>
+<a href="#1773" id="1773">1773</a>
+<a href="#1774" id="1774">1774</a>
+<a href="#1775" id="1775">1775</a>
+<a href="#1776" id="1776">1776</a>
+<a href="#1777" id="1777">1777</a>
+<a href="#1778" id="1778">1778</a>
+<a href="#1779" id="1779">1779</a>
+<a href="#1780" id="1780">1780</a>
+<a href="#1781" id="1781">1781</a>
+<a href="#1782" id="1782">1782</a>
+<a href="#1783" id="1783">1783</a>
+<a href="#1784" id="1784">1784</a>
+<a href="#1785" id="1785">1785</a>
+<a href="#1786" id="1786">1786</a>
+<a href="#1787" id="1787">1787</a>
+<a href="#1788" id="1788">1788</a>
+<a href="#1789" id="1789">1789</a>
+<a href="#1790" id="1790">1790</a>
+<a href="#1791" id="1791">1791</a>
+<a href="#1792" id="1792">1792</a>
+<a href="#1793" id="1793">1793</a>
+<a href="#1794" id="1794">1794</a>
+<a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2014,9 +2065,9 @@
 }
 
 <span class="doccomment">/// This `Func` is used to call a standalone coprocessor out of the Lurk&#39;s step
-/// function. It checks whether the coprocessor expression corresponds the right
-/// coprocessor. If it doesn&#39;t, return the same input. If it does, destructure
-/// the list of arguments and call the coprocessor.
+/// function. It checks whether the coprocessor expression corresponds to the
+/// right coprocessor. If it doesn&#39;t, return the same input. If it does,
+/// destructure the list of arguments and call the coprocessor.
 ///
 /// `run_cproc` is meant to be used in the context of NIVC, when the circuit for
 /// each coprocessor is detached from Lurk&#39;s universal circuit.
@@ -2032,25 +2083,33 @@
 ///                 // `x` is the name of the coprocessor being called
 ///                 x =&gt; {
 ///                     // `n` is the arity of the coprocessor `x`
-///                     if evaluated_args != nil {
+///                     let is_nil = eq_tag(evaluated_args, nil);
+///                     // save a copy of the evaluated arguments for possible arity error
+///                     let evaluated_args_cp = copy(evaluated_args);
+///                     if !is_nil {
 ///                         let (x{n-1}, evaluated_args) = car_cdr(evaluated_args);
-///                         if evaluated_args != nil {
+///                         let is_nil = eq_tag(evaluated_args, nil);
+///                         if !is_nil {
 ///                             ...
 ///                             let (x0, evaluated_args) = car_cdr(evaluated_args);
-///                             if evaluated_args == nil {
+///                             let is_nil = eq_tag(evaluated_args, nil);
+///                             // there must be no remaining arguments
+///                             if is_nil {
 ///                                 Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
 ///                                 return (expr, env, cont);
 ///                             }
-///                             return (cproc_name, env, err);
+///                             return (evaluated_args_cp, env, err);
 ///                         }
-///                         return (cproc_name, env, err);
+///                         return (evaluated_args_cp, env, err);
 ///                     }
-///                     return (cproc_name, env, err);
+///                     return (evaluated_args_cp, env, err);
 ///                 }
 ///             };
+///             // coprocessor not found... just loop
 ///             return (cproc, env, cont);
 ///         }
 ///     };
+///     // not a proper Cproc expression... just loop
 ///     return (cproc, env, cont);
 /// }
 </span><span class="kw">fn </span>run_cproc(cproc_sym: Symbol, arity: usize) -&gt; Func {
@@ -2070,7 +2129,7 @@
     <span class="kw">let </span>func_out = <span class="macro">vec!</span>[expr, env.clone(), cont.clone()];
     <span class="kw">let </span>err_block = Block {
         ops: <span class="macro">vec!</span>[],
-        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(cproc_name, env, err)),
+        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(evaluated_args_cp, env, err)),
     };
     <span class="kw">let </span>def_block = Block {
         ops: <span class="macro">vec!</span>[],
@@ -2092,7 +2151,7 @@
                 Box::new(car_cdr()),
                 <span class="macro">vec!</span>[evaluated_args.clone()],
             ),
-            Op::EqVal(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+            Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
         ];
         block = <span class="kw">if </span>i == <span class="number">0 </span>{
             Block {
@@ -2106,9 +2165,19 @@
             }
         }
     }
+    <span class="kw">if </span>arity &gt; <span class="number">0 </span>{
+        <span class="kw">let </span>ops = <span class="macro">vec!</span>[
+            Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+            Op::Copy(Var::new(<span class="string">&quot;evaluated_args_cp&quot;</span>), evaluated_args.clone()),
+        ];
+        block = Block {
+            ops,
+            ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+        }
+    }
 
     <span class="comment">// MatchSymbol
-    </span><span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::default();
+    </span><span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::with_capacity(<span class="number">1</span>);
     match_symbol_map.insert(cproc_sym, block);
     block = Block {
         ops: <span class="macro">vec!</span>[Op::Decons2(
@@ -2123,7 +2192,7 @@
     };
 
     <span class="comment">// MatchTag
-    </span><span class="kw">let </span><span class="kw-2">mut </span>match_tag_map = IndexMap::default();
+    </span><span class="kw">let </span><span class="kw-2">mut </span>match_tag_map = IndexMap::with_capacity(<span class="number">1</span>);
     match_tag_map.insert(Tag::Expr(Cproc), block);
     block = Block {
         ops: <span class="kw">if </span>arity == <span class="number">0 </span>{
@@ -2181,7 +2250,7 @@
             <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
             <span class="macro">op!</span>(<span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>)),
         ];
-        <span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::with_capacity(cprocs.len());
         <span class="kw">for </span>(cproc, <span class="kw">_</span>) <span class="kw">in </span>cprocs {
             match_symbol_map.insert(
                 (<span class="kw-2">*</span>cproc).clone(),
@@ -2218,27 +2287,37 @@
 ///     match symbol cproc_name {
 ///         x =&gt; {
 ///             // `n` is the arity of the coprocessor `x`
-///             if evaluated_args != nil {
+///             let is_nil = eq_tag(evaluated_args, nil);
+///             // save a copy of the evaluated arguments for possible arity error
+///             let evaluated_args_cp = copy(evaluated_args);
+///             if !is_nil {
 ///                 let (x{n-1}, evaluated_args) = car_cdr(evaluated_args);
-///                 if evaluated_args != nil {
+///                 let is_nil = eq_tag(evaluated_args, nil);
+///                 if !is_nil {
 ///                     ...
 ///                     let (x0, evaluated_args) = car_cdr(evaluated_args);
-///                     if evaluated_args == nil {
+///                     let is_nil = eq_tag(evaluated_args, nil);
+///                     // there must be no remaining arguments
+///                     if is_nil {
 ///                         Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
+///                         match cont.tag {
+///                             Cont::Error =&gt; {
+///                                 return (expr, env, cont, errctrl);
+///                             }
+///                         };
 ///                         return (expr, env, cont, makethunk);
 ///                     }
-///                     return (cproc_name, env, err, errctrl);
+///                     return (evaluated_args_cp, env, err, errctrl);
 ///                 }
-///                 return (cproc_name, env, err, errctrl);
+///                 return (evaluated_args_cp, env, err, errctrl);
 ///             }
-///             return (cproc_name, env, err, errctrl);
+///             return (evaluated_args_cp, env, err, errctrl);
 ///         }
 ///         ...
-///     };
-///     return (cproc_name, env, err, errctrl);
+///     }
 /// }
 </span><span class="kw">fn </span>match_and_run_cproc(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)]) -&gt; Func {
-    <span class="kw">let </span>max_arity = cprocs.iter().fold(<span class="number">0</span>, |acc, (<span class="kw">_</span>, a)| std::cmp::max(acc, <span class="kw-2">*</span>a));
+    <span class="kw">let </span>max_arity = cprocs.iter().fold(<span class="number">0</span>, |acc, (<span class="kw">_</span>, a)| acc.max(<span class="kw-2">*</span>a));
     <span class="kw">let </span>cproc_name = Var::new(<span class="string">&quot;cproc_name&quot;</span>);
     <span class="kw">let </span>evaluated_args = <span class="kw">if </span>max_arity == <span class="number">0 </span>{
         Var::new(<span class="string">&quot;_evaluated_args&quot;</span>)
@@ -2254,9 +2333,23 @@
     <span class="kw">let </span>func_out = <span class="macro">vec!</span>[expr, env.clone(), cont.clone(), Var::new(<span class="string">&quot;makethunk&quot;</span>)];
     <span class="kw">let </span>err_block = Block {
         ops: <span class="macro">vec!</span>[],
-        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(cproc_name, env, err, errctrl)),
+        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(evaluated_args_cp, env, err, errctrl)),
     };
-    <span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::default();
+    <span class="kw">let </span>err_block_from_cproc = Block {
+        ops: <span class="macro">vec!</span>[],
+        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(expr, env, err, errctrl)),
+    };
+    <span class="kw">let </span><span class="kw-2">mut </span>check_cproc_error_map = IndexMap::with_capacity(<span class="number">1</span>);
+    check_cproc_error_map.insert(Tag::Cont(Error), err_block_from_cproc);
+    <span class="kw">let </span>check_cproc_error_ctrl = Ctrl::MatchTag(
+        cont.clone(),
+        check_cproc_error_map,
+        <span class="prelude-val">Some</span>(Box::new(Block {
+            ops: <span class="macro">vec!</span>[],
+            ctrl: Ctrl::Return(func_out),
+        })),
+    );
+    <span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::with_capacity(cprocs.len());
     <span class="kw">for </span>(cproc, arity) <span class="kw">in </span>cprocs {
         <span class="kw">let </span>cproc = <span class="kw-2">*</span>cproc;
         <span class="kw">let </span>arity = <span class="kw-2">*</span>arity;
@@ -2271,7 +2364,7 @@
                 cproc.clone(),
                 cproc_inp.clone(),
             )],
-            ctrl: Ctrl::Return(func_out.clone()),
+            ctrl: check_cproc_error_ctrl.clone(),
         };
         <span class="kw">for </span>(i, cproc_arg) <span class="kw">in </span>cproc_inp[<span class="number">0</span>..arity].iter().enumerate() {
             <span class="kw">let </span>ops = <span class="macro">vec!</span>[
@@ -2280,7 +2373,7 @@
                     Box::new(car_cdr()),
                     <span class="macro">vec!</span>[evaluated_args.clone()],
                 ),
-                Op::EqVal(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+                Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
             ];
             block = <span class="kw">if </span>i == <span class="number">0 </span>{
                 Block {
@@ -2294,10 +2387,19 @@
                 }
             }
         }
+        <span class="kw">if </span>arity &gt; <span class="number">0 </span>{
+            <span class="kw">let </span>ops = <span class="macro">vec!</span>[
+                Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+                Op::Copy(Var::new(<span class="string">&quot;evaluated_args_cp&quot;</span>), evaluated_args.clone()),
+            ];
+            block = Block {
+                ops,
+                ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+            }
+        }
         match_symbol_map.insert(cproc.clone(), block);
     }
-    <span class="kw">let </span>def = <span class="prelude-val">Some</span>(Box::new(err_block));
-    <span class="kw">let </span>ctrl = Ctrl::MatchSymbol(cproc_name.clone(), match_symbol_map, def);
+    <span class="kw">let </span>ctrl = Ctrl::MatchSymbol(cproc_name.clone(), match_symbol_map, <span class="prelude-val">None</span>);
     <span class="kw">let </span>func_inp = <span class="macro">vec!</span>[cproc_name, evaluated_args, env, cont];
     <span class="kw">let </span>ops = <span class="kw">if </span>max_arity == <span class="number">0 </span>{
         <span class="macro">vec!</span>[

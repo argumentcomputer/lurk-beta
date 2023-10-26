@@ -1499,6 +1499,10 @@
 <a href="#1499" id="1499">1499</a>
 <a href="#1500" id="1500">1500</a>
 <a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -1558,7 +1562,8 @@
     Block, Ctrl, Func, Op, Tag, Var,
 };
 
-<span class="kw">pub enum </span>AllocatedVal&lt;F: LurkField&gt; {
+<span class="attr">#[derive(Clone)]
+</span><span class="kw">pub enum </span>AllocatedVal&lt;F: LurkField&gt; {
     Pointer(AllocatedPtr&lt;F&gt;),
     Number(AllocatedNum&lt;F&gt;),
     Boolean(Boolean),
@@ -2163,6 +2168,9 @@
             }
             Op::Decons4(preimg, img) =&gt; {
                 <span class="macro">decons_helper!</span>(preimg, img, SlotType::Hash8);
+            }
+            Op::Copy(tgt, src) =&gt; {
+                bound_allocations.insert(tgt.clone(), bound_allocations.get_cloned(src)<span class="question-mark">?</span>);
             }
             Op::Null(tgt, tag) =&gt; {
                 <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag::{Dummy, Error, Outermost, Terminal};
@@ -2897,7 +2905,7 @@
                         <span class="comment">// three implies_u64, one sub and one linear
                         </span>num_constraints += <span class="number">197</span>;
                     }
-                    Op::Not(..) | Op::Emit(<span class="kw">_</span>) | Op::Cproc(..) =&gt; (),
+                    Op::Not(..) | Op::Emit(<span class="kw">_</span>) | Op::Cproc(..) | Op::Copy(..) =&gt; (),
                     Op::Cons2(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
                         <span class="comment">// tag for the image
                         </span>globals.insert(FWrap(tag.to_field()));

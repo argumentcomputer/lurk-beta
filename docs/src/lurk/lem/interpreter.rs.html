@@ -565,6 +565,10 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>std::collections::VecDeque;
 
@@ -582,7 +586,8 @@
     tag::ExprTag::{Comm, Nil, Num, Sym},
 };
 
-<span class="kw">pub enum </span>Val&lt;F: LurkField&gt; {
+<span class="attr">#[derive(Clone)]
+</span><span class="kw">pub enum </span>Val&lt;F: LurkField&gt; {
     Pointer(Ptr&lt;F&gt;),
     Boolean(bool),
 }
@@ -758,6 +763,9 @@
                     </span>inner_call_outputs.push_front(frame.output);
                     hints = frame.hints;
                     hints.call_outputs.extend(inner_call_outputs);
+                }
+                Op::Copy(tgt, src) =&gt; {
+                    bindings.insert(tgt.clone(), bindings.get_cloned(src)<span class="question-mark">?</span>);
                 }
                 Op::Null(tgt, tag) =&gt; {
                     bindings.insert_ptr(tgt.clone(), Ptr::null(<span class="kw-2">*</span>tag));
