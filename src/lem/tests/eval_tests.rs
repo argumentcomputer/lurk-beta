@@ -2739,7 +2739,7 @@ fn test_dumb_lang() {
     // 9^2 + 8 = 89
     let expr = "(cproc-dumb 9 8)";
 
-    // The dumb coprocessor cannot be shadowed
+    // coprocessors cannot be shadowed
     let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
                    (cproc-dumb 9 8))";
 
@@ -2749,9 +2749,18 @@ fn test_dumb_lang() {
     // wrong number of parameters
     let expr4 = "(cproc-dumb 9 8 123)";
     let expr5 = "(cproc-dumb 9)";
-    let expr6 = "(cproc-unknown 9)";
+
+    // wrong parameter type
+    let expr6 = "(cproc-dumb 'x' 0)";
+    let expr6_ = "(cproc-dumb 'x' 'y')";
+    let expr7 = "(cproc-dumb 0 'y')";
 
     let res = Ptr::num_u64(89);
+    let error4 = s.list(vec![Ptr::num_u64(123), Ptr::num_u64(8), Ptr::num_u64(9)]);
+    let error5 = s.list(vec![Ptr::num_u64(9)]);
+    let error6 = Ptr::char('x');
+    let error7 = Ptr::char('y');
+
     let error = Ptr::null(Tag::Cont(Error));
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
@@ -2785,7 +2794,54 @@ fn test_dumb_lang() {
         9,
         &Some(&lang),
     );
-    test_aux(s, expr4, None, None, Some(error), None, 4, &Some(&lang));
-    test_aux(s, expr5, None, None, Some(error), None, 2, &Some(&lang));
-    test_aux(s, expr6, None, None, Some(error), None, 2, &Some(&lang));
+    test_aux(
+        s,
+        expr4,
+        Some(error4),
+        None,
+        Some(error),
+        None,
+        4,
+        &Some(&lang),
+    );
+    test_aux(
+        s,
+        expr5,
+        Some(error5),
+        None,
+        Some(error),
+        None,
+        2,
+        &Some(&lang),
+    );
+    test_aux(
+        s,
+        expr6,
+        Some(error6),
+        None,
+        Some(error),
+        None,
+        3,
+        &Some(&lang),
+    );
+    test_aux(
+        s,
+        expr6_,
+        Some(error6),
+        None,
+        Some(error),
+        None,
+        3,
+        &Some(&lang),
+    );
+    test_aux(
+        s,
+        expr7,
+        Some(error7),
+        None,
+        Some(error),
+        None,
+        3,
+        &Some(&lang),
+    );
 }

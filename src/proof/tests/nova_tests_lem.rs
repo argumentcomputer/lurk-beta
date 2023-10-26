@@ -3219,15 +3219,30 @@ fn test_dumb_lang() {
     // 9^2 + 8 = 89
     let expr = "(cproc-dumb 9 8)";
 
-    // The dumb coprocessor cannot be shadowed.
+    // coprocessors cannot be shadowed
     let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
-               (cproc-dumb 9 8))";
+                   (cproc-dumb 9 8))";
 
-    let expr3 = "(cproc-dumb 9 8 123)";
-    let expr4 = "(cproc-dumb 9)";
+    // arguments for coprocessors are evaluated
+    let expr3 = "(cproc-dumb (+ 1 8) (+ 1 7))";
+
+    // wrong number of parameters
+    let expr4 = "(cproc-dumb 9 8 123)";
+    let expr5 = "(cproc-dumb 9)";
+
+    // wrong parameter type
+    let expr6 = "(cproc-dumb 'x' 0)";
+    let expr6_ = "(cproc-dumb 'x' 'y')";
+    let expr7 = "(cproc-dumb 0 'y')";
 
     let res = Ptr::num_u64(89);
+    let error4 = s.list(vec![Ptr::num_u64(123), Ptr::num_u64(8), Ptr::num_u64(9)]);
+    let error5 = s.list(vec![Ptr::num_u64(9)]);
+    let error6 = Ptr::char('x');
+    let error7 = Ptr::char('y');
+
     let error = Ptr::null(Tag::Cont(Error));
+    let terminal = Ptr::null(Tag::Cont(Terminal));
     let lang = Arc::new(lang);
 
     test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
@@ -3235,7 +3250,7 @@ fn test_dumb_lang() {
         expr,
         Some(res),
         None,
-        None,
+        Some(terminal),
         None,
         3,
         &Some(lang.clone()),
@@ -3245,7 +3260,7 @@ fn test_dumb_lang() {
         expr2,
         Some(res),
         None,
-        None,
+        Some(terminal),
         None,
         6,
         &Some(lang.clone()),
@@ -3253,7 +3268,17 @@ fn test_dumb_lang() {
     test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
         s,
         expr3,
+        Some(res),
         None,
+        Some(terminal),
+        None,
+        9,
+        &Some(lang.clone()),
+    );
+    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+        s,
+        expr4,
+        Some(error4),
         None,
         Some(error),
         None,
@@ -3262,12 +3287,42 @@ fn test_dumb_lang() {
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
         s,
-        expr4,
-        None,
+        expr5,
+        Some(error5),
         None,
         Some(error),
         None,
         2,
+        &Some(lang.clone()),
+    );
+    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+        s,
+        expr6,
+        Some(error6),
+        None,
+        Some(error),
+        None,
+        3,
+        &Some(lang.clone()),
+    );
+    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+        s,
+        expr6_,
+        Some(error6),
+        None,
+        Some(error),
+        None,
+        3,
+        &Some(lang.clone()),
+    );
+    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+        s,
+        expr7,
+        Some(error7),
+        None,
+        Some(error),
+        None,
+        3,
         &Some(lang),
     );
 }

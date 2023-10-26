@@ -136,9 +136,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
             &[&g.quote_ptr, &result_expr],
         )?;
 
-        // FIXME: technically, the error is defined to be rest -- which is the cdr of input_expr.tes
-        //let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
-        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &input_expr)?;
+        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
 
         let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &input_env)?;
         let new_cont = pick_cont_ptr!(cs, &arity_is_correct, &result_cont, &g.error_ptr_cont)?;
@@ -241,18 +239,68 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
 
 #[cfg(test)]
 pub(crate) mod test {
+    use bellpepper_core::num::AllocatedNum;
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::circuit::gadgets::constraints::{add, implies_equal, mul};
+    use crate::circuit::gadgets::constraints::{add, alloc_equal, and, mul};
     use crate::lem::Tag as LEMTag;
-    use crate::tag::{ExprTag, Tag};
+    use crate::tag::{ContTag, ExprTag, Tag};
     use std::marker::PhantomData;
 
     /// A dumb Coprocessor for testing.
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub(crate) struct DumbCoprocessor<F: LurkField> {
         pub(crate) _p: PhantomData<F>,
+    }
+
+    impl<F: LurkField> DumbCoprocessor<F> {
+        fn synthesize_aux<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            input_exprs: &[AllocatedPtr<F>],
+            input_env: &AllocatedPtr<F>,
+            input_cont: &AllocatedPtr<F>,
+            num_tag: &AllocatedNum<F>,
+            cont_error: &AllocatedPtr<F>,
+        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
+            let a = input_exprs[0].clone();
+            let b = &input_exprs[1];
+
+            let a_is_num = alloc_equal(&mut cs.namespace(|| "fst is num"), a.tag(), num_tag)?;
+            let b_is_num = alloc_equal(&mut cs.namespace(|| "snd is num"), b.tag(), num_tag)?;
+            let types_are_correct = and(
+                &mut cs.namespace(|| "types are correct"),
+                &a_is_num,
+                &b_is_num,
+            )?;
+
+            // a^2 + b = c
+            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
+            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
+            let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
+
+            let result_expr0 =
+                AllocatedPtr::pick(&mut cs.namespace(|| "result_expr0"), &b_is_num, &c_ptr, b)?;
+
+            // If `a` is not a `Num`, then that error takes precedence, and we return `a`. Otherwise, return either the
+            // correct result or `b`, depending on whether `b` is a `Num` or not.
+            let result_expr = AllocatedPtr::pick(
+                &mut cs.namespace(|| "result_expr"),
+                &a_is_num,
+                &result_expr0,
+                &a,
+            )?;
+
+            let result_cont = AllocatedPtr::pick(
+                &mut cs.namespace(|| "result_cont"),
+                &types_are_correct,
+                input_cont,
+                cont_error,
+            )?;
+
+            Ok((result_expr, input_env.clone(), result_cont))
+        }
     }
 
     impl<F: LurkField> CoCircuit<F> for DumbCoprocessor<F> {
@@ -263,7 +311,7 @@ pub(crate) mod test {
         fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
-            _g: &GlobalAllocations<F>,
+            g: &GlobalAllocations<F>,
             _store: &Store<F>,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,
@@ -271,51 +319,51 @@ pub(crate) mod test {
             _not_dummy: &Boolean,
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
         {
-            let a = input_exprs[0].clone();
-            let b = &input_exprs[1];
+            let input_ptr: AllocatedPtr<F> = (input_cont.clone()).into();
 
-            // FIXME: Check tags.
+            let (expr, env, cont) = self.synthesize_aux(
+                cs,
+                input_exprs,
+                input_env,
+                &input_ptr,
+                &g.num_tag,
+                &g.error_ptr,
+            )?;
 
-            // a^2 + b = c
-            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
-            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
-            let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
-
-            Ok((c_ptr, input_env.clone(), input_cont.clone()))
+            Ok((expr, env, cont.into()))
         }
 
-        fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+        fn synthesize_lem<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
             g: &GlobalAllocator<F>,
-            _s: &LEMStore<F>,
-            not_dummy: &Boolean,
-            args: &[AllocatedPtr<F>],
-        ) -> Result<AllocatedPtr<F>, SynthesisError> {
-            use crate::lem::Tag::Expr;
-            let a = &args[0];
-            let b = &args[1];
-
-            let allocated_num_tag = g
-                .get_allocated_const(Expr(ExprTag::Num).to_field())
+            s: &LEMStore<F>,
+            _not_dummy: &Boolean,
+            input_exprs: &[AllocatedPtr<F>],
+            input_env: &AllocatedPtr<F>,
+            input_cont: &AllocatedPtr<F>,
+        ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
+            let num_tag = g
+                .get_allocated_const(LEMTag::Expr(ExprTag::Num).to_field())
                 .expect("Num tag should have been allocated");
-            implies_equal(
-                &mut cs.namespace(|| "first arg tag"),
-                not_dummy,
-                a.tag(),
-                allocated_num_tag,
-            );
-            implies_equal(
-                &mut cs.namespace(|| "second arg tag"),
-                not_dummy,
-                b.tag(),
-                allocated_num_tag,
-            );
 
-            // a^2 + b = c
-            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
-            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
-            AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)
+            // the following is a temporary shim for compatibility with Lurk Alpha
+            // otherwise we could just have a pointer whose value is zero
+            let err_cont_ptr = LEMPtr::null(LEMTag::Cont(ContTag::Error));
+            let err_cont_z_ptr = s.hash_ptr(&err_cont_ptr).expect("hash_ptr failed");
+            let allocated_error_tag = g
+                .get_allocated_const(err_cont_z_ptr.tag_field())
+                .expect("Error tag should have been allocated");
+            let allocated_error_hash = g
+                .get_allocated_const(*err_cont_z_ptr.value())
+                .expect("Error hash should have been allocated");
+            let cont_err =
+                AllocatedPtr::from_parts(allocated_error_tag.clone(), allocated_error_hash.clone());
+
+            let (expr, env, cont) =
+                self.synthesize_aux(cs, input_exprs, input_env, input_cont, num_tag, &cont_err)?;
+
+            Ok(vec![expr, env, cont])
         }
     }
 
@@ -326,9 +374,41 @@ pub(crate) mod test {
         }
 
         /// It squares the first arg and adds it to the second.
-        fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
-            let a = args[0];
-            let b = args[1];
+        fn evaluate(&self, s: &Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
+            let Some(argv) = s.fetch_list(&args) else {
+                return IO {
+                    expr: args,
+                    env,
+                    cont: s.intern_cont_error(),
+                };
+            };
+
+            if argv.len() != self.eval_arity() {
+                return IO {
+                    expr: args,
+                    env,
+                    cont: s.intern_cont_error(),
+                };
+            };
+
+            let a = argv[0];
+            let b = argv[1];
+
+            if a.tag != ExprTag::Num {
+                return IO {
+                    expr: a,
+                    env,
+                    cont: s.intern_cont_error(),
+                };
+            };
+
+            if b.tag != ExprTag::Num {
+                return IO {
+                    expr: b,
+                    env,
+                    cont: s.intern_cont_error(),
+                };
+            }
 
             let a_num = s.fetch_num(&a).unwrap();
             let b_num = s.fetch_num(&b).unwrap();
@@ -336,21 +416,39 @@ pub(crate) mod test {
             result *= *a_num;
             result += *b_num;
 
-            s.intern_num(result)
+            IO {
+                expr: s.intern_num(result),
+                env,
+                cont,
+            }
+        }
+
+        fn simple_evaluate(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+            unreachable!()
         }
 
         fn has_circuit(&self) -> bool {
             true
         }
 
-        fn evaluate_lem_simple(&self, _s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F> {
-            match (&args[0], &args[1]) {
-                (
-                    LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), a),
-                    LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), b),
-                ) => LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), (*a * *a) + *b),
-                _ => panic!("Invalid input"),
-            }
+        fn evaluate_lem(
+            &self,
+            _s: &LEMStore<F>,
+            args: &[LEMPtr<F>],
+            env: &LEMPtr<F>,
+            cont: &LEMPtr<F>,
+        ) -> Vec<LEMPtr<F>> {
+            let LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), a) = &args[0] else {
+                return vec![args[0], *env, LEMPtr::null(LEMTag::Cont(ContTag::Error))];
+            };
+            let LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), b) = &args[1] else {
+                return vec![args[1], *env, LEMPtr::null(LEMTag::Cont(ContTag::Error))];
+            };
+            vec![
+                LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), (*a * *a) + *b),
+                *env,
+                *cont,
+            ]
         }
     }
 
