@@ -3286,105 +3286,105 @@ fn test_trie_lang() {
 
     let terminal = Ptr::null(Tag::Cont(Terminal));
 
-    // let expr = "(let ((trie (.lurk.trie.new)))
-    //                   trie)";
-    // let expr = s.read(state.clone(), expr).unwrap();
-    // let res = s
-    //     .read_with_default_state(
-    //         "0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53",
-    //     )
-    //     .unwrap();
-    // nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
-    //     s,
-    //     expr,
-    //     Some(res),
-    //     None,
-    //     Some(terminal),
-    //     None,
-    //     5,
-    //     DEFAULT_REDUCTION_COUNT,
-    //     false,
-    //     None,
-    //     lang.clone(),
-    // );
+    let expr = "(let ((trie (.lurk.trie.new)))
+                      trie)";
+    let expr = s.read(state.clone(), expr).unwrap();
+    let res = s
+        .read_with_default_state(
+            "0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53",
+        )
+        .unwrap();
+    nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
+        s,
+        expr,
+        Some(res),
+        None,
+        Some(terminal),
+        None,
+        5,
+        DEFAULT_REDUCTION_COUNT,
+        false,
+        None,
+        lang.clone(),
+    );
 
-    // let expr2 =
-    //     "(.lurk.trie.lookup 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123)";
-    // let expr2 = s.read(state.clone(), expr2).unwrap();
-    // let res2 = Ptr::comm(Fr::zero());
-    // nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
-    //     s,
-    //     expr2,
-    //     Some(res2),
-    //     None,
-    //     Some(terminal),
-    //     None,
-    //     3,
-    //     DEFAULT_REDUCTION_COUNT,
-    //     false,
-    //     None,
-    //     lang.clone(),
-    // );
+    let expr2 =
+        "(.lurk.trie.lookup 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123)";
+    let expr2 = s.read(state.clone(), expr2).unwrap();
+    let res2 = Ptr::comm(Fr::zero());
+    nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
+        s,
+        expr2,
+        Some(res2),
+        None,
+        Some(terminal),
+        None,
+        3,
+        DEFAULT_REDUCTION_COUNT,
+        false,
+        None,
+        lang.clone(),
+    );
 
-    // let expr3 =
-    //     "(.lurk.trie.insert 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123 456)";
-    // let expr3 = s.read(state.clone(), expr3).unwrap();
-    // let res3 = s
-    //     .read_with_default_state(
-    //         "0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27",
-    //     )
-    //     .unwrap();
-    // nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
-    //     s,
-    //     expr3,
-    //     Some(res3),
-    //     None,
-    //     Some(terminal),
-    //     None,
-    //     4,
-    //     DEFAULT_REDUCTION_COUNT,
-    //     false,
-    //     None,
-    //     lang.clone(),
-    // );
+    let expr3 =
+        "(.lurk.trie.insert 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123 456)";
+    let expr3 = s.read(state.clone(), expr3).unwrap();
+    let res3 = s
+        .read_with_default_state(
+            "0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27",
+        )
+        .unwrap();
+    nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
+        s,
+        expr3,
+        Some(res3),
+        None,
+        Some(terminal),
+        None,
+        4,
+        DEFAULT_REDUCTION_COUNT,
+        false,
+        None,
+        lang.clone(),
+    );
 
-    // let expr4 =
-    //     "(.lurk.trie.lookup 0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27 123)";
-    // let expr4 = s.read(state.clone(), expr4).unwrap();
-    // let res4 = Ptr::comm(Fr::from(456));
-    // nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
-    //     s,
-    //     expr4,
-    //     Some(res4),
-    //     None,
-    //     Some(terminal),
-    //     None,
-    //     3,
-    //     DEFAULT_REDUCTION_COUNT,
-    //     false,
-    //     None,
-    //     lang.clone(),
-    // );
+    let expr4 =
+        "(.lurk.trie.lookup 0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27 123)";
+    let expr4 = s.read(state.clone(), expr4).unwrap();
+    let res4 = Ptr::comm(Fr::from(456));
+    nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
+        s,
+        expr4,
+        Some(res4),
+        None,
+        Some(terminal),
+        None,
+        3,
+        DEFAULT_REDUCTION_COUNT,
+        false,
+        None,
+        lang.clone(),
+    );
 
-    // let s = &Store::<Fr>::default();
-    // let expr5 = "(let ((trie (.lurk.trie.new))
-    //                    (found (.lurk.trie.lookup trie 123)))
-    //                   found)";
-    // let expr5 = s.read(state.clone(), expr5).unwrap();
-    // let res5 = Ptr::comm(Fr::zero());
-    // nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
-    //     s,
-    //     expr5,
-    //     Some(res5),
-    //     None,
-    //     Some(terminal),
-    //     None,
-    //     10,
-    //     DEFAULT_REDUCTION_COUNT,
-    //     false,
-    //     None,
-    //     lang.clone(),
-    // );
+    let s = &Store::<Fr>::default();
+    let expr5 = "(let ((trie (.lurk.trie.new))
+                       (found (.lurk.trie.lookup trie 123)))
+                      found)";
+    let expr5 = s.read(state.clone(), expr5).unwrap();
+    let res5 = Ptr::comm(Fr::zero());
+    nova_test_full_aux2::<_, _, C1LEM<'_, _, TrieCoproc<_>>>(
+        s,
+        expr5,
+        Some(res5),
+        None,
+        Some(terminal),
+        None,
+        10,
+        DEFAULT_REDUCTION_COUNT,
+        false,
+        None,
+        lang.clone(),
+    );
 
     let expr6 = "(let ((trie (.lurk.trie.insert (.lurk.trie.new) 123 456))
                        (found (.lurk.trie.lookup trie 123)))

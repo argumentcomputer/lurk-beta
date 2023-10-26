@@ -788,7 +788,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         let (arity_bits, bits_needed) = Self::path_bit_dimensions();
         let path = bits[bits.len() - bits_needed..]
             .chunks(arity_bits)
-            .map(|chunk| chunk.to_owned().into_iter().rev().collect())
+            .map(|chunk| chunk.iter().cloned().rev().collect())
             .collect();
         Ok(path)
     }

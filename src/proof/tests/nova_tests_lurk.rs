@@ -3417,20 +3417,6 @@ fn test_trie_lang_circuit() {
         lang.clone(),
     );
 
-    nova_test_full_aux2::<_, _, C1Lurk<'_, _, TrieCoproc<_>>>(
-        s,
-        expr,
-        Some(res),
-        None,
-        Some(terminal),
-        None,
-        4,
-        DEFAULT_REDUCTION_COUNT,
-        false,
-        None,
-        lang.clone(),
-    );
-
     let expr4 =
             s.read_with_state(state, "(.lurk.trie.lookup 0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27 123)").unwrap();
     let res4 = s.intern_opaque_comm(Fr::from(456));
