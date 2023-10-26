@@ -788,7 +788,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         let (arity_bits, bits_needed) = Self::path_bit_dimensions();
         let path = bits[bits.len() - bits_needed..]
             .chunks(arity_bits)
-            .map(|chunk| chunk.into())
+            .map(|chunk| chunk.to_owned().into_iter().rev().collect())
             .collect();
         Ok(path)
     }
@@ -1055,7 +1055,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 }
 
 fn index_from_bits(bits: &[Boolean]) -> usize {
-    bits.iter().fold(0, |mut acc, bit| {
+    bits.iter().rev().fold(0, |mut acc, bit| {
         acc *= 2;
         if bit.get_value().unwrap_or(false) {
             acc += 1
