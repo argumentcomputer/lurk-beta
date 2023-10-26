@@ -8,10 +8,7 @@ use criterion::{
 use lurk::{
     eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::{
-        nova::{NovaProver, Proof},
-        Prover,
-    },
+    proof::{nova::NovaProver, Prover},
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
@@ -23,23 +20,27 @@ use pasta_curves::pallas;
 mod common;
 use common::set_bench_config;
 
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Copy, Debug, Clone, PartialEq, Eq)]
-enum Version {
-    ALPHA,
-    LEM,
+fn fib_frame(n: usize) -> usize {
+    11 + 16 * n
 }
 
-#[derive(Clone, Debug, Copy)]
+// Set the limit so the last step will be filled exactly, since Lurk currently only pads terminal/error continuations.
+fn fib_limit(n: usize, rc: usize) -> usize {
+    let frame = fib_frame(n);
+    rc * (frame / rc + usize::from(frame % rc != 0))
+}
+
 pub struct ProveParams {
-    folding_steps: usize,
+    fib_n: usize,
     reduction_count: usize,
-    version: Version,
 }
 
 impl ProveParams {
-    fn name(&self) -> String {
-        format!("{:?},rc={}", self.version, self.reduction_count)
+    fn name(&self, lem: bool) -> String {
+        let date = env!("VERGEN_GIT_COMMIT_DATE");
+        let sha = env!("VERGEN_GIT_SHA");
+        let lem = if lem { "-LEM" } else { "" };
+        format!("{date}:{sha}:Fibonacci{lem}-rc={}", self.reduction_count)
     }
 }
 
@@ -59,24 +60,16 @@ mod alpha {
     }
 
     pub fn prove<M: measurement::Measurement>(
-        prove_params: ProveParams,
+        prove_params: &ProveParams,
         c: &mut BenchmarkGroup<'_, M>,
         state: &Rc<RefCell<State>>,
     ) {
         let ProveParams {
-            folding_steps,
+            fib_n,
             reduction_count,
-            version,
         } = prove_params;
 
-        assert_eq!(version, Version::ALPHA);
-        let limit = reduction_count * (folding_steps + 1);
-
-        // Track the number of `folded iterations / sec`
-        c.throughput(criterion::Throughput::Elements(
-            (reduction_count * folding_steps) as u64,
-        ));
-
+        let limit = fib_limit(fib_n, reduction_count);
         let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
         let lang_rc = Arc::new(lang_pallas.clone());
 
@@ -89,12 +82,8 @@ mod alpha {
         );
         let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
-        let date = env!("VERGEN_GIT_COMMIT_DATE");
-        let sha = env!("VERGEN_GIT_SHA");
-        let parameter = format!("{},{},steps={}", date, sha, folding_steps);
-
         c.bench_with_input(
-            BenchmarkId::new(prove_params.name(), parameter),
+            BenchmarkId::new(prove_params.name(false), fib_n),
             &prove_params,
             |b, prove_params| {
                 let store = Store::default();
@@ -107,26 +96,10 @@ mod alpha {
                     .get_evaluation_frames(ptr, env, &store, limit, lang_rc.clone())
                     .unwrap();
 
-                assert_eq!(frames.len(), limit);
-
-                // Here we split the proving step by first generating the recursive snark,
-                // then have `criterion` only bench the rest of the folding steps
-                let (recursive_snark, circuits, z0, _zi, num_steps) = prover
-                    .recursive_snark(&pp, frames, &store, &lang_rc)
-                    .unwrap();
-
                 b.iter_batched(
-                    || (recursive_snark.clone(), z0.clone(), lang_rc.clone()),
-                    |(recursive_snark, z0, lang_rc)| {
-                        let result = Proof::prove_recursively(
-                            &pp,
-                            &store,
-                            Some(recursive_snark),
-                            &circuits,
-                            reduction_count,
-                            z0,
-                            lang_rc,
-                        );
+                    || (frames, lang_rc.clone()),
+                    |(frames, lang_rc)| {
+                        let result = prover.prove(&pp, frames, &store, &lang_rc);
                         let _ = black_box(result);
                     },
                     BatchSize::LargeInput,
@@ -152,34 +125,21 @@ mod lem {
     }
 
     pub fn prove<M: measurement::Measurement>(
-        prove_params: ProveParams,
+        prove_params: &ProveParams,
         c: &mut BenchmarkGroup<'_, M>,
         state: &Rc<RefCell<State>>,
     ) {
         let ProveParams {
-            folding_steps,
+            fib_n,
             reduction_count,
-            version,
         } = prove_params;
 
-        assert_eq!(version, Version::LEM);
-        let limit = reduction_count * (folding_steps + 1);
-
-        // Track the number of `folded iterations / sec`
-        c.throughput(criterion::Throughput::Elements(
-            (reduction_count * folding_steps) as u64,
-        ));
-
+        let limit = fib_limit(fib_n, reduction_count);
         let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
         let lang_rc = Arc::new(lang_pallas.clone());
 
         // use cached public params
-        let instance: Instance<
-            '_,
-            pasta_curves::Fq,
-            Coproc<pasta_curves::Fq>,
-            MultiFrame<'_, pasta_curves::Fq, Coproc<pasta_curves::Fq>>,
-        > = Instance::new(
+        let instance = Instance::new(
             reduction_count,
             lang_rc.clone(),
             true,
@@ -187,12 +147,8 @@ mod lem {
         );
         let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
-        let date = env!("VERGEN_GIT_COMMIT_DATE");
-        let sha = env!("VERGEN_GIT_SHA");
-        let parameter = format!("{},{},steps={}", date, sha, folding_steps);
-
         c.bench_with_input(
-            BenchmarkId::new(prove_params.name(), parameter),
+            BenchmarkId::new(prove_params.name(true), fib_n),
             &prove_params,
             |b, prove_params| {
                 let store = Store::default();
@@ -206,28 +162,10 @@ mod lem {
                 .unwrap()
                 .0;
 
-                assert_eq!(frames.len(), limit);
-
-                // Here we split the proving step by first generating the recursive snark,
-                // then have `criterion` only bench the rest of the folding steps
-                let (recursive_snark, circuits, z0, _zi, num_steps) = prover
-                    .recursive_snark(&pp, frames, &store, &lang_rc)
-                    .unwrap();
-
-                assert_eq!(num_steps, folding_steps);
-
                 b.iter_batched(
-                    || (recursive_snark.clone(), z0.clone(), lang_rc.clone()),
-                    |(recursive_snark, z0, lang_rc)| {
-                        let result = Proof::prove_recursively(
-                            &pp,
-                            &store,
-                            Some(recursive_snark),
-                            &circuits,
-                            reduction_count,
-                            z0,
-                            lang_rc,
-                        );
+                    || (frames, lang_rc.clone()),
+                    |(frames, lang_rc)| {
+                        let result = prover.prove(&pp, frames, &store, &lang_rc);
                         let _ = black_box(result);
                     },
                     BatchSize::LargeInput,
@@ -240,8 +178,8 @@ mod lem {
 fn fib_bench(c: &mut Criterion) {
     set_bench_config();
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
-    let reduction_counts = [10, 50, 100];
-    let folding_step_sizes = [2, 4, 8];
+    let reduction_counts = [100, 600, 700, 800, 900];
+    let batch_sizes = [100, 200];
 
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Fibonacci");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
@@ -249,32 +187,14 @@ fn fib_bench(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    for folding_steps in folding_step_sizes.iter() {
+    for fib_n in batch_sizes.iter() {
         for reduction_count in reduction_counts.iter() {
-            let alpha_params = ProveParams {
-                folding_steps: *folding_steps,
+            let params = ProveParams {
+                fib_n: *fib_n,
                 reduction_count: *reduction_count,
-                version: Version::ALPHA,
             };
-            alpha::prove(alpha_params, &mut group, &state);
-            
-            let lem_params = ProveParams {
-                folding_steps: *folding_steps,
-                reduction_count: *reduction_count,
-                version: Version::LEM,
-            };
-            lem::prove(lem_params, &mut group, &state);
-        }
-    }
-
-    for folding_steps in folding_step_sizes.iter() {
-        for reduction_count in reduction_counts.iter() {
-            let lem_params = ProveParams {
-                folding_steps: *folding_steps,
-                reduction_count: *reduction_count,
-                version: Version::LEM,
-            };
-            lem::prove(lem_params, &mut group, &state);
+            alpha::prove(&params, &mut group, &state);
+            lem::prove(&params, &mut group, &state);
         }
     }
 }
