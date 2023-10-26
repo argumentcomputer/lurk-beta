@@ -286,6 +286,7 @@
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
 
 <span class="kw">use </span><span class="kw">crate</span>::expr::Expression;
@@ -303,23 +304,24 @@
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 
-<span class="comment">// Lurk syntax
+<span class="doccomment">/// Lurk&#39;s syntax for parsing
 </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>Syntax&lt;F: LurkField&gt; {
-    Num(Pos, Num&lt;F&gt;),
-    <span class="comment">// A u64 integer: 1u64, 0xffu64
+    <span class="doccomment">/// An element of the finite field `F`
+    </span>Num(Pos, Num&lt;F&gt;),
+    <span class="doccomment">/// A u64 integer: 1u64, 0xffu64
     </span>UInt(Pos, UInt),
-    <span class="comment">// A hierarchical symbol foo, foo.bar.baz or keyword :foo
+    <span class="doccomment">/// A hierarchical symbol: foo, foo.bar.baz or keyword :foo
     </span>Symbol(Pos, SymbolRef),
-    <span class="comment">// A string literal: &quot;foobar&quot;, &quot;foo\nbar&quot;
+    <span class="doccomment">/// A string literal: &quot;foobar&quot;, &quot;foo\nbar&quot;
     </span>String(Pos, String),
-    <span class="comment">// A character literal: #\A #\λ #\u03BB
+    <span class="doccomment">/// A character literal: &#39;A&#39;, &#39;λ&#39;
     </span>Char(Pos, char),
-    <span class="comment">// A quoted expression: &#39;a, &#39;(1 2)
+    <span class="doccomment">/// A quoted expression: &#39;a, &#39;(1 2)
     </span>Quote(Pos, Box&lt;Syntax&lt;F&gt;&gt;),
-    <span class="comment">// A nil-terminated cons-list of expressions: (1 2 3)
+    <span class="doccomment">/// A nil-terminated cons-list of expressions: (1 2 3)
     </span>List(Pos, Vec&lt;Syntax&lt;F&gt;&gt;),
-    <span class="comment">// An improper cons-list of expressions: (1 2 . 3)
+    <span class="doccomment">/// An improper cons-list of expressions: (1 2 . 3)
     </span>Improper(Pos, Vec&lt;Syntax&lt;F&gt;&gt;, Box&lt;Syntax&lt;F&gt;&gt;),
 }
 
