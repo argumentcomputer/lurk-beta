@@ -306,13 +306,17 @@ where
         store: &'a M::Store,
         lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
-        let (recursive_snark, circuits, z0, zi, num_steps) =
-            self.recursive_snark(pp, frames, store, lang)?;
+        store.hydrate_z_cache();
+        let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
+        let zi =
+            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
+        let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), self.reduction_count()));
+        let circuits = M::from_frames(self.reduction_count(), frames, store, &folding_config);
 
+        let num_steps = circuits.len();
         let proof = Proof::prove_recursively(
             pp,
             store,
-            Some(recursive_snark),
             &circuits,
             self.reduction_count,
             z0.clone(),
@@ -342,53 +346,6 @@ where
         )?;
         self.prove(pp, &frames, store, lang)
     }
-
-    /// Returns the first step of the [RecursiveSNARK] to be proved
-    pub fn recursive_snark(
-        &self,
-        pp: &PublicParams<F, M>,
-        frames: &[M::EvalFrame],
-        store: &'a M::Store,
-        lang: &Arc<Lang<F, C>>,
-    ) -> Result<
-        (
-            RecursiveSNARK<G1<F>, G2<F>, M, C2<F>>,
-            Vec<M>,
-            Vec<F>,
-            Vec<F>,
-            usize,
-        ),
-        ProofError,
-    > {
-        store.hydrate_z_cache();
-        let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
-        let zi =
-            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
-
-        let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), self.reduction_count()));
-        let circuits = M::from_frames(self.reduction_count(), frames, store, &folding_config);
-
-        assert!(!circuits.is_empty());
-        assert_eq!(circuits[0].arity(), z0.len());
-        let num_steps = circuits.len();
-
-        let z0_primary = &z0;
-        let z0_secondary = Proof::<F, C, M>::z0_secondary();
-
-        Ok((
-            RecursiveSNARK::new(
-                &pp.pp,
-                &circuits[0],
-                &TrivialCircuit::default(),
-                z0_primary.clone(),
-                z0_secondary.clone(),
-            ),
-            circuits,
-            z0,
-            zi,
-            num_steps,
-        ))
-    }
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Proof<'a, F, C, M>
@@ -401,7 +358,6 @@ where
     pub fn prove_recursively(
         pp: &PublicParams<F, M>,
         store: &M::Store,
-        recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, M, C2<F>>>,
         circuits: &[M],
         num_iters_per_step: usize,
         z0: Vec<F>,
@@ -422,7 +378,7 @@ where
         tracing::debug!("circuits.len: {}", circuits.len());
 
         // produce a recursive SNARK
-        let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, M, C2<F>>> = recursive_snark;
+        let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, M, C2<F>>> = None;
 
         // the shadowing here is voluntary
         let recursive_snark = if lurk_config(None, None)
