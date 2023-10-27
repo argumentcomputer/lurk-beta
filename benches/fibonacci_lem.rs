@@ -8,21 +8,16 @@ use criterion::{
 use pasta_curves::pallas;
 
 use lurk::{
-    circuit::circuit_frame::MultiFrame,
-    eval::{
-        empty_sym_env,
-        lang::{Coproc, Lang},
-    },
+    eval::lang::{Coproc, Lang},
     field::LurkField,
+    lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
     proof::nova::NovaProver,
     proof::Prover,
-    ptr::Ptr,
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
     },
     state::State,
-    store::Store,
 };
 
 mod common;
@@ -35,7 +30,7 @@ fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Pt
   (fib))
 "#;
 
-    store.read_with_state(state, program).unwrap()
+    store.read(state, program).unwrap()
 }
 
 // The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation will contain a binding of the
@@ -61,7 +56,7 @@ impl ProveParams {
     fn name(&self) -> String {
         let date = env!("VERGEN_GIT_COMMIT_DATE");
         let sha = env!("VERGEN_GIT_SHA");
-        format!("{date}:{sha}:Fibonacci-rc={}", self.reduction_count)
+        format!("{date}:{sha}:Fibonacci-LEM-rc={}", self.reduction_count)
     }
 }
 
@@ -94,7 +89,6 @@ fn fibo_prove<M: measurement::Measurement>(
         |b, prove_params| {
             let store = Store::default();
 
-            let env = empty_sym_env(&store);
             let ptr = fib::<pasta_curves::Fq>(
                 &store,
                 state.clone(),
@@ -102,9 +96,10 @@ fn fibo_prove<M: measurement::Measurement>(
             );
             let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
 
-            let frames = &prover
-                .get_evaluation_frames(ptr, env, &store, limit, lang_rc.clone())
-                .unwrap();
+            let frames =
+                &evaluate::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>(None, ptr, &store, limit)
+                    .unwrap()
+                    .0;
 
             b.iter_batched(
                 || (frames, lang_rc.clone()),
