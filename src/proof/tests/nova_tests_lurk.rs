@@ -3398,7 +3398,7 @@ fn test_trie_lang_circuit() {
             s.read_with_state(state.clone(), "(.lurk.trie.insert 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123 456)").unwrap();
     let res3 = s
         .read_with_state(
-            state,
+            state.clone(),
             "0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27",
         )
         .unwrap();
@@ -3414,6 +3414,24 @@ fn test_trie_lang_circuit() {
         DEFAULT_REDUCTION_COUNT,
         false,
         None,
-        lang,
+        lang.clone(),
+    );
+
+    let expr4 =
+            s.read_with_state(state, "(.lurk.trie.lookup 0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27 123)").unwrap();
+    let res4 = s.intern_opaque_comm(Fr::from(456));
+
+    nova_test_full_aux2::<_, _, C1Lurk<'_, _, TrieCoproc<_>>>(
+        s,
+        expr4,
+        Some(res4),
+        None,
+        Some(terminal),
+        None,
+        2,
+        DEFAULT_REDUCTION_COUNT,
+        false,
+        None,
+        lang.clone(),
     );
 }

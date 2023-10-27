@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use pasta_curves::pallas::Scalar as Fr;
 
 use crate::{
@@ -27,11 +29,57 @@ fn test_aux<C: Coprocessor<Fr>>(
     lang: &Option<&Lang<Fr, C>>,
 ) {
     let ptr = s.read_with_default_state(expr).unwrap();
+    do_test_aux(
+        s,
+        &ptr,
+        expected_result,
+        expected_env,
+        expected_cont,
+        expected_emitted,
+        expected_iterations,
+        lang,
+    );
+}
 
+fn test_aux_with_state<C: Coprocessor<Fr>>(
+    s: &Store<Fr>,
+    state: Rc<RefCell<State>>,
+    expr: &str,
+    expected_result: Option<Ptr<Fr>>,
+    expected_env: Option<Ptr<Fr>>,
+    expected_cont: Option<Ptr<Fr>>,
+    expected_emitted: Option<Vec<Ptr<Fr>>>,
+    expected_iterations: usize,
+    lang: &Option<&Lang<Fr, C>>,
+) {
+    let ptr = s.read(state, expr).unwrap();
+    do_test_aux(
+        s,
+        &ptr,
+        expected_result,
+        expected_env,
+        expected_cont,
+        expected_emitted,
+        expected_iterations,
+        lang,
+    );
+}
+
+#[inline]
+fn do_test_aux<C: Coprocessor<Fr>>(
+    s: &Store<Fr>,
+    ptr: &Ptr<Fr>,
+    expected_result: Option<Ptr<Fr>>,
+    expected_env: Option<Ptr<Fr>>,
+    expected_cont: Option<Ptr<Fr>>,
+    expected_emitted: Option<Vec<Ptr<Fr>>>,
+    expected_iterations: usize,
+    lang: &Option<&Lang<Fr, C>>,
+) {
     if let Some(lang) = lang {
-        test_aux2(
+        do_test(
             s,
-            &ptr,
+            ptr,
             expected_result,
             expected_env,
             expected_cont,
@@ -41,9 +89,9 @@ fn test_aux<C: Coprocessor<Fr>>(
         )
     } else {
         let lang = Lang::<Fr, Coproc<Fr>>::new();
-        test_aux2(
+        do_test(
             s,
-            &ptr,
+            ptr,
             expected_result,
             expected_env,
             expected_cont,
@@ -54,7 +102,7 @@ fn test_aux<C: Coprocessor<Fr>>(
     }
 }
 
-fn test_aux2<C: Coprocessor<Fr>>(
+fn do_test<C: Coprocessor<Fr>>(
     s: &Store<Fr>,
     expr: &Ptr<Fr>,
     expected_result: Option<Ptr<Fr>>,
@@ -1576,21 +1624,21 @@ fn hide_opaque_open_available() {
 
     {
         let expr = s.list(vec![open, comm]);
-        test_aux2::<Coproc<Fr>>(s, &expr, Some(x), None, None, None, 2, &lang);
+        do_test::<Coproc<Fr>>(s, &expr, Some(x), None, None, None, 2, &lang);
     }
 
     {
         let secret = s.intern_lurk_symbol("secret");
         let expr = s.list(vec![secret, comm]);
         let sec = Ptr::num_u64(123);
-        test_aux2::<Coproc<Fr>>(s, &expr, Some(sec), None, None, None, 2, &lang);
+        do_test::<Coproc<Fr>>(s, &expr, Some(sec), None, None, None, 2, &lang);
     }
 
     {
         // We can open a commitment identified by its corresponding `Num`.
         let comm_num = Ptr::num(c);
         let expr2 = s.list(vec![open, comm_num]);
-        test_aux2::<Coproc<Fr>>(s, &expr2, Some(x), None, None, None, 2, &lang);
+        do_test::<Coproc<Fr>>(s, &expr2, Some(x), None, None, None, 2, &lang);
     }
 }
 
@@ -1611,7 +1659,7 @@ fn hide_opaque_open_unavailable() {
     let expr = s2.list(vec![open, comm]);
     let lang = Lang::new();
 
-    test_aux2::<Coproc<Fr>>(s2, &expr, Some(x), None, None, None, 2, &lang);
+    do_test::<Coproc<Fr>>(s2, &expr, Some(x), None, None, None, 2, &lang);
 }
 
 #[test]
@@ -2842,6 +2890,124 @@ fn test_dumb_lang() {
         Some(error),
         None,
         3,
+        &Some(&lang),
+    );
+}
+
+#[test]
+fn test_trie_lang() {
+    use crate::coprocessor::trie::{install_lem, TrieCoproc};
+
+    let s = &Store::<Fr>::default();
+    let state = State::init_lurk_state().rccell();
+    let mut lang = Lang::<Fr, TrieCoproc<Fr>>::new();
+
+    install_lem(s, &state, &mut lang);
+
+    let expr = "(let ((trie (.lurk.trie.new)))
+                      trie)";
+    let res = s
+        .read_with_default_state(
+            "0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53",
+        )
+        .unwrap();
+
+    test_aux_with_state(
+        s,
+        state.clone(),
+        expr,
+        Some(res),
+        None,
+        None,
+        None,
+        5,
+        &Some(&lang),
+    );
+
+    let expr2 =
+        "(.lurk.trie.lookup 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123)";
+    let res2 = Ptr::comm(Fr::zero());
+
+    test_aux_with_state(
+        s,
+        state.clone(),
+        expr2,
+        Some(res2),
+        None,
+        None,
+        None,
+        3,
+        &Some(&lang),
+    );
+
+    let expr3 =
+        "(.lurk.trie.insert 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123 456)";
+    let res3 = s
+        .read_with_default_state(
+            "0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27",
+        )
+        .unwrap();
+
+    test_aux_with_state(
+        s,
+        state.clone(),
+        expr3,
+        Some(res3),
+        None,
+        None,
+        None,
+        4,
+        &Some(&lang),
+    );
+
+    let expr4 =
+        "(.lurk.trie.lookup 0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27 123)";
+    let res4 = Ptr::comm(Fr::from(456));
+
+    test_aux_with_state(
+        s,
+        state.clone(),
+        expr4,
+        Some(res4),
+        None,
+        None,
+        None,
+        3,
+        &Some(&lang),
+    );
+
+    let s = &Store::<Fr>::default();
+    let expr5 = "(let ((trie (.lurk.trie.new))
+                       (found (.lurk.trie.lookup trie 123)))
+                      found)";
+    let res5 = Ptr::comm(Fr::zero());
+
+    test_aux_with_state(
+        s,
+        state.clone(),
+        expr5,
+        Some(res5),
+        None,
+        None,
+        None,
+        10,
+        &Some(&lang),
+    );
+
+    let expr6 = "(let ((trie (.lurk.trie.insert (.lurk.trie.new) 123 456))
+                       (found (.lurk.trie.lookup trie 123)))
+                      found)";
+    let res6 = Ptr::comm(Fr::from(456));
+
+    test_aux_with_state(
+        s,
+        state.clone(),
+        expr6,
+        Some(res6),
+        None,
+        None,
+        None,
+        14,
         &Some(&lang),
     );
 }
