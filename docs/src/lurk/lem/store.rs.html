@@ -1133,10 +1133,15 @@
 <a href="#1133" id="1133">1133</a>
 <a href="#1134" id="1134">1134</a>
 <a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
-<span class="kw">use </span>elsa::sync::{FrozenMap, FrozenVec};
-<span class="kw">use </span>elsa::sync_index_set::FrozenIndexSet;
+<span class="kw">use </span>elsa::{
+    sync::{FrozenMap, FrozenVec},
+    sync_index_set::FrozenIndexSet,
+};
 <span class="kw">use </span>indexmap::IndexSet;
 <span class="kw">use </span>nom::{sequence::preceded, Parser};
 <span class="kw">use </span>rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -1144,7 +1149,7 @@
 
 <span class="kw">use crate</span>::{
     field::{FWrap, LurkField},
-    hash::PoseidonCache,
+    hash::{InversePoseidonCache, PoseidonCache},
     lem::Tag,
     parser::{syntax, Error, Span},
     state::{lurk_sym, user_sym, State},
@@ -1191,6 +1196,7 @@
     ptr_symbol_cache: FrozenMap&lt;Ptr&lt;F&gt;, Box&lt;Symbol&gt;&gt;,
 
     <span class="kw">pub </span>poseidon_cache: PoseidonCache&lt;F&gt;,
+    <span class="kw">pub </span>inverse_poseidon_cache: InversePoseidonCache&lt;F&gt;,
 
     dehydrated: ArcSwap&lt;FrozenVec&lt;Box&lt;Ptr&lt;F&gt;&gt;&gt;&gt;,
     z_cache: FrozenMap&lt;Ptr&lt;F&gt;, Box&lt;ZPtr&lt;F&gt;&gt;&gt;,

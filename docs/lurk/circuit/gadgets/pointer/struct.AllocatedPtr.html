@@ -7,9 +7,9 @@
     cs: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;mut CS</a>,
     tag: F,
     alloc_hash: AllocatedNum&lt;F&gt;
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, SynthesisError&gt;</h4></section><section id="method.alloc_constant" class="method"><a class="src rightside" href="../../../../src/lurk/circuit/gadgets/pointer.rs.html#102-113">source</a><h4 class="code-header">pub fn <a href="#method.alloc_constant" class="fn">alloc_constant</a>&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, SynthesisError&gt;</h4></section><section id="method.alloc_constant" class="method"><a class="src rightside" href="../../../../src/lurk/circuit/gadgets/pointer.rs.html#102-113">source</a><h4 class="code-header">pub fn <a href="#method.alloc_constant" class="fn">alloc_constant</a>&lt;CS: ConstraintSystem&lt;F&gt;, T: <a class="trait" href="../../../tag/trait.Tag.html" title="trait lurk::tag::Tag">Tag</a>&gt;(
     cs: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;mut CS</a>,
-    value: <a class="type" href="../../../z_data/z_ptr/type.ZExprPtr.html" title="type lurk::z_data::z_ptr::ZExprPtr">ZExprPtr</a>&lt;F&gt;
+    value: <a class="struct" href="../../../z_data/z_ptr/struct.ZPtr.html" title="struct lurk::z_data::z_ptr::ZPtr">ZPtr</a>&lt;T, F&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, SynthesisError&gt;</h4></section><section id="method.alloc_ptr" class="method"><a class="src rightside" href="../../../../src/lurk/circuit/gadgets/pointer.rs.html#115-130">source</a><h4 class="code-header">pub fn <a href="#method.alloc_ptr" class="fn">alloc_ptr</a>&lt;'a, Fo, CS&gt;(
     cs: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;mut CS</a>,
     store: &amp;<a class="struct" href="../../../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,

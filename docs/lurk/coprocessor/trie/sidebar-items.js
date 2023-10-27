@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Error","TrieCoproc"],"fn":["install"],"struct":["InsertCoprocessor","InsertProof","LookupCoprocessor","LookupProof","NewCoprocessor","Trie"],"type":["ChildMap","HashPreimagePath","PreimagePath","StandardTrie"]};
+window.SIDEBAR_ITEMS = {"enum":["Error","TrieCoproc"],"fn":["install","install_lem"],"struct":["InsertCoprocessor","InsertProof","LookupCoprocessor","LookupProof","NewCoprocessor","Trie"],"type":["ChildMap","HashPreimagePath","PreimagePath","StandardTrie"]};
