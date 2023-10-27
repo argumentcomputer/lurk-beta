@@ -160,7 +160,7 @@ fn generate_slots_witnesses<F: LurkField>(
         .into_iter()
         .for_each(|(sd_vec, st)| sd_vec.iter().for_each(|sd| slots_data.push((sd, st))));
     });
-    // cache the slots witnesses wit `Arc` for speedy clones
+    // cache dummy slots witnesses with `Arc` for speedy clones
     let dummy_witnesses_cache: FrozenMap<_, Box<Arc<SlotWitness<F>>>> = FrozenMap::default();
     let gen_slot_witness = |(slot_idx, (slot_data, slot_type))| {
         let mk_witness = || {
@@ -385,7 +385,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     ) -> Result<Self::AllocatedIO, SynthesisError> {
         let func = self.get_func();
         if cs.is_witness_generator() {
-            let num_slots_per_frame = func.slot.total();
+            let num_slots_per_frame = func.slots_count.total();
             let slots_witnesses = generate_slots_witnesses(
                 store,
                 frames,
@@ -908,7 +908,7 @@ mod tests {
     #[test]
     fn test_sequential_and_parallel_witnesses_equivalences() {
         let lurk_step = eval_step();
-        let num_slots_per_frame = lurk_step.slot.total();
+        let num_slots_per_frame = lurk_step.slots_count.total();
         let store = Store::<Fq>::default();
         let mut cs = WitnessCS::new();
 
