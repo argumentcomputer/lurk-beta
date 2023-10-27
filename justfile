@@ -1,19 +1,35 @@
 # Install with `cargo install just`
 # Usage: `just --dotenv-filename /path/to/file.env <bench|gpu-bench>`
+# TODO: Move dotenv-filename into justfile once the feature is available
 set dotenv-load
 
-print-lurk-env:
-  echo $LURK_PERF_CONFIG
-  echo $LURK_RC
+commit := `git rev-parse HEAD`
 
-bench:
-  print-lurk-env
-  cargo criterion --bench fibonacci
+# Run CPU benchmarks
+bench +benches:
+  #!/bin/sh
+  printenv LURK
+  if [ '{{benches}}' != '' ]; then
+    for bench in {{benches}}; do
+      cargo criterion --bench $bench
+    done
+  else
+    echo "Invalid input, enter at least one non-empty string"
+  fi
 
-gpu-bench:
-  print-lurk-env
-  cargo criterion --bench fibonacci
-
-deploy-bench:
-  print-lurk-env
-  cargo criterion --bench fibonacci --message-format=json > ${{ github.sha }}.json
+# Run CUDA benchmarks on GPU
+gpu-bench +benches:
+  #!/bin/sh
+  # The `compute`/`sm` number corresponds to the Nvidia GPU architecture
+  # In this case, the self-hosted machine uses the Ampere architecture, but we want this to be configurable
+  # See https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
+  export CUDA_ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed 's/\.//g')
+  export EC_GPU_CUDA_NVCC_ARGS="--fatbin --gpu-architecture=sm_$CUDA_ARCH --generate-code=arch=compute_$CUDA_ARCH,code=sm_$CUDA_ARCH"
+  env | grep -E "LURK|EC_GPU|CUDA"
+  if [ '{{benches}}' != '' ]; then
+    for bench in {{benches}}; do
+      cargo criterion --bench $bench --features "cuda" --message-format=json 2>&1 > {{commit}}.json
+    done
+  else
+    echo "Invalid input, enter at least one non-empty string"
+  fi

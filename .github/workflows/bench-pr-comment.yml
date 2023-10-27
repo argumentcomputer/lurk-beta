@@ -39,30 +39,52 @@ jobs:
           # Needed. The name of the branch to compare with
           branchName: ${{ github.ref_name }}
 
+  # TODO: Check it works with forked PRs when running
+  # `gh pr checkout {{ github.event.issue.number}}` with `env: GH_TOKEN`
   gpu-benchmark:
     name: run fibonacci benchmark on GPU
-    runs-on: [self-hosted, gpu-bench]
+    runs-on: [self-hosted, gpu-bench-t4]
     if:
       github.event.issue.pull_request
       && github.event.issue.state == 'open'
       && contains(github.event.comment.body, '!benchmark')
       && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
     steps:
+      # Set up GPU
+      # Check we have access to the machine's Nvidia drivers
+      - run: nvidia-smi
+      # The `compute`/`sm` number corresponds to the Nvidia GPU architecture
+      # In this case, the self-hosted machine uses the Ampere architecture, but we want this to be configurable
+      # See https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
+      # Writes env vars to `bench.env` to be read by `just` command
+      - name: Set env for CUDA compute
+        run: echo "CUDA_ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed 's/\.//g')" >> bench.env
+      - name: set env for EC_GPU
+        run: echo 'EC_GPU_CUDA_NVCC_ARGS=--fatbin --gpu-architecture=sm_${{ env.CUDA_ARCH }} --generate-code=arch=compute_${{ env.CUDA_ARCH }},code=sm_${{ env.CUDA_ARCH }}' >> bench.env
+      # Check that CUDA is installed with a driver-compatible version
+      # This must also be compatible with the GPU architecture, see above link
+      - run: nvcc --version
+
       - uses: xt0rted/pull-request-comment-branch@v2
         id: comment-branch
-
       - uses: actions/checkout@v4
         if: success()
         with:
           ref: ${{ steps.comment-branch.outputs.head_ref }}
-      # Set the Rust env vars
       - uses: actions-rs/toolchain@v1
       - uses: Swatinem/rust-cache@v2
+      # Strict load => panic if .env file not found
+      - name: Load env vars
+        uses: xom9ikk/dotenv@v2
+        with:
+          path: bench.env
+          load-mode: strict
+
       - uses: boa-dev/criterion-compare-action@v3
         with:
           # Optional. Compare only this benchmark target
           benchName: "fibonacci"
           # Optional. Features activated in the benchmark
-          features: "cuda,opencl"
+          features: "cuda"
           # Needed. The name of the branch to compare with
           branchName: ${{ github.ref_name }}

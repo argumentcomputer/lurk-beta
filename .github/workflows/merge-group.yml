@@ -67,38 +67,68 @@ jobs:
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
   # TODO: Make this a required status check
+  # TODO: Cache successful bench run from PR branch on master, keyed on commit hash
+  # Run comparative benchmark against master
   gpu-benchmark:
+    # [TEMPORARY] Test one run before attempting merge
+    #if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     name: Run fibonacci bench on GPU
-    runs-on: gpu-bench-a6000
-    env:
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITITES: compute,utility
-      EC_GPU_FRAMEWORK: cuda
+    runs-on: [self-hosted, gpu-bench-t4]
     steps:
-      # Checkout and install deps
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@just
-
+      # TODO: Factor this out into an action or into justfile, it's used in 4 places
       # Set up GPU
       # Check we have access to the machine's Nvidia drivers
       - run: nvidia-smi
-      # The `compute`/`sm` number corresponds to the Nvidia GPU architecture
-      # In this case, the self-hosted machine uses the Ampere architecture, but we want this to be configurable
-      # See https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
-      - name: Set env for CUDA compute
-        run: echo "CUDA_ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed 's/\.//g')" >> $GITHUB_ENV
-      - name: set env for EC_GPU
-        run: echo 'EC_GPU_CUDA_NVCC_ARGS=--fatbin --gpu-architecture=sm_${{ env.CUDA_ARCH }} --generate-code=arch=compute_${{ env.CUDA_ARCH }},code=sm_${{ env.CUDA_ARCH }}' >> $GITHUB_ENV
-      - run: echo "${{ env.EC_GPU_CUDA_NVCC_ARGS}}"
       # Check that CUDA is installed with a driver-compatible version
       # This must also be compatible with the GPU architecture, see above link
       - run: nvcc --version
-
-      # Run benchmark
+      - uses: actions/checkout@v4
+      # Checkout base branch for comparative bench
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - run: ls -a
+      - name: Set base ref variable
+        run: echo "BASE_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
+      # Checkout the justfile and env of the source branch so the base can bench
+      - run: git restore --source ${{ github.sha }} justfile bench.env
+      - run: ls -a
+      # Install dependencies
+      - uses: actions-rs/toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just@1
+      # Run benchmark on base branch
       - name: Install criterion
-        run: cargo install cargo-criterion
-      # TODO: Write this in a commit comment, reject if there's a regression
-      - name: Run benchmarks
-        run: just --dotenv-filename bench.env gpu-bench
+        run: |
+          cargo install cargo-criterion
+          cargo install criterion-table
+      - name: Run GPU bench
+        run: just --dotenv-filename bench.env gpu-bench fibonacci
+      # Switch to triggering branch and run benchmark
+      - run: rm justfile bench.env
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Run GPU bench on source branch
+        run: just --dotenv-filename bench.env gpu-bench fibonacci
+      # Create a comparative `criterion-table` and write in commit comment
+      - name: Run `criterion-table`
+        run: cat ${{ env.BASE_REF }}.json ${{ github.sha }}.json | criterion-table > BENCHMARKS.md
+      - name: Write comparative bench on commit comment
+        uses: peter-evans/commit-comment@v3
+        with:
+          body-path: BENCHMARKS.md
+      # TODO: Use jq for JSON parsing if needed
+      # Check for benchmark regression based on Criterion's configured noise threshold
+      - name: Performance regression check
+        id: check-regression
+        run: |
+          echo "regress_count=$(grep -c 'Regressed' ${{ github.sha }}.json)" >> $GITHUB_OUTPUT
+      # Fail job if regression found
+      - uses: actions/github-script@v6
+        if: ${{ steps.check-regression.outputs.regress_count }} > 0
+        with:
+          script: |
+            core.setFailed('Fibonacci bench regression detected')
