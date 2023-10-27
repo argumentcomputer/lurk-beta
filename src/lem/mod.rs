@@ -69,6 +69,7 @@ pub mod pointers;
 mod slot;
 pub mod store;
 mod var_map;
+
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -102,7 +103,7 @@ pub struct Func {
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct Var(AString);
 
-/// LEM tags
+/// The LEM `Tag` is a wrapper around other types that are used as tags
 #[derive(Copy, Debug, PartialEq, Clone, Eq, Hash, Serialize, Deserialize)]
 pub enum Tag {
     Expr(ExprTag),
@@ -173,7 +174,6 @@ impl std::fmt::Display for Tag {
 /// LEM literals
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum Lit {
-    // TODO maybe it should be a LurkField instead of u128
     Num(u128),
     String(String),
     Symbol(Symbol),
@@ -185,23 +185,6 @@ impl Lit {
             Self::Symbol(s) => store.intern_symbol(s),
             Self::String(s) => store.intern_string(s),
             Self::Num(num) => Ptr::num(F::from_u128(*num)),
-        }
-    }
-
-    pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
-        use ExprTag::{Num, Str, Sym};
-        use Tag::Expr;
-        match ptr.tag() {
-            Expr(Num) => match ptr {
-                Ptr::Atom(_, f) => {
-                    let num = LurkField::to_u128_unchecked(f);
-                    Some(Self::Num(num))
-                }
-                _ => unreachable!(),
-            },
-            Expr(Str) => store.fetch_string(ptr).map(Lit::String),
-            Expr(Sym) => store.fetch_symbol(ptr).map(Lit::Symbol),
-            _ => None,
         }
     }
 }
@@ -255,8 +238,16 @@ pub enum Op {
     Call(Vec<Var>, Box<Func>, Vec<Var>),
     /// `Copy(x, y)` binds `x` to a copy of what `y` is bound to
     Copy(Var, Var),
-    /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
-    Null(Var, Tag),
+    /// `Zero(x, t)` binds `x` to a `Ptr::zero(t)`
+    Zero(Var, Tag),
+    /// `Hash3Zeros(x, t)` binds `x` to a `Ptr::Atom(t, hash3(&[F::zero(); 3]))`
+    Hash3Zeros(Var, Tag),
+    /// `Hash4Zeros(x, t)` binds `x` to a `Ptr::Atom(t, hash4(&[F::zero(); 4]))`
+    Hash4Zeros(Var, Tag),
+    /// `Hash6Zeros(x, t)` binds `x` to a `Ptr::Atom(t, hash6(&[F::zero(); 6]))`
+    Hash6Zeros(Var, Tag),
+    /// `Hash8Zeros(x, t)` binds `x` to a `Ptr::Atom(t, hash8(&[F::zero(); 8]))`
+    Hash8Zeros(Var, Tag),
     /// `Lit(x, l)` binds `x` to the pointer representing that `Lit`
     Lit(Var, Lit),
     /// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
@@ -382,10 +373,12 @@ impl Func {
                         is_bound(src, map)?;
                         is_unique(tgt, map);
                     }
-                    Op::Null(tgt, _tag) => {
-                        is_unique(tgt, map);
-                    }
-                    Op::Lit(tgt, _lit) => {
+                    Op::Zero(tgt, _)
+                    | Op::Hash3Zeros(tgt, _)
+                    | Op::Hash4Zeros(tgt, _)
+                    | Op::Hash6Zeros(tgt, _)
+                    | Op::Hash8Zeros(tgt, _)
+                    | Op::Lit(tgt, _) => {
                         is_unique(tgt, map);
                     }
                     Op::Cast(tgt, _tag, src) => {
@@ -608,7 +601,19 @@ impl Block {
                 Op::Copy(tgt, src) => {
                     ops.push(Op::Copy(insert_one(map, uniq, &tgt), map.get_cloned(&src)?))
                 }
-                Op::Null(tgt, tag) => ops.push(Op::Null(insert_one(map, uniq, &tgt), tag)),
+                Op::Zero(tgt, tag) => ops.push(Op::Zero(insert_one(map, uniq, &tgt), tag)),
+                Op::Hash3Zeros(tgt, tag) => {
+                    ops.push(Op::Hash3Zeros(insert_one(map, uniq, &tgt), tag))
+                }
+                Op::Hash4Zeros(tgt, tag) => {
+                    ops.push(Op::Hash4Zeros(insert_one(map, uniq, &tgt), tag))
+                }
+                Op::Hash6Zeros(tgt, tag) => {
+                    ops.push(Op::Hash6Zeros(insert_one(map, uniq, &tgt), tag))
+                }
+                Op::Hash8Zeros(tgt, tag) => {
+                    ops.push(Op::Hash8Zeros(insert_one(map, uniq, &tgt), tag))
+                }
                 Op::Lit(tgt, lit) => ops.push(Op::Lit(insert_one(map, uniq, &tgt), lit)),
                 Op::Cast(tgt, tag, src) => {
                     let src = map.get_cloned(&src)?;

@@ -48,7 +48,10 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
     field::{FWrap, LanguageField, LurkField},
-    tag::ExprTag::{Comm, Num, Sym},
+    tag::{
+        ExprTag::{Comm, Num, Sym},
+        Tag,
+    },
 };
 
 use super::{
@@ -57,7 +60,7 @@ use super::{
     slot::*,
     store::Store,
     var_map::VarMap,
-    Block, Ctrl, Func, Op, Tag, Var,
+    Block, Ctrl, Func, Op, Var,
 };
 
 #[derive(Clone)]
@@ -107,6 +110,22 @@ impl<F: LurkField> GlobalAllocator<F> {
     #[inline]
     fn get_allocated_const_cloned(&self, f: F) -> Result<AllocatedNum<F>> {
         self.get_allocated_const(f).cloned()
+    }
+
+    #[inline]
+    pub fn get_allocated_ptr(&self, tag: &super::Tag, hash: F) -> Result<AllocatedPtr<F>> {
+        Ok(AllocatedPtr::from_parts(
+            self.get_allocated_const_cloned(tag.to_field())?,
+            self.get_allocated_const_cloned(hash)?,
+        ))
+    }
+
+    #[inline]
+    pub fn get_allocated_ptr_from_z_ptr(&self, z_ptr: &ZPtr<F>) -> Result<AllocatedPtr<F>> {
+        Ok(AllocatedPtr::from_parts(
+            self.get_allocated_const_cloned(z_ptr.tag().to_field())?,
+            self.get_allocated_const_cloned(*z_ptr.value())?,
+        ))
     }
 }
 
@@ -367,18 +386,25 @@ impl Block {
                     g.new_const(cs, lit_z_ptr.tag_field());
                     g.new_const(cs, *lit_z_ptr.value());
                 }
-                Op::Null(_, tag) => {
-                    use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
+                Op::Zero(_, tag) => {
                     g.new_const(cs, tag.to_field());
-                    match tag {
-                        Tag::Cont(Outermost | Error | Dummy | Terminal) => {
-                            // temporary shim for compatibility with Lurk Alpha
-                            g.new_const(cs, store.poseidon_cache.hash8(&[F::ZERO; 8]));
-                        }
-                        _ => {
-                            g.new_const(cs, F::ZERO);
-                        }
-                    }
+                    g.new_const(cs, F::ZERO);
+                }
+                Op::Hash3Zeros(_, tag) => {
+                    g.new_const(cs, tag.to_field());
+                    g.new_const(cs, store.hash3zeros);
+                }
+                Op::Hash4Zeros(_, tag) => {
+                    g.new_const(cs, tag.to_field());
+                    g.new_const(cs, store.hash4zeros);
+                }
+                Op::Hash6Zeros(_, tag) => {
+                    g.new_const(cs, tag.to_field());
+                    g.new_const(cs, store.hash6zeros);
+                }
+                Op::Hash8Zeros(_, tag) => {
+                    g.new_const(cs, tag.to_field());
+                    g.new_const(cs, store.hash8zeros);
                 }
                 Op::Not(..)
                 | Op::And(..)
@@ -389,15 +415,15 @@ impl Block {
                 | Op::Lt(..)
                 | Op::Trunc(..)
                 | Op::DivRem64(..) => {
-                    g.new_const(cs, Tag::Expr(Num).to_field());
+                    g.new_const(cs, Num.to_field());
                 }
                 Op::Div(..) => {
-                    g.new_const(cs, Tag::Expr(Num).to_field());
+                    g.new_const(cs, Num.to_field());
                     g.new_const(cs, F::ONE);
                 }
                 Op::Hide(..) | Op::Open(..) => {
-                    g.new_const(cs, Tag::Expr(Num).to_field());
-                    g.new_const(cs, Tag::Expr(Comm).to_field());
+                    g.new_const(cs, Num.to_field());
+                    g.new_const(cs, Comm.to_field());
                 }
                 _ => (),
             }
@@ -416,7 +442,7 @@ impl Block {
                 }
             }
             Ctrl::MatchSymbol(_, cases, def) => {
-                g.new_const(cs, Tag::Expr(Sym).to_field());
+                g.new_const(cs, Sym.to_field());
                 for block in cases.values() {
                     block.alloc_globals(cs, store, g)?;
                 }
@@ -674,22 +700,39 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             Op::Copy(tgt, src) => {
                 bound_allocations.insert(tgt.clone(), bound_allocations.get_cloned(src)?);
             }
-            Op::Null(tgt, tag) => {
-                use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
-                let tag_num = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(tag.to_field())?;
-                let value = match tag {
-                    Tag::Cont(Outermost | Error | Dummy | Terminal) => {
-                        // temporary shim for compatibility with Lurk Alpha
-                        ctx.global_allocator.get_allocated_const_cloned(
-                            ctx.store.poseidon_cache.hash8(&[F::ZERO; 8]),
-                        )?
-                    }
-                    _ => ctx.global_allocator.get_allocated_const_cloned(F::ZERO)?,
-                };
-                let allocated_ptr = AllocatedPtr::from_parts(tag_num, value);
-                bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
+            Op::Zero(tgt, tag) => {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator.get_allocated_ptr(tag, F::ZERO)?,
+                );
+            }
+            Op::Hash3Zeros(tgt, tag) => {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator
+                        .get_allocated_ptr(tag, ctx.store.hash3zeros)?,
+                );
+            }
+            Op::Hash4Zeros(tgt, tag) => {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator
+                        .get_allocated_ptr(tag, ctx.store.hash4zeros)?,
+                );
+            }
+            Op::Hash6Zeros(tgt, tag) => {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator
+                        .get_allocated_ptr(tag, ctx.store.hash6zeros)?,
+                );
+            }
+            Op::Hash8Zeros(tgt, tag) => {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator
+                        .get_allocated_ptr(tag, ctx.store.hash8zeros)?,
+                );
             }
             Op::Lit(tgt, lit) => {
                 let lit_ptr = lit.to_ptr(ctx.store);
@@ -749,7 +792,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let c_num = add(cs.namespace(|| "add"), a_num, b_num)?;
                 let tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
+                    .get_allocated_const_cloned(Num.to_field())?;
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -761,7 +804,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let c_num = sub(cs.namespace(|| "sub"), a_num, b_num)?;
                 let tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
+                    .get_allocated_const_cloned(Num.to_field())?;
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -773,7 +816,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let c_num = mul(cs.namespace(|| "mul"), a_num, b_num)?;
                 let tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
+                    .get_allocated_const_cloned(Num.to_field())?;
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -797,7 +840,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
                 let tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
+                    .get_allocated_const_cloned(Num.to_field())?;
                 let c = AllocatedPtr::from_parts(tag, quotient);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -901,7 +944,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 );
                 let tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
+                    .get_allocated_const_cloned(Num.to_field())?;
                 let c = AllocatedPtr::from_parts(tag, trunc);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -932,7 +975,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 enforce_product_and_sum(&mut cs, || "enforce a = b * div + rem", b, &div, &rem, a);
                 let tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
+                    .get_allocated_const_cloned(Num.to_field())?;
                 let div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
                 let rem_ptr = AllocatedPtr::from_parts(tag, rem);
                 bound_allocations.insert_ptr(tgt[0].clone(), div_ptr);
@@ -942,9 +985,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             Op::Hide(tgt, sec, pay) => {
                 let sec = bound_allocations.get_ptr(sec)?;
                 let pay = bound_allocations.get_ptr(pay)?;
-                let sec_tag = ctx
-                    .global_allocator
-                    .get_allocated_const(Tag::Expr(Num).to_field())?;
+                let sec_tag = ctx.global_allocator.get_allocated_const(Num.to_field())?;
                 let (preallocated_preimg, hash) =
                     &ctx.commitment_slots[next_slot.consume_commitment()];
                 let AllocatedVal::Number(hash) = hash else {
@@ -976,7 +1017,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 );
                 let tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Comm).to_field())?;
+                    .get_allocated_const_cloned(Comm.to_field())?;
                 let allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
@@ -984,9 +1025,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let comm = bound_allocations.get_ptr(comm)?;
                 let (preallocated_preimg, com_hash) =
                     &ctx.commitment_slots[next_slot.consume_commitment()];
-                let comm_tag = ctx
-                    .global_allocator
-                    .get_allocated_const(Tag::Expr(Comm).to_field())?;
+                let comm_tag = ctx.global_allocator.get_allocated_const(Comm.to_field())?;
                 let AllocatedVal::Number(com_hash) = com_hash else {
                     panic!("Excepted number")
                 };
@@ -1004,7 +1043,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 );
                 let sec_tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
+                    .get_allocated_const_cloned(Num.to_field())?;
                 let allocated_sec_ptr =
                     AllocatedPtr::from_parts(sec_tag, preallocated_preimg[0].clone());
                 let allocated_pay_ptr = AllocatedPtr::from_parts(
@@ -1191,11 +1230,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             )?;
 
             // Now we enforce `MatchSymbol`'s tag
-
-            let sym_tag = ctx
-                .global_allocator
-                .get_allocated_const(Tag::Expr(Sym).to_field())?;
-
+            let sym_tag = ctx.global_allocator.get_allocated_const(Sym.to_field())?;
             implies_equal(
                 &mut cs.namespace(|| format!("implies equal {match_var}.tag")),
                 not_dummy,
@@ -1406,19 +1441,30 @@ impl Func {
                     Op::Call(_, func, _) => {
                         num_constraints += recurse(&func.body, globals, store, is_nested);
                     }
-                    Op::Null(_, tag) => {
-                        use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
+                    Op::Zero(_, tag) => {
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));
-                        match tag {
-                            Tag::Cont(Outermost | Error | Dummy | Terminal) => {
-                                // temporary shim for compatibility with Lurk Alpha
-                                globals.insert(FWrap(store.poseidon_cache.hash8(&[F::ZERO; 8])));
-                            }
-                            _ => {
-                                globals.insert(FWrap(F::ZERO));
-                            }
-                        }
+                        globals.insert(FWrap(F::ZERO));
+                    }
+                    Op::Hash3Zeros(_, tag) => {
+                        // constrain tag and hash
+                        globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(store.hash3zeros));
+                    }
+                    Op::Hash4Zeros(_, tag) => {
+                        // constrain tag and hash
+                        globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(store.hash4zeros));
+                    }
+                    Op::Hash6Zeros(_, tag) => {
+                        // constrain tag and hash
+                        globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(store.hash6zeros));
+                    }
+                    Op::Hash8Zeros(_, tag) => {
+                        // constrain tag and hash
+                        globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(store.hash8zeros));
                     }
                     Op::Lit(_, lit) => {
                         let lit_ptr = lit.to_ptr(store);
@@ -1433,25 +1479,25 @@ impl Func {
                         num_constraints += 3;
                     }
                     Op::Add(..) | Op::Sub(..) | Op::Mul(..) => {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         num_constraints += 1;
                     }
                     Op::Div(..) => {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         globals.insert(FWrap(F::ONE));
                         num_constraints += 5;
                     }
                     Op::Lt(..) => {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         num_constraints += 11;
                     }
                     Op::Trunc(..) => {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         // 1 implies_equal, 1 implies_pack
                         num_constraints += 2;
                     }
                     Op::DivRem64(..) => {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         // three implies_u64, one sub and one linear
                         num_constraints += 197;
                     }
@@ -1484,13 +1530,13 @@ impl Func {
                     }
                     Op::Hide(..) => {
                         num_constraints += 4;
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        globals.insert(FWrap(Tag::Expr(Comm).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
+                        globals.insert(FWrap(Comm.to_field()));
                     }
                     Op::Open(..) => {
                         num_constraints += 2;
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        globals.insert(FWrap(Tag::Expr(Comm).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
+                        globals.insert(FWrap(Comm.to_field()));
                     }
                 }
             }
@@ -1522,7 +1568,7 @@ impl Func {
                     // First we enforce that the tag of the pointer being matched on
                     // is Sym
                     num_constraints += 1;
-                    globals.insert(FWrap(Tag::Expr(Sym).to_field()));
+                    globals.insert(FWrap(Sym.to_field()));
                     // We allocate one boolean per case and constrain it once
                     // per case. Then we add 1 constraint to enforce only one
                     // case was selected

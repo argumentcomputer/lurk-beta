@@ -45,7 +45,7 @@ use super::pointers::{Ptr, ZPtr};
 ///
 /// Lastly, we have a `HashMap` to hold committed data, which can be retrieved by
 /// the resulting commitment hash.
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Store<F: LurkField> {
     tuple2: FrozenIndexSet<Box<(Ptr<F>, Ptr<F>)>>,
     tuple3: FrozenIndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>)>>,
@@ -64,6 +64,40 @@ pub struct Store<F: LurkField> {
     z_cache: FrozenMap<Ptr<F>, Box<ZPtr<F>>>,
 
     comms: FrozenMap<FWrap<F>, Box<(F, Ptr<F>)>>, // hash -> (secret, src)
+
+    pub hash3zeros: F,
+    pub hash4zeros: F,
+    pub hash6zeros: F,
+    pub hash8zeros: F,
+}
+
+impl<F: LurkField> Default for Store<F> {
+    fn default() -> Self {
+        let poseidon_cache = PoseidonCache::default();
+        let hash3zeros = poseidon_cache.hash3(&[F::ZERO; 3]);
+        let hash4zeros = poseidon_cache.hash4(&[F::ZERO; 4]);
+        let hash6zeros = poseidon_cache.hash6(&[F::ZERO; 6]);
+        let hash8zeros = poseidon_cache.hash8(&[F::ZERO; 8]);
+
+        Self {
+            tuple2: Default::default(),
+            tuple3: Default::default(),
+            tuple4: Default::default(),
+            string_ptr_cache: Default::default(),
+            symbol_ptr_cache: Default::default(),
+            ptr_string_cache: Default::default(),
+            ptr_symbol_cache: Default::default(),
+            poseidon_cache,
+            inverse_poseidon_cache: Default::default(),
+            dehydrated: Default::default(),
+            z_cache: Default::default(),
+            comms: Default::default(),
+            hash3zeros,
+            hash4zeros,
+            hash6zeros,
+            hash8zeros,
+        }
+    }
 }
 
 impl<F: LurkField> Store<F> {
@@ -161,7 +195,7 @@ impl<F: LurkField> Store<F> {
         if let Some(ptr) = self.string_ptr_cache.get(s) {
             *ptr
         } else {
-            let ptr = s.chars().rev().fold(Ptr::null(Tag::Expr(Str)), |acc, c| {
+            let ptr = s.chars().rev().fold(Ptr::zero(Tag::Expr(Str)), |acc, c| {
                 self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(c), acc)
             });
             self.string_ptr_cache.insert(s.to_string(), Box::new(ptr));
@@ -203,7 +237,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_symbol_path(&self, path: &[String]) -> Ptr<F> {
-        path.iter().fold(Ptr::null(Tag::Expr(Sym)), |acc, s| {
+        path.iter().fold(Ptr::zero(Tag::Expr(Sym)), |acc, s| {
             let s_ptr = self.intern_string(s);
             self.intern_2_ptrs(Tag::Expr(Sym), s_ptr, acc)
         })
@@ -366,6 +400,21 @@ impl<F: LurkField> Store<F> {
         self.intern_3_ptrs(Tag::Expr(Fun), arg, body, env)
     }
 
+    #[inline]
+    pub fn cont_outermost(&self) -> Ptr<F> {
+        Ptr::Atom(Tag::Cont(Outermost), self.hash8zeros)
+    }
+
+    #[inline]
+    pub fn cont_error(&self) -> Ptr<F> {
+        Ptr::Atom(Tag::Cont(ContTag::Error), self.hash8zeros)
+    }
+
+    #[inline]
+    pub fn cont_terminal(&self) -> Ptr<F> {
+        Ptr::Atom(Tag::Cont(Terminal), self.hash8zeros)
+    }
+
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {
         match ptr.tag() {
             Tag::Expr(Nil) => {
@@ -382,8 +431,8 @@ impl<F: LurkField> Store<F> {
                 }
             }
             Tag::Expr(Str) => {
-                if ptr.is_null() {
-                    Ok((self.intern_nil(), Ptr::null(Tag::Expr(Str))))
+                if ptr.is_zero() {
+                    Ok((self.intern_nil(), Ptr::zero(Tag::Expr(Str))))
                 } else {
                     let Some(idx) = ptr.get_index2() else {
                         bail!("malformed str pointer")
@@ -498,16 +547,7 @@ impl<F: LurkField> Store<F> {
     /// beforehand or by using `hash_ptr` instead, which is slightly slower.
     fn hash_ptr_unsafe(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
         match ptr {
-            Ptr::Atom(tag, x) => match tag {
-                Tag::Cont(Outermost | ContTag::Error | Dummy | Terminal) => {
-                    // temporary shim for compatibility with Lurk Alpha
-                    Ok(ZPtr::from_parts(
-                        *tag,
-                        self.poseidon_cache.hash8(&[F::ZERO; 8]),
-                    ))
-                }
-                _ => Ok(ZPtr::from_parts(*tag, *x)),
-            },
+            Ptr::Atom(tag, x) => Ok(ZPtr::from_parts(*tag, *x)),
             Ptr::Tuple2(tag, idx) => {
                 if let Some(z_ptr) = self.z_cache.get(ptr) {
                     Ok(*z_ptr)

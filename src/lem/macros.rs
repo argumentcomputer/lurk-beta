@@ -46,7 +46,19 @@ macro_rules! tag {
 #[macro_export]
 macro_rules! op {
     ( let $tgt:ident : $kind:ident::$tag:ident ) => {
-        $crate::lem::Op::Null($crate::var!($tgt), $crate::tag!($kind::$tag))
+        $crate::lem::Op::Zero($crate::var!($tgt), $crate::tag!($kind::$tag))
+    };
+    ( let $tgt:ident : $kind:ident::$tag:ident = HASH_3_ZEROS ) => {
+        $crate::lem::Op::Hash3Zeros($crate::var!($tgt), $crate::tag!($kind::$tag))
+    };
+    ( let $tgt:ident : $kind:ident::$tag:ident = HASH_4_ZEROS ) => {
+        $crate::lem::Op::Hash4Zeros($crate::var!($tgt), $crate::tag!($kind::$tag))
+    };
+    ( let $tgt:ident : $kind:ident::$tag:ident = HASH_6_ZEROS ) => {
+        $crate::lem::Op::Hash6Zeros($crate::var!($tgt), $crate::tag!($kind::$tag))
+    };
+    ( let $tgt:ident : $kind:ident::$tag:ident = HASH_8_ZEROS ) => {
+        $crate::lem::Op::Hash8Zeros($crate::var!($tgt), $crate::tag!($kind::$tag))
     };
     ( let $tgt:ident = $constr:ident($str:literal) ) => {
         $crate::lem::Op::Lit(
@@ -285,6 +297,46 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt: $kind::$tag)
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = HASH_3_ZEROS; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt: $kind::$tag = HASH_3_ZEROS)
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = HASH_4_ZEROS; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt: $kind::$tag = HASH_4_ZEROS)
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = HASH_6_ZEROS; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt: $kind::$tag = HASH_6_ZEROS)
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = HASH_8_ZEROS; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt: $kind::$tag = HASH_8_ZEROS)
             },
             $($tail)*
         )
@@ -648,7 +700,7 @@ mod tests {
     #[test]
     fn test_macros() {
         let lemops = [
-            Op::Null(mptr("foo"), Tag::Expr(Num)),
+            Op::Zero(mptr("foo"), Tag::Expr(Num)),
             Op::Cons2(mptr("foo"), Tag::Expr(Char), [mptr("bar"), mptr("baz")]),
             Op::Cons3(
                 mptr("foo"),
@@ -733,7 +785,7 @@ mod tests {
                     (
                         Tag::Expr(Str),
                         Block {
-                            ops: vec![Op::Null(mptr("foo"), Tag::Expr(Num))],
+                            ops: vec![Op::Zero(mptr("foo"), Tag::Expr(Num))],
                             ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
                         }
                     ),
@@ -741,8 +793,8 @@ mod tests {
                         Tag::Expr(Char),
                         Block {
                             ops: vec![
-                                Op::Null(mptr("foo"), Tag::Expr(Num)),
-                                Op::Null(mptr("goo"), Tag::Expr(Char))
+                                Op::Zero(mptr("foo"), Tag::Expr(Num)),
+                                Op::Zero(mptr("goo"), Tag::Expr(Char))
                             ],
                             ctrl: Ctrl::Return(vec![mptr("foo"), mptr("goo"), mptr("goo")]),
                         }
@@ -781,15 +833,15 @@ mod tests {
                         lurk_sym("cons"),
                         Block {
                             ops: vec![
-                                Op::Null(mptr("foo"), Tag::Expr(Num)),
-                                Op::Null(mptr("goo"), Tag::Expr(Char))
+                                Op::Zero(mptr("foo"), Tag::Expr(Num)),
+                                Op::Zero(mptr("goo"), Tag::Expr(Char))
                             ],
                             ctrl: Ctrl::Return(vec![mptr("foo"), mptr("goo"), mptr("goo")]),
                         }
                     )
                 ],
                 Block {
-                    ops: vec![Op::Null(mptr("xoo"), Tag::Expr(Str))],
+                    ops: vec![Op::Zero(mptr("xoo"), Tag::Expr(Str))],
                     ctrl: Ctrl::Return(vec![mptr("xoo"), mptr("xoo"), mptr("xoo")]),
                 }
             )

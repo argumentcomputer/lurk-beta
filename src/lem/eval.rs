@@ -12,7 +12,7 @@ use crate::{
     op,
     state::initial_lurk_state,
     tag::{
-        ContTag::{Error, Outermost, Terminal},
+        ContTag::{Error, Terminal},
         ExprTag::Cproc,
     },
     Symbol,
@@ -193,7 +193,7 @@ pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
         func_lang,
         expr,
         store.intern_nil(),
-        Ptr::null(Tag::Cont(Outermost)),
+        store.cont_outermost(),
         store,
         limit,
     )
@@ -205,7 +205,7 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
     store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
-    let input = vec![expr, store.intern_nil(), Ptr::null(Tag::Cont(Outermost))];
+    let input = vec![expr, store.intern_nil(), store.cont_outermost()];
     match func_lang {
         None => {
             let lang: Lang<F, C> = Lang::new();
@@ -277,7 +277,7 @@ fn car_cdr() -> Func {
 /// each coprocessor is detached from Lurk's universal circuit.
 ///
 /// run_cproc(cproc, env, cont): 3 {
-///     let err: Cont::Error;
+///     let err: Cont::Error = HASH_8_ZEROS;
 ///     let nil = Symbol("nil");
 ///     let nil = cast(nil, Expr::Nil);
 ///     match cproc.tag {
@@ -403,7 +403,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
             vec![]
         } else {
             vec![
-                op!(let err: Cont::Error),
+                op!(let err: Cont::Error = HASH_8_ZEROS),
                 op!(let nil = Symbol("nil")),
                 op!(let nil = cast(nil, Expr::Nil)),
             ]
@@ -483,7 +483,7 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 /// allocated slots
 ///
 /// match_and_run_cproc(cproc_name, evaluated_args, env, cont): 4 {
-///     let err: Cont::Error;
+///     let err: Cont::Error = HASH_8_ZEROS;
 ///     let nil = Symbol("nil");
 ///     let nil = cast(nil, Expr::Nil);
 ///     let makethunk = Symbol("make-thunk");
@@ -607,13 +607,13 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
     let func_inp = vec![cproc_name, evaluated_args, env, cont];
     let ops = if max_arity == 0 {
         vec![
-            op!(let err: Cont::Error),
+            op!(let err: Cont::Error = HASH_8_ZEROS),
             op!(let makethunk = Symbol("make-thunk")),
             op!(let errctrl = Symbol("error")),
         ]
     } else {
         vec![
-            op!(let err: Cont::Error),
+            op!(let err: Cont::Error = HASH_8_ZEROS),
             op!(let makethunk = Symbol("make-thunk")),
             op!(let errctrl = Symbol("error")),
             op!(let nil = Symbol("nil")),
@@ -837,8 +837,8 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
 
     func!(reduce(expr, env, cont): 4 => {
         let ret = Symbol("return");
-        let term: Cont::Terminal;
-        let err: Cont::Error;
+        let term: Cont::Terminal = HASH_8_ZEROS;
+        let err: Cont::Error = HASH_8_ZEROS;
         let cproc: Expr::Cproc;
 
         let cont_is_term = eq_tag(cont, term);
@@ -1147,7 +1147,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
 fn choose_cproc_call(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     if cprocs.is_empty() {
         func!(no_cproc_error(cproc_name, _evaluated_args, env, _cont): 4 => {
-            let err: Cont::Error;
+            let err: Cont::Error = HASH_8_ZEROS;
             let errctrl = Symbol("error");
             return (cproc_name, env, err, errctrl);
         })
@@ -1257,8 +1257,8 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                 let foo: Expr::Nil;
                 let char: Expr::Char;
                 let u64: Expr::U64;
-                let err: Cont::Error;
-                let term: Cont::Terminal;
+                let err: Cont::Error = HASH_8_ZEROS;
+                let term: Cont::Terminal = HASH_8_ZEROS;
                 match cont.tag {
                     Cont::Outermost => {
                         return (result, env, term, ret)
@@ -1739,16 +1739,16 @@ fn make_thunk() -> Func {
                     Cont::Tail => {
                         let (saved_env, saved_cont, _foo, _foo) = decons4(cont);
                         let thunk: Expr::Thunk = cons2(expr, saved_cont);
-                        let cont: Cont::Dummy;
+                        let cont: Cont::Dummy = HASH_8_ZEROS;
                         return (thunk, saved_env, cont)
                     }
                     Cont::Outermost => {
-                        let cont: Cont::Terminal;
+                        let cont: Cont::Terminal = HASH_8_ZEROS;
                         return (expr, env, cont)
                     }
                 };
                 let thunk: Expr::Thunk = cons2(expr, cont);
-                let cont: Cont::Dummy;
+                let cont: Cont::Dummy = HASH_8_ZEROS;
                 return (thunk, env, cont)
             }
         };
