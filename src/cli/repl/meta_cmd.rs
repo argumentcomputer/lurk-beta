@@ -40,7 +40,7 @@ impl MetaCmd<F> {
             match repl.store.fetch_string(&first) {
                 Some(path) => {
                     let joined = repl.pwd_path.join(Utf8Path::new(&path));
-                    repl.load_file(&joined)?
+                    repl.load_file(&joined, false)?
                 }
                 _ => bail!("Argument of `load` must be a string."),
             }

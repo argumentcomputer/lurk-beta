@@ -110,6 +110,10 @@ struct LoadArgs {
     /// Path to circom directory
     #[clap(long, value_parser)]
     circom_dir: Option<Utf8PathBuf>,
+
+    /// Flag to load the file in demo mode
+    #[arg(long)]
+    demo: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -149,6 +153,9 @@ struct LoadCli {
 
     #[clap(long, value_parser)]
     circom_dir: Option<Utf8PathBuf>,
+
+    #[arg(long)]
+    demo: bool,
 }
 
 impl LoadArgs {
@@ -166,6 +173,7 @@ impl LoadArgs {
             proofs_dir: self.proofs_dir,
             commits_dir: self.commits_dir,
             circom_dir: self.circom_dir,
+            demo: self.demo,
         }
     }
 }
@@ -304,7 +312,7 @@ impl ReplCli {
             ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
                 let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
                 if let Some(lurk_file) = &self.load {
-                    repl.load_file(lurk_file)?;
+                    repl.load_file(lurk_file, false)?;
                 }
                 repl.start()
             }};
@@ -344,7 +352,6 @@ impl ReplCli {
         backend.validate_field(field)?;
         match field {
             LanguageField::Pallas => repl!(rc, limit, pallas::Scalar, backend.clone()),
-            // LanguageField::Vesta => repl!(rc, limit, vesta::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),
@@ -358,7 +365,7 @@ impl LoadCli {
         macro_rules! load {
             ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
                 let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
-                repl.load_file(&self.lurk_file)?;
+                repl.load_file(&self.lurk_file, self.demo)?;
                 if self.prove {
                     repl.prove_last_frames()?;
                 }
@@ -400,7 +407,6 @@ impl LoadCli {
         backend.validate_field(field)?;
         match field {
             LanguageField::Pallas => load!(rc, limit, pallas::Scalar, backend.clone()),
-            // LanguageField::Vesta => load!(rc, limit, vesta::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),
