@@ -2,6 +2,7 @@ use abomonation::Abomonation;
 use anyhow::Result;
 use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
+use elsa::sync::FrozenMap;
 use ff::PrimeField;
 use nova::{supernova::NonUniformCircuit, traits::Group};
 use rayon::prelude::*;
@@ -24,11 +25,11 @@ use crate::{
 };
 
 use super::{
-    circuit::{build_slots_allocations, BoundAllocations, GlobalAllocator, SlotsWitness},
+    circuit::{allocate_slot, BoundAllocations, GlobalAllocator, SlotWitness},
     eval::{evaluate_with_env_and_cont, make_cprocs_funcs_from_lang, make_eval_step_from_lang},
     interpreter::Frame,
     pointers::Ptr,
-    slot::SlotsCounter,
+    slot::SlotType,
     store::Store,
     Func, Tag,
 };
@@ -63,166 +64,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     #[inline]
     fn get_lang(&self) -> &Lang<F, C> {
         self.folding_config.lang()
-    }
-
-    /// Checks that a slice of pointers and a slice of allocated pointers have
-    /// the same length. If `!blank`, asserts that the hashed pointers have tags
-    /// and values corresponding to the ones from the respective allocated pointers
-    fn assert_eq_ptrs_aptrs(
-        store: &Store<F>,
-        blank: bool,
-        ptrs: &[Ptr<F>],
-        aptrs: &[AllocatedPtr<F>],
-    ) -> Result<(), SynthesisError> {
-        assert_eq!(ptrs.len(), aptrs.len());
-        if !blank {
-            for (aptr, ptr) in aptrs.iter().zip(ptrs) {
-                let z_ptr = store.hash_ptr(ptr).expect("hash_ptr failed");
-                let (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) =
-                    (aptr.tag().get_value(), aptr.hash().get_value())
-                else {
-                    return Err(SynthesisError::AssignmentMissing);
-                };
-                assert_eq!(alloc_ptr_tag, z_ptr.tag().to_field());
-                assert_eq!(&alloc_ptr_hash, z_ptr.value());
-            }
-        }
-        Ok(())
-    }
-
-    fn synthesize_frames_sequential<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        g: &GlobalAllocator<F>,
-        store: &Store<F>,
-        input: &[AllocatedPtr<F>],
-        frames: &[Frame<F>],
-        slots_witnesses: Option<&[SlotsWitness<F>]>,
-    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
-        let (_, output) = frames
-            .iter()
-            .try_fold((0, input.to_vec()), |(i, input), frame| {
-                let bound_allocations = &mut BoundAllocations::new();
-                let func = self.get_func();
-                func.add_input(&input, bound_allocations);
-                let output = func
-                    .synthesize_frame(
-                        &mut cs.namespace(|| format!("frame {i}")),
-                        store,
-                        frame,
-                        g,
-                        bound_allocations,
-                        self.get_lang(),
-                        slots_witnesses.map(|sws| &sws[i]),
-                    )
-                    .expect("failed to synthesize frame");
-                assert_eq!(input.len(), output.len());
-                Self::assert_eq_ptrs_aptrs(store, frame.blank, &frame.output, &output)?;
-                Ok::<_, SynthesisError>((i + 1, output))
-            })?;
-        Ok(output)
-    }
-
-    fn synthesize_frames_parallel<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        g: &GlobalAllocator<F>,
-        store: &Store<F>,
-        input: Vec<AllocatedPtr<F>>,
-        frames: &[Frame<F>],
-        slots_witnesses: &[SlotsWitness<F>],
-    ) -> Vec<AllocatedPtr<F>> {
-        assert!(cs.is_witness_generator());
-        assert!(lurk_config(None, None)
-            .perf
-            .parallelism
-            .synthesis
-            .is_parallel());
-        assert_eq!(frames.len(), slots_witnesses.len());
-        const MIN_CHUNK_SIZE: usize = 10;
-
-        let num_frames = frames.len();
-
-        let chunk_size = lurk_config(None, None)
-            .perf
-            .parallelism
-            .synthesis
-            .chunk_size(num_frames, MIN_CHUNK_SIZE);
-
-        // We partition the frames into chunks, ideally one for each CPU. Each chunk will produce its
-        // corresponding partial witness in parallel, which are then collected into a vector.
-        let mut css = frames
-            .par_chunks(chunk_size)
-            .enumerate()
-            .map(|(chunk_idx, chunk)| {
-                let mut chunk_cs = WitnessCS::new();
-                // The first chunk will take as input the actual input of the circuit.
-                // Subsequent chunks would have to take the output of the previous chunk as input.
-                // But since we know the values of each chunk input and we are generating the
-                // witnesses separately and in parallel, we will allocate new variables for each
-                // chunk.
-                let chunk_input = if chunk_idx == 0 {
-                    input.clone()
-                } else {
-                    // Allocate the pointers from the input of the first chunk frame
-                    chunk[0]
-                        .input
-                        .iter()
-                        .map(|input_ptr| {
-                            let z_ptr = store.hash_ptr(input_ptr).expect("hash_ptr failed");
-                            AllocatedPtr::alloc(&mut chunk_cs, || Ok(z_ptr))
-                                .expect("allocation failed")
-                        })
-                        .collect::<Vec<_>>()
-                };
-
-                let first_chunk_elt_idx = chunk_idx * chunk_size;
-                let last_chunk_elt_idx = first_chunk_elt_idx + chunk.len();
-                let chunk_slots_witnesses =
-                    &slots_witnesses[first_chunk_elt_idx..last_chunk_elt_idx];
-
-                let chunk_output = self
-                    .synthesize_frames_sequential(
-                        &mut chunk_cs,
-                        g,
-                        store,
-                        &chunk_input,
-                        chunk,
-                        Some(chunk_slots_witnesses),
-                    )
-                    .expect("sequential synthesis failed");
-
-                assert_eq!(input.len(), chunk_output.len());
-                let last_chunk_frame = chunk.last().expect("chunk shouldn't be empty");
-                Self::assert_eq_ptrs_aptrs(
-                    store,
-                    last_chunk_frame.blank,
-                    &last_chunk_frame.output,
-                    &chunk_output,
-                )
-                .expect("assertion failed");
-
-                (chunk_cs, chunk_output)
-            })
-            .collect::<Vec<_>>();
-
-        // At last, we need to concatenate all the partial witnesses into a single witness.
-        // Since we have allocated the input for each chunk (apart from the first) instead
-        // of using the output of the previous chunk, we will have to ignore the allocated
-        // inputs before concatenating the witnesses
-        for (i, (frames_cs, _)) in css.iter().enumerate() {
-            let start = if i == 0 { 0 } else { input.len() * 2 };
-            cs.extend_aux(&frames_cs.aux_slice()[start..]);
-        }
-
-        if let Some((_, last_chunk_output)) = css.pop() {
-            // the final output is the output of the last chunk
-            last_chunk_output
-        } else {
-            // there were no frames so we just return the input, preserving the
-            // same behavior as the sequential version
-            input
-        }
     }
 }
 
@@ -271,6 +112,213 @@ impl<F: LurkField> EvaluationStore for Store<F> {
 
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
         Ok(self.hash_ptr(left)? == self.hash_ptr(right)?)
+    }
+}
+
+/// Checks that a slice of pointers and a slice of allocated pointers have
+/// the same length. If `!blank`, asserts that the hashed pointers have tags
+/// and values corresponding to the ones from the respective allocated pointers
+fn assert_eq_ptrs_aptrs<F: LurkField>(
+    store: &Store<F>,
+    blank: bool,
+    ptrs: &[Ptr<F>],
+    aptrs: &[AllocatedPtr<F>],
+) -> Result<(), SynthesisError> {
+    assert_eq!(ptrs.len(), aptrs.len());
+    if !blank {
+        for (aptr, ptr) in aptrs.iter().zip(ptrs) {
+            let z_ptr = store.hash_ptr(ptr).expect("hash_ptr failed");
+            let (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) =
+                (aptr.tag().get_value(), aptr.hash().get_value())
+            else {
+                return Err(SynthesisError::AssignmentMissing);
+            };
+            assert_eq!(alloc_ptr_tag, z_ptr.tag().to_field());
+            assert_eq!(&alloc_ptr_hash, z_ptr.value());
+        }
+    }
+    Ok(())
+}
+
+/// Generates the witnesses for all slots in `frames`. Since many slots are fed
+/// with dummy data, we cache their (dummy) witnesses for extra speed
+fn generate_slots_witnesses<F: LurkField>(
+    store: &Store<F>,
+    frames: &[Frame<F>],
+    num_slots_per_frame: usize,
+    parallel: bool,
+) -> Vec<Arc<SlotWitness<F>>> {
+    let mut slots_data = Vec::with_capacity(frames.len() * num_slots_per_frame);
+    frames.iter().for_each(|frame| {
+        [
+            (&frame.hints.hash4, SlotType::Hash4),
+            (&frame.hints.hash6, SlotType::Hash6),
+            (&frame.hints.hash8, SlotType::Hash8),
+            (&frame.hints.commitment, SlotType::Commitment),
+            (&frame.hints.bit_decomp, SlotType::BitDecomp),
+        ]
+        .into_iter()
+        .for_each(|(sd_vec, st)| sd_vec.iter().for_each(|sd| slots_data.push((sd, st))));
+    });
+    // cache the slots witnesses wit `Arc` for speedy clones
+    let dummy_witnesses_cache: FrozenMap<_, Box<Arc<SlotWitness<F>>>> = FrozenMap::default();
+    let gen_slot_witness = |(slot_idx, (slot_data, slot_type))| {
+        let mk_witness = || {
+            let mut witness = WitnessCS::new();
+            let allocations = allocate_slot(&mut witness, slot_data, slot_idx, slot_type, store)
+                .expect("slot allocations failed");
+            Arc::new(SlotWitness {
+                witness,
+                allocations,
+            })
+        };
+        if Option::as_ref(slot_data).is_some() {
+            mk_witness()
+        } else {
+            // dummy witness
+            if let Some(sw) = dummy_witnesses_cache.get(&slot_type) {
+                // already computed
+                sw.clone()
+            } else {
+                // compute, cache and return
+                let ws = mk_witness();
+                dummy_witnesses_cache.insert(slot_type, Box::new(ws.clone()));
+                ws
+            }
+        }
+    };
+    if parallel {
+        slots_data
+            .into_par_iter()
+            .enumerate()
+            .map(gen_slot_witness)
+            .collect()
+    } else {
+        slots_data
+            .into_iter()
+            .enumerate()
+            .map(gen_slot_witness)
+            .collect()
+    }
+}
+
+/// Synthesize frames sequentially, feeding the output of a frame as the input of
+/// the next
+fn synthesize_frames_sequential<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
+    cs: &mut CS,
+    g: &GlobalAllocator<F>,
+    store: &Store<F>,
+    input: &[AllocatedPtr<F>],
+    frames: &[Frame<F>],
+    func: &Func,
+    lang: &Lang<F, C>,
+    slots_witnesses_num_slots_per_frame: Option<(&[Arc<SlotWitness<F>>], usize)>,
+) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
+    let (_, output) = frames
+        .iter()
+        .try_fold((0, input.to_vec()), |(i, input), frame| {
+            let bound_allocations = &mut BoundAllocations::new();
+            func.bind_input(&input, bound_allocations);
+            let output = func
+                .synthesize_frame(
+                    &mut cs.namespace(|| format!("frame {i}")),
+                    store,
+                    frame,
+                    g,
+                    bound_allocations,
+                    lang,
+                    slots_witnesses_num_slots_per_frame.map(|(sws, num_slots_per_frame)| {
+                        let slots_witnesses_start = i * num_slots_per_frame;
+                        &sws[slots_witnesses_start..slots_witnesses_start + num_slots_per_frame]
+                    }),
+                )
+                .expect("failed to synthesize frame");
+            assert_eq!(input.len(), output.len());
+            assert_eq_ptrs_aptrs(store, frame.blank, &frame.output, &output)?;
+            Ok::<_, SynthesisError>((i + 1, output))
+        })?;
+    Ok(output)
+}
+
+/// Synthesize each frame in parallel, ideally one in each CPU. Each
+/// frame will produce its corresponding partial witness, which are then
+/// used to extend the final witness.
+fn synthesize_frames_parallel<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
+    cs: &mut CS,
+    g: &GlobalAllocator<F>,
+    store: &Store<F>,
+    input: Vec<AllocatedPtr<F>>,
+    frames: &[Frame<F>],
+    func: &Func,
+    lang: &Lang<F, C>,
+    slots_witnesses: &[Arc<SlotWitness<F>>],
+    num_slots_per_frame: usize,
+) -> Vec<AllocatedPtr<F>> {
+    assert!(cs.is_witness_generator());
+    assert_eq!(frames.len() * num_slots_per_frame, slots_witnesses.len());
+
+    let mut css = frames
+        .par_iter()
+        .enumerate()
+        .map(|(i, frame)| {
+            let mut frame_cs = WitnessCS::new();
+            // The first frame will take as input the actual input of the circuit.
+            // Subsequent frames would have to take the output of the previous one as input.
+            // But since we know the values of each frame input and we are generating the
+            // witnesses separately and in parallel, we will allocate new variables for each
+            // frame.
+            let allocated_input = if i == 0 {
+                input.clone()
+            } else {
+                frame
+                    .input
+                    .iter()
+                    .map(|input_ptr| {
+                        let z_ptr = store.hash_ptr(input_ptr).expect("hash_ptr failed");
+                        AllocatedPtr::alloc(&mut frame_cs, || Ok(z_ptr)).expect("allocation failed")
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let bound_allocations = &mut BoundAllocations::new();
+            func.bind_input(&allocated_input, bound_allocations);
+            let first_sw_idx = i * num_slots_per_frame;
+            let last_sw_idx = first_sw_idx + num_slots_per_frame;
+            let frame_slots_witnesses = &slots_witnesses[first_sw_idx..last_sw_idx];
+
+            let allocated_output = func
+                .synthesize_frame(
+                    &mut frame_cs,
+                    store,
+                    frame,
+                    g,
+                    bound_allocations,
+                    lang,
+                    Some(frame_slots_witnesses),
+                )
+                .expect("failed to synthesize frame");
+            assert_eq!(allocated_input.len(), allocated_output.len());
+            assert_eq_ptrs_aptrs(store, frame.blank, &frame.output, &allocated_output)
+                .expect("assertion failed");
+            (frame_cs, allocated_output)
+        })
+        .collect::<Vec<_>>();
+
+    // At last, we need to concatenate all the partial witnesses into a single witness.
+    // Since we have allocated the input for each frame (apart from the first) instead
+    // of using the output of the previous frame, we will have to ignore the allocated
+    // inputs before concatenating the witnesses
+    for (i, (frame_cs, _)) in css.iter().enumerate() {
+        let start = if i == 0 { 0 } else { input.len() * 2 };
+        cs.extend_aux(&frame_cs.aux_slice()[start..]);
+    }
+
+    if let Some((_, last_output)) = css.pop() {
+        // the final output is the output of the last chunk
+        last_output
+    } else {
+        // there were no frames so we just return the input, preserving the
+        // same behavior as the sequential version
+        input
     }
 }
 
@@ -335,57 +383,50 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         frames: &[Self::CircuitFrame],
         g: &Self::GlobalAllocation,
     ) -> Result<Self::AllocatedIO, SynthesisError> {
+        let func = self.get_func();
         if cs.is_witness_generator() {
-            let Some(frame) = frames.first() else {
-                // no frames so no witness to generate
-                return Ok(input);
-            };
-            let slots_counter = SlotsCounter {
-                hash4: frame.hints.hash4.len(),
-                hash6: frame.hints.hash6.len(),
-                hash8: frame.hints.hash8.len(),
-                commitment: frame.hints.commitment.len(),
-                bit_decomp: frame.hints.bit_decomp.len(),
-            };
-            let gen_slots_witness = |frame| {
-                let mut witness = WitnessCS::new();
-                let allocations =
-                    build_slots_allocations(&mut witness, store, frame, &slots_counter)
-                        .expect("slot allocations failed");
-                SlotsWitness {
-                    witness,
-                    allocations,
-                }
-            };
-            let slots_witnesses = if lurk_config(None, None)
-                .perf
-                .parallelism
-                .poseidon_witnesses
-                .is_parallel()
-            {
-                frames.par_iter().map(gen_slots_witness).collect::<Vec<_>>()
-            } else {
-                frames.iter().map(gen_slots_witness).collect::<Vec<_>>()
-            };
+            let num_slots_per_frame = func.slot.total();
+            let slots_witnesses = generate_slots_witnesses(
+                store,
+                frames,
+                num_slots_per_frame,
+                lurk_config(None, None)
+                    .perf
+                    .parallelism
+                    .poseidon_witnesses
+                    .is_parallel(),
+            );
             if lurk_config(None, None)
                 .perf
                 .parallelism
                 .synthesis
                 .is_parallel()
             {
-                Ok(self.synthesize_frames_parallel(cs, g, store, input, frames, &slots_witnesses))
+                Ok(synthesize_frames_parallel(
+                    cs,
+                    g,
+                    store,
+                    input,
+                    frames,
+                    func,
+                    self.get_lang(),
+                    &slots_witnesses,
+                    num_slots_per_frame,
+                ))
             } else {
-                self.synthesize_frames_sequential(
+                synthesize_frames_sequential(
                     cs,
                     g,
                     store,
                     &input,
                     frames,
-                    Some(&slots_witnesses),
+                    func,
+                    self.get_lang(),
+                    Some((&slots_witnesses, num_slots_per_frame)),
                 )
             }
         } else {
-            self.synthesize_frames_sequential(cs, g, store, &input, frames, None)
+            synthesize_frames_sequential(cs, g, store, &input, frames, func, self.get_lang(), None)
         }
     }
 
@@ -626,7 +667,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
 
                     let allocated_tag = AllocatedNum::alloc_infallible(
                         &mut cs.namespace(|| format!("allocated tag for input {i}")),
-                        || z_ptr.tag().to_field(),
+                        || z_ptr.tag_field(),
                     );
                     allocated_tag
                         .inputize(&mut cs.namespace(|| format!("inputized tag for input {i}")))?;
@@ -647,7 +688,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
 
                     let allocated_tag = AllocatedNum::alloc_infallible(
                         &mut cs.namespace(|| format!("allocated tag for output {i}")),
-                        || z_ptr.tag().to_field(),
+                        || z_ptr.tag_field(),
                     );
                     allocated_tag
                         .inputize(&mut cs.namespace(|| format!("inputized tag for output {i}")))?;
@@ -847,5 +888,128 @@ where
 
     fn secondary_circuit(&self) -> C2<F> {
         Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pasta_curves::Fq;
+
+    use crate::{
+        eval::lang::Coproc,
+        lem::{
+            circuit::AllocatedVal,
+            eval::{eval_step, evaluate},
+        },
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_sequential_and_parallel_witnesses_equivalences() {
+        let lurk_step = eval_step();
+        let num_slots_per_frame = lurk_step.slot.total();
+        let store = Store::<Fq>::default();
+        let mut cs = WitnessCS::new();
+
+        let expr = store.read_with_default_state("(if t (+ 5 5) 6)").unwrap();
+
+        let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, expr, &store, 10).unwrap();
+
+        let sequential_slots_witnesses =
+            generate_slots_witnesses(&store, &frames, num_slots_per_frame, false);
+
+        let parallel_slots_witnesses =
+            generate_slots_witnesses(&store, &frames, num_slots_per_frame, true);
+
+        // asserting equality of slots witnesses
+        assert_eq!(
+            sequential_slots_witnesses.len(),
+            parallel_slots_witnesses.len()
+        );
+        for (ssw, psw) in sequential_slots_witnesses
+            .iter()
+            .zip(parallel_slots_witnesses)
+        {
+            assert_eq!(ssw.witness, psw.witness);
+            let (ssw_alloc_preimg, ssw_alloc_img) = &ssw.allocations;
+            let (psw_alloc_preimg, psw_alloc_img) = &psw.allocations;
+            assert_eq!(ssw_alloc_preimg.len(), psw_alloc_preimg.len());
+            for (ssw_alloc_preimg_num, psw_alloc_preimg_num) in
+                ssw_alloc_preimg.iter().zip(psw_alloc_preimg)
+            {
+                assert_eq!(
+                    ssw_alloc_preimg_num.get_value(),
+                    psw_alloc_preimg_num.get_value()
+                );
+                match (ssw_alloc_img, psw_alloc_img) {
+                    (AllocatedVal::Pointer(x), AllocatedVal::Pointer(y)) => {
+                        assert_eq!(x.tag().get_value(), y.tag().get_value());
+                        assert_eq!(x.hash().get_value(), y.hash().get_value());
+                    }
+                    (AllocatedVal::Number(x), AllocatedVal::Number(y)) => {
+                        assert_eq!(x.get_value(), y.get_value())
+                    }
+                    (AllocatedVal::Boolean(x), AllocatedVal::Boolean(y)) => {
+                        assert_eq!(x.get_value(), y.get_value())
+                    }
+                    (AllocatedVal::Bits(x), AllocatedVal::Bits(y)) => {
+                        assert_eq!(x.len(), y.len());
+                        for (x, y) in x.iter().zip(y) {
+                            assert_eq!(x.get_value(), y.get_value());
+                        }
+                    }
+                    _ => panic!("allocated image mismatch"),
+                }
+            }
+        }
+        let g = lurk_step.alloc_globals(&mut cs, &store).unwrap();
+
+        // asserting equality of frames witnesses
+        let frame = frames.first().unwrap();
+        let mut input = Vec::with_capacity(frame.input.len());
+        for ptr in &frame.input {
+            let z_ptr = store.hash_ptr(ptr).unwrap();
+            let allocated_tag = AllocatedNum::alloc_infallible(&mut cs, || z_ptr.tag_field());
+            allocated_tag.inputize(&mut cs).unwrap();
+            let allocated_hash = AllocatedNum::alloc_infallible(&mut cs, || *z_ptr.value());
+            allocated_hash.inputize(&mut cs).unwrap();
+            input.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
+        }
+
+        let mut cs_clone = cs.clone();
+
+        let lang = Lang::<Fq, Coproc<Fq>>::new();
+
+        let output_sequential = synthesize_frames_sequential(
+            &mut cs,
+            &g,
+            &store,
+            &input,
+            &frames,
+            lurk_step,
+            &lang,
+            Some((&sequential_slots_witnesses, num_slots_per_frame)),
+        )
+        .unwrap();
+
+        let output_parallel = synthesize_frames_parallel(
+            &mut cs_clone,
+            &g,
+            &store,
+            input,
+            &frames,
+            lurk_step,
+            &lang,
+            &sequential_slots_witnesses,
+            num_slots_per_frame,
+        );
+
+        assert_eq!(cs, cs_clone);
+        assert_eq!(output_sequential.len(), output_parallel.len());
+        for (x, y) in output_sequential.iter().zip(output_parallel) {
+            assert_eq!(x.tag().get_value(), y.tag().get_value());
+            assert_eq!(x.hash().get_value(), y.hash().get_value());
+        }
     }
 }
