@@ -185,6 +185,11 @@ impl SlotsCounter {
     pub fn fold_max(self, vec: Vec<Self>) -> Self {
         vec.into_iter().fold(self, |acc, i| acc.cmp_max(i))
     }
+
+    #[inline]
+    pub fn total(&self) -> usize {
+        self.hash4 + self.hash6 + self.hash8 + self.commitment + self.bit_decomp
+    }
 }
 
 impl Block {
