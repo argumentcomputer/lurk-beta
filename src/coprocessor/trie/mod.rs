@@ -778,6 +778,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         path
     }
 
+    /// Synthesizes path as chunks of little-endian bits
     fn synthesize_path<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         key: &AllocatedNum<F>,
@@ -786,6 +787,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         bits.reverse();
 
         let (arity_bits, bits_needed) = Self::path_bit_dimensions();
+        // each chunk is reversed due to little-endian encoding
         let path = bits[bits.len() - bits_needed..]
             .chunks(arity_bits)
             .map(|chunk| chunk.iter().cloned().rev().collect())
@@ -793,10 +795,10 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         Ok(path)
     }
 
-    // Returns a value corresponding to the commitment associated with `key`, if any.
-    // Note that this depends on the impossibility of discovering a value for which the commitment is zero. We could
-    // alternately return the empty element (`F::zero()`) for missing values, but instead return an `Option` to more
-    // clearly signal intent -- since the encoding of 'missing' values as `Fr::zero()` is significant.
+    /// Returns a value corresponding to the commitment associated with `key`, if any.
+    /// Note that this depends on the impossibility of discovering a value for which the commitment is zero. We could
+    /// alternately return the empty element (`F::zero()`) for missing values, but instead return an `Option` to more
+    /// clearly signal intent -- since the encoding of 'missing' values as `Fr::zero()` is significant.
     pub fn lookup(&self, key: F) -> Result<Option<F>, Error<F>> {
         self.lookup_aux(key)
             .map(|payload| (payload != Self::empty_element()).then_some(payload))
