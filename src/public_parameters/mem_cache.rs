@@ -121,7 +121,7 @@ impl PublicParamMemCache {
         // retrieve the per-Coproc public param table
         let entry = mem_cache.entry::<PublicParamMap<F, M>>();
         // deduce the map and populate it if needed
-        let param_entry = entry.or_insert_with(HashMap::new);
+        let param_entry = entry.or_default();
         match param_entry.entry((instance.rc, instance.abomonated)) {
             Entry::Occupied(o) => Ok(o.into_mut()),
             Entry::Vacant(v) => {
