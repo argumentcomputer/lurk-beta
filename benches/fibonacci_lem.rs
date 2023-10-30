@@ -50,13 +50,13 @@ fn fib_limit(n: usize, rc: usize) -> usize {
 struct ProveParams {
     fib_n: usize,
     reduction_count: usize,
+    date: &'static str,
+    sha: &'static str,
 }
 
 impl ProveParams {
     fn name(&self) -> String {
-        let date = env!("VERGEN_GIT_COMMIT_DATE");
-        let sha = env!("VERGEN_GIT_SHA");
-        format!("{date}:{sha}:Fibonacci-LEM-rc={}", self.reduction_count)
+        format!("Fibonacci-num={}", self.fib_n)
     }
 }
 
@@ -68,6 +68,8 @@ fn fibo_prove<M: measurement::Measurement>(
     let ProveParams {
         fib_n,
         reduction_count,
+        date,
+        sha,
     } = prove_params;
 
     let limit = fib_limit(fib_n, reduction_count);
@@ -83,8 +85,17 @@ fn fibo_prove<M: measurement::Measurement>(
     );
     let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
+    // Track the number of `Lurk frames / sec`
+    let rc = reduction_count as u64;
+    c.throughput(criterion::Throughput::Elements(
+        rc * u64::div_ceil((11 + 16 * fib_n) as u64, rc),
+    ));
+
     c.bench_with_input(
-        BenchmarkId::new(prove_params.name(), fib_n),
+        BenchmarkId::new(
+            prove_params.name(),
+            format!("rc-{}/{sha}-{date}", prove_params.reduction_count),
+        ),
         &prove_params,
         |b, prove_params| {
             let store = Store::default();
@@ -118,7 +129,7 @@ fn fibonacci_prove(c: &mut Criterion) {
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
     let reduction_counts = [100, 600, 700, 800, 900];
     let batch_sizes = [100, 200];
-    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Prove");
+    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("LEM Prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
     let state = State::init_lurk_state().rccell();
@@ -128,6 +139,8 @@ fn fibonacci_prove(c: &mut Criterion) {
             let prove_params = ProveParams {
                 fib_n: *fib_n,
                 reduction_count: *reduction_count,
+                date: env!("VERGEN_GIT_COMMIT_DATE"),
+                sha: env!("VERGEN_GIT_SHA"),
             };
             fibo_prove(prove_params, &mut group, &state);
         }
