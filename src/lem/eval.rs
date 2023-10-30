@@ -1785,7 +1785,7 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);
-        assert_eq!(func.slot, NUM_SLOTS);
+        assert_eq!(func.slots_count, NUM_SLOTS);
         assert_eq!(cs.num_inputs(), NUM_INPUTS);
         assert_eq!(
             (cs.aux().len(), cs.num_constraints()),

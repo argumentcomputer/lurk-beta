@@ -95,7 +95,7 @@ pub struct Func {
     pub input_params: Vec<Var>,
     pub output_size: usize,
     pub body: Block,
-    pub slot: SlotsCounter,
+    pub slots_count: SlotsCounter,
 }
 
 /// LEM variables
@@ -315,9 +315,9 @@ impl Func {
         output_size: usize,
         body: Block,
     ) -> Result<Func> {
-        let slot = body.count_slots();
+        let slots_count = body.count_slots();
         let func = Func {
-            slot,
+            slots_count,
             name,
             input_params,
             output_size,

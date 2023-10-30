@@ -66,7 +66,7 @@ pub struct Hints<F: LurkField> {
 
 impl<F: LurkField> Hints<F> {
     pub fn new_from_func(func: &Func) -> Hints<F> {
-        let slot = func.slot;
+        let slot = func.slots_count;
         let hash4 = Vec::with_capacity(slot.hash4);
         let hash6 = Vec::with_capacity(slot.hash6);
         let hash8 = Vec::with_capacity(slot.hash8);
@@ -86,7 +86,7 @@ impl<F: LurkField> Hints<F> {
     }
 
     pub fn blank(func: &Func) -> Hints<F> {
-        let slot = func.slot;
+        let slot = func.slots_count;
         let hash4 = vec![None; slot.hash4];
         let hash6 = vec![None; slot.hash6];
         let hash8 = vec![None; slot.hash8];
@@ -530,19 +530,19 @@ impl Func {
         let commitment_used = hints.commitment.len() - commitment_init;
         let bit_decomp_used = hints.bit_decomp.len() - bit_decomp_init;
 
-        for _ in hash4_used..self.slot.hash4 {
+        for _ in hash4_used..self.slots_count.hash4 {
             hints.hash4.push(None);
         }
-        for _ in hash6_used..self.slot.hash6 {
+        for _ in hash6_used..self.slots_count.hash6 {
             hints.hash6.push(None);
         }
-        for _ in hash8_used..self.slot.hash8 {
+        for _ in hash8_used..self.slots_count.hash8 {
             hints.hash8.push(None);
         }
-        for _ in commitment_used..self.slot.commitment {
+        for _ in commitment_used..self.slots_count.commitment {
             hints.commitment.push(None);
         }
-        for _ in bit_decomp_used..self.slot.bit_decomp {
+        for _ in bit_decomp_used..self.slots_count.bit_decomp {
             hints.bit_decomp.push(None);
         }
 

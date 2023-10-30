@@ -21,7 +21,7 @@ fn synthesize_test_helper(func: &Func, inputs: Vec<Ptr<Fr>>, expected_num_slots:
     let nil = store.intern_nil();
     let outermost = Ptr::null(Tag::Cont(Outermost));
 
-    assert_eq!(func.slot, expected_num_slots);
+    assert_eq!(func.slots_count, expected_num_slots);
 
     let computed_num_constraints = func.num_constraints::<Fr>(store);
 

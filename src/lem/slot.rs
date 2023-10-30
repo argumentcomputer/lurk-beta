@@ -202,7 +202,7 @@ impl Block {
                 Op::Hide(..) | Op::Open(..) => SlotsCounter::new((0, 0, 0, 1, 0)),
                 Op::Lt(..) => SlotsCounter::new((0, 0, 0, 0, 3)),
                 Op::Trunc(..) => SlotsCounter::new((0, 0, 0, 0, 1)),
-                Op::Call(_, func, _) => func.slot,
+                Op::Call(_, func, _) => func.slots_count,
                 _ => SlotsCounter::default(),
             };
             acc.add(val)

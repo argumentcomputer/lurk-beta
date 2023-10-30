@@ -1333,7 +1333,7 @@ impl Func {
             )?;
         } else {
             assert!(!cs.is_witness_generator());
-            let slots_allocations = build_slots_allocations(cs, store, frame, &self.slot)?;
+            let slots_allocations = build_slots_allocations(cs, store, frame, &self.slots_count)?;
             let hash4_slots = &slots_allocations.hash4.iter().collect::<Vec<_>>();
             let hash6_slots = &slots_allocations.hash6.iter().collect::<Vec<_>>();
             let hash8_slots = &slots_allocations.hash8.iter().collect::<Vec<_>>();
@@ -1549,11 +1549,11 @@ impl Func {
         };
 
         // fixed cost for each slot
-        let slot_constraints = 289 * self.slot.hash4
-            + 337 * self.slot.hash6
-            + 388 * self.slot.hash8
-            + 265 * self.slot.commitment
-            + bit_decomp_cost * self.slot.bit_decomp;
+        let slot_constraints = 289 * self.slots_count.hash4
+            + 337 * self.slots_count.hash6
+            + 388 * self.slots_count.hash8
+            + 265 * self.slots_count.commitment
+            + bit_decomp_cost * self.slots_count.bit_decomp;
         let num_constraints = recurse(&self.body, globals, store, false);
         slot_constraints + num_constraints + globals.len()
     }
