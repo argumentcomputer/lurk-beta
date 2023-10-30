@@ -2,9 +2,10 @@
 name: GPU tests
 
 on:
-  push:
-    branches:
-      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [master]
+  merge_group:
 
 env:
   CARGO_TERM_COLOR: always
@@ -36,6 +37,7 @@ concurrency:
 jobs:
   cuda:
     name: Rust tests on CUDA
+    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     runs-on: [self-hosted, gpu-ci]
     env:
       NVIDIA_VISIBLE_DEVICES: all
@@ -68,6 +70,7 @@ jobs:
 
   opencl:
     name: Rust tests on OpenCL
+    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     runs-on: [self-hosted, gpu-ci]
     env:
       NVIDIA_VISIBLE_DEVICES: all

@@ -1,5 +1,5 @@
 # Install with `cargo install just`
-# Usage: `just --dotenv-filename /path/to/file.env <bench|gpu-bench>`
+# Usage: `just --dotenv-filename /path/to/file.env <bench|gpu-bench> <args>`
 # TODO: Move dotenv-filename into justfile once the feature is available
 set dotenv-load
 
@@ -28,7 +28,7 @@ gpu-bench +benches:
   env | grep -E "LURK|EC_GPU|CUDA"
   if [ '{{benches}}' != '' ]; then
     for bench in {{benches}}; do
-      cargo criterion --bench $bench --features "cuda" --message-format=json 2>&1 > {{commit}}.json
+      cargo criterion --bench $bench --features "cuda" --message-format=json 2>&1 > ../{{commit}}.json
     done
   else
     echo "Invalid input, enter at least one non-empty string"
