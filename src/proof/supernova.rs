@@ -167,8 +167,6 @@ where
                     augmented_circuit_index,
                     step,
                     &step.secondary_circuit(),
-                    &z0_primary,
-                    &z0_secondary,
                 )
                 .unwrap();
 
