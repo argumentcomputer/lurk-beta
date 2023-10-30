@@ -140,7 +140,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
 
         // TODO: this `z_ptr` is not really needed by LEM
         let ptr = store.intern_symbol(&name);
-        let z_ptr = store.hash_ptr(&ptr).unwrap();
+        let z_ptr = store.hash_ptr(&ptr);
         let z_ptr = ZExprPtr::from_parts(lurk::tag::ExprTag::Sym, *z_ptr.value());
 
         self.coprocessors.insert(name, (cproc.into(), z_ptr));

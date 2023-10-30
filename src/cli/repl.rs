@@ -315,7 +315,7 @@ impl Repl<F> {
                 &commitment.z_store,
                 &mut Default::default(),
             )?;
-            self.store.hide(*secret, payload)?;
+            self.store.hide(*secret, payload);
             if print_data {
                 println!(
                     "{}",

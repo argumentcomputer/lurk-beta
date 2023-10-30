@@ -133,7 +133,7 @@ impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
 
         // TODO: Use a custom type.
         let root = LEMPtr::num(trie.root);
-        let root_z_ptr = s.hash_ptr(&root).unwrap();
+        let root_z_ptr = s.hash_ptr(&root);
 
         AllocatedPtr::alloc_constant(cs, root_z_ptr)
     }
@@ -169,8 +169,8 @@ impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
         let key_ptr = &args[1];
 
         // TODO: Check tags.
-        let root_scalar = *s.hash_ptr(root_ptr).unwrap().value();
-        let key_scalar = *s.hash_ptr(key_ptr).unwrap().value();
+        let root_scalar = *s.hash_ptr(root_ptr).value();
+        let key_scalar = *s.hash_ptr(key_ptr).value();
         let trie: StandardTrie<'_, F> =
             Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
 
@@ -320,9 +320,9 @@ impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
         let val_ptr = &args[2];
-        let root_scalar = *s.hash_ptr(root_ptr).unwrap().value();
-        let key_scalar = *s.hash_ptr(key_ptr).unwrap().value();
-        let val_scalar = *s.hash_ptr(val_ptr).unwrap().value();
+        let root_scalar = *s.hash_ptr(root_ptr).value();
+        let key_scalar = *s.hash_ptr(key_ptr).value();
+        let val_scalar = *s.hash_ptr(val_ptr).value();
         let mut trie: StandardTrie<'_, F> =
             Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
         trie.insert(key_scalar, val_scalar).unwrap();

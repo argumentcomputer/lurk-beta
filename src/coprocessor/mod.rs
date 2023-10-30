@@ -347,7 +347,7 @@ pub(crate) mod test {
                 .get_allocated_const(LEMTag::Expr(ExprTag::Num).to_field())
                 .expect("Num tag should have been allocated");
 
-            let err_cont_z_ptr = s.hash_ptr(&s.cont_error()).expect("hash_ptr failed");
+            let err_cont_z_ptr = s.hash_ptr(&s.cont_error());
             let cont_err = g
                 .get_allocated_ptr_from_z_ptr(&err_cont_z_ptr)
                 .expect("Error pointer should have been allocated");

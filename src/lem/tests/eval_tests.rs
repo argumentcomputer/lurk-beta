@@ -121,10 +121,10 @@ fn do_test<C: Coprocessor<Fr>>(
     let new_cont = output[2];
 
     if let Some(expected_result) = expected_result {
-        assert!(s.ptr_eq(&expected_result, &new_expr).unwrap());
+        assert!(s.ptr_eq(&expected_result, &new_expr));
     }
     if let Some(expected_env) = expected_env {
-        assert!(s.ptr_eq(&expected_env, &new_env).unwrap());
+        assert!(s.ptr_eq(&expected_env, &new_env));
     }
     if let Some(expected_cont) = expected_cont {
         assert_eq!(expected_cont, new_cont);
@@ -137,7 +137,7 @@ fn do_test<C: Coprocessor<Fr>>(
         assert!(expected_emitted
             .iter()
             .zip(emitted)
-            .all(|(a, b)| s.ptr_eq(a, &b).unwrap()));
+            .all(|(a, b)| s.ptr_eq(a, &b)));
     }
     assert_eq!(expected_iterations, iterations);
 }
@@ -1612,7 +1612,7 @@ fn hide_opaque_open_available() {
     let expr = s.read_with_default_state("(hide 123 'x)").unwrap();
     let (output, ..) = evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, 10).unwrap();
 
-    let c = *s.hash_ptr(&output[0]).unwrap().value();
+    let c = *s.hash_ptr(&output[0]).value();
     let comm = Ptr::comm(c);
 
     let open = s.intern_lurk_symbol("open");
@@ -1646,7 +1646,7 @@ fn hide_opaque_open_unavailable() {
     let expr = s.read_with_default_state("(hide 123 'x)").unwrap();
     let (output, ..) = evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, 10).unwrap();
 
-    let c = *s.hash_ptr(&output[0]).unwrap().value();
+    let c = *s.hash_ptr(&output[0]).value();
 
     let s2 = &Store::<Fr>::default();
     let comm = Ptr::comm(c);
@@ -2581,12 +2581,12 @@ fn test_sym_hash_values() {
     let asdf = s.intern_string("asdf");
     let consed_with_root = s.cons(asdf, root_sym);
 
-    let cons_z_ptr = &s.hash_ptr(&new_expr).unwrap();
-    let sym_z_ptr = &s.hash_ptr(&sym).unwrap();
-    let key_z_ptr = &s.hash_ptr(&key).unwrap();
+    let cons_z_ptr = &s.hash_ptr(&new_expr);
+    let sym_z_ptr = &s.hash_ptr(&sym);
+    let key_z_ptr = &s.hash_ptr(&key);
 
-    let consed_with_root_z_ptr = &s.hash_ptr(&consed_with_root).unwrap();
-    let toplevel_z_ptr = &s.hash_ptr(&toplevel_sym).unwrap();
+    let consed_with_root_z_ptr = &s.hash_ptr(&consed_with_root);
+    let toplevel_z_ptr = &s.hash_ptr(&toplevel_sym);
 
     // Symbol and keyword scalar hash values are the same as
     // those of the name string consed onto the parent symbol.

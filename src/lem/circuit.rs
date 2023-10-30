@@ -123,7 +123,7 @@ impl<F: LurkField> GlobalAllocator<F> {
     #[inline]
     pub fn get_allocated_ptr_from_z_ptr(&self, z_ptr: &ZPtr<F>) -> Result<AllocatedPtr<F>> {
         Ok(AllocatedPtr::from_parts(
-            self.get_allocated_const_cloned(z_ptr.tag().to_field())?,
+            self.get_allocated_const_cloned(z_ptr.tag_field())?,
             self.get_allocated_const_cloned(*z_ptr.value())?,
         ))
     }
@@ -217,7 +217,7 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
             SlotData::PtrVec(ptr_vec) => {
                 let mut component_idx = 0;
                 for ptr in ptr_vec {
-                    let z_ptr = store.hash_ptr(ptr)?;
+                    let z_ptr = store.hash_ptr(ptr);
 
                     // allocate pointer tag
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
@@ -237,7 +237,7 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
                 }
             }
             SlotData::FPtr(f, ptr) => {
-                let z_ptr = store.hash_ptr(ptr)?;
+                let z_ptr = store.hash_ptr(ptr);
                 // allocate first component
                 preallocated_preimg.push(AllocatedNum::alloc_infallible(
                     cs.namespace(|| format!("component 0 slot {slot}")),
@@ -382,7 +382,7 @@ impl Block {
                 }
                 Op::Lit(_, lit) => {
                     let lit_ptr = lit.to_ptr(store);
-                    let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
+                    let lit_z_ptr = store.hash_ptr(&lit_ptr);
                     g.new_const(cs, lit_z_ptr.tag_field());
                     g.new_const(cs, *lit_z_ptr.value());
                 }
@@ -579,7 +579,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     }
                     collected_ptrs
                         .iter()
-                        .map(|ptr| ctx.store.hash_ptr(ptr).expect("hash_ptr failed"))
+                        .map(|ptr| ctx.store.hash_ptr(ptr))
                         .collect::<Vec<_>>()
                 } else {
                     vec![ZPtr::dummy(); out.len()]
@@ -642,7 +642,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let output_z_ptrs = if not_dummy_and_not_blank {
                     let z_ptrs = ctx.call_outputs[ctx.call_idx]
                         .iter()
-                        .map(|ptr| ctx.store.hash_ptr(ptr).expect("hash_ptr failed"))
+                        .map(|ptr| ctx.store.hash_ptr(ptr))
                         .collect::<Vec<_>>();
                     ctx.call_idx += 1;
                     assert_eq!(z_ptrs.len(), out.len());
@@ -740,7 +740,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let allocated_tag = ctx.global_allocator.get_allocated_const_cloned(lit_tag)?;
                 let allocated_hash = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(*ctx.store.hash_ptr(&lit_ptr)?.value())?;
+                    .get_allocated_const_cloned(*ctx.store.hash_ptr(&lit_ptr).value())?;
                 let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
@@ -1217,7 +1217,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             let mut cases_vec = Vec::with_capacity(cases.len());
             for (sym, block) in cases {
                 let sym_ptr = ctx.store.intern_symbol(sym);
-                let sym_hash = *ctx.store.hash_ptr(&sym_ptr)?.value();
+                let sym_hash = *ctx.store.hash_ptr(&sym_ptr).value();
                 cases_vec.push((sym_hash, block));
             }
 
@@ -1268,7 +1268,7 @@ impl Func {
         assert_eq!(self.output_size, frame.output.len());
         let mut output = Vec::with_capacity(frame.output.len());
         for (i, ptr) in frame.output.iter().enumerate() {
-            let zptr = store.hash_ptr(ptr)?;
+            let zptr = store.hash_ptr(ptr);
             output.push(AllocatedPtr::alloc(
                 &mut cs.namespace(|| format!("var: output[{}]", i)),
                 || Ok(zptr),
@@ -1287,7 +1287,7 @@ impl Func {
     ) -> Result<()> {
         for (i, ptr) in frame.input.iter().enumerate() {
             let param = &self.input_params[i];
-            let zptr = store.hash_ptr(ptr)?;
+            let zptr = store.hash_ptr(ptr);
             let ptr =
                 AllocatedPtr::alloc(&mut cs.namespace(|| format!("var: {param}")), || Ok(zptr))?;
             bound_allocations.insert_ptr(param.clone(), ptr);
@@ -1468,7 +1468,7 @@ impl Func {
                     }
                     Op::Lit(_, lit) => {
                         let lit_ptr = lit.to_ptr(store);
-                        let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
+                        let lit_z_ptr = store.hash_ptr(&lit_ptr);
                         globals.insert(FWrap(lit_z_ptr.tag_field()));
                         globals.insert(FWrap(*lit_z_ptr.value()));
                     }

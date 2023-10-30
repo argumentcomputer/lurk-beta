@@ -3158,7 +3158,7 @@ fn test_prove_head_with_sym_mimicking_value() {
 
     let hash_num = |s: &Store<Fr>, state: Rc<RefCell<State>>, name| {
         let sym = s.read(state, name).unwrap();
-        let z_ptr = s.hash_ptr(&sym).unwrap();
+        let z_ptr = s.hash_ptr(&sym);
         let hash = *z_ptr.value();
         Num::Scalar(hash)
     };

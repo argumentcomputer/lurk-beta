@@ -144,7 +144,7 @@ impl MetaCmd<F> {
                 .eval_expr(second)
                 .with_context(|| "evaluating second arg")?;
             let (first_io_expr, second_io_expr) = (&first_io[0], &second_io[0]);
-            if !&repl.store.ptr_eq(first_io_expr, second_io_expr)? {
+            if !repl.store.ptr_eq(first_io_expr, second_io_expr) {
                 eprintln!(
                     "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}",
                     first.fmt_to_string(&repl.store, &repl.state.borrow()),

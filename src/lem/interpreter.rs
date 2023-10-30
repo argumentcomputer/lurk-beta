@@ -230,7 +230,7 @@ impl Block {
                     let b = bindings.get_ptr(b)?;
                     // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
                     // compound data with opaque data in either element's transitive closure.
-                    let c = store.hash_ptr(&a)?.value() == store.hash_ptr(&b)?.value();
+                    let c = store.hash_ptr(&a).value() == store.hash_ptr(&b).value();
                     bindings.insert_bool(tgt.clone(), c);
                 }
                 Op::Not(tgt, a) => {
@@ -419,7 +419,7 @@ impl Block {
                     let Ptr::Atom(Tag::Expr(Num), secret) = bindings.get_ptr(sec)? else {
                         bail!("{sec} is not a numeric pointer")
                     };
-                    let tgt_ptr = store.hide(secret, src_ptr)?;
+                    let tgt_ptr = store.hide(secret, src_ptr);
                     hints.commitment.push(Some(SlotData::FPtr(secret, src_ptr)));
                     bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }

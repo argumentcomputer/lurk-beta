@@ -143,10 +143,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     }
 
     fn evaluate_lem_simple(&self, s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F> {
-        let z_ptrs = args
-            .iter()
-            .map(|ptr| s.hash_ptr(ptr).unwrap())
-            .collect::<Vec<_>>();
+        let z_ptrs = args.iter().map(|ptr| s.hash_ptr(ptr)).collect::<Vec<_>>();
         LEMPtr::num(compute_sha256(self.n, &z_ptrs))
     }
 }
