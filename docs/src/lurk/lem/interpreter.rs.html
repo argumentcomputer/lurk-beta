@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (aa1a71e9e 2023-10-26)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (608e9682f 2023-10-29)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -637,7 +637,7 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Hints&lt;F&gt; {
     <span class="kw">pub fn </span>new_from_func(func: <span class="kw-2">&amp;</span>Func) -&gt; Hints&lt;F&gt; {
-        <span class="kw">let </span>slot = func.slot;
+        <span class="kw">let </span>slot = func.slots_count;
         <span class="kw">let </span>hash4 = Vec::with_capacity(slot.hash4);
         <span class="kw">let </span>hash6 = Vec::with_capacity(slot.hash6);
         <span class="kw">let </span>hash8 = Vec::with_capacity(slot.hash8);
@@ -657,7 +657,7 @@
     }
 
     <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func) -&gt; Hints&lt;F&gt; {
-        <span class="kw">let </span>slot = func.slot;
+        <span class="kw">let </span>slot = func.slots_count;
         <span class="kw">let </span>hash4 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash4];
         <span class="kw">let </span>hash6 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash6];
         <span class="kw">let </span>hash8 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash8];
@@ -1101,19 +1101,19 @@
         <span class="kw">let </span>commitment_used = hints.commitment.len() - commitment_init;
         <span class="kw">let </span>bit_decomp_used = hints.bit_decomp.len() - bit_decomp_init;
 
-        <span class="kw">for _ in </span>hash4_used..<span class="self">self</span>.slot.hash4 {
+        <span class="kw">for _ in </span>hash4_used..<span class="self">self</span>.slots_count.hash4 {
             hints.hash4.push(<span class="prelude-val">None</span>);
         }
-        <span class="kw">for _ in </span>hash6_used..<span class="self">self</span>.slot.hash6 {
+        <span class="kw">for _ in </span>hash6_used..<span class="self">self</span>.slots_count.hash6 {
             hints.hash6.push(<span class="prelude-val">None</span>);
         }
-        <span class="kw">for _ in </span>hash8_used..<span class="self">self</span>.slot.hash8 {
+        <span class="kw">for _ in </span>hash8_used..<span class="self">self</span>.slots_count.hash8 {
             hints.hash8.push(<span class="prelude-val">None</span>);
         }
-        <span class="kw">for _ in </span>commitment_used..<span class="self">self</span>.slot.commitment {
+        <span class="kw">for _ in </span>commitment_used..<span class="self">self</span>.slots_count.commitment {
             hints.commitment.push(<span class="prelude-val">None</span>);
         }
-        <span class="kw">for _ in </span>bit_decomp_used..<span class="self">self</span>.slot.bit_decomp {
+        <span class="kw">for _ in </span>bit_decomp_used..<span class="self">self</span>.slots_count.bit_decomp {
             hints.bit_decomp.push(<span class="prelude-val">None</span>);
         }
 
