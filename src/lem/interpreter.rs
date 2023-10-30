@@ -123,8 +123,8 @@ pub struct Frame<F: LurkField> {
 
 impl<F: LurkField> Frame<F> {
     pub fn blank(func: &Func, pc: usize) -> Frame<F> {
-        let input = vec![Ptr::null(Tag::Expr(Nil)); func.input_params.len()];
-        let output = vec![Ptr::null(Tag::Expr(Nil)); func.output_size];
+        let input = vec![Ptr::zero(Tag::Expr(Nil)); func.input_params.len()];
+        let output = vec![Ptr::zero(Tag::Expr(Nil)); func.output_size];
         let hints = Hints::blank(func);
         Frame {
             input,
@@ -196,8 +196,20 @@ impl Block {
                 Op::Copy(tgt, src) => {
                     bindings.insert(tgt.clone(), bindings.get_cloned(src)?);
                 }
-                Op::Null(tgt, tag) => {
-                    bindings.insert_ptr(tgt.clone(), Ptr::null(*tag));
+                Op::Zero(tgt, tag) => {
+                    bindings.insert_ptr(tgt.clone(), Ptr::zero(*tag));
+                }
+                Op::Hash3Zeros(tgt, tag) => {
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash3zeros));
+                }
+                Op::Hash4Zeros(tgt, tag) => {
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash4zeros));
+                }
+                Op::Hash6Zeros(tgt, tag) => {
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash6zeros));
+                }
+                Op::Hash8Zeros(tgt, tag) => {
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash8zeros));
                 }
                 Op::Lit(tgt, lit) => {
                     bindings.insert_ptr(tgt.clone(), lit.to_ptr(store));

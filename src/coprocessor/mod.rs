@@ -245,7 +245,7 @@ pub(crate) mod test {
     use super::*;
     use crate::circuit::gadgets::constraints::{add, alloc_equal, and, mul};
     use crate::lem::Tag as LEMTag;
-    use crate::tag::{ContTag, ExprTag, Tag};
+    use crate::tag::{ExprTag, Tag};
     use std::marker::PhantomData;
 
     /// A dumb Coprocessor for testing.
@@ -347,18 +347,10 @@ pub(crate) mod test {
                 .get_allocated_const(LEMTag::Expr(ExprTag::Num).to_field())
                 .expect("Num tag should have been allocated");
 
-            // the following is a temporary shim for compatibility with Lurk Alpha
-            // otherwise we could just have a pointer whose value is zero
-            let err_cont_ptr = LEMPtr::null(LEMTag::Cont(ContTag::Error));
-            let err_cont_z_ptr = s.hash_ptr(&err_cont_ptr).expect("hash_ptr failed");
-            let allocated_error_tag = g
-                .get_allocated_const(err_cont_z_ptr.tag_field())
-                .expect("Error tag should have been allocated");
-            let allocated_error_hash = g
-                .get_allocated_const(*err_cont_z_ptr.value())
-                .expect("Error hash should have been allocated");
-            let cont_err =
-                AllocatedPtr::from_parts(allocated_error_tag.clone(), allocated_error_hash.clone());
+            let err_cont_z_ptr = s.hash_ptr(&s.cont_error()).expect("hash_ptr failed");
+            let cont_err = g
+                .get_allocated_ptr_from_z_ptr(&err_cont_z_ptr)
+                .expect("Error pointer should have been allocated");
 
             let (expr, env, cont) =
                 self.synthesize_aux(cs, input_exprs, input_env, input_cont, num_tag, &cont_err)?;
@@ -433,22 +425,18 @@ pub(crate) mod test {
 
         fn evaluate_lem(
             &self,
-            _s: &LEMStore<F>,
+            s: &LEMStore<F>,
             args: &[LEMPtr<F>],
             env: &LEMPtr<F>,
             cont: &LEMPtr<F>,
         ) -> Vec<LEMPtr<F>> {
             let LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), a) = &args[0] else {
-                return vec![args[0], *env, LEMPtr::null(LEMTag::Cont(ContTag::Error))];
+                return vec![args[0], *env, s.cont_error()];
             };
             let LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), b) = &args[1] else {
-                return vec![args[1], *env, LEMPtr::null(LEMTag::Cont(ContTag::Error))];
+                return vec![args[1], *env, s.cont_error()];
             };
-            vec![
-                LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), (*a * *a) + *b),
-                *env,
-                *cont,
-            ]
+            vec![LEMPtr::num((*a * *a) + *b), *env, *cont]
         }
     }
 

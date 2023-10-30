@@ -6,7 +6,7 @@ use crate::{
     eval::lang::{DummyCoprocessor, Lang},
     field::LurkField,
     func,
-    lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Func, Tag},
+    lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Func},
 };
 
 /// Helper function for testing circuit synthesis.
@@ -16,10 +16,9 @@ use crate::{
 ///   provided expressions.
 ///   - `expected_slots` gives the number of expected slots for each type of hash.
 fn synthesize_test_helper(func: &Func, inputs: Vec<Ptr<Fr>>, expected_num_slots: SlotsCounter) {
-    use crate::tag::ContTag::Outermost;
     let store = &Store::default();
     let nil = store.intern_nil();
-    let outermost = Ptr::null(Tag::Cont(Outermost));
+    let outermost = store.cont_outermost();
 
     assert_eq!(func.slots_count, expected_num_slots);
 

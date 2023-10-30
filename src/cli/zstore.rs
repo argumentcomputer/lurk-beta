@@ -7,9 +7,7 @@ use crate::{
     lem::{
         pointers::{Ptr, ZChildren, ZPtr},
         store::Store,
-        Tag,
     },
-    tag::ContTag::{Dummy, Error, Outermost, Terminal},
 };
 
 use super::field_data::HasFieldModulus;
@@ -68,13 +66,7 @@ pub(crate) fn populate_z_store<F: LurkField>(
         } else {
             let z_ptr = match ptr {
                 Ptr::Atom(tag, f) => {
-                    let z_ptr = match tag {
-                        Tag::Cont(Outermost | Error | Dummy | Terminal) => {
-                            // temporary shim for compatibility with Lurk Alpha
-                            ZPtr::from_parts(*tag, store.poseidon_cache.hash8(&[F::ZERO; 8]))
-                        }
-                        _ => ZPtr::from_parts(*tag, *f),
-                    };
+                    let z_ptr = ZPtr::from_parts(*tag, *f);
                     z_store.dag.insert(z_ptr, ZChildren::Atom);
                     z_ptr
                 }

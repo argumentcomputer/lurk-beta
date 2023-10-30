@@ -72,11 +72,11 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
-    pub fn null(tag: Tag) -> Self {
+    pub fn zero(tag: Tag) -> Self {
         Ptr::Atom(tag, F::ZERO)
     }
 
-    pub fn is_null(&self) -> bool {
+    pub fn is_zero(&self) -> bool {
         match self {
             Ptr::Atom(_, f) => f == &F::ZERO,
             _ => false,
@@ -89,7 +89,7 @@ impl<F: LurkField> Ptr<F> {
 
     #[inline]
     pub fn dummy() -> Self {
-        Self::null(Tag::Expr(Nil))
+        Self::zero(Tag::Expr(Nil))
     }
 
     #[inline]

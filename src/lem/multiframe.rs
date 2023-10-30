@@ -103,7 +103,7 @@ impl<F: LurkField> EvaluationStore for Store<F> {
     }
 
     fn get_cont_terminal(&self) -> Self::ContPtr {
-        Ptr::null(Tag::Cont(ContTag::Terminal))
+        self.cont_terminal()
     }
 
     fn hydrate_z_cache(&self) {
@@ -636,7 +636,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         limit: usize,
         lang: &Lang<F, C>,
     ) -> Result<Vec<Self::EvalFrame>, ProofError> {
-        let cont = Ptr::null(Tag::Cont(ContTag::Outermost));
+        let cont = store.cont_outermost();
         let lurk_step = make_eval_step_from_lang(lang, true);
         match evaluate_with_env_and_cont(Some((&lurk_step, lang)), expr, env, cont, store, limit) {
             Ok((frames, _)) => Ok(frames),
@@ -646,8 +646,10 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
 
     fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
         let stop_cond = |output: &[Ptr<F>]| {
-            output[2] == Ptr::null(Tag::Cont(ContTag::Terminal))
-                || output[2] == Ptr::null(Tag::Cont(ContTag::Error))
+            matches!(
+                output[2].tag(),
+                Tag::Cont(ContTag::Terminal) | Tag::Cont(ContTag::Error)
+            )
         };
         frames
             .iter()
