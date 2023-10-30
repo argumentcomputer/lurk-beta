@@ -524,7 +524,7 @@ mod tests {
 
     #[test]
     #[cfg(debug_assertions)]
-    #[should_panic(expected = "assertion failed: `(left == right)")]
+    #[should_panic(expected = "assertion `left == right` failed")]
     fn multicase_negative2() {
         // Test invalid multicase (keys ording doesn't match)
         let mut cs = TestConstraintSystem::<Fr>::new();
