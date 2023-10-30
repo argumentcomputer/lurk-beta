@@ -419,18 +419,13 @@ where
                             &pp.pp,
                             &circuit_primary,
                             &circuit_secondary,
-                            z0_primary.clone(),
-                            z0_secondary.clone(),
+                            &z0_primary,
+                            &z0_secondary,
                         )
+                        .expect("Failed to construct initial recursive snark")
                     });
                     r_snark
-                        .prove_step(
-                            &pp.pp,
-                            &circuit_primary,
-                            &circuit_secondary,
-                            z0_primary.clone(),
-                            z0_secondary.clone(),
-                        )
+                        .prove_step(&pp.pp, &circuit_primary, &circuit_secondary)
                         .expect("failure to prove Nova step");
                     recursive_snark = Some(r_snark);
                 }
@@ -467,18 +462,13 @@ where
                         &pp.pp,
                         circuit_primary,
                         &circuit_secondary,
-                        z0_primary.clone(),
-                        z0_secondary.clone(),
+                        &z0_primary,
+                        &z0_secondary,
                     )
+                    .expect("Failed to construct initial recursive snark")
                 });
                 r_snark
-                    .prove_step(
-                        &pp.pp,
-                        circuit_primary,
-                        &circuit_secondary,
-                        z0_primary.clone(),
-                        z0_secondary.clone(),
-                    )
+                    .prove_step(&pp.pp, circuit_primary, &circuit_secondary)
                     .expect("failure to prove Nova step");
                 recursive_snark = Some(r_snark);
             }
@@ -520,9 +510,7 @@ where
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
             Self::Recursive(p, _) => p.verify(&pp.pp, num_steps, z0_primary, &z0_secondary),
-            Self::Compressed(p, _) => {
-                p.verify(&pp.vk, num_steps, z0_primary.to_vec(), z0_secondary)
-            }
+            Self::Compressed(p, _) => p.verify(&pp.vk, num_steps, z0_primary, &z0_secondary),
         }?;
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
