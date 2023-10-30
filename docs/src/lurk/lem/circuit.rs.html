@@ -1558,6 +1558,52 @@
 <a href="#1558" id="1558">1558</a>
 <a href="#1559" id="1559">1559</a>
 <a href="#1560" id="1560">1560</a>
+<a href="#1561" id="1561">1561</a>
+<a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -1608,7 +1654,10 @@
     coprocessor::Coprocessor,
     eval::lang::Lang,
     field::{FWrap, LanguageField, LurkField},
-    tag::ExprTag::{Comm, Num, Sym},
+    tag::{
+        ExprTag::{Comm, Num, Sym},
+        Tag,
+    },
 };
 
 <span class="kw">use super</span>::{
@@ -1617,7 +1666,7 @@
     slot::<span class="kw-2">*</span>,
     store::Store,
     var_map::VarMap,
-    Block, Ctrl, Func, Op, Tag, Var,
+    Block, Ctrl, Func, Op, Var,
 };
 
 <span class="attr">#[derive(Clone)]
@@ -1667,6 +1716,22 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>get_allocated_const_cloned(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;&gt; {
         <span class="self">self</span>.get_allocated_const(f).cloned()
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>get_allocated_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="kw">super</span>::Tag, hash: F) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;&gt; {
+        <span class="prelude-val">Ok</span>(AllocatedPtr::from_parts(
+            <span class="self">self</span>.get_allocated_const_cloned(tag.to_field())<span class="question-mark">?</span>,
+            <span class="self">self</span>.get_allocated_const_cloned(hash)<span class="question-mark">?</span>,
+        ))
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>get_allocated_ptr_from_z_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;&gt; {
+        <span class="prelude-val">Ok</span>(AllocatedPtr::from_parts(
+            <span class="self">self</span>.get_allocated_const_cloned(z_ptr.tag().to_field())<span class="question-mark">?</span>,
+            <span class="self">self</span>.get_allocated_const_cloned(<span class="kw-2">*</span>z_ptr.value())<span class="question-mark">?</span>,
+        ))
     }
 }
 
@@ -1927,18 +1992,25 @@
                     g.new_const(cs, lit_z_ptr.tag_field());
                     g.new_const(cs, <span class="kw-2">*</span>lit_z_ptr.value());
                 }
-                Op::Null(<span class="kw">_</span>, tag) =&gt; {
-                    <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag::{Dummy, Error, Outermost, Terminal};
+                Op::Zero(<span class="kw">_</span>, tag) =&gt; {
                     g.new_const(cs, tag.to_field());
-                    <span class="kw">match </span>tag {
-                        Tag::Cont(Outermost | Error | Dummy | Terminal) =&gt; {
-                            <span class="comment">// temporary shim for compatibility with Lurk Alpha
-                            </span>g.new_const(cs, store.poseidon_cache.hash8(<span class="kw-2">&amp;</span>[F::ZERO; <span class="number">8</span>]));
-                        }
-                        <span class="kw">_ </span>=&gt; {
-                            g.new_const(cs, F::ZERO);
-                        }
-                    }
+                    g.new_const(cs, F::ZERO);
+                }
+                Op::Hash3Zeros(<span class="kw">_</span>, tag) =&gt; {
+                    g.new_const(cs, tag.to_field());
+                    g.new_const(cs, store.hash3zeros);
+                }
+                Op::Hash4Zeros(<span class="kw">_</span>, tag) =&gt; {
+                    g.new_const(cs, tag.to_field());
+                    g.new_const(cs, store.hash4zeros);
+                }
+                Op::Hash6Zeros(<span class="kw">_</span>, tag) =&gt; {
+                    g.new_const(cs, tag.to_field());
+                    g.new_const(cs, store.hash6zeros);
+                }
+                Op::Hash8Zeros(<span class="kw">_</span>, tag) =&gt; {
+                    g.new_const(cs, tag.to_field());
+                    g.new_const(cs, store.hash8zeros);
                 }
                 Op::Not(..)
                 | Op::And(..)
@@ -1949,15 +2021,15 @@
                 | Op::Lt(..)
                 | Op::Trunc(..)
                 | Op::DivRem64(..) =&gt; {
-                    g.new_const(cs, Tag::Expr(Num).to_field());
+                    g.new_const(cs, Num.to_field());
                 }
                 Op::Div(..) =&gt; {
-                    g.new_const(cs, Tag::Expr(Num).to_field());
+                    g.new_const(cs, Num.to_field());
                     g.new_const(cs, F::ONE);
                 }
                 Op::Hide(..) | Op::Open(..) =&gt; {
-                    g.new_const(cs, Tag::Expr(Num).to_field());
-                    g.new_const(cs, Tag::Expr(Comm).to_field());
+                    g.new_const(cs, Num.to_field());
+                    g.new_const(cs, Comm.to_field());
                 }
                 <span class="kw">_ </span>=&gt; (),
             }
@@ -1976,7 +2048,7 @@
                 }
             }
             Ctrl::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; {
-                g.new_const(cs, Tag::Expr(Sym).to_field());
+                g.new_const(cs, Sym.to_field());
                 <span class="kw">for </span>block <span class="kw">in </span>cases.values() {
                     block.alloc_globals(cs, store, g)<span class="question-mark">?</span>;
                 }
@@ -2234,22 +2306,39 @@
             Op::Copy(tgt, src) =&gt; {
                 bound_allocations.insert(tgt.clone(), bound_allocations.get_cloned(src)<span class="question-mark">?</span>);
             }
-            Op::Null(tgt, tag) =&gt; {
-                <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag::{Dummy, Error, Outermost, Terminal};
-                <span class="kw">let </span>tag_num = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(tag.to_field())<span class="question-mark">?</span>;
-                <span class="kw">let </span>value = <span class="kw">match </span>tag {
-                    Tag::Cont(Outermost | Error | Dummy | Terminal) =&gt; {
-                        <span class="comment">// temporary shim for compatibility with Lurk Alpha
-                        </span>ctx.global_allocator.get_allocated_const_cloned(
-                            ctx.store.poseidon_cache.hash8(<span class="kw-2">&amp;</span>[F::ZERO; <span class="number">8</span>]),
-                        )<span class="question-mark">?
-                    </span>}
-                    <span class="kw">_ </span>=&gt; ctx.global_allocator.get_allocated_const_cloned(F::ZERO)<span class="question-mark">?</span>,
-                };
-                <span class="kw">let </span>allocated_ptr = AllocatedPtr::from_parts(tag_num, value);
-                bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
+            Op::Zero(tgt, tag) =&gt; {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator.get_allocated_ptr(tag, F::ZERO)<span class="question-mark">?</span>,
+                );
+            }
+            Op::Hash3Zeros(tgt, tag) =&gt; {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator
+                        .get_allocated_ptr(tag, ctx.store.hash3zeros)<span class="question-mark">?</span>,
+                );
+            }
+            Op::Hash4Zeros(tgt, tag) =&gt; {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator
+                        .get_allocated_ptr(tag, ctx.store.hash4zeros)<span class="question-mark">?</span>,
+                );
+            }
+            Op::Hash6Zeros(tgt, tag) =&gt; {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator
+                        .get_allocated_ptr(tag, ctx.store.hash6zeros)<span class="question-mark">?</span>,
+                );
+            }
+            Op::Hash8Zeros(tgt, tag) =&gt; {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    ctx.global_allocator
+                        .get_allocated_ptr(tag, ctx.store.hash8zeros)<span class="question-mark">?</span>,
+                );
             }
             Op::Lit(tgt, lit) =&gt; {
                 <span class="kw">let </span>lit_ptr = lit.to_ptr(ctx.store);
@@ -2309,7 +2398,7 @@
                 <span class="kw">let </span>c_num = add(cs.namespace(|| <span class="string">&quot;add&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                    .get_allocated_const_cloned(Num.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -2321,7 +2410,7 @@
                 <span class="kw">let </span>c_num = sub(cs.namespace(|| <span class="string">&quot;sub&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                    .get_allocated_const_cloned(Num.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -2333,7 +2422,7 @@
                 <span class="kw">let </span>c_num = mul(cs.namespace(|| <span class="string">&quot;mul&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                    .get_allocated_const_cloned(Num.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -2357,7 +2446,7 @@
 
                 <span class="kw">let </span>tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                    .get_allocated_const_cloned(Num.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, quotient);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -2461,7 +2550,7 @@
                 );
                 <span class="kw">let </span>tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                    .get_allocated_const_cloned(Num.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, trunc);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -2492,7 +2581,7 @@
                 enforce_product_and_sum(<span class="kw-2">&amp;mut </span>cs, || <span class="string">&quot;enforce a = b * div + rem&quot;</span>, b, <span class="kw-2">&amp;</span>div, <span class="kw-2">&amp;</span>rem, a);
                 <span class="kw">let </span>tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                    .get_allocated_const_cloned(Num.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
                 <span class="kw">let </span>rem_ptr = AllocatedPtr::from_parts(tag, rem);
                 bound_allocations.insert_ptr(tgt[<span class="number">0</span>].clone(), div_ptr);
@@ -2502,9 +2591,7 @@
             Op::Hide(tgt, sec, pay) =&gt; {
                 <span class="kw">let </span>sec = bound_allocations.get_ptr(sec)<span class="question-mark">?</span>;
                 <span class="kw">let </span>pay = bound_allocations.get_ptr(pay)<span class="question-mark">?</span>;
-                <span class="kw">let </span>sec_tag = ctx
-                    .global_allocator
-                    .get_allocated_const(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                <span class="kw">let </span>sec_tag = ctx.global_allocator.get_allocated_const(Num.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>(preallocated_preimg, hash) =
                     <span class="kw-2">&amp;</span>ctx.commitment_slots[next_slot.consume_commitment()];
                 <span class="kw">let </span>AllocatedVal::Number(hash) = hash <span class="kw">else </span>{
@@ -2536,7 +2623,7 @@
                 );
                 <span class="kw">let </span>tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Comm).to_field())<span class="question-mark">?</span>;
+                    .get_allocated_const_cloned(Comm.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
@@ -2544,9 +2631,7 @@
                 <span class="kw">let </span>comm = bound_allocations.get_ptr(comm)<span class="question-mark">?</span>;
                 <span class="kw">let </span>(preallocated_preimg, com_hash) =
                     <span class="kw-2">&amp;</span>ctx.commitment_slots[next_slot.consume_commitment()];
-                <span class="kw">let </span>comm_tag = ctx
-                    .global_allocator
-                    .get_allocated_const(Tag::Expr(Comm).to_field())<span class="question-mark">?</span>;
+                <span class="kw">let </span>comm_tag = ctx.global_allocator.get_allocated_const(Comm.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>AllocatedVal::Number(com_hash) = com_hash <span class="kw">else </span>{
                     <span class="macro">panic!</span>(<span class="string">&quot;Excepted number&quot;</span>)
                 };
@@ -2564,7 +2649,7 @@
                 );
                 <span class="kw">let </span>sec_tag = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                    .get_allocated_const_cloned(Num.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>allocated_sec_ptr =
                     AllocatedPtr::from_parts(sec_tag, preallocated_preimg[<span class="number">0</span>].clone());
                 <span class="kw">let </span>allocated_pay_ptr = AllocatedPtr::from_parts(
@@ -2751,11 +2836,7 @@
             )<span class="question-mark">?</span>;
 
             <span class="comment">// Now we enforce `MatchSymbol`&#39;s tag
-
-            </span><span class="kw">let </span>sym_tag = ctx
-                .global_allocator
-                .get_allocated_const(Tag::Expr(Sym).to_field())<span class="question-mark">?</span>;
-
+            </span><span class="kw">let </span>sym_tag = ctx.global_allocator.get_allocated_const(Sym.to_field())<span class="question-mark">?</span>;
             implies_equal(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;implies equal {match_var}.tag&quot;</span>)),
                 not_dummy,
@@ -2966,19 +3047,30 @@
                     Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) =&gt; {
                         num_constraints += recurse(<span class="kw-2">&amp;</span>func.body, globals, store, is_nested);
                     }
-                    Op::Null(<span class="kw">_</span>, tag) =&gt; {
-                        <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag::{Dummy, Error, Outermost, Terminal};
+                    Op::Zero(<span class="kw">_</span>, tag) =&gt; {
                         <span class="comment">// constrain tag and hash
                         </span>globals.insert(FWrap(tag.to_field()));
-                        <span class="kw">match </span>tag {
-                            Tag::Cont(Outermost | Error | Dummy | Terminal) =&gt; {
-                                <span class="comment">// temporary shim for compatibility with Lurk Alpha
-                                </span>globals.insert(FWrap(store.poseidon_cache.hash8(<span class="kw-2">&amp;</span>[F::ZERO; <span class="number">8</span>])));
-                            }
-                            <span class="kw">_ </span>=&gt; {
-                                globals.insert(FWrap(F::ZERO));
-                            }
-                        }
+                        globals.insert(FWrap(F::ZERO));
+                    }
+                    Op::Hash3Zeros(<span class="kw">_</span>, tag) =&gt; {
+                        <span class="comment">// constrain tag and hash
+                        </span>globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(store.hash3zeros));
+                    }
+                    Op::Hash4Zeros(<span class="kw">_</span>, tag) =&gt; {
+                        <span class="comment">// constrain tag and hash
+                        </span>globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(store.hash4zeros));
+                    }
+                    Op::Hash6Zeros(<span class="kw">_</span>, tag) =&gt; {
+                        <span class="comment">// constrain tag and hash
+                        </span>globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(store.hash6zeros));
+                    }
+                    Op::Hash8Zeros(<span class="kw">_</span>, tag) =&gt; {
+                        <span class="comment">// constrain tag and hash
+                        </span>globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(store.hash8zeros));
                     }
                     Op::Lit(<span class="kw">_</span>, lit) =&gt; {
                         <span class="kw">let </span>lit_ptr = lit.to_ptr(store);
@@ -2993,25 +3085,25 @@
                         num_constraints += <span class="number">3</span>;
                     }
                     Op::Add(..) | Op::Sub(..) | Op::Mul(..) =&gt; {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         num_constraints += <span class="number">1</span>;
                     }
                     Op::Div(..) =&gt; {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         globals.insert(FWrap(F::ONE));
                         num_constraints += <span class="number">5</span>;
                     }
                     Op::Lt(..) =&gt; {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         num_constraints += <span class="number">11</span>;
                     }
                     Op::Trunc(..) =&gt; {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         <span class="comment">// 1 implies_equal, 1 implies_pack
                         </span>num_constraints += <span class="number">2</span>;
                     }
                     Op::DivRem64(..) =&gt; {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
                         <span class="comment">// three implies_u64, one sub and one linear
                         </span>num_constraints += <span class="number">197</span>;
                     }
@@ -3044,13 +3136,13 @@
                     }
                     Op::Hide(..) =&gt; {
                         num_constraints += <span class="number">4</span>;
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        globals.insert(FWrap(Tag::Expr(Comm).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
+                        globals.insert(FWrap(Comm.to_field()));
                     }
                     Op::Open(..) =&gt; {
                         num_constraints += <span class="number">2</span>;
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        globals.insert(FWrap(Tag::Expr(Comm).to_field()));
+                        globals.insert(FWrap(Num.to_field()));
+                        globals.insert(FWrap(Comm.to_field()));
                     }
                 }
             }
@@ -3082,7 +3174,7 @@
                     <span class="comment">// First we enforce that the tag of the pointer being matched on
                     // is Sym
                     </span>num_constraints += <span class="number">1</span>;
-                    globals.insert(FWrap(Tag::Expr(Sym).to_field()));
+                    globals.insert(FWrap(Sym.to_field()));
                     <span class="comment">// We allocate one boolean per case and constrain it once
                     // per case. Then we add 1 constraint to enforce only one
                     // case was selected

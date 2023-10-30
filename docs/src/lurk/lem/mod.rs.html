@@ -783,6 +783,11 @@
 <a href="#783" id="783">783</a>
 <a href="#784" id="784">784</a>
 <a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Lurk Evaluation Model (LEM)
 //!
 //! LEM is a simple, first order, referentially transparent language, designed to
@@ -854,6 +859,7 @@
 <span class="kw">mod </span>slot;
 <span class="kw">pub mod </span>store;
 <span class="kw">mod </span>var_map;
+
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -887,7 +893,7 @@
 </span><span class="attr">#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 </span><span class="kw">pub struct </span>Var(AString);
 
-<span class="doccomment">/// LEM tags
+<span class="doccomment">/// The LEM `Tag` is a wrapper around other types that are used as tags
 </span><span class="attr">#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash, Serialize, Deserialize)]
 </span><span class="kw">pub enum </span>Tag {
     Expr(ExprTag),
@@ -958,8 +964,7 @@
 <span class="doccomment">/// LEM literals
 </span><span class="attr">#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 </span><span class="kw">pub enum </span>Lit {
-    <span class="comment">// TODO maybe it should be a LurkField instead of u128
-    </span>Num(u128),
+    Num(u128),
     String(String),
     Symbol(Symbol),
 }
@@ -970,23 +975,6 @@
             <span class="self">Self</span>::Symbol(s) =&gt; store.intern_symbol(s),
             <span class="self">Self</span>::String(s) =&gt; store.intern_string(s),
             <span class="self">Self</span>::Num(num) =&gt; Ptr::num(F::from_u128(<span class="kw-2">*</span>num)),
-        }
-    }
-
-    <span class="kw">pub fn </span>from_ptr&lt;F: LurkField&gt;(ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">use </span>ExprTag::{Num, Str, Sym};
-        <span class="kw">use </span>Tag::Expr;
-        <span class="kw">match </span>ptr.tag() {
-            Expr(Num) =&gt; <span class="kw">match </span>ptr {
-                Ptr::Atom(<span class="kw">_</span>, f) =&gt; {
-                    <span class="kw">let </span>num = LurkField::to_u128_unchecked(f);
-                    <span class="prelude-val">Some</span>(<span class="self">Self</span>::Num(num))
-                }
-                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
-            },
-            Expr(Str) =&gt; store.fetch_string(ptr).map(Lit::String),
-            Expr(Sym) =&gt; store.fetch_symbol(ptr).map(Lit::Symbol),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 }
@@ -1040,8 +1028,16 @@
     </span>Call(Vec&lt;Var&gt;, Box&lt;Func&gt;, Vec&lt;Var&gt;),
     <span class="doccomment">/// `Copy(x, y)` binds `x` to a copy of what `y` is bound to
     </span>Copy(Var, Var),
-    <span class="doccomment">/// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
-    </span>Null(Var, Tag),
+    <span class="doccomment">/// `Zero(x, t)` binds `x` to a `Ptr::zero(t)`
+    </span>Zero(Var, Tag),
+    <span class="doccomment">/// `Hash3Zeros(x, t)` binds `x` to a `Ptr::Atom(t, hash3(&amp;[F::zero(); 3]))`
+    </span>Hash3Zeros(Var, Tag),
+    <span class="doccomment">/// `Hash4Zeros(x, t)` binds `x` to a `Ptr::Atom(t, hash4(&amp;[F::zero(); 4]))`
+    </span>Hash4Zeros(Var, Tag),
+    <span class="doccomment">/// `Hash6Zeros(x, t)` binds `x` to a `Ptr::Atom(t, hash6(&amp;[F::zero(); 6]))`
+    </span>Hash6Zeros(Var, Tag),
+    <span class="doccomment">/// `Hash8Zeros(x, t)` binds `x` to a `Ptr::Atom(t, hash8(&amp;[F::zero(); 8]))`
+    </span>Hash8Zeros(Var, Tag),
     <span class="doccomment">/// `Lit(x, l)` binds `x` to the pointer representing that `Lit`
     </span>Lit(Var, Lit),
     <span class="doccomment">/// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
@@ -1167,10 +1163,12 @@
                         is_bound(src, map)<span class="question-mark">?</span>;
                         is_unique(tgt, map);
                     }
-                    Op::Null(tgt, _tag) =&gt; {
-                        is_unique(tgt, map);
-                    }
-                    Op::Lit(tgt, _lit) =&gt; {
+                    Op::Zero(tgt, <span class="kw">_</span>)
+                    | Op::Hash3Zeros(tgt, <span class="kw">_</span>)
+                    | Op::Hash4Zeros(tgt, <span class="kw">_</span>)
+                    | Op::Hash6Zeros(tgt, <span class="kw">_</span>)
+                    | Op::Hash8Zeros(tgt, <span class="kw">_</span>)
+                    | Op::Lit(tgt, <span class="kw">_</span>) =&gt; {
                         is_unique(tgt, map);
                     }
                     Op::Cast(tgt, _tag, src) =&gt; {
@@ -1393,7 +1391,19 @@
                 Op::Copy(tgt, src) =&gt; {
                     ops.push(Op::Copy(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), map.get_cloned(<span class="kw-2">&amp;</span>src)<span class="question-mark">?</span>))
                 }
-                Op::Null(tgt, tag) =&gt; ops.push(Op::Null(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), tag)),
+                Op::Zero(tgt, tag) =&gt; ops.push(Op::Zero(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), tag)),
+                Op::Hash3Zeros(tgt, tag) =&gt; {
+                    ops.push(Op::Hash3Zeros(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), tag))
+                }
+                Op::Hash4Zeros(tgt, tag) =&gt; {
+                    ops.push(Op::Hash4Zeros(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), tag))
+                }
+                Op::Hash6Zeros(tgt, tag) =&gt; {
+                    ops.push(Op::Hash6Zeros(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), tag))
+                }
+                Op::Hash8Zeros(tgt, tag) =&gt; {
+                    ops.push(Op::Hash8Zeros(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), tag))
+                }
                 Op::Lit(tgt, lit) =&gt; ops.push(Op::Lit(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), lit)),
                 Op::Cast(tgt, tag, src) =&gt; {
                     <span class="kw">let </span>src = map.get_cloned(<span class="kw-2">&amp;</span>src)<span class="question-mark">?</span>;

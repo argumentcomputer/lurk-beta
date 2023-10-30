@@ -1808,7 +1808,7 @@
     op,
     state::initial_lurk_state,
     tag::{
-        ContTag::{Error, Outermost, Terminal},
+        ContTag::{Error, Terminal},
         ExprTag::Cproc,
     },
     Symbol,
@@ -1989,7 +1989,7 @@
         func_lang,
         expr,
         store.intern_nil(),
-        Ptr::null(Tag::Cont(Outermost)),
+        store.cont_outermost(),
         store,
         limit,
     )
@@ -2001,7 +2001,7 @@
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&lt;F&gt;&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
-    <span class="kw">let </span>input = <span class="macro">vec!</span>[expr, store.intern_nil(), Ptr::null(Tag::Cont(Outermost))];
+    <span class="kw">let </span>input = <span class="macro">vec!</span>[expr, store.intern_nil(), store.cont_outermost()];
     <span class="kw">match </span>func_lang {
         <span class="prelude-val">None </span>=&gt; {
             <span class="kw">let </span>lang: Lang&lt;F, C&gt; = Lang::new();
@@ -2073,7 +2073,7 @@
 /// each coprocessor is detached from Lurk&#39;s universal circuit.
 ///
 /// run_cproc(cproc, env, cont): 3 {
-///     let err: Cont::Error;
+///     let err: Cont::Error = HASH_8_ZEROS;
 ///     let nil = Symbol(&quot;nil&quot;);
 ///     let nil = cast(nil, Expr::Nil);
 ///     match cproc.tag {
@@ -2199,7 +2199,7 @@
             <span class="macro">vec!</span>[]
         } <span class="kw">else </span>{
             <span class="macro">vec!</span>[
-                <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error),
+                <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS),
                 <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
                 <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
             ]
@@ -2279,7 +2279,7 @@
 /// allocated slots
 ///
 /// match_and_run_cproc(cproc_name, evaluated_args, env, cont): 4 {
-///     let err: Cont::Error;
+///     let err: Cont::Error = HASH_8_ZEROS;
 ///     let nil = Symbol(&quot;nil&quot;);
 ///     let nil = cast(nil, Expr::Nil);
 ///     let makethunk = Symbol(&quot;make-thunk&quot;);
@@ -2403,13 +2403,13 @@
     <span class="kw">let </span>func_inp = <span class="macro">vec!</span>[cproc_name, evaluated_args, env, cont];
     <span class="kw">let </span>ops = <span class="kw">if </span>max_arity == <span class="number">0 </span>{
         <span class="macro">vec!</span>[
-            <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error),
+            <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS),
             <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>)),
             <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>)),
         ]
     } <span class="kw">else </span>{
         <span class="macro">vec!</span>[
-            <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error),
+            <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS),
             <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>)),
             <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>)),
             <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
@@ -2633,8 +2633,8 @@
 
     <span class="macro">func!</span>(reduce(expr, env, cont): <span class="number">4 </span>=&gt; {
         <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
-        <span class="kw">let </span>term: Cont::Terminal;
-        <span class="kw">let </span>err: Cont::Error;
+        <span class="kw">let </span>term: Cont::Terminal = HASH_8_ZEROS;
+        <span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS;
         <span class="kw">let </span>cproc: Expr::Cproc;
 
         <span class="kw">let </span>cont_is_term = eq_tag(cont, term);
@@ -2943,7 +2943,7 @@
 </span><span class="kw">fn </span>choose_cproc_call(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)], ivc: bool) -&gt; Func {
     <span class="kw">if </span>cprocs.is_empty() {
         <span class="macro">func!</span>(no_cproc_error(cproc_name, _evaluated_args, env, _cont): <span class="number">4 </span>=&gt; {
-            <span class="kw">let </span>err: Cont::Error;
+            <span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS;
             <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
             <span class="kw">return </span>(cproc_name, env, err, errctrl);
         })
@@ -3053,8 +3053,8 @@
                 <span class="kw">let </span>foo: Expr::Nil;
                 <span class="kw">let </span>char: Expr::Char;
                 <span class="kw">let </span>u64: Expr::U64;
-                <span class="kw">let </span>err: Cont::Error;
-                <span class="kw">let </span>term: Cont::Terminal;
+                <span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS;
+                <span class="kw">let </span>term: Cont::Terminal = HASH_8_ZEROS;
                 <span class="kw">match </span>cont.tag {
                     Cont::Outermost =&gt; {
                         <span class="kw">return </span>(result, env, term, ret)
@@ -3535,16 +3535,16 @@
                     Cont::Tail =&gt; {
                         <span class="kw">let </span>(saved_env, saved_cont, _foo, _foo) = decons4(cont);
                         <span class="kw">let </span>thunk: Expr::Thunk = cons2(expr, saved_cont);
-                        <span class="kw">let </span>cont: Cont::Dummy;
+                        <span class="kw">let </span>cont: Cont::Dummy = HASH_8_ZEROS;
                         <span class="kw">return </span>(thunk, saved_env, cont)
                     }
                     Cont::Outermost =&gt; {
-                        <span class="kw">let </span>cont: Cont::Terminal;
+                        <span class="kw">let </span>cont: Cont::Terminal = HASH_8_ZEROS;
                         <span class="kw">return </span>(expr, env, cont)
                     }
                 };
                 <span class="kw">let </span>thunk: Expr::Thunk = cons2(expr, cont);
-                <span class="kw">let </span>cont: Cont::Dummy;
+                <span class="kw">let </span>cont: Cont::Dummy = HASH_8_ZEROS;
                 <span class="kw">return </span>(thunk, env, cont)
             }
         };

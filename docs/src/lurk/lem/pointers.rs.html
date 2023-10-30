@@ -243,11 +243,11 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>null(tag: Tag) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>zero(tag: Tag) -&gt; <span class="self">Self </span>{
         Ptr::Atom(tag, F::ZERO)
     }
 
-    <span class="kw">pub fn </span>is_null(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub fn </span>is_zero(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="kw">match </span><span class="self">self </span>{
             Ptr::Atom(<span class="kw">_</span>, f) =&gt; f == <span class="kw-2">&amp;</span>F::ZERO,
             <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
@@ -260,7 +260,7 @@
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>dummy() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::null(Tag::Expr(Nil))
+        <span class="self">Self</span>::zero(Tag::Expr(Nil))
     }
 
     <span class="attr">#[inline]

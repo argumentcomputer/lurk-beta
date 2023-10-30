@@ -569,6 +569,18 @@
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>std::collections::VecDeque;
 
@@ -694,8 +706,8 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Frame&lt;F&gt; {
     <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func, pc: usize) -&gt; Frame&lt;F&gt; {
-        <span class="kw">let </span>input = <span class="macro">vec!</span>[Ptr::null(Tag::Expr(Nil)); func.input_params.len()];
-        <span class="kw">let </span>output = <span class="macro">vec!</span>[Ptr::null(Tag::Expr(Nil)); func.output_size];
+        <span class="kw">let </span>input = <span class="macro">vec!</span>[Ptr::zero(Tag::Expr(Nil)); func.input_params.len()];
+        <span class="kw">let </span>output = <span class="macro">vec!</span>[Ptr::zero(Tag::Expr(Nil)); func.output_size];
         <span class="kw">let </span>hints = Hints::blank(func);
         Frame {
             input,
@@ -767,8 +779,20 @@
                 Op::Copy(tgt, src) =&gt; {
                     bindings.insert(tgt.clone(), bindings.get_cloned(src)<span class="question-mark">?</span>);
                 }
-                Op::Null(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::null(<span class="kw-2">*</span>tag));
+                Op::Zero(tgt, tag) =&gt; {
+                    bindings.insert_ptr(tgt.clone(), Ptr::zero(<span class="kw-2">*</span>tag));
+                }
+                Op::Hash3Zeros(tgt, tag) =&gt; {
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash3zeros));
+                }
+                Op::Hash4Zeros(tgt, tag) =&gt; {
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash4zeros));
+                }
+                Op::Hash6Zeros(tgt, tag) =&gt; {
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash6zeros));
+                }
+                Op::Hash8Zeros(tgt, tag) =&gt; {
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash8zeros));
                 }
                 Op::Lit(tgt, lit) =&gt; {
                     bindings.insert_ptr(tgt.clone(), lit.to_ptr(store));
