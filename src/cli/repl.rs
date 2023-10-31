@@ -9,7 +9,7 @@ use rustyline::{
     Config, Editor,
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
-use std::{cell::RefCell, collections::HashMap, fs::read_to_string, rc::Rc, sync::Arc};
+use std::{cell::RefCell, collections::HashMap, fs::read_to_string, io::Write, rc::Rc, sync::Arc};
 use tracing::info;
 
 use crate::{
@@ -433,23 +433,54 @@ impl Repl<F> {
         Ok(())
     }
 
-    fn handle_form<'a>(&mut self, input: parser::Span<'a>) -> Result<parser::Span<'a>> {
-        let (input, ptr, is_meta) = self.store.read_maybe_meta(self.state.clone(), &input)?;
+    #[inline]
+    fn input_marker(&self) -> String {
+        format!(
+            "{}> ",
+            self.state
+                .borrow()
+                .fmt_to_string(self.state.borrow().get_current_package_name())
+        )
+    }
+
+    fn handle_form<'a>(&mut self, input: parser::Span<'a>, demo: bool) -> Result<parser::Span<'a>> {
+        let (syntax_start, mut new_input, ptr, is_meta) =
+            self.store.read_maybe_meta(self.state.clone(), &input)?;
+        if demo {
+            let potential_commentaries = &input[..syntax_start];
+            let actual_syntax = &input[syntax_start..new_input.location_offset()];
+            let input_marker = &self.input_marker();
+            if actual_syntax.contains('\n') {
+                // print the expression on a new line to avoid messing with the user's formatting
+                print!("{potential_commentaries}{input_marker}\n{actual_syntax}");
+            } else {
+                print!("{potential_commentaries}{input_marker}{actual_syntax}");
+            }
+            std::io::stdout().flush()?;
+            // wait for ENTER to be pressed
+            std::io::stdin().read_line(&mut String::new())?;
+            // ENTER already prints a new line so we can remove it from the start of incoming input
+            new_input = parser::Span::new(new_input.trim_start_matches('\n'));
+        }
         if is_meta {
             self.handle_meta(ptr)?;
         } else {
             self.handle_non_meta(ptr)?;
         }
-        Ok(input)
+        Ok(new_input)
     }
 
-    pub fn load_file(&mut self, file_path: &Utf8Path) -> Result<()> {
+    pub fn load_file(&mut self, file_path: &Utf8Path, demo: bool) -> Result<()> {
         let input = read_to_string(file_path)?;
-        println!("Loading {file_path}");
+        if demo {
+            println!("Loading {file_path} in demo mode");
+        } else {
+            println!("Loading {file_path}");
+        }
 
         let mut input = parser::Span::new(&input);
         loop {
-            match self.handle_form(input) {
+            match self.handle_form(input, demo) {
                 Ok(new_input) => input = new_input,
                 Err(e) => {
                     if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
@@ -484,16 +515,11 @@ impl Repl<F> {
         }
 
         loop {
-            match editor.readline(&format!(
-                "{}> ",
-                self.state
-                    .borrow()
-                    .fmt_to_string(self.state.borrow().get_current_package_name())
-            )) {
+            match editor.readline(&self.input_marker()) {
                 Ok(line) => {
                     editor.save_history(history_path)?;
                     match self.store.read_maybe_meta(self.state.clone(), &line) {
-                        Ok((_, expr_ptr, is_meta)) => {
+                        Ok((.., expr_ptr, is_meta)) => {
                             if is_meta {
                                 if let Err(e) = self.handle_meta(expr_ptr) {
                                     println!("!Error: {e}");

@@ -43,6 +43,6 @@ fn lurk_cli_tests() {
         let joined_new = Utf8PathBuf::from_path_buf(joined.clone()).unwrap();
 
         repl::<S1, ReplState<S1, Coproc<S1>>, _, Coproc<S1>>(Some(joined), Lang::new()).unwrap();
-        let _ = repl_new.load_file(&joined_new);
+        let _ = repl_new.load_file(&joined_new, false);
     }
 }

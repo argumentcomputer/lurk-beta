@@ -76,4 +76,12 @@ impl Pos {
             upto_column: upto.get_utf8_column(),
         }
     }
+
+    /// Retrieves the `from_offset` attribute, if present
+    pub fn get_from_offset(&self) -> Option<usize> {
+        match self {
+            Self::No => None,
+            Self::Pos { from_offset, .. } => Some(*from_offset),
+        }
+    }
 }

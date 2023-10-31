@@ -36,6 +36,22 @@ pub enum Syntax<F: LurkField> {
     Improper(Pos, Vec<Syntax<F>>, Box<Syntax<F>>),
 }
 
+impl<F: LurkField> Syntax<F> {
+    /// Retrieves the `Pos` attribute
+    pub fn get_pos(&self) -> &Pos {
+        match self {
+            Self::Num(pos, _)
+            | Self::UInt(pos, _)
+            | Self::Symbol(pos, _)
+            | Self::String(pos, _)
+            | Self::Char(pos, _)
+            | Self::Quote(pos, _)
+            | Self::List(pos, _)
+            | Self::Improper(pos, ..) => pos,
+        }
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
     type Parameters = ();
