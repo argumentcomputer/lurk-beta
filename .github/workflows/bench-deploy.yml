@@ -35,7 +35,8 @@ jobs:
       - name: Install criterion
         run: cargo install cargo-criterion
       - name: Run benchmarks
-        run: cd benches && just --dotenv-filename bench.env gpu-bench fibonacci_lem
+        run: just --dotenv-filename bench.env gpu-bench fibonacci_lem
+        working-directory: ${{ github.workspace }}/benches
       # TODO: Prettify labels for easier viewing
       # Compress the benchmark file and metadata for later analysis
       - name: Compress artifacts
