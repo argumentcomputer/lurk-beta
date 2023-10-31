@@ -168,15 +168,7 @@ name = "end2end"
 harness = false
 
 [[bench]]
-name = "end2end_lem"
-harness = false
-
-[[bench]]
 name = "fibonacci"
-harness = false
-
-[[bench]]
-name = "fibonacci_lem"
 harness = false
 
 [[bench]]
@@ -184,15 +176,7 @@ name = "synthesis"
 harness = false
 
 [[bench]]
-name = "synthesis_lem"
-harness = false
-
-[[bench]]
 name = "sha256"
-harness = false
-
-[[bench]]
-name = "sha256_lem"
 harness = false
 
 [[bench]]

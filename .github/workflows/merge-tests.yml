@@ -102,7 +102,7 @@ jobs:
         run: echo "BASE_REF=$(git rev-parse HEAD)" | tee -a $GITHUB_ENV
         working-directory: ${{ github.workspace }}/master
       - name: Run GPU bench on base branch
-        run: just --dotenv-filename bench.env gpu-bench fibonacci_lem
+        run: just --dotenv-filename bench.env gpu-bench fibonacci
         working-directory: ${{ github.workspace }}/master/benches
       - name: Copy bench output to PR branch
         run: |
@@ -110,7 +110,7 @@ jobs:
           cp -r master/target/criterion target
           cp master/${{ env.BASE_REF }}.json .
       - name: Run GPU bench on PR branch
-        run: just --dotenv-filename bench.env gpu-bench fibonacci_lem
+        run: just --dotenv-filename bench.env gpu-bench fibonacci
         working-directory: ${{ github.workspace }}/benches
       # Create a `criterion-table` and write in commit comment
       - name: Run `criterion-table`

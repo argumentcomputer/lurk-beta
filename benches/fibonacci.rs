@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
+use anyhow::anyhow;
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -8,21 +9,16 @@ use criterion::{
 use pasta_curves::pallas;
 
 use lurk::{
-    circuit::circuit_frame::MultiFrame,
-    eval::{
-        empty_sym_env,
-        lang::{Coproc, Lang},
-    },
+    eval::lang::{Coproc, Lang},
     field::LurkField,
+    lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
     proof::nova::NovaProver,
     proof::Prover,
-    ptr::Ptr,
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
     },
     state::State,
-    store::Store,
 };
 
 mod common;
@@ -35,7 +31,7 @@ fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Pt
   (fib))
 "#;
 
-    store.read_with_state(state, program).unwrap()
+    store.read(state, program).unwrap()
 }
 
 // The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation will contain a binding of the
@@ -105,7 +101,6 @@ fn fibo_prove<M: measurement::Measurement>(
         |b, prove_params| {
             let store = Store::default();
 
-            let env = empty_sym_env(&store);
             let ptr = fib::<pasta_curves::Fq>(
                 &store,
                 state.clone(),
@@ -113,9 +108,10 @@ fn fibo_prove<M: measurement::Measurement>(
             );
             let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
 
-            let frames = &prover
-                .get_evaluation_frames(ptr, env, &store, limit, lang_rc.clone())
-                .unwrap();
+            let frames =
+                &evaluate::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>(None, ptr, &store, limit)
+                    .unwrap()
+                    .0;
 
             b.iter_batched(
                 || (frames, lang_rc.clone()),
@@ -129,14 +125,42 @@ fn fibo_prove<M: measurement::Measurement>(
     );
 }
 
+fn rc_env() -> anyhow::Result<Vec<usize>> {
+    std::env::var("LURK_RC")
+        .map_err(|e| anyhow!("Reduction count env var isn't set: {e}"))
+        .and_then(|rc| {
+            let vec: anyhow::Result<Vec<usize>> = rc
+                .split(',')
+                .map(|rc| {
+                    rc.parse::<usize>()
+                        .map_err(|e| anyhow!("Failed to parse RC: {e}"))
+                })
+                .collect();
+            vec
+        })
+}
+
+fn noise_threshold_env() -> anyhow::Result<f64> {
+    std::env::var("LURK_BENCH_NOISE_THRESHOLD")
+        .map_err(|e| anyhow!("Noise threshold env var isn't set: {e}"))
+        .and_then(|nt| {
+            nt.parse::<f64>()
+                .map_err(|e| anyhow!("Failed to parse noise threshold: {e}"))
+        })
+}
+
 fn fibonacci_prove(c: &mut Criterion) {
+    tracing_subscriber::fmt::init();
     set_bench_config();
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
-    let reduction_counts = [100, 600, 700, 800, 900];
+
+    let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
     let batch_sizes = [100, 200];
-    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Prove");
+    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("LEM Prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
+    group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
+
     let state = State::init_lurk_state().rccell();
 
     for fib_n in batch_sizes.iter() {

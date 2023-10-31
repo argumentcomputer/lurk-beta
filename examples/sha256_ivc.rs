@@ -4,18 +4,16 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
 
 use lurk::{
-    circuit::circuit_frame::MultiFrame,
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
-    eval::{empty_sym_env, lang::Lang},
+    eval::lang::Lang,
     field::LurkField,
+    lem::{multiframe::MultiFrame, pointers::Ptr, store::Store},
     proof::{nova::NovaProver, Prover},
-    ptr::Ptr,
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
     },
     state::user_sym,
-    store::Store,
 };
 
 const REDUCTION_COUNT: usize = 10;
@@ -48,7 +46,7 @@ fn sha256_ivc<F: LurkField>(store: &Store<F>, n: usize, input: &[usize]) -> Ptr<
 "#
     );
 
-    store.read(&program).unwrap()
+    store.read_with_default_state(&program).unwrap()
 }
 
 /// Run the example in this file with
@@ -62,17 +60,15 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     let args = std::env::args().collect::<Vec<_>>();
-    let n = args[1].parse().unwrap();
+    let n = args.get(1).unwrap_or(&"1".into()).parse().unwrap();
 
-    let store = &mut Store::<Fr>::new();
+    let store = &Store::<Fr>::default();
     let cproc_sym = user_sym(&format!("sha256_ivc_{n}"));
 
     let call = sha256_ivc(store, n, &(0..n).collect::<Vec<_>>());
 
-    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
-        store,
-        vec![(cproc_sym, Sha256Coprocessor::new(n).into())],
-    );
+    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    lang.add_coprocessor_lem(cproc_sym, Sha256Coprocessor::new(n), store);
     let lang_rc = Arc::new(lang.clone());
 
     let nova_prover =
@@ -97,7 +93,7 @@ fn main() {
     let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
         .in_scope(|| {
             nova_prover
-                .evaluate_and_prove(&pp, call, empty_sym_env(store), store, 10000, &lang_rc)
+                .evaluate_and_prove(&pp, call, store.intern_nil(), store, 10000, &lang_rc)
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();
@@ -114,7 +110,7 @@ fn main() {
 
     if res {
         println!(
-            "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
+            "Congratulations! You proved and verified a LEM IVC SHA256 hash calculation in {:?} time!",
             pp_end + proof_end + verify_end
         );
     }

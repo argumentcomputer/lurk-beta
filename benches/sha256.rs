@@ -5,6 +5,7 @@
 //!
 //! Note: The example [example/sha256_ivc.rs] is this same benchmark but as an example
 //! that's easier to play with and run.
+
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -13,18 +14,21 @@ use pasta_curves::pallas::Scalar as Fr;
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use lurk::{
-    circuit::circuit_frame::MultiFrame,
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
-    eval::{empty_sym_env, lang::Lang},
+    eval::lang::Lang,
     field::LurkField,
+    lem::{
+        eval::{evaluate, make_eval_step_from_lang},
+        multiframe::MultiFrame,
+        pointers::Ptr,
+        store::Store,
+    },
     proof::{nova::NovaProver, supernova::SuperNovaProver, Prover},
-    ptr::Ptr,
     public_parameters::{
         instance::{Instance, Kind},
         public_params, supernova_public_params,
     },
     state::{user_sym, State},
-    store::Store,
 };
 
 mod common;
@@ -35,7 +39,7 @@ fn sha256_ivc<F: LurkField>(
     state: Rc<RefCell<State>>,
     arity: usize,
     n: usize,
-    input: &[usize],
+    input: &Vec<usize>,
 ) -> Ptr<F> {
     assert_eq!(n, input.len());
     let input = input
@@ -46,7 +50,7 @@ fn sha256_ivc<F: LurkField>(
     let input = format!("'({input})");
     let program = format!(
         r#"
-(letrec ((encode-1 (lambda (term) 
+(letrec ((encode-1 (lambda (term)
             (let ((type (car term))
                   (value (cdr term)))
                 (if (eq 'sha256 type)
@@ -57,17 +61,17 @@ fn sha256_ivc<F: LurkField>(
                             value))))))
         (encode (lambda (input)
                 (if input
-                    (cons 
+                    (cons
                         (encode-1 (car input))
                         (encode (cdr input)))))))
   (encode '((lurk . 5) (id . 15) {input})))
 "#
     );
 
-    store.read_with_state(state, &program).unwrap()
+    store.read(state, &program).unwrap()
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct ProveParams {
     arity: usize,
     n: usize,
@@ -98,22 +102,17 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
     let limit = 10000;
 
-    let store = &mut Store::<Fr>::new();
+    let store = &Store::<Fr>::default();
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
-    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
-        store,
-        vec![(cproc_sym, Sha256Coprocessor::new(arity).into())],
-    );
+    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    lang.add_coprocessor_lem(cproc_sym, Sha256Coprocessor::new(arity), store);
     let lang_rc = Arc::new(lang.clone());
 
+    let lurk_step = make_eval_step_from_lang(&lang, true);
+
     // use cached public params
-    let instance: Instance<
-        '_,
-        pasta_curves::Fq,
-        Sha256Coproc<pasta_curves::Fq>,
-        MultiFrame<'_, _, _>,
-    > = Instance::new(
+    let instance: Instance<'_, Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>> = Instance::new(
         reduction_count,
         lang_rc.clone(),
         true,
@@ -125,20 +124,19 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
         BenchmarkId::new(prove_params.name(), arity),
         &prove_params,
         |b, prove_params| {
-            let env = empty_sym_env(store);
             let ptr = sha256_ivc(
                 store,
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
-                &(0..prove_params.n).collect::<Vec<_>>(),
+                &(0..prove_params.n).collect(),
             );
 
             let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
 
-            let frames = &prover
-                .get_evaluation_frames(ptr, env, store, limit, lang_rc.clone())
-                .unwrap();
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
+                .unwrap()
+                .0;
 
             b.iter_batched(
                 || (frames, lang_rc.clone()),
@@ -187,14 +185,14 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 
     let limit = 10000;
 
-    let store = &mut Store::<Fr>::new();
+    let store = &Store::<Fr>::default();
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
-    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
-        store,
-        vec![(cproc_sym, Sha256Coprocessor::new(arity).into())],
-    );
+    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    lang.add_coprocessor_lem(cproc_sym, Sha256Coprocessor::new(arity), store);
     let lang_rc = Arc::new(lang.clone());
+
+    let lurk_step = make_eval_step_from_lang(&lang, true);
 
     // use cached public params
     let instance = Instance::new(
@@ -209,20 +207,19 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
         BenchmarkId::new(prove_params.name(), arity),
         &prove_params,
         |b, prove_params| {
-            let env = empty_sym_env(store);
             let ptr = sha256_ivc(
                 store,
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
-                &(0..prove_params.n).collect::<Vec<_>>(),
+                &(0..prove_params.n).collect(),
             );
 
             let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
 
-            let frames = &prover
-                .get_evaluation_frames(ptr, env, store, limit, lang_rc.clone())
-                .unwrap();
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
+                .unwrap()
+                .0;
 
             b.iter_batched(
                 || (frames, lang_rc.clone()),
@@ -273,14 +270,14 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
 
     let limit = 10000;
 
-    let store = &mut Store::<Fr>::new();
+    let store = &Store::<Fr>::default();
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
-    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
-        store,
-        vec![(cproc_sym, Sha256Coprocessor::new(arity).into())],
-    );
+    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    lang.add_coprocessor_lem(cproc_sym, Sha256Coprocessor::new(arity), store);
     let lang_rc = Arc::new(lang.clone());
+
+    let lurk_step = make_eval_step_from_lang(&lang, false);
 
     // use cached public params
     let instance = Instance::new(
@@ -295,20 +292,19 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
         BenchmarkId::new(prove_params.name(), arity),
         &prove_params,
         |b, prove_params| {
-            let env = empty_sym_env(store);
             let ptr = sha256_ivc(
                 store,
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
-                &(0..prove_params.n).collect::<Vec<_>>(),
+                &(0..prove_params.n).collect(),
             );
 
             let prover = SuperNovaProver::new(prove_params.reduction_count, lang.clone());
 
-            let frames = &prover
-                .get_evaluation_frames(ptr, env, store, limit, lang_rc.clone())
-                .unwrap();
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
+                .unwrap()
+                .0;
 
             b.iter_batched(
                 || (frames, lang_rc.clone()),

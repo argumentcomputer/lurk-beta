@@ -5,18 +5,8 @@ use std::process::Command;
 /// pipeline steps
 #[test]
 #[ignore]
-fn test_sha256_nivc() {
-    let mut cmd = Command::new("cargo");
-    cmd.args(["run", "--release", "--example", "sha256_nivc"]);
-    cmd.assert().success();
-}
-
-/// TODO: replace this test for more granular ones, specific for the NIVC
-/// pipeline steps
-#[test]
-#[ignore]
 fn test_sha256_nivc_lem() {
     let mut cmd = Command::new("cargo");
-    cmd.args(["run", "--release", "--example", "sha256_nivc_lem"]);
+    cmd.args(["run", "--release", "--example", "sha256_nivc"]);
     cmd.assert().success();
 }
