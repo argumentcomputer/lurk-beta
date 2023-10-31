@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
+use anyhow::anyhow;
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -113,14 +114,42 @@ fn fibo_prove<M: measurement::Measurement>(
     );
 }
 
+fn rc_env() -> anyhow::Result<Vec<usize>> {
+    std::env::var("LURK_RC")
+        .map_err(|e| anyhow!("Reduction count env var isn't set: {e}"))
+        .and_then(|rc| {
+            let vec: anyhow::Result<Vec<usize>> = rc
+                .split(',')
+                .map(|rc| {
+                    rc.parse::<usize>()
+                        .map_err(|e| anyhow!("Failed to parse RC: {e}"))
+                })
+                .collect();
+            vec
+        })
+}
+
+fn noise_threshold_env() -> anyhow::Result<f64> {
+    std::env::var("LURK_BENCH_NOISE_THRESHOLD")
+        .map_err(|e| anyhow!("Noise threshold env var isn't set: {e}"))
+        .and_then(|nt| {
+            nt.parse::<f64>()
+                .map_err(|e| anyhow!("Failed to parse noise threshold: {e}"))
+        })
+}
+
 fn fibonacci_prove(c: &mut Criterion) {
+    tracing_subscriber::fmt::init();
     set_bench_config();
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
-    let reduction_counts = [100, 600, 700, 800, 900];
+
+    let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
     let batch_sizes = [100, 200];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
+    group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
+
     let state = State::init_lurk_state().rccell();
 
     for fib_n in batch_sizes.iter() {
