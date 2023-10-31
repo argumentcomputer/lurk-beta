@@ -56,7 +56,7 @@ struct ProveParams {
 
 impl ProveParams {
     fn name(&self) -> String {
-        format!("Fibonacci-num={}", self.fib_n)
+        format!("Fibonacci-rc={}", self.reduction_count)
     }
 }
 
@@ -94,7 +94,7 @@ fn fibo_prove<M: measurement::Measurement>(
     c.bench_with_input(
         BenchmarkId::new(
             prove_params.name(),
-            format!("rc-{}/{sha}-{date}", prove_params.reduction_count),
+            format!("num-{}/{sha}-{date}", prove_params.fib_n),
         ),
         &prove_params,
         |b, prove_params| {
