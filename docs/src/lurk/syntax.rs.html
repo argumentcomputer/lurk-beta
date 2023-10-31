@@ -287,6 +287,22 @@
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
 
 <span class="kw">use </span><span class="kw">crate</span>::expr::Expression;
@@ -323,6 +339,22 @@
     </span>List(Pos, Vec&lt;Syntax&lt;F&gt;&gt;),
     <span class="doccomment">/// An improper cons-list of expressions: (1 2 . 3)
     </span>Improper(Pos, Vec&lt;Syntax&lt;F&gt;&gt;, Box&lt;Syntax&lt;F&gt;&gt;),
+}
+
+<span class="kw">impl</span>&lt;F: LurkField&gt; Syntax&lt;F&gt; {
+    <span class="doccomment">/// Retrieves the `Pos` attribute
+    </span><span class="kw">pub fn </span>get_pos(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Pos {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Num(pos, <span class="kw">_</span>)
+            | <span class="self">Self</span>::UInt(pos, <span class="kw">_</span>)
+            | <span class="self">Self</span>::Symbol(pos, <span class="kw">_</span>)
+            | <span class="self">Self</span>::String(pos, <span class="kw">_</span>)
+            | <span class="self">Self</span>::Char(pos, <span class="kw">_</span>)
+            | <span class="self">Self</span>::Quote(pos, <span class="kw">_</span>)
+            | <span class="self">Self</span>::List(pos, <span class="kw">_</span>)
+            | <span class="self">Self</span>::Improper(pos, ..) =&gt; pos,
+        }
+    }
 }
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]

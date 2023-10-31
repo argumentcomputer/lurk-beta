@@ -1176,6 +1176,12 @@
 <a href="#1176" id="1176">1176</a>
 <a href="#1177" id="1177">1177</a>
 <a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>elsa::{
@@ -1700,11 +1706,17 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         state: Rc&lt;RefCell&lt;State&gt;&gt;,
         input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Span&lt;<span class="lifetime">&#39;a</span>&gt;, Ptr&lt;F&gt;, bool), Error&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, Span&lt;<span class="lifetime">&#39;a</span>&gt;, Ptr&lt;F&gt;, bool), Error&gt; {
         <span class="kw">match </span>preceded(syntax::parse_space, syntax::parse_maybe_meta(state, <span class="bool-val">false</span>))
             .parse(input.into())
         {
-            <span class="prelude-val">Ok</span>((i, <span class="prelude-val">Some</span>((is_meta, x)))) =&gt; <span class="prelude-val">Ok</span>((i, <span class="self">self</span>.intern_syntax(x), is_meta)),
+            <span class="prelude-val">Ok</span>((i, <span class="prelude-val">Some</span>((is_meta, x)))) =&gt; {
+                <span class="kw">let </span>from_offset = x
+                    .get_pos()
+                    .get_from_offset()
+                    .expect(<span class="string">&quot;Parsed syntax should have its Pos set&quot;</span>);
+                <span class="prelude-val">Ok</span>((from_offset, i, <span class="self">self</span>.intern_syntax(x), is_meta))
+            }
             <span class="prelude-val">Ok</span>((<span class="kw">_</span>, <span class="prelude-val">None</span>)) =&gt; <span class="prelude-val">Err</span>(Error::NoInput),
             <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(Error::Syntax(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e))),
         }

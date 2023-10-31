@@ -616,7 +616,7 @@
             <span class="kw">match </span>repl.store.fetch_string(<span class="kw-2">&amp;</span>first) {
                 <span class="prelude-val">Some</span>(path) =&gt; {
                     <span class="kw">let </span>joined = repl.pwd_path.join(Utf8Path::new(<span class="kw-2">&amp;</span>path));
-                    repl.load_file(<span class="kw-2">&amp;</span>joined)<span class="question-mark">?
+                    repl.load_file(<span class="kw-2">&amp;</span>joined, <span class="bool-val">false</span>)<span class="question-mark">?
                 </span>}
                 <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Argument of `load` must be a string.&quot;</span>),
             }

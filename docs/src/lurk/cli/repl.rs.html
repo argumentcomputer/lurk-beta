@@ -533,6 +533,32 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
@@ -544,7 +570,7 @@
     Config, Editor,
 };
 <span class="kw">use </span>rustyline_derive::{Completer, Helper, Highlighter, Hinter};
-<span class="kw">use </span>std::{cell::RefCell, collections::HashMap, fs::read_to_string, rc::Rc, sync::Arc};
+<span class="kw">use </span>std::{cell::RefCell, collections::HashMap, fs::read_to_string, io::Write, rc::Rc, sync::Arc};
 <span class="kw">use </span>tracing::info;
 
 <span class="kw">use crate</span>::{
@@ -968,23 +994,54 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>handle_form&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
-        <span class="kw">let </span>(input, ptr, is_meta) = <span class="self">self</span>.store.read_maybe_meta(<span class="self">self</span>.state.clone(), <span class="kw-2">&amp;</span>input)<span class="question-mark">?</span>;
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>input_marker(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="macro">format!</span>(
+            <span class="string">&quot;{}&gt; &quot;</span>,
+            <span class="self">self</span>.state
+                .borrow()
+                .fmt_to_string(<span class="self">self</span>.state.borrow().get_current_package_name())
+        )
+    }
+
+    <span class="kw">fn </span>handle_form&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;, demo: bool) -&gt; <span class="prelude-ty">Result</span>&lt;parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
+        <span class="kw">let </span>(syntax_start, <span class="kw-2">mut </span>new_input, ptr, is_meta) =
+            <span class="self">self</span>.store.read_maybe_meta(<span class="self">self</span>.state.clone(), <span class="kw-2">&amp;</span>input)<span class="question-mark">?</span>;
+        <span class="kw">if </span>demo {
+            <span class="kw">let </span>potential_commentaries = <span class="kw-2">&amp;</span>input[..syntax_start];
+            <span class="kw">let </span>actual_syntax = <span class="kw-2">&amp;</span>input[syntax_start..new_input.location_offset()];
+            <span class="kw">let </span>input_marker = <span class="kw-2">&amp;</span><span class="self">self</span>.input_marker();
+            <span class="kw">if </span>actual_syntax.contains(<span class="string">&#39;\n&#39;</span>) {
+                <span class="comment">// print the expression on a new line to avoid messing with the user&#39;s formatting
+                </span><span class="macro">print!</span>(<span class="string">&quot;{potential_commentaries}{input_marker}\n{actual_syntax}&quot;</span>);
+            } <span class="kw">else </span>{
+                <span class="macro">print!</span>(<span class="string">&quot;{potential_commentaries}{input_marker}{actual_syntax}&quot;</span>);
+            }
+            std::io::stdout().flush()<span class="question-mark">?</span>;
+            <span class="comment">// wait for ENTER to be pressed
+            </span>std::io::stdin().read_line(<span class="kw-2">&amp;mut </span>String::new())<span class="question-mark">?</span>;
+            <span class="comment">// ENTER already prints a new line so we can remove it from the start of incoming input
+            </span>new_input = parser::Span::new(new_input.trim_start_matches(<span class="string">&#39;\n&#39;</span>));
+        }
         <span class="kw">if </span>is_meta {
             <span class="self">self</span>.handle_meta(ptr)<span class="question-mark">?</span>;
         } <span class="kw">else </span>{
             <span class="self">self</span>.handle_non_meta(ptr)<span class="question-mark">?</span>;
         }
-        <span class="prelude-val">Ok</span>(input)
+        <span class="prelude-val">Ok</span>(new_input)
     }
 
-    <span class="kw">pub fn </span>load_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file_path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">pub fn </span>load_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file_path: <span class="kw-2">&amp;</span>Utf8Path, demo: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>input = read_to_string(file_path)<span class="question-mark">?</span>;
-        <span class="macro">println!</span>(<span class="string">&quot;Loading {file_path}&quot;</span>);
+        <span class="kw">if </span>demo {
+            <span class="macro">println!</span>(<span class="string">&quot;Loading {file_path} in demo mode&quot;</span>);
+        } <span class="kw">else </span>{
+            <span class="macro">println!</span>(<span class="string">&quot;Loading {file_path}&quot;</span>);
+        }
 
         <span class="kw">let </span><span class="kw-2">mut </span>input = parser::Span::new(<span class="kw-2">&amp;</span>input);
         <span class="kw">loop </span>{
-            <span class="kw">match </span><span class="self">self</span>.handle_form(input) {
+            <span class="kw">match </span><span class="self">self</span>.handle_form(input, demo) {
                 <span class="prelude-val">Ok</span>(new_input) =&gt; input = new_input,
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(parser::Error::NoInput) = e.downcast_ref::&lt;parser::Error&gt;() {
@@ -1019,16 +1076,11 @@
         }
 
         <span class="kw">loop </span>{
-            <span class="kw">match </span>editor.readline(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                <span class="string">&quot;{}&gt; &quot;</span>,
-                <span class="self">self</span>.state
-                    .borrow()
-                    .fmt_to_string(<span class="self">self</span>.state.borrow().get_current_package_name())
-            )) {
+            <span class="kw">match </span>editor.readline(<span class="kw-2">&amp;</span><span class="self">self</span>.input_marker()) {
                 <span class="prelude-val">Ok</span>(line) =&gt; {
                     editor.save_history(history_path)<span class="question-mark">?</span>;
                     <span class="kw">match </span><span class="self">self</span>.store.read_maybe_meta(<span class="self">self</span>.state.clone(), <span class="kw-2">&amp;</span>line) {
-                        <span class="prelude-val">Ok</span>((<span class="kw">_</span>, expr_ptr, is_meta)) =&gt; {
+                        <span class="prelude-val">Ok</span>((.., expr_ptr, is_meta)) =&gt; {
                             <span class="kw">if </span>is_meta {
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_meta(expr_ptr) {
                                     <span class="macro">println!</span>(<span class="string">&quot;!Error: {e}&quot;</span>);
