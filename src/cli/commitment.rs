@@ -33,13 +33,13 @@ impl<F: LurkField> HasFieldModulus for Commitment<F> {
 }
 
 impl<F: LurkField> Commitment<F> {
-    pub(crate) fn new(secret: Option<F>, payload: Ptr<F>, store: &Store<F>) -> Result<Self> {
+    pub(crate) fn new(secret: Option<F>, payload: Ptr<F>, store: &Store<F>) -> Self {
         let secret = secret.unwrap_or(F::NON_HIDING_COMMITMENT_SECRET);
         let (hash, z_payload) = store.hide_and_return_z_payload(secret, payload);
         let mut z_store = ZStore::<F>::default();
-        populate_z_store(&mut z_store, &payload, store, &mut HashMap::default())?;
+        populate_z_store(&mut z_store, &payload, store, &mut HashMap::default());
         z_store.add_comm(hash, secret, z_payload);
-        Ok(Self { hash, z_store })
+        Self { hash, z_store }
     }
 
     #[inline]

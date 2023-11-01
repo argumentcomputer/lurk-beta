@@ -23,7 +23,7 @@ pub mod non_wasm {
         cli::paths::circom_dir,
         coprocessor::{CoCircuit, Coprocessor},
         field::LurkField,
-        lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore, Tag},
+        lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore},
         ptr::Ptr,
         store::Store,
     };
@@ -150,7 +150,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
                 })?;
             let output = circom_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
             let num_tag = g
-                .get_allocated_const(Tag::Expr(crate::tag::ExprTag::Num).to_field())
+                .get_tag(&crate::tag::ExprTag::Num)
                 .expect("Num tag should have been allocated");
             let res = AllocatedPtr::from_parts(num_tag.clone(), output);
 

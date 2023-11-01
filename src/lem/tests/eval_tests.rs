@@ -2598,8 +2598,8 @@ fn test_sym_hash_values() {
 
     // The tags differ though.
     use crate::tag::ExprTag::{Key, Sym};
-    assert_eq!(Tag::Expr(Sym), sym_z_ptr.tag());
-    assert_eq!(Tag::Expr(Key), key_z_ptr.tag());
+    assert_eq!(&Tag::Expr(Sym), sym_z_ptr.tag());
+    assert_eq!(&Tag::Expr(Key), key_z_ptr.tag());
 }
 
 #[test]

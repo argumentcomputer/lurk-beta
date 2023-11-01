@@ -5,16 +5,28 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     field::{FWrap, LurkField},
     lem::{
-        pointers::{Ptr, ZChildren, ZPtr},
+        pointers::{Ptr, ZPtr},
         store::Store,
     },
 };
 
 use super::field_data::HasFieldModulus;
 
+/// `ZPtrType` holds information about the `Ptr` that originated a certain `ZPtr`.
+/// If the `Ptr` was not atomic, `ZPtrType` can refer to its children once they
+/// have already been turned into `ZPtr`s.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) enum ZPtrType<F: LurkField> {
+    Atom,
+    Tuple2(ZPtr<F>, ZPtr<F>),
+    Tuple3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
+    Tuple4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
+}
+
+/// A `ZStore` is a stable IO format for `Store`, without index-based references
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub(crate) struct ZStore<F: LurkField> {
-    dag: BTreeMap<ZPtr<F>, ZChildren<F>>,
+    dag: BTreeMap<ZPtr<F>, ZPtrType<F>>,
     comms: BTreeMap<FWrap<F>, (F, ZPtr<F>)>,
 }
 
@@ -36,7 +48,7 @@ impl<F: LurkField> ZStore<F> {
     }
 
     #[inline]
-    pub(crate) fn get_children(&self, z_ptr: &ZPtr<F>) -> Option<&ZChildren<F>> {
+    pub(crate) fn get_type(&self, z_ptr: &ZPtr<F>) -> Option<&ZPtrType<F>> {
         self.dag.get(z_ptr)
     }
 
@@ -59,23 +71,21 @@ pub(crate) fn populate_z_store<F: LurkField>(
     ptr: &Ptr<F>,
     store: &Store<F>,
     cache: &mut HashMap<Ptr<F>, ZPtr<F>>,
-) -> Result<ZPtr<F>> {
-    let mut recurse = |ptr: &Ptr<F>| -> Result<ZPtr<F>> {
+) -> ZPtr<F> {
+    let mut recurse = |ptr: &Ptr<F>| -> ZPtr<F> {
         if let Some(z_ptr) = cache.get(ptr) {
-            Ok(*z_ptr)
+            *z_ptr
         } else {
             let z_ptr = match ptr {
                 Ptr::Atom(tag, f) => {
                     let z_ptr = ZPtr::from_parts(*tag, *f);
-                    z_store.dag.insert(z_ptr, ZChildren::Atom);
+                    z_store.dag.insert(z_ptr, ZPtrType::Atom);
                     z_ptr
                 }
                 Ptr::Tuple2(tag, idx) => {
-                    let Some((a, b)) = store.fetch_2_ptrs(*idx) else {
-                        bail!("Index {idx} not found on tuple2")
-                    };
-                    let a = populate_z_store(z_store, a, store, cache)?;
-                    let b = populate_z_store(z_store, b, store, cache)?;
+                    let (a, b) = store.expect_2_ptrs(*idx);
+                    let a = populate_z_store(z_store, a, store, cache);
+                    let b = populate_z_store(z_store, b, store, cache);
                     let z_ptr = ZPtr::from_parts(
                         *tag,
                         store.poseidon_cache.hash4(&[
@@ -85,16 +95,14 @@ pub(crate) fn populate_z_store<F: LurkField>(
                             *b.value(),
                         ]),
                     );
-                    z_store.dag.insert(z_ptr, ZChildren::Tuple2(a, b));
+                    z_store.dag.insert(z_ptr, ZPtrType::Tuple2(a, b));
                     z_ptr
                 }
                 Ptr::Tuple3(tag, idx) => {
-                    let Some((a, b, c)) = store.fetch_3_ptrs(*idx) else {
-                        bail!("Index {idx} not found on tuple3")
-                    };
-                    let a = populate_z_store(z_store, a, store, cache)?;
-                    let b = populate_z_store(z_store, b, store, cache)?;
-                    let c = populate_z_store(z_store, c, store, cache)?;
+                    let (a, b, c) = store.expect_3_ptrs(*idx);
+                    let a = populate_z_store(z_store, a, store, cache);
+                    let b = populate_z_store(z_store, b, store, cache);
+                    let c = populate_z_store(z_store, c, store, cache);
                     let z_ptr = ZPtr::from_parts(
                         *tag,
                         store.poseidon_cache.hash6(&[
@@ -106,17 +114,15 @@ pub(crate) fn populate_z_store<F: LurkField>(
                             *c.value(),
                         ]),
                     );
-                    z_store.dag.insert(z_ptr, ZChildren::Tuple3(a, b, c));
+                    z_store.dag.insert(z_ptr, ZPtrType::Tuple3(a, b, c));
                     z_ptr
                 }
                 Ptr::Tuple4(tag, idx) => {
-                    let Some((a, b, c, d)) = store.fetch_4_ptrs(*idx) else {
-                        bail!("Index {idx} not found on tuple4")
-                    };
-                    let a = populate_z_store(z_store, a, store, cache)?;
-                    let b = populate_z_store(z_store, b, store, cache)?;
-                    let c = populate_z_store(z_store, c, store, cache)?;
-                    let d = populate_z_store(z_store, d, store, cache)?;
+                    let (a, b, c, d) = store.expect_4_ptrs(*idx);
+                    let a = populate_z_store(z_store, a, store, cache);
+                    let b = populate_z_store(z_store, b, store, cache);
+                    let c = populate_z_store(z_store, c, store, cache);
+                    let d = populate_z_store(z_store, d, store, cache);
                     let z_ptr = ZPtr::from_parts(
                         *tag,
                         store.poseidon_cache.hash8(&[
@@ -130,12 +136,12 @@ pub(crate) fn populate_z_store<F: LurkField>(
                             *d.value(),
                         ]),
                     );
-                    z_store.dag.insert(z_ptr, ZChildren::Tuple4(a, b, c, d));
+                    z_store.dag.insert(z_ptr, ZPtrType::Tuple4(a, b, c, d));
                     z_ptr
                 }
             };
             cache.insert(*ptr, z_ptr);
-            Ok(z_ptr)
+            z_ptr
         }
     };
     recurse(ptr)
@@ -151,26 +157,26 @@ pub(crate) fn populate_store<F: LurkField>(
         if let Some(z_ptr) = cache.get(z_ptr) {
             Ok(*z_ptr)
         } else {
-            let ptr = match z_store.get_children(z_ptr) {
-                None => bail!("Couldn't find ZPtr"),
-                Some(ZChildren::Atom) => Ptr::Atom(z_ptr.tag(), *z_ptr.value()),
-                Some(ZChildren::Tuple2(z1, z2)) => {
+            let ptr = match z_store.get_type(z_ptr) {
+                None => bail!("Couldn't find ZPtr on ZStore"),
+                Some(ZPtrType::Atom) => Ptr::Atom(*z_ptr.tag(), *z_ptr.value()),
+                Some(ZPtrType::Tuple2(z1, z2)) => {
                     let ptr1 = populate_store(store, z1, z_store, cache)?;
                     let ptr2 = populate_store(store, z2, z_store, cache)?;
-                    store.intern_2_ptrs_hydrated(z_ptr.tag(), ptr1, ptr2, *z_ptr)
+                    store.intern_2_ptrs_hydrated(*z_ptr.tag(), ptr1, ptr2, *z_ptr)
                 }
-                Some(ZChildren::Tuple3(z1, z2, z3)) => {
+                Some(ZPtrType::Tuple3(z1, z2, z3)) => {
                     let ptr1 = populate_store(store, z1, z_store, cache)?;
                     let ptr2 = populate_store(store, z2, z_store, cache)?;
                     let ptr3 = populate_store(store, z3, z_store, cache)?;
-                    store.intern_3_ptrs_hydrated(z_ptr.tag(), ptr1, ptr2, ptr3, *z_ptr)
+                    store.intern_3_ptrs_hydrated(*z_ptr.tag(), ptr1, ptr2, ptr3, *z_ptr)
                 }
-                Some(ZChildren::Tuple4(z1, z2, z3, z4)) => {
+                Some(ZPtrType::Tuple4(z1, z2, z3, z4)) => {
                     let ptr1 = populate_store(store, z1, z_store, cache)?;
                     let ptr2 = populate_store(store, z2, z_store, cache)?;
                     let ptr3 = populate_store(store, z3, z_store, cache)?;
                     let ptr4 = populate_store(store, z4, z_store, cache)?;
-                    store.intern_4_ptrs_hydrated(z_ptr.tag(), ptr1, ptr2, ptr3, ptr4, *z_ptr)
+                    store.intern_4_ptrs_hydrated(*z_ptr.tag(), ptr1, ptr2, ptr3, ptr4, *z_ptr)
                 }
             };
             cache.insert(*z_ptr, ptr);

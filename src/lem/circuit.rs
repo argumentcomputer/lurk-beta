@@ -91,41 +91,49 @@ pub struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 impl<F: LurkField> GlobalAllocator<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
     /// If so, don't do anything. Otherwise, allocate and cache it.
-    fn new_const<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, f: F) {
-        self.0.entry(FWrap(f)).or_insert_with(|| {
-            allocate_constant(
-                &mut cs.namespace(|| format!("allocate constant {}", f.hex_digits())),
-                f,
-            )
-        });
+    pub fn new_const<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, f: F) {
+        self.0
+            .entry(FWrap(f))
+            .or_insert_with(|| allocate_constant(&mut cs.namespace(|| f.hex_digits()), f));
     }
 
     #[inline]
-    pub fn get_allocated_const(&self, f: F) -> Result<&AllocatedNum<F>> {
+    pub fn get_const(&self, f: F) -> Result<&AllocatedNum<F>> {
         self.0
             .get(&FWrap(f))
             .ok_or_else(|| anyhow!("Global allocation not found for {}", f.hex_digits()))
     }
 
     #[inline]
-    fn get_allocated_const_cloned(&self, f: F) -> Result<AllocatedNum<F>> {
-        self.get_allocated_const(f).cloned()
+    fn get_const_cloned(&self, f: F) -> Result<AllocatedNum<F>> {
+        self.get_const(f).cloned()
     }
 
     #[inline]
-    pub fn get_allocated_ptr(&self, tag: &super::Tag, hash: F) -> Result<AllocatedPtr<F>> {
-        Ok(AllocatedPtr::from_parts(
-            self.get_allocated_const_cloned(tag.to_field())?,
-            self.get_allocated_const_cloned(hash)?,
-        ))
+    pub fn get_tag<T: Tag>(&self, tag: &T) -> Result<&AllocatedNum<F>> {
+        self.get_const(tag.to_field())
     }
 
     #[inline]
-    pub fn get_allocated_ptr_from_z_ptr(&self, z_ptr: &ZPtr<F>) -> Result<AllocatedPtr<F>> {
+    pub fn get_tag_cloned<T: Tag>(&self, tag: &T) -> Result<AllocatedNum<F>> {
+        self.get_tag(tag).cloned()
+    }
+
+    #[inline]
+    pub fn get_allocated_ptr<T: Tag>(&self, tag: &T, hash: F) -> Result<AllocatedPtr<F>> {
         Ok(AllocatedPtr::from_parts(
-            self.get_allocated_const_cloned(z_ptr.tag_field())?,
-            self.get_allocated_const_cloned(*z_ptr.value())?,
+            self.get_tag_cloned(tag)?,
+            self.get_const_cloned(hash)?,
         ))
+    }
+
+    pub fn get_allocated_ptr_from_ptr(
+        &self,
+        ptr: &Ptr<F>,
+        store: &Store<F>,
+    ) -> Result<AllocatedPtr<F>> {
+        let crate::z_ptr::ZPtr(tag, hash) = store.hash_ptr(ptr);
+        self.get_allocated_ptr(&tag, hash)
     }
 }
 
@@ -518,9 +526,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
                 // Allocate the image tag if it hasn't been allocated before,
                 // create the full image pointer and add it to bound allocations
-                let img_tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned($tag.to_field())?;
+                let img_tag = ctx.global_allocator.get_tag_cloned($tag)?;
                 let AllocatedVal::Number(img_hash) = preallocated_img_hash else {
                     bail!("Expected number")
                 };
@@ -735,20 +741,14 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 );
             }
             Op::Lit(tgt, lit) => {
-                let lit_ptr = lit.to_ptr(ctx.store);
-                let lit_tag = lit_ptr.tag().to_field();
-                let allocated_tag = ctx.global_allocator.get_allocated_const_cloned(lit_tag)?;
-                let allocated_hash = ctx
+                let allocated_ptr = ctx
                     .global_allocator
-                    .get_allocated_const_cloned(*ctx.store.hash_ptr(&lit_ptr).value())?;
-                let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
+                    .get_allocated_ptr_from_ptr(&lit.to_ptr(ctx.store), ctx.store)?;
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
             Op::Cast(tgt, tag, src) => {
                 let src = bound_allocations.get_ptr(src)?;
-                let tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(tag.to_field())?;
+                let tag = ctx.global_allocator.get_tag_cloned(tag)?;
                 let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
@@ -790,9 +790,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let a_num = a.hash();
                 let b_num = b.hash();
                 let c_num = add(cs.namespace(|| "add"), a_num, b_num)?;
-                let tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(Num.to_field())?;
+                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -802,9 +800,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let a_num = a.hash();
                 let b_num = b.hash();
                 let c_num = sub(cs.namespace(|| "sub"), a_num, b_num)?;
-                let tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(Num.to_field())?;
+                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -814,9 +810,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let a_num = a.hash();
                 let b_num = b.hash();
                 let c_num = mul(cs.namespace(|| "mul"), a_num, b_num)?;
-                let tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(Num.to_field())?;
+                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -827,7 +821,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let b_num = b.hash();
 
                 let b_is_zero = &alloc_is_zero(cs.namespace(|| "b_is_zero"), b_num)?;
-                let one = ctx.global_allocator.get_allocated_const(F::ONE)?;
+                let one = ctx.global_allocator.get_const(F::ONE)?;
 
                 let divisor = pick(
                     cs.namespace(|| "maybe-dummy divisor"),
@@ -838,9 +832,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
                 let quotient = div(cs.namespace(|| "quotient"), a_num, &divisor)?;
 
-                let tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(Num.to_field())?;
+                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
                 let c = AllocatedPtr::from_parts(tag, quotient);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -942,9 +934,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     trunc_bits,
                     &trunc,
                 );
-                let tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(Num.to_field())?;
+                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
                 let c = AllocatedPtr::from_parts(tag, trunc);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -973,9 +963,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 implies_u64(cs.namespace(|| "diff_u64"), not_dummy, &diff)?;
 
                 enforce_product_and_sum(&mut cs, || "enforce a = b * div + rem", b, &div, &rem, a);
-                let tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(Num.to_field())?;
+                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
                 let div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
                 let rem_ptr = AllocatedPtr::from_parts(tag, rem);
                 bound_allocations.insert_ptr(tgt[0].clone(), div_ptr);
@@ -985,7 +973,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             Op::Hide(tgt, sec, pay) => {
                 let sec = bound_allocations.get_ptr(sec)?;
                 let pay = bound_allocations.get_ptr(pay)?;
-                let sec_tag = ctx.global_allocator.get_allocated_const(Num.to_field())?;
+                let sec_tag = ctx.global_allocator.get_const(Num.to_field())?;
                 let (preallocated_preimg, hash) =
                     &ctx.commitment_slots[next_slot.consume_commitment()];
                 let AllocatedVal::Number(hash) = hash else {
@@ -1015,9 +1003,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     pay.hash(),
                     &preallocated_preimg[2],
                 );
-                let tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(Comm.to_field())?;
+                let tag = ctx.global_allocator.get_tag_cloned(&Comm)?;
                 let allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
@@ -1025,7 +1011,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let comm = bound_allocations.get_ptr(comm)?;
                 let (preallocated_preimg, com_hash) =
                     &ctx.commitment_slots[next_slot.consume_commitment()];
-                let comm_tag = ctx.global_allocator.get_allocated_const(Comm.to_field())?;
+                let comm_tag = ctx.global_allocator.get_const(Comm.to_field())?;
                 let AllocatedVal::Number(com_hash) = com_hash else {
                     panic!("Excepted number")
                 };
@@ -1041,9 +1027,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     comm.hash(),
                     com_hash,
                 );
-                let sec_tag = ctx
-                    .global_allocator
-                    .get_allocated_const_cloned(Num.to_field())?;
+                let sec_tag = ctx.global_allocator.get_tag_cloned(&Num)?;
                 let allocated_sec_ptr =
                     AllocatedPtr::from_parts(sec_tag, preallocated_preimg[0].clone());
                 let allocated_pay_ptr = AllocatedPtr::from_parts(
@@ -1230,7 +1214,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             )?;
 
             // Now we enforce `MatchSymbol`'s tag
-            let sym_tag = ctx.global_allocator.get_allocated_const(Sym.to_field())?;
+            let sym_tag = ctx.global_allocator.get_const(Sym.to_field())?;
             implies_equal(
                 &mut cs.namespace(|| format!("implies equal {match_var}.tag")),
                 not_dummy,

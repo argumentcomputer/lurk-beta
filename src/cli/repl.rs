@@ -213,15 +213,15 @@ impl Repl<F> {
                     let output = &frames[n_frames - 1].output;
                     let mut z_store = ZStore::<F>::default();
                     let mut cache = HashMap::default();
-                    let expr = populate_z_store(&mut z_store, &input[0], &self.store, &mut cache)?;
-                    let env = populate_z_store(&mut z_store, &input[1], &self.store, &mut cache)?;
-                    let cont = populate_z_store(&mut z_store, &input[2], &self.store, &mut cache)?;
+                    let expr = populate_z_store(&mut z_store, &input[0], &self.store, &mut cache);
+                    let env = populate_z_store(&mut z_store, &input[1], &self.store, &mut cache);
+                    let cont = populate_z_store(&mut z_store, &input[2], &self.store, &mut cache);
                     let expr_out =
-                        populate_z_store(&mut z_store, &output[0], &self.store, &mut cache)?;
+                        populate_z_store(&mut z_store, &output[0], &self.store, &mut cache);
                     let env_out =
-                        populate_z_store(&mut z_store, &output[1], &self.store, &mut cache)?;
+                        populate_z_store(&mut z_store, &output[1], &self.store, &mut cache);
                     let cont_out =
-                        populate_z_store(&mut z_store, &output[2], &self.store, &mut cache)?;
+                        populate_z_store(&mut z_store, &output[2], &self.store, &mut cache);
 
                     let claim = Self::proof_claim(
                         &self.store,
@@ -230,7 +230,7 @@ impl Repl<F> {
                         (cont.parts(), cont_out.parts()),
                     );
 
-                    let claim_comm = Commitment::new(None, claim, &self.store)?;
+                    let claim_comm = Commitment::new(None, claim, &self.store);
                     let claim_hash = &claim_comm.hash.hex_digits();
                     let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
                     let proof_path = proof_path(proof_key);
@@ -292,7 +292,7 @@ impl Repl<F> {
     }
 
     fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
-        let commitment = Commitment::new(Some(secret), payload, &self.store)?;
+        let commitment = Commitment::new(Some(secret), payload, &self.store);
         let hash_str = &commitment.hash.hex_digits();
         commitment.persist()?;
         println!(

@@ -1518,7 +1518,7 @@ impl<F: LurkField> Store<F> {
                     Some(ptr)
                 }
                 (tag, None) => {
-                    let ptr = self.intern_maybe_opaque(tag, z_ptr.1);
+                    let ptr = self.intern_maybe_opaque(*tag, z_ptr.1);
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
@@ -1545,7 +1545,7 @@ impl<F: LurkField> Store<F> {
             Binop, Binop2, Call, Call0, Call2, Dummy, Emit, Error, If, Let, LetRec, Lookup,
             Outermost, Tail, Terminal, Unop,
         };
-        let tag: ContTag = z_ptr.tag();
+        let tag: ContTag = *z_ptr.tag();
 
         if let Some(cont) = z_store.get_cont(z_ptr) {
             let continuation = match cont {

@@ -281,7 +281,7 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
         )?;
 
         let comm_tag = g
-            .get_allocated_const(ExprTag::Comm.to_field())
+            .get_tag(&ExprTag::Comm)
             .expect("Comm tag should have been allocated");
 
         Ok(AllocatedPtr::from_parts(
@@ -445,7 +445,7 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
         )?;
 
         let num_tag = g
-            .get_allocated_const(ExprTag::Num.to_field())
+            .get_tag(&ExprTag::Num)
             .expect("Num tag should have been allocated");
         Ok(AllocatedPtr::from_parts(num_tag.clone(), new_root_val))
     }

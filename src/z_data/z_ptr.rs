@@ -86,8 +86,8 @@ impl<E: Tag, F: LurkField> ZPtr<E, F> {
     }
 
     /// Returns the tag
-    pub fn tag(&self) -> E {
-        self.0
+    pub fn tag(&self) -> &E {
+        &self.0
     }
 
     /// Returns the tag in field representation

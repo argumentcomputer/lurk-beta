@@ -445,10 +445,27 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    /// Interns a sequence of pointers as a cons-list. The terminating element
+    /// defaults to `nil` if `last` is `None`
+    fn intern_list(&self, elts: Vec<Ptr<F>>, last: Option<Ptr<F>>) -> Ptr<F> {
+        elts.into_iter()
+            .rev()
+            .fold(last.unwrap_or_else(|| self.intern_nil()), |acc, elt| {
+                self.intern_2_ptrs(Tag::Expr(Cons), elt, acc)
+            })
+    }
+
+    /// Interns a sequence of pointers as a proper (`nil`-terminated) cons-list
+    #[inline]
     pub fn list(&self, elts: Vec<Ptr<F>>) -> Ptr<F> {
-        elts.into_iter().rev().fold(self.intern_nil(), |acc, elt| {
-            self.intern_2_ptrs(Tag::Expr(Cons), elt, acc)
-        })
+        self.intern_list(elts, None)
+    }
+
+    /// Interns a sequence of pointers as an improper cons-list whose last
+    /// element is `last`
+    #[inline]
+    pub fn improper_list(&self, elts: Vec<Ptr<F>>, last: Ptr<F>) -> Ptr<F> {
+        self.intern_list(elts, Some(last))
     }
 
     /// Fetches a cons list that was interned. If the list is improper, the second
@@ -541,6 +558,21 @@ impl<F: LurkField> Store<F> {
         self.read(State::init_lurk_state().rccell(), input)
     }
 
+    #[inline]
+    pub fn expect_2_ptrs(&self, idx: usize) -> &(Ptr<F>, Ptr<F>) {
+        self.fetch_2_ptrs(idx).expect("Index missing from tuple2")
+    }
+
+    #[inline]
+    pub fn expect_3_ptrs(&self, idx: usize) -> &(Ptr<F>, Ptr<F>, Ptr<F>) {
+        self.fetch_3_ptrs(idx).expect("Index missing from tuple3")
+    }
+
+    #[inline]
+    pub fn expect_4_ptrs(&self, idx: usize) -> &(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>) {
+        self.fetch_4_ptrs(idx).expect("Index missing from tuple4")
+    }
+
     /// Recursively hashes the children of a `Ptr` in order to obtain its
     /// corresponding `ZPtr`. While traversing a `Ptr` tree, it consults the
     /// cache of `Ptr`s that have already been hydrated and also populates this
@@ -556,7 +588,7 @@ impl<F: LurkField> Store<F> {
                 if let Some(z_ptr) = self.z_cache.get(ptr) {
                     *z_ptr
                 } else {
-                    let (a, b) = self.fetch_2_ptrs(*idx).expect("Index missing from tuple2");
+                    let (a, b) = self.expect_2_ptrs(*idx);
                     let a = self.hash_ptr_unsafe(a);
                     let b = self.hash_ptr_unsafe(b);
                     let z_ptr = ZPtr::from_parts(
@@ -576,7 +608,7 @@ impl<F: LurkField> Store<F> {
                 if let Some(z_ptr) = self.z_cache.get(ptr) {
                     *z_ptr
                 } else {
-                    let (a, b, c) = self.fetch_3_ptrs(*idx).expect("Index missing from tuple3");
+                    let (a, b, c) = self.expect_3_ptrs(*idx);
                     let a = self.hash_ptr_unsafe(a);
                     let b = self.hash_ptr_unsafe(b);
                     let c = self.hash_ptr_unsafe(c);
@@ -599,7 +631,7 @@ impl<F: LurkField> Store<F> {
                 if let Some(z_ptr) = self.z_cache.get(ptr) {
                     *z_ptr
                 } else {
-                    let (a, b, c, d) = self.fetch_4_ptrs(*idx).expect("Index missing from tuple4");
+                    let (a, b, c, d) = self.expect_4_ptrs(*idx);
                     let a = self.hash_ptr_unsafe(a);
                     let b = self.hash_ptr_unsafe(b);
                     let c = self.hash_ptr_unsafe(c);
@@ -625,13 +657,17 @@ impl<F: LurkField> Store<F> {
     }
 
     /// Hashes pointers in parallel, consuming chunks of length 256, which is a
-    /// reasonably safe limit in terms of memory consumption.
+    /// reasonably safe limit. The danger of longer chunks is that the rightmost
+    /// pointers are the ones which are more likely to reach the recursion depth
+    /// limit in `hash_ptr_unsafe`. So we move in smaller chunks from left to
+    /// right, populating the `z_cache`, which can rescue `hash_ptr_unsafe` from
+    /// dangerously deep recursions
     fn hydrate_z_cache_with_ptrs(&self, ptrs: &[&Ptr<F>]) {
-        for chunk in ptrs.chunks(256) {
+        ptrs.chunks(256).for_each(|chunk| {
             chunk.par_iter().for_each(|ptr| {
                 self.hash_ptr_unsafe(ptr);
             });
-        }
+        });
     }
 
     /// Hashes enqueued `Ptr` trees from the bottom to the top, avoiding deep
@@ -680,19 +716,19 @@ impl<F: LurkField> Store<F> {
             match ptr {
                 Ptr::Atom(..) => (),
                 Ptr::Tuple2(_, idx) => {
-                    let (a, b) = self.fetch_2_ptrs(*idx).expect("Index missing from tuple2");
+                    let (a, b) = self.expect_2_ptrs(*idx);
                     for ptr in [a, b] {
                         feed_loop!(ptr)
                     }
                 }
                 Ptr::Tuple3(_, idx) => {
-                    let (a, b, c) = self.fetch_3_ptrs(*idx).expect("Index missing from tuple3");
+                    let (a, b, c) = self.expect_3_ptrs(*idx);
                     for ptr in [a, b, c] {
                         feed_loop!(ptr)
                     }
                 }
                 Ptr::Tuple4(_, idx) => {
-                    let (a, b, c, d) = self.fetch_4_ptrs(*idx).expect("Index missing from tuple4");
+                    let (a, b, c, d) = self.expect_4_ptrs(*idx);
                     for ptr in [a, b, c, d] {
                         feed_loop!(ptr)
                     }
@@ -1096,6 +1132,8 @@ mod tests {
         let c = Ptr::<Fr>::char('c');
         let b_c = store.cons(b, c);
         let a_b_c = store.cons(a, b_c);
+        let a_b_c_ = store.improper_list(vec![a, b], c);
+        assert_eq!(a_b_c, a_b_c_);
         assert_eq!(a_b_c.fmt_to_string(&store, state), "('a' 'b' . 'c')");
         let (elts, non_nil) = store.fetch_list(&a_b_c).unwrap();
         assert_eq!(elts.len(), 2);
