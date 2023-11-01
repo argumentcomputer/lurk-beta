@@ -59,6 +59,45 @@ impl ProveParams {
     fn name(&self) -> String {
         format!("Fibonacci-rc={}", self.reduction_count)
     }
+
+    fn params(&self) -> String {
+        let output_type = bench_parameters_env().unwrap_or("stdout".into());
+        match output_type.as_ref() {
+            "pr-comment" => format!("num-{}", self.fib_n),
+            "commit-comment" => todo!(),
+            "gh-pages" => todo!(),
+            _ => format!("num-{}/{}-{}", self.fib_n, self.sha, self.date),
+        }
+    }
+}
+
+fn bench_parameters_env() -> anyhow::Result<String> {
+    std::env::var("LURK_BENCH_OUTPUT")
+        .map_err(|e| anyhow!("Noise threshold env var isn't set: {e}"))
+}
+
+fn rc_env() -> anyhow::Result<Vec<usize>> {
+    std::env::var("LURK_RC")
+        .map_err(|e| anyhow!("Reduction count env var isn't set: {e}"))
+        .and_then(|rc| {
+            let vec: anyhow::Result<Vec<usize>> = rc
+                .split(',')
+                .map(|rc| {
+                    rc.parse::<usize>()
+                        .map_err(|e| anyhow!("Failed to parse RC: {e}"))
+                })
+                .collect();
+            vec
+        })
+}
+
+fn noise_threshold_env() -> anyhow::Result<f64> {
+    std::env::var("LURK_BENCH_NOISE_THRESHOLD")
+        .map_err(|e| anyhow!("Noise threshold env var isn't set: {e}"))
+        .and_then(|nt| {
+            nt.parse::<f64>()
+                .map_err(|e| anyhow!("Failed to parse noise threshold: {e}"))
+        })
 }
 
 fn fibo_prove<M: measurement::Measurement>(
@@ -66,20 +105,13 @@ fn fibo_prove<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
     state: &Rc<RefCell<State>>,
 ) {
-    let ProveParams {
-        fib_n,
-        reduction_count,
-        date,
-        sha,
-    } = prove_params;
-
-    let limit = fib_limit(fib_n, reduction_count);
+    let limit = fib_limit(prove_params.fib_n, prove_params.reduction_count);
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
 
     // use cached public params
     let instance = Instance::new(
-        reduction_count,
+        prove_params.reduction_count,
         lang_rc.clone(),
         true,
         Kind::NovaPublicParams,
@@ -87,16 +119,13 @@ fn fibo_prove<M: measurement::Measurement>(
     let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     // Track the number of `Lurk frames / sec`
-    let rc = reduction_count as u64;
+    let rc = prove_params.reduction_count as u64;
     c.throughput(criterion::Throughput::Elements(
-        rc * u64::div_ceil((11 + 16 * fib_n) as u64, rc),
+        rc * u64::div_ceil((11 + 16 * prove_params.fib_n) as u64, rc),
     ));
 
     c.bench_with_input(
-        BenchmarkId::new(
-            prove_params.name(),
-            format!("num-{}/{sha}-{date}", prove_params.fib_n),
-        ),
+        BenchmarkId::new(prove_params.name(), prove_params.params()),
         &prove_params,
         |b, prove_params| {
             let store = Store::default();
@@ -123,30 +152,6 @@ fn fibo_prove<M: measurement::Measurement>(
             )
         },
     );
-}
-
-fn rc_env() -> anyhow::Result<Vec<usize>> {
-    std::env::var("LURK_RC")
-        .map_err(|e| anyhow!("Reduction count env var isn't set: {e}"))
-        .and_then(|rc| {
-            let vec: anyhow::Result<Vec<usize>> = rc
-                .split(',')
-                .map(|rc| {
-                    rc.parse::<usize>()
-                        .map_err(|e| anyhow!("Failed to parse RC: {e}"))
-                })
-                .collect();
-            vec
-        })
-}
-
-fn noise_threshold_env() -> anyhow::Result<f64> {
-    std::env::var("LURK_BENCH_NOISE_THRESHOLD")
-        .map_err(|e| anyhow!("Noise threshold env var isn't set: {e}"))
-        .and_then(|nt| {
-            nt.parse::<f64>()
-                .map_err(|e| anyhow!("Failed to parse noise threshold: {e}"))
-        })
 }
 
 fn fibonacci_prove(c: &mut Criterion) {
