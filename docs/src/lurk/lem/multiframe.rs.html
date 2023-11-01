@@ -1015,6 +1015,36 @@
 <a href="#1015" id="1015">1015</a>
 <a href="#1016" id="1016">1016</a>
 <a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -1912,6 +1942,7 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
     <span class="kw">use </span>pasta_curves::Fq;
 
     <span class="kw">use crate</span>::{
@@ -2030,6 +2061,35 @@
             <span class="macro">assert_eq!</span>(x.tag().get_value(), y.tag().get_value());
             <span class="macro">assert_eq!</span>(x.hash().get_value(), y.hash().get_value());
         }
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>non_self_evaluating() {
+        <span class="kw">let </span>store = Store::default();
+
+        <span class="comment">// not self-evaluating
+        </span><span class="kw">let </span>expr = store.read_with_default_state(<span class="string">&quot;(+ 1 2)&quot;</span>).unwrap();
+
+        <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fq, Coproc&lt;Fq&gt;&gt;::new());
+        <span class="kw">let </span>(<span class="kw-2">mut </span>frames, <span class="kw">_</span>) = evaluate::&lt;Fq, Coproc&lt;Fq&gt;&gt;(<span class="prelude-val">None</span>, expr, <span class="kw-2">&amp;</span>store, <span class="number">1</span>).unwrap();
+        <span class="macro">assert_eq!</span>(frames.len(), <span class="number">1</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>frame = frames.pop().unwrap();
+        <span class="comment">// faking a trivial evaluation frame
+        </span>frame.output = <span class="macro">vec!</span>[expr, store.intern_nil(), store.cont_terminal()];
+
+        <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fq&gt;::new();
+
+        <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), <span class="number">1</span>));
+
+        store.hydrate_z_cache();
+        MultiFrame::from_frames(<span class="number">1</span>, <span class="kw-2">&amp;</span>[frame], <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>folding_config)
+            .pop()
+            .unwrap()
+            .synthesize(<span class="kw-2">&amp;mut </span>cs)
+            .unwrap();
+
+        <span class="macro">assert!</span>(!cs.is_satisfied());
     }
 }
 </code></pre></div></section></main></body></html>
