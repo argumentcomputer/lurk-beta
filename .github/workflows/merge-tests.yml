@@ -112,6 +112,12 @@ jobs:
       - name: Run GPU bench on PR branch
         run: just --dotenv-filename bench.env gpu-bench fibonacci_lem
         working-directory: ${{ github.workspace }}/benches
+      - name: copy the benchmark template and prepare it with data
+        run: |
+          cp .github/tables.toml .
+          sed -i -Ee 's/^"""$//g' tables.toml
+          echo "$(nvidia-smi --query-gpu=gpu_name --format=csv|tail -n1)\n\"\"\"" >> tables.toml
+        working-directory: ${{ github.workspace }}
       # Create a `criterion-table` and write in commit comment
       - name: Run `criterion-table`
         run: cat ${{ github.sha }}.json | criterion-table > BENCHMARKS.md
