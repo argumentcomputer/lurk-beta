@@ -32,6 +32,14 @@ jobs:
         run: sudo apt-get install -y pkg-config libssl-dev
       - uses: actions-rs/toolchain@v1
       - uses: Swatinem/rust-cache@v2
+      - name: Load env vars
+        run: |
+          set -a
+          source bench.env
+          set +a
+          echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
+          env | grep -E 'LURK|EC_GPU|CUDA'
+        working-directory: ${{ github.workspace }}/benches
       # Run the comparative benchmark and comment output on the PR
       - uses: boa-dev/criterion-compare-action@v3
         with:
@@ -77,6 +85,7 @@ jobs:
           set -a
           source bench.env
           set +a
+          echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
           env | grep -E 'LURK|EC_GPU|CUDA'
         working-directory: ${{ github.workspace }}/benches
       # Run the comparative benchmark and comment output on the PR
