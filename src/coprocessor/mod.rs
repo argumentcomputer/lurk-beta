@@ -9,9 +9,9 @@ use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::eval::IO;
 use crate::field::LurkField;
-use crate::lem::{circuit::GlobalAllocator, pointers::Ptr as LEMPtr, store::Store as LEMStore};
-use crate::ptr::{ContPtr, Ptr};
-use crate::store::Store;
+use crate::lem::{circuit::GlobalAllocator, pointers::Ptr, store::Store};
+use crate::ptr::{ContPtr, Ptr as AlphaPtr};
+use crate::store::Store as AlphaStore;
 use crate::tag::Tag;
 use crate::z_data::z_ptr::ZExprPtr;
 
@@ -36,7 +36,13 @@ pub mod trie;
 pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> {
     fn eval_arity(&self) -> usize;
 
-    fn evaluate(&self, s: &Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
+    fn evaluate_alpha(
+        &self,
+        s: &AlphaStore<F>,
+        args: AlphaPtr<F>,
+        env: AlphaPtr<F>,
+        cont: ContPtr<F>,
+    ) -> IO<F> {
         let Some(argv) = s.fetch_list(&args) else {
             return IO {
                 expr: args,
@@ -53,7 +59,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
             };
         };
 
-        let result = self.simple_evaluate(s, &argv);
+        let result = self.simple_evaluate_alpha(s, &argv);
 
         IO {
             expr: result,
@@ -62,8 +68,8 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         }
     }
 
-    /// As with all evaluation, the value returned from `simple_evaluate` must be fully evaluated.
-    fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
+    /// As with all evaluation, the value returned from `simple_evaluate_alpha` must be fully evaluated.
+    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F>;
 
     /// Returns true if this Coprocessor actually implements a circuit.
     fn has_circuit(&self) -> bool {
@@ -73,7 +79,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
     fn synthesize_step_circuit<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        store: &Store<F>,
+        store: &AlphaStore<F>,
         g: &GlobalAllocations<F>,
         coprocessor_zptr: &ZExprPtr<F>,
         input_expr: &AllocatedPtr<F>,
@@ -128,7 +134,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         )?;
 
         let (result_expr, result_env, result_cont) =
-            self.synthesize(cs, g, store, &inputs, input_env, input_cont, not_dummy)?;
+            self.synthesize_alpha(cs, g, store, &inputs, input_env, input_cont, not_dummy)?;
 
         let quoted_expr = AllocatedPtr::construct_list(
             &mut cs.namespace(|| "quote coprocessor result"),
@@ -145,26 +151,20 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         Ok((new_expr, new_env, new_cont))
     }
 
-    fn evaluate_lem_internal(&self, s: &LEMStore<F>, ptrs: &[LEMPtr<F>]) -> Vec<LEMPtr<F>> {
+    fn evaluate_internal(&self, s: &Store<F>, ptrs: &[Ptr<F>]) -> Vec<Ptr<F>> {
         let arity = self.arity();
         let args = &ptrs[0..arity];
         let env = &ptrs[arity];
         let cont = &ptrs[arity + 1];
-        self.evaluate_lem(s, args, env, cont)
+        self.evaluate(s, args, env, cont)
     }
 
-    fn evaluate_lem(
-        &self,
-        s: &LEMStore<F>,
-        args: &[LEMPtr<F>],
-        env: &LEMPtr<F>,
-        cont: &LEMPtr<F>,
-    ) -> Vec<LEMPtr<F>> {
-        vec![self.evaluate_lem_simple(s, args), *env, *cont]
+    fn evaluate(&self, s: &Store<F>, args: &[Ptr<F>], env: &Ptr<F>, cont: &Ptr<F>) -> Vec<Ptr<F>> {
+        vec![self.evaluate_simple(s, args), *env, *cont]
     }
 
     // TODO: this default implementation should disappear once we make the switch to LEM
-    fn evaluate_lem_simple(&self, _s: &LEMStore<F>, _args: &[LEMPtr<F>]) -> LEMPtr<F> {
+    fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
         unimplemented!()
     }
 }
@@ -180,11 +180,11 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         todo!()
     }
 
-    fn synthesize<CS: ConstraintSystem<F>>(
+    fn synthesize_alpha<CS: ConstraintSystem<F>>(
         &self,
         _cs: &mut CS,
         _g: &GlobalAllocations<F>,
-        _store: &Store<F>,
+        _store: &AlphaStore<F>,
         _input_exprs: &[AllocatedPtr<F>],
         _input_env: &AllocatedPtr<F>,
         _input_cont: &AllocatedContPtr<F>,
@@ -194,11 +194,11 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         unimplemented!()
     }
 
-    fn synthesize_lem_internal<CS: ConstraintSystem<F>>(
+    fn synthesize_internal<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
-        s: &LEMStore<F>,
+        s: &Store<F>,
         not_dummy: &Boolean,
         ptrs: &[AllocatedPtr<F>],
     ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
@@ -206,31 +206,31 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         let args = &ptrs[0..arity];
         let env = &ptrs[arity];
         let cont = &ptrs[arity + 1];
-        self.synthesize_lem(cs, g, s, not_dummy, args, env, cont)
+        self.synthesize(cs, g, s, not_dummy, args, env, cont)
     }
 
-    fn synthesize_lem<CS: ConstraintSystem<F>>(
+    fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
-        s: &LEMStore<F>,
+        s: &Store<F>,
         not_dummy: &Boolean,
         args: &[AllocatedPtr<F>],
         env: &AllocatedPtr<F>,
         cont: &AllocatedPtr<F>,
     ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
         Ok(vec![
-            self.synthesize_lem_simple(cs, g, s, not_dummy, args)?,
+            self.synthesize_simple(cs, g, s, not_dummy, args)?,
             env.clone(),
             cont.clone(),
         ])
     }
 
-    fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+    fn synthesize_simple<CS: ConstraintSystem<F>>(
         &self,
         _cs: &mut CS,
         _g: &GlobalAllocator<F>,
-        _s: &LEMStore<F>,
+        _s: &Store<F>,
         _not_dummy: &Boolean,
         _args: &[AllocatedPtr<F>],
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
@@ -309,11 +309,11 @@ pub(crate) mod test {
             2
         }
 
-        fn synthesize<CS: ConstraintSystem<F>>(
+        fn synthesize_alpha<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
             g: &GlobalAllocations<F>,
-            _store: &Store<F>,
+            _store: &AlphaStore<F>,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,
             input_cont: &AllocatedContPtr<F>,
@@ -334,11 +334,11 @@ pub(crate) mod test {
             Ok((expr, env, cont.into()))
         }
 
-        fn synthesize_lem<CS: ConstraintSystem<F>>(
+        fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
             g: &GlobalAllocator<F>,
-            s: &LEMStore<F>,
+            s: &Store<F>,
             _not_dummy: &Boolean,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,
@@ -366,7 +366,13 @@ pub(crate) mod test {
         }
 
         /// It squares the first arg and adds it to the second.
-        fn evaluate(&self, s: &Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
+        fn evaluate_alpha(
+            &self,
+            s: &AlphaStore<F>,
+            args: AlphaPtr<F>,
+            env: AlphaPtr<F>,
+            cont: ContPtr<F>,
+        ) -> IO<F> {
             let Some(argv) = s.fetch_list(&args) else {
                 return IO {
                     expr: args,
@@ -415,7 +421,7 @@ pub(crate) mod test {
             }
         }
 
-        fn simple_evaluate(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+        fn simple_evaluate_alpha(&self, _s: &AlphaStore<F>, _args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
             unreachable!()
         }
 
@@ -423,20 +429,20 @@ pub(crate) mod test {
             true
         }
 
-        fn evaluate_lem(
+        fn evaluate(
             &self,
-            s: &LEMStore<F>,
-            args: &[LEMPtr<F>],
-            env: &LEMPtr<F>,
-            cont: &LEMPtr<F>,
-        ) -> Vec<LEMPtr<F>> {
-            let LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), a) = &args[0] else {
+            s: &Store<F>,
+            args: &[Ptr<F>],
+            env: &Ptr<F>,
+            cont: &Ptr<F>,
+        ) -> Vec<Ptr<F>> {
+            let Ptr::Atom(LEMTag::Expr(ExprTag::Num), a) = &args[0] else {
                 return vec![args[0], *env, s.cont_error()];
             };
-            let LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), b) = &args[1] else {
+            let Ptr::Atom(LEMTag::Expr(ExprTag::Num), b) = &args[1] else {
                 return vec![args[1], *env, s.cont_error()];
             };
-            vec![LEMPtr::num((*a * *a) + *b), *env, *cont]
+            vec![Ptr::num((*a * *a) + *b), *env, *cont]
         }
     }
 

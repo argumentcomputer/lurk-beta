@@ -159,7 +159,7 @@ impl Block {
                     let cproc = lang
                         .lookup_by_sym(sym)
                         .ok_or_else(|| anyhow!("Coprocessor for {sym} not found"))?;
-                    let out_ptrs = cproc.evaluate_lem_internal(store, &inp_ptrs);
+                    let out_ptrs = cproc.evaluate_internal(store, &inp_ptrs);
                     if out.len() != out_ptrs.len() {
                         bail!("Incompatible output length for coprocessor {sym}")
                     }

@@ -33,18 +33,18 @@ pub fn derive_enum_coproc(input: TokenStream) -> TokenStream {
 
 fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
     let eval_arity_arms = eval_arity_match_arms(name, variants);
+    let evaluate_alpha_arms = evaluate_alpha_match_arms(name, variants);
+    let simple_evaluate_alpha_arms = simple_evaluate_alpha_match_arms(name, variants);
+    let evaluate_internal_arms = evaluate_internal_match_arms(name, variants);
     let evaluate_arms = evaluate_match_arms(name, variants);
-    let simple_evaluate_arms = simple_evaluate_match_arms(name, variants);
-    let evaluate_lem_internal_arms = evaluate_lem_internal_match_arms(name, variants);
-    let evaluate_lem_arms = evaluate_lem_match_arms(name, variants);
-    let evaluate_lem_simple_arms = evaluate_lem_simple_match_arms(name, variants);
+    let evaluate_simple_arms = evaluate_simple_match_arms(name, variants);
     let has_circuit_arms = has_circuit_match_arms(name, variants);
 
     let arity_arms = arity_match_arms(name, variants);
+    let synthesize_alpha_arms = synthesize_alpha_match_arms(name, variants);
+    let synthesize_internal_arms = synthesize_internal_match_arms(name, variants);
     let synthesize_arms = synthesize_match_arms(name, variants);
-    let synthesize_lem_internal_arms = synthesize_lem_internal_match_arms(name, variants);
-    let synthesize_lem_arms = synthesize_lem_match_arms(name, variants);
-    let synthesize_lem_simple_arms = synthesize_lem_simple_match_arms(name, variants);
+    let synthesize_simple_arms = synthesize_simple_match_arms(name, variants);
 
     let from_impls = from_impls(name, variants);
 
@@ -56,33 +56,33 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 }
             }
 
-            fn evaluate(&self, s: &lurk::store::Store<F>, args: lurk::ptr::Ptr<F>, env: lurk::ptr::Ptr<F>, cont: lurk::ptr::ContPtr<F>) -> lurk::eval::IO<F> {
+            fn evaluate_alpha(&self, s: &lurk::store::Store<F>, args: lurk::ptr::Ptr<F>, env: lurk::ptr::Ptr<F>, cont: lurk::ptr::ContPtr<F>) -> lurk::eval::IO<F> {
+                match self {
+                    #evaluate_alpha_arms
+                }
+            }
+
+            fn simple_evaluate_alpha(&self, s: &lurk::store::Store<F>, args: &[lurk::ptr::Ptr<F>]) -> lurk::ptr::Ptr<F> {
+                match self {
+                    #simple_evaluate_alpha_arms
+                }
+            }
+
+            fn evaluate_internal(&self, s: &lurk::lem::store::Store<F>, ptrs: &[lurk::lem::pointers::Ptr<F>]) -> Vec<lurk::lem::pointers::Ptr<F>> {
+                match self {
+                    #evaluate_internal_arms
+                }
+            }
+
+            fn evaluate(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr<F>], env: &lurk::lem::pointers::Ptr<F>, cont: &lurk::lem::pointers::Ptr<F>) -> Vec<lurk::lem::pointers::Ptr<F>> {
                 match self {
                     #evaluate_arms
                 }
             }
 
-            fn simple_evaluate(&self, s: &lurk::store::Store<F>, args: &[lurk::ptr::Ptr<F>]) -> lurk::ptr::Ptr<F> {
+            fn evaluate_simple(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr<F>]) -> lurk::lem::pointers::Ptr<F> {
                 match self {
-                    #simple_evaluate_arms
-                }
-            }
-
-            fn evaluate_lem_internal(&self, s: &lurk::lem::store::Store<F>, ptrs: &[lurk::lem::pointers::Ptr<F>]) -> Vec<lurk::lem::pointers::Ptr<F>> {
-                match self {
-                    #evaluate_lem_internal_arms
-                }
-            }
-
-            fn evaluate_lem(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr<F>], env: &lurk::lem::pointers::Ptr<F>, cont: &lurk::lem::pointers::Ptr<F>) -> Vec<lurk::lem::pointers::Ptr<F>> {
-                match self {
-                    #evaluate_lem_arms
-                }
-            }
-
-            fn evaluate_lem_simple(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr<F>]) -> lurk::lem::pointers::Ptr<F> {
-                match self {
-                    #evaluate_lem_simple_arms
+                    #evaluate_simple_arms
                 }
             }
 
@@ -100,7 +100,7 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 }
             }
 
-            fn synthesize<CS: bellpepper_core::ConstraintSystem<F>>(
+            fn synthesize_alpha<CS: bellpepper_core::ConstraintSystem<F>>(
                 &self,
                 cs: &mut CS,
                 g: &lurk::circuit::gadgets::data::GlobalAllocations<F>,
@@ -111,11 +111,11 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 not_dummy: &bellpepper::gadgets::boolean::Boolean,
             ) -> Result<(lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedContPtr<F>), bellpepper_core::SynthesisError> {
                 match self {
-                    #synthesize_arms
+                    #synthesize_alpha_arms
                 }
             }
 
-            fn synthesize_lem_internal<CS: bellpepper_core::ConstraintSystem<F>>(
+            fn synthesize_internal<CS: bellpepper_core::ConstraintSystem<F>>(
                 &self,
                 cs: &mut CS,
                 g: &lurk::lem::circuit::GlobalAllocator<F>,
@@ -124,11 +124,11 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 ptrs: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
             ) -> Result<Vec<lurk::circuit::gadgets::pointer::AllocatedPtr<F>>, bellpepper_core::SynthesisError> {
                 match self {
-                    #synthesize_lem_internal_arms
+                    #synthesize_internal_arms
                 }
             }
 
-            fn synthesize_lem<CS: bellpepper_core::ConstraintSystem<F>>(
+            fn synthesize<CS: bellpepper_core::ConstraintSystem<F>>(
                 &self,
                 cs: &mut CS,
                 g: &lurk::lem::circuit::GlobalAllocator<F>,
@@ -139,11 +139,11 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 cont: &lurk::circuit::gadgets::pointer::AllocatedPtr<F>,
             ) -> Result<Vec<lurk::circuit::gadgets::pointer::AllocatedPtr<F>>, bellpepper_core::SynthesisError> {
                 match self {
-                    #synthesize_lem_arms
+                    #synthesize_arms
                 }
             }
 
-            fn synthesize_lem_simple<CS: bellpepper_core::ConstraintSystem<F>>(
+            fn synthesize_simple<CS: bellpepper_core::ConstraintSystem<F>>(
                 &self,
                 cs: &mut CS,
                 g: &lurk::lem::circuit::GlobalAllocator<F>,
@@ -152,7 +152,7 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 args: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
             ) -> Result<lurk::circuit::gadgets::pointer::AllocatedPtr<F>, bellpepper_core::SynthesisError> {
                 match self {
-                    #synthesize_lem_simple_arms
+                    #synthesize_simple_arms
                 }
             }
         }
@@ -174,6 +174,42 @@ fn eval_arity_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::Toke
     match_arms
 }
 
+fn evaluate_alpha_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(coprocessor) => coprocessor.evaluate_alpha(s, args, env, cont),
+        });
+    }
+    match_arms
+}
+
+fn simple_evaluate_alpha_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(coprocessor) => coprocessor.simple_evaluate_alpha(s, args),
+        });
+    }
+    match_arms
+}
+
+fn evaluate_internal_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(coprocessor) => coprocessor.evaluate_internal(s, ptrs),
+        });
+    }
+    match_arms
+}
+
 fn evaluate_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
     let mut match_arms = quote! {};
     for variant in variants.variants.iter() {
@@ -186,49 +222,13 @@ fn evaluate_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenS
     match_arms
 }
 
-fn simple_evaluate_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+fn evaluate_simple_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
     let mut match_arms = quote! {};
     for variant in variants.variants.iter() {
         let variant_ident = &variant.ident;
 
         match_arms.extend(quote! {
-            #name::#variant_ident(coprocessor) => coprocessor.simple_evaluate(s, args),
-        });
-    }
-    match_arms
-}
-
-fn evaluate_lem_internal_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
-    let mut match_arms = quote! {};
-    for variant in variants.variants.iter() {
-        let variant_ident = &variant.ident;
-
-        match_arms.extend(quote! {
-            #name::#variant_ident(coprocessor) => coprocessor.evaluate_lem_internal(s, ptrs),
-        });
-    }
-    match_arms
-}
-
-fn evaluate_lem_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
-    let mut match_arms = quote! {};
-    for variant in variants.variants.iter() {
-        let variant_ident = &variant.ident;
-
-        match_arms.extend(quote! {
-            #name::#variant_ident(coprocessor) => coprocessor.evaluate_lem(s, args, env, cont),
-        });
-    }
-    match_arms
-}
-
-fn evaluate_lem_simple_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
-    let mut match_arms = quote! {};
-    for variant in variants.variants.iter() {
-        let variant_ident = &variant.ident;
-
-        match_arms.extend(quote! {
-            #name::#variant_ident(coprocessor) => coprocessor.evaluate_lem_simple(s, args),
+            #name::#variant_ident(coprocessor) => coprocessor.evaluate_simple(s, args),
         });
     }
     match_arms
@@ -258,52 +258,49 @@ fn arity_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStre
     match_arms
 }
 
+fn synthesize_alpha_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize_alpha(cs, g, store, input_exprs, input_env, input_cont, not_dummy),
+        });
+    }
+    match_arms
+}
+
+fn synthesize_internal_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize_internal(cs, g, s, not_dummy, ptrs),
+        });
+    }
+    match_arms
+}
+
 fn synthesize_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
     let mut match_arms = quote! {};
     for variant in variants.variants.iter() {
         let variant_ident = &variant.ident;
 
         match_arms.extend(quote! {
-            #name::#variant_ident(cocircuit) => cocircuit.synthesize(cs, g, store, input_exprs, input_env, input_cont, not_dummy),
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize(cs, g, s, not_dummy, args, env, cont),
         });
     }
     match_arms
 }
 
-fn synthesize_lem_internal_match_arms(
-    name: &Ident,
-    variants: &DataEnum,
-) -> proc_macro2::TokenStream {
+fn synthesize_simple_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
     let mut match_arms = quote! {};
     for variant in variants.variants.iter() {
         let variant_ident = &variant.ident;
 
         match_arms.extend(quote! {
-            #name::#variant_ident(cocircuit) => cocircuit.synthesize_lem_internal(cs, g, s, not_dummy, ptrs),
-        });
-    }
-    match_arms
-}
-
-fn synthesize_lem_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
-    let mut match_arms = quote! {};
-    for variant in variants.variants.iter() {
-        let variant_ident = &variant.ident;
-
-        match_arms.extend(quote! {
-            #name::#variant_ident(cocircuit) => cocircuit.synthesize_lem(cs, g, s, not_dummy, args, env, cont),
-        });
-    }
-    match_arms
-}
-
-fn synthesize_lem_simple_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
-    let mut match_arms = quote! {};
-    for variant in variants.variants.iter() {
-        let variant_ident = &variant.ident;
-
-        match_arms.extend(quote! {
-            #name::#variant_ident(cocircuit) => cocircuit.synthesize_lem_simple(cs, g, s, not_dummy, args),
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize_simple(cs, g, s, not_dummy, args),
         });
     }
     match_arms

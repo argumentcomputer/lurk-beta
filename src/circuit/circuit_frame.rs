@@ -3160,7 +3160,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                         .alloc_equal(&mut cs.namespace(|| "inner_not_dummy"), &allocated_z_ptr)?;
                     let inner_not_dummy = and!(cs, &inner_not_dummy0, not_dummy)?;
 
-                    let (result_expr, result_env, result_cont) = coproc.synthesize(
+                    let (result_expr, result_env, result_cont) = coproc.synthesize_alpha(
                         &mut cs.namespace(|| "coproc"),
                         g,
                         store,

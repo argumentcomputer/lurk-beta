@@ -101,7 +101,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     let store = &mut Store::<Fr>::new();
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
-    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
+    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings_alpha(
         store,
         vec![(cproc_sym, Sha256Coprocessor::new(arity).into())],
     );
@@ -190,7 +190,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     let store = &mut Store::<Fr>::new();
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
-    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
+    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings_alpha(
         store,
         vec![(cproc_sym, Sha256Coprocessor::new(arity).into())],
     );
@@ -276,7 +276,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
     let store = &mut Store::<Fr>::new();
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
-    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
+    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings_alpha(
         store,
         vec![(cproc_sym, Sha256Coprocessor::new(arity).into())],
     );

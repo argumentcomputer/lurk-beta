@@ -12,10 +12,10 @@ use crate::{
         pointer::{AllocatedContPtr, AllocatedPtr},
     },
     field::LurkField,
-    lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore},
+    lem::{pointers::Ptr, store::Store},
     num::Num,
-    ptr::Ptr,
-    store::Store,
+    ptr::Ptr as AlphaPtr,
+    store::Store as AlphaStore,
     tag::{ExprTag, Tag},
     z_ptr::ZPtr,
 };
@@ -94,11 +94,11 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         self.n
     }
 
-    fn synthesize<CS: ConstraintSystem<F>>(
+    fn synthesize_alpha<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         _g: &GlobalAllocations<F>,
-        _store: &Store<F>,
+        _store: &AlphaStore<F>,
         input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
@@ -112,7 +112,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
     }
 
     #[inline]
-    fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+    fn synthesize_simple<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         _g: &lurk::lem::circuit::GlobalAllocator<F>,
@@ -129,7 +129,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         self.n
     }
 
-    fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
         let z_ptrs = args
             .iter()
             .map(|ptr| s.hash_expr(ptr).unwrap())
@@ -142,9 +142,9 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         true
     }
 
-    fn evaluate_lem_simple(&self, s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F> {
+    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         let z_ptrs = args.iter().map(|ptr| s.hash_ptr(ptr)).collect::<Vec<_>>();
-        LEMPtr::num(compute_sha256(self.n, &z_ptrs))
+        Ptr::num(compute_sha256(self.n, &z_ptrs))
     }
 }
 

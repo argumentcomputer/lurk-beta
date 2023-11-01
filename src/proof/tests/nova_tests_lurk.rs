@@ -3214,7 +3214,7 @@ fn test_dumb_lang() {
     let dumb = DumbCoprocessor::new();
     let coproc = DumbCoproc::DC(dumb);
 
-    lang.add_coprocessor(name, coproc, s);
+    lang.add_coprocessor_alpha(name, coproc, s);
 
     // 9^2 + 8 = 89
     let expr = "(cproc-dumb 9 8)";
