@@ -28,4 +28,5 @@ xclippy = [
     "-Wrust_2018_idioms",
     "-Wtrivial_numeric_casts",
     "-Wunused_lifetimes",
+    "-Wunreachable_pub"
 ]
