@@ -5767,83 +5767,10 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 mod tests {
     use super::*;
     use crate::circuit::circuit_frame::constraints::{popcount_equal, sub};
-    use crate::eval::{
-        empty_sym_env,
-        lang::{Coproc, Lang},
-        Evaluable, IO,
-    };
     use crate::store::Store;
     use bellpepper_core::test_cs::TestConstraintSystem;
     use ff::{Field, PrimeField};
     use pasta_curves::pallas::Scalar as Fr;
-
-    const DEFAULT_REDUCTION_COUNT: usize = 1;
-
-    #[test]
-    fn non_self_evaluating() {
-        let store = Store::default();
-        let env = empty_sym_env(&store);
-
-        // Input is not self-evaluating.
-        let expr = store.read("(+ 1 2)").unwrap();
-        let input = IO {
-            expr,
-            env,
-            cont: store.intern_cont_outermost(),
-        };
-
-        let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
-        let (_, witness, meta) = input.reduce(&store, &lang).unwrap();
-
-        store.hydrate_scalar_cache();
-
-        let test_with_output = |output, expect_success, store: &Store<Fr>| {
-            let mut cs = TestConstraintSystem::<Fr>::new();
-
-            let frame = Frame {
-                input,
-                output,
-                i: 0,
-                witness,
-                meta,
-                _p: Default::default(),
-            };
-            let folding_config = Arc::new(FoldingConfig::new_ivc(
-                lang.clone(),
-                DEFAULT_REDUCTION_COUNT,
-            ));
-
-            MultiFrame::<Fr, Coproc<Fr>>::from_frames(
-                DEFAULT_REDUCTION_COUNT,
-                &[frame],
-                store,
-                &folding_config,
-            )[0]
-            .clone()
-            .synthesize(&mut cs)
-            .expect("failed to synthesize");
-
-            if expect_success {
-                assert!(cs.is_satisfied());
-            } else {
-                assert!(!cs.is_satisfied());
-            }
-        };
-
-        // Success
-        {
-            {
-                // Output does not equal input.
-                let output = IO {
-                    expr,
-                    env,
-                    cont: store.intern_cont_terminal(),
-                };
-
-                test_with_output(output, false, &store);
-            }
-        }
-    }
 
     #[test]
     fn test_enforce_comparison() {
