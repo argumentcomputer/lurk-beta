@@ -90,20 +90,24 @@ Input Size (Elements)
 3600.0
 </text>
 <polyline fill="none" opacity="1" stroke="#000000" stroke-width="1" points="933,474 933,479 "/>
+<circle cx="130" cy="447" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="130" cy="448" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="130" cy="447" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="130" cy="447" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="933" cy="55" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
+<circle cx="933" cy="55" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="933" cy="52" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="933" cy="55" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#082222" stroke-width="1" points="130,448 130,447 130,447 933,55 933,52 933,55 "/>
+<polyline fill="none" opacity="1" stroke="#082222" stroke-width="1" points="130,447 130,448 130,447 130,447 933,55 933,55 933,52 933,55 "/>
+<circle cx="86" cy="473" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
 <circle cx="86" cy="473" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
 <circle cx="86" cy="466" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
-<circle cx="86" cy="473" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
+<circle cx="86" cy="471" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
+<circle cx="799" cy="150" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
 <circle cx="799" cy="154" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
 <circle cx="799" cy="146" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
-<circle cx="799" cy="150" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#068B57" stroke-width="1" points="86,473 86,466 86,473 799,154 799,146 799,150 "/>
+<circle cx="799" cy="148" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
+<polyline fill="none" opacity="1" stroke="#068B57" stroke-width="1" points="86,473 86,473 86,466 86,471 799,150 799,154 799,146 799,148 "/>
 <text x="131" y="67" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#000000">
 Fibonacci-rc=600
 </text>
