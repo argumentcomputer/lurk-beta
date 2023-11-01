@@ -200,20 +200,6 @@ impl Symbol {
         res
     }
 
-    // TODO: needs some kind of whitespace escaping
-    pub fn fmt_to_string_raw(&self) -> String {
-        let mut res = String::from("~(");
-        let mut iter = self.path.iter().peekable();
-        while let Some(next) = iter.next() {
-            res.push_str(next);
-            match iter.peek() {
-                Some(_) => res.push(' '),
-                None => res.push(')'),
-            }
-        }
-        res
-    }
-
     pub fn prints_as_absolute(&self) -> bool {
         if self.path.is_empty() {
             false

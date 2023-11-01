@@ -396,12 +396,6 @@ where
     }
 }
 
-impl<Name: HashName, T, const L: usize, F: LurkField> HashWitness<Name, T, L, F> {
-    pub fn length() -> usize {
-        L
-    }
-}
-
 pub type ConsWitness<F> = HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F>;
 pub type ContWitness<F> = HashWitness<ContName, Cont<F>, MAX_CONTS_PER_REDUCTION, F>;
 
@@ -492,23 +486,8 @@ impl<
         self.slots.iter().map(|x| x.1).collect()
     }
 
-    pub fn all_names(&self) -> Vec<Name> {
-        self.slots.iter().map(|x| x.0).collect()
-    }
-
-    pub fn stubs_used(&self) -> Vec<Stub<T>> {
-        self.all_stubs()
-            .into_iter()
-            .filter(|c| !c.is_dummy())
-            .collect()
-    }
-
     pub fn stubs_used_count(&self) -> usize {
         self.all_stubs().iter().filter(|c| !c.is_dummy()).count()
-    }
-
-    pub fn total_stub(&self) -> usize {
-        self.all_stubs().len()
     }
 }
 

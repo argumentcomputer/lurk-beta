@@ -1285,20 +1285,6 @@ impl<F: LurkField> Store<F> {
         self.get_z_cont(ptr, &mut None).ok().map(|x| x.0)
     }
 
-    pub fn hash_string(&self, s: &str) -> ZExprPtr<F> {
-        let ptr = self.intern_string(s);
-        self.get_z_expr(&ptr, &mut None)
-            .expect("known string can't be opaque")
-            .0
-    }
-
-    pub fn hash_symbol(&self, s: &Symbol) -> ZExprPtr<F> {
-        let ptr = self.intern_symbol(s);
-        self.get_z_expr(&ptr, &mut None)
-            .expect("known symbol can't be opaque")
-            .0
-    }
-
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.tag {
             ExprTag::Nil => Ok((lurk_sym_ptr!(self, nil), lurk_sym_ptr!(self, nil))),
@@ -1343,19 +1329,6 @@ impl<F: LurkField> Store<F> {
                 "one or more values missing when comparing Ptrs for equality".into(),
             )),
         }
-    }
-
-    pub fn cons_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
-        assert_eq!(ExprTag::Cons, a.tag);
-        assert_eq!(ExprTag::Cons, b.tag);
-
-        let a_opaque = a.is_opaque();
-        let b_opaque = b.is_opaque();
-
-        if !a_opaque && !b_opaque {
-            return a == b;
-        }
-        self.hash_expr(a) == self.hash_expr(b)
     }
 
     /// Fill the cache for Scalars. Only Ptrs which have been interned since last hydration will be hashed, so it is
