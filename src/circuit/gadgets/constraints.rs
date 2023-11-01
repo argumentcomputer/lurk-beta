@@ -74,45 +74,13 @@ pub(crate) fn enforce_equal_const<F: PrimeField, A, AR, CS: ConstraintSystem<F>>
     );
 }
 
-/// Adds a constraint to CS, enforcing a add relationship between the allocated numbers a, b, and sum.
-///
-/// a + b = sum
-pub(crate) fn enforce_sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    annotation: A,
-    a: &AllocatedNum<F>,
-    b: &AllocatedNum<F>,
-    sum: &AllocatedNum<F>,
-) where
-    A: FnOnce() -> AR,
-    AR: Into<String>,
-{
-    // (a + b) * 1 = sum
-    cs.enforce(
-        annotation,
-        |lc| lc + a.get_variable() + b.get_variable(),
-        |lc| lc + CS::one(),
-        |lc| lc + sum.get_variable(),
-    );
-}
-
 /// Compute sum and enforce it.
 pub(crate) fn add<F: PrimeField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
+    cs: CS,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    let res = AllocatedNum::alloc(cs.namespace(|| "add_num"), || {
-        let mut tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
-        tmp.add_assign(&b.get_value().ok_or(SynthesisError::AssignmentMissing)?);
-
-        Ok(tmp)
-    })?;
-
-    // a + b = res
-    enforce_sum(&mut cs, || "sum constraint", a, b, &res);
-
-    Ok(res)
+    a.add(cs, b)
 }
 
 /// Creates a linear combination representing the popcount (sum of one bits) of `v`.
