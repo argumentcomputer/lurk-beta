@@ -37,9 +37,9 @@
 
 </span><span class="kw">use crate</span>::{
     field::LurkField,
-    lem::{pointers::Ptr <span class="kw">as </span>LEMPtr, store::Store <span class="kw">as </span>LEMStore},
-    ptr::Ptr,
-    store::Store,
+    lem::{pointers::Ptr, store::Store},
+    ptr::Ptr <span class="kw">as </span>AlphaPtr,
+    store::Store <span class="kw">as </span>AlphaStore,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::pointer::AllocatedPtr;
@@ -60,8 +60,8 @@
 
     <span class="kw">fn </span>into_circom_input(<span class="self">self</span>, input: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;]) -&gt; Vec&lt;(String, Vec&lt;F&gt;)&gt;;
 
-    <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt;;
+    <span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt;;
 
-    <span class="kw">fn </span>simple_evaluate_lem(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;]) -&gt; LEMPtr&lt;F&gt;;
+    <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt;;
 }
 </code></pre></div></section></main></body></html>

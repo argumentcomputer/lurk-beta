@@ -1438,10 +1438,10 @@
 <span class="kw">use </span><span class="kw">crate</span>::eval::lang::Lang;
 <span class="kw">use </span><span class="kw">crate</span>::field::{FWrap, LurkField};
 <span class="kw">use </span><span class="kw">crate</span>::hash::{HashArity, HashConstants, InversePoseidonCache, PoseidonCache};
-<span class="kw">use </span><span class="kw">crate</span>::lem::{pointers::Ptr <span class="kw">as </span>LEMPtr, store::Store <span class="kw">as </span>LEMStore};
+<span class="kw">use </span><span class="kw">crate</span>::lem::{pointers::Ptr, store::Store};
 <span class="kw">use </span><span class="kw">crate</span>::num::Num;
-<span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
-<span class="kw">use </span><span class="kw">crate</span>::store::Store;
+<span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr <span class="kw">as </span>AlphaPtr;
+<span class="kw">use </span><span class="kw">crate</span>::store::Store <span class="kw">as </span>AlphaStore;
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ExprTag, Tag};
 
 <span class="attr">#[derive(Debug)]
@@ -1474,7 +1474,7 @@
         <span class="number">0
     </span>}
 
-    <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt; {
         <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; = Trie::new(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache);
 
         <span class="kw">let </span>root = trie.root;
@@ -1483,9 +1483,9 @@
         </span>s.intern_num(Num::Scalar(root))
     }
 
-    <span class="kw">fn </span>evaluate_lem_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;]) -&gt; LEMPtr&lt;F&gt; {
+    <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
         <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; = Trie::new(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache);
-        LEMPtr::num(trie.root)
+        Ptr::num(trie.root)
     }
 
     <span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -1500,11 +1500,11 @@
 
     <span class="comment">// This is so small, it would make sense to include in the Lurk reduction.
     // TODO: Allow `FoldingConfig` to specify whethere a given Coprocessor should have its own circuit or not.
-    </span><span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    </span><span class="kw">fn </span>synthesize_alpha&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         _g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
-        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
         _input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
         input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         input_cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
@@ -1524,18 +1524,18 @@
         ))
     }
 
-    <span class="kw">fn </span>synthesize_lem_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         _g: <span class="kw-2">&amp;</span>lurk::lem::circuit::GlobalAllocator&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         _not_dummy: <span class="kw-2">&amp;</span>Boolean,
         _args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; = Trie::new(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache);
 
         <span class="comment">// TODO: Use a custom type.
-        </span><span class="kw">let </span>root = LEMPtr::num(trie.root);
+        </span><span class="kw">let </span>root = Ptr::num(trie.root);
         <span class="kw">let </span>root_z_ptr = s.hash_ptr(<span class="kw-2">&amp;</span>root);
 
         AllocatedPtr::alloc_constant(cs, root_z_ptr)
@@ -1552,7 +1552,7 @@
         <span class="number">2
     </span>}
 
-    <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt; {
         <span class="kw">let </span>root_ptr = args[<span class="number">0</span>];
         <span class="kw">let </span>key_ptr = args[<span class="number">1</span>];
 
@@ -1567,7 +1567,7 @@
         s.intern_maybe_opaque_comm(found)
     }
 
-    <span class="kw">fn </span>evaluate_lem_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;]) -&gt; LEMPtr&lt;F&gt; {
+    <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
         <span class="kw">let </span>root_ptr = <span class="kw-2">&amp;</span>args[<span class="number">0</span>];
         <span class="kw">let </span>key_ptr = <span class="kw-2">&amp;</span>args[<span class="number">1</span>];
 
@@ -1577,7 +1577,7 @@
         <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; =
             Trie::new_with_root(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache, root_scalar);
 
-        LEMPtr::comm(trie.lookup_aux(key_scalar).unwrap())
+        Ptr::comm(trie.lookup_aux(key_scalar).unwrap())
     }
 
     <span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -1632,11 +1632,11 @@
         <span class="number">2
     </span>}
 
-    <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_alpha&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         _g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
         args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
         input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         input_cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
@@ -1663,11 +1663,11 @@
         <span class="prelude-val">Ok</span>((result_commitment, input_env.clone(), input_cont.clone()))
     }
 
-    <span class="kw">fn </span>synthesize_lem_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>lurk::lem::circuit::GlobalAllocator&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         not_dummy: <span class="kw-2">&amp;</span>Boolean,
         args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
@@ -1704,7 +1704,7 @@
         <span class="number">3
     </span>}
 
-    <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt; {
         <span class="kw">let </span>root_ptr = args[<span class="number">0</span>];
         <span class="kw">let </span>key_ptr = args[<span class="number">1</span>];
         <span class="kw">let </span>val_ptr = args[<span class="number">2</span>];
@@ -1719,7 +1719,7 @@
         s.intern_num(Num::Scalar(new_root))
     }
 
-    <span class="kw">fn </span>evaluate_lem_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;]) -&gt; LEMPtr&lt;F&gt; {
+    <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
         <span class="kw">let </span>root_ptr = <span class="kw-2">&amp;</span>args[<span class="number">0</span>];
         <span class="kw">let </span>key_ptr = <span class="kw-2">&amp;</span>args[<span class="number">1</span>];
         <span class="kw">let </span>val_ptr = <span class="kw-2">&amp;</span>args[<span class="number">2</span>];
@@ -1730,7 +1730,7 @@
             Trie::new_with_root(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache, root_scalar);
         trie.insert(key_scalar, val_scalar).unwrap();
 
-        LEMPtr::num(trie.root)
+        Ptr::num(trie.root)
     }
 
     <span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -1789,11 +1789,11 @@
         <span class="number">3
     </span>}
 
-    <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_alpha&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         _g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
         args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
         input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         input_cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
@@ -1825,11 +1825,11 @@
         <span class="prelude-val">Ok</span>((new_allocated_trie, input_env.clone(), input_cont.clone()))
     }
 
-    <span class="kw">fn </span>synthesize_lem_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>lurk::lem::circuit::GlobalAllocator&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         not_dummy: <span class="kw-2">&amp;</span>Boolean,
         args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
@@ -1857,16 +1857,16 @@
 <span class="doccomment">/// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 </span><span class="comment">// TODO: define standard patterns for such modularity.
 </span><span class="kw">pub fn </span>install&lt;F: LurkField&gt;(
-    s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+    s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
     state: <span class="kw-2">&amp;</span>Rc&lt;RefCell&lt;State&gt;&gt;,
     lang: <span class="kw-2">&amp;mut </span>Lang&lt;F, TrieCoproc&lt;F&gt;&gt;,
 ) {
-    lang.add_binding((<span class="string">&quot;.lurk.trie.new&quot;</span>, NewCoprocessor::default().into()), s);
-    lang.add_binding(
+    lang.add_binding_alpha((<span class="string">&quot;.lurk.trie.new&quot;</span>, NewCoprocessor::default().into()), s);
+    lang.add_binding_alpha(
         (<span class="string">&quot;.lurk.trie.lookup&quot;</span>, LookupCoprocessor::default().into()),
         s,
     );
-    lang.add_binding(
+    lang.add_binding_alpha(
         (<span class="string">&quot;.lurk.trie.insert&quot;</span>, InsertCoprocessor::default().into()),
         s,
     );
@@ -1882,13 +1882,13 @@
 <span class="doccomment">/// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 </span><span class="comment">// TODO: define standard patterns for such modularity.
 </span><span class="kw">pub fn </span>install_lem&lt;F: LurkField&gt;(
-    s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+    s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     state: <span class="kw-2">&amp;</span>Rc&lt;RefCell&lt;State&gt;&gt;,
     lang: <span class="kw-2">&amp;mut </span>Lang&lt;F, TrieCoproc&lt;F&gt;&gt;,
 ) {
-    lang.add_coprocessor_lem(<span class="string">&quot;.lurk.trie.new&quot;</span>, NewCoprocessor::default(), s);
-    lang.add_coprocessor_lem(<span class="string">&quot;.lurk.trie.lookup&quot;</span>, LookupCoprocessor::default(), s);
-    lang.add_coprocessor_lem(<span class="string">&quot;.lurk.trie.insert&quot;</span>, InsertCoprocessor::default(), s);
+    lang.add_coprocessor(<span class="string">&quot;.lurk.trie.new&quot;</span>, NewCoprocessor::default(), s);
+    lang.add_coprocessor(<span class="string">&quot;.lurk.trie.lookup&quot;</span>, LookupCoprocessor::default(), s);
+    lang.add_coprocessor(<span class="string">&quot;.lurk.trie.insert&quot;</span>, InsertCoprocessor::default(), s);
 
     <span class="kw">let </span>trie_package_name: Symbol = <span class="string">&quot;.lurk.trie&quot;</span>.into();
     <span class="kw">let </span><span class="kw-2">mut </span>package = Package::new(trie_package_name.into());

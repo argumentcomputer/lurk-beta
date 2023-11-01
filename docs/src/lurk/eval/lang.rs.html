@@ -262,6 +262,22 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -272,11 +288,10 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::{CoCircuit, Coprocessor};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::lem::store::Store <span class="kw">as </span>LEMStore;
-<span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
-<span class="kw">use </span><span class="kw">crate</span>::store::Store;
+<span class="kw">use </span><span class="kw">crate</span>::lem::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::symbol::Symbol;
 <span class="kw">use </span><span class="kw">crate</span>::z_ptr::ZExprPtr;
+<span class="kw">use crate</span>::{ptr::Ptr <span class="kw">as </span>AlphaPtr, store::Store <span class="kw">as </span>AlphaStore};
 
 <span class="kw">use crate</span>::{<span class="self">self </span><span class="kw">as </span>lurk, lurk_sym_ptr};
 
@@ -300,7 +315,7 @@
 
     <span class="doccomment">/// And does nothing but return nil. It should probably never be used and can perhaps be eliminated,
     /// but for now it exists as an exemplar demonstrating the intended shape of enums like the default, `Coproc`.
-    </span><span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt; {
         <span class="macro">assert!</span>(args.is_empty());
         <span class="macro">lurk_sym_ptr!</span>(s, nil)
     }
@@ -358,6 +373,18 @@
         }
     }
 
+    <span class="kw">pub fn </span>new_with_bindings_alpha&lt;B: Into&lt;Binding&lt;F, C&gt;&gt;&gt;(
+        s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
+        bindings: Vec&lt;B&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>new = <span class="self">Self</span>::new();
+        <span class="kw">for </span>b <span class="kw">in </span>bindings {
+            new.add_binding_alpha(b.into(), s);
+        }
+
+        new
+    }
+
     <span class="kw">pub fn </span>new_with_bindings&lt;B: Into&lt;Binding&lt;F, C&gt;&gt;&gt;(s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, bindings: Vec&lt;B&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>new = <span class="self">Self</span>::new();
         <span class="kw">for </span>b <span class="kw">in </span>bindings {
@@ -380,11 +407,11 @@
         key
     }
 
-    <span class="kw">pub fn </span>add_coprocessor&lt;T: Into&lt;C&gt;, S: Into&lt;Symbol&gt;&gt;(
+    <span class="kw">pub fn </span>add_coprocessor_alpha&lt;T: Into&lt;C&gt;, S: Into&lt;Symbol&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         name: S,
         cproc: T,
-        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
     ) {
         <span class="kw">let </span>name = name.into();
         <span class="kw">let </span>ptr = store.intern_symbol(<span class="kw-2">&amp;</span>name);
@@ -394,11 +421,11 @@
         <span class="self">self</span>.index.insert(z_ptr, <span class="self">self</span>.index.len());
     }
 
-    <span class="kw">pub fn </span>add_coprocessor_lem&lt;T: Into&lt;C&gt;, S: Into&lt;Symbol&gt;&gt;(
+    <span class="kw">pub fn </span>add_coprocessor&lt;T: Into&lt;C&gt;, S: Into&lt;Symbol&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         name: S,
         cproc: T,
-        store: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) {
         <span class="kw">let </span>name = name.into();
 
@@ -408,6 +435,11 @@
         <span class="kw">let </span>z_ptr = ZExprPtr::from_parts(lurk::tag::ExprTag::Sym, <span class="kw-2">*</span>z_ptr.value());
 
         <span class="self">self</span>.coprocessors.insert(name, (cproc.into(), z_ptr));
+    }
+
+    <span class="kw">pub fn </span>add_binding_alpha&lt;B: Into&lt;Binding&lt;F, C&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, binding: B, store: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;) {
+        <span class="kw">let </span>Binding { name, coproc, _p } = binding.into();
+        <span class="self">self</span>.add_coprocessor_alpha(name, coproc, store);
     }
 
     <span class="kw">pub fn </span>add_binding&lt;B: Into&lt;Binding&lt;F, C&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, binding: B, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) {
@@ -428,7 +460,7 @@
             .unwrap_or(<span class="number">0</span>)
     }
 
-    <span class="kw">pub fn </span>lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, name: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(C, ZExprPtr&lt;F&gt;)&gt; {
+    <span class="kw">pub fn </span>lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, name: AlphaPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(C, ZExprPtr&lt;F&gt;)&gt; {
         <span class="kw">let </span>maybe_sym = s.fetch_maybe_sym(<span class="kw-2">&amp;</span>name);
 
         maybe_sym.and_then(|sym| <span class="self">self</span>.coprocessors.get(<span class="kw-2">&amp;</span>sym))
@@ -519,8 +551,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>dummy_lang() {
-        <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>_lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new_with_bindings(
+        <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>AlphaStore::&lt;Fr&gt;::default();
+        <span class="kw">let </span>_lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new_with_bindings_alpha(
             store,
             <span class="macro">vec!</span>[(<span class="macro">sym!</span>(<span class="string">&quot;coproc&quot;</span>, <span class="string">&quot;dummy&quot;</span>), DummyCoprocessor::new().into())],
         );

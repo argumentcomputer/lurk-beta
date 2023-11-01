@@ -448,6 +448,12 @@
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 
 <span class="kw">use </span>bellpepper::gadgets::boolean::Boolean;
@@ -459,9 +465,9 @@
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 <span class="kw">use </span><span class="kw">crate</span>::eval::IO;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::lem::{circuit::GlobalAllocator, pointers::Ptr <span class="kw">as </span>LEMPtr, store::Store <span class="kw">as </span>LEMStore};
-<span class="kw">use </span><span class="kw">crate</span>::ptr::{ContPtr, Ptr};
-<span class="kw">use </span><span class="kw">crate</span>::store::Store;
+<span class="kw">use </span><span class="kw">crate</span>::lem::{circuit::GlobalAllocator, pointers::Ptr, store::Store};
+<span class="kw">use </span><span class="kw">crate</span>::ptr::{ContPtr, Ptr <span class="kw">as </span>AlphaPtr};
+<span class="kw">use </span><span class="kw">crate</span>::store::Store <span class="kw">as </span>AlphaStore;
 <span class="kw">use </span><span class="kw">crate</span>::tag::Tag;
 <span class="kw">use </span><span class="kw">crate</span>::z_data::z_ptr::ZExprPtr;
 
@@ -486,7 +492,13 @@
 </span><span class="kw">pub trait </span>Coprocessor&lt;F: LurkField&gt;: Clone + Debug + Sync + Send + CoCircuit&lt;F&gt; {
     <span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
-    <span class="kw">fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: Ptr&lt;F&gt;, env: Ptr&lt;F&gt;, cont: ContPtr&lt;F&gt;) -&gt; IO&lt;F&gt; {
+    <span class="kw">fn </span>evaluate_alpha(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
+        args: AlphaPtr&lt;F&gt;,
+        env: AlphaPtr&lt;F&gt;,
+        cont: ContPtr&lt;F&gt;,
+    ) -&gt; IO&lt;F&gt; {
         <span class="kw">let </span><span class="prelude-val">Some</span>(argv) = s.fetch_list(<span class="kw-2">&amp;</span>args) <span class="kw">else </span>{
             <span class="kw">return </span>IO {
                 expr: args,
@@ -503,7 +515,7 @@
             };
         };
 
-        <span class="kw">let </span>result = <span class="self">self</span>.simple_evaluate(s, <span class="kw-2">&amp;</span>argv);
+        <span class="kw">let </span>result = <span class="self">self</span>.simple_evaluate_alpha(s, <span class="kw-2">&amp;</span>argv);
 
         IO {
             expr: result,
@@ -512,8 +524,8 @@
         }
     }
 
-    <span class="doccomment">/// As with all evaluation, the value returned from `simple_evaluate` must be fully evaluated.
-    </span><span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt;;
+    <span class="doccomment">/// As with all evaluation, the value returned from `simple_evaluate_alpha` must be fully evaluated.
+    </span><span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt;;
 
     <span class="doccomment">/// Returns true if this Coprocessor actually implements a circuit.
     </span><span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -523,7 +535,7 @@
     <span class="kw">fn </span>synthesize_step_circuit&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
-        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
         coprocessor_zptr: <span class="kw-2">&amp;</span>ZExprPtr&lt;F&gt;,
         input_expr: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
@@ -578,7 +590,7 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(result_expr, result_env, result_cont) =
-            <span class="self">self</span>.synthesize(cs, g, store, <span class="kw-2">&amp;</span>inputs, input_env, input_cont, not_dummy)<span class="question-mark">?</span>;
+            <span class="self">self</span>.synthesize_alpha(cs, g, store, <span class="kw-2">&amp;</span>inputs, input_env, input_cont, not_dummy)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>quoted_expr = AllocatedPtr::construct_list(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;quote coprocessor result&quot;</span>),
@@ -595,26 +607,20 @@
         <span class="prelude-val">Ok</span>((new_expr, new_env, new_cont))
     }
 
-    <span class="kw">fn </span>evaluate_lem_internal(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;, ptrs: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;]) -&gt; Vec&lt;LEMPtr&lt;F&gt;&gt; {
+    <span class="kw">fn </span>evaluate_internal(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptrs: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Vec&lt;Ptr&lt;F&gt;&gt; {
         <span class="kw">let </span>arity = <span class="self">self</span>.arity();
         <span class="kw">let </span>args = <span class="kw-2">&amp;</span>ptrs[<span class="number">0</span>..arity];
         <span class="kw">let </span>env = <span class="kw-2">&amp;</span>ptrs[arity];
         <span class="kw">let </span>cont = <span class="kw-2">&amp;</span>ptrs[arity + <span class="number">1</span>];
-        <span class="self">self</span>.evaluate_lem(s, args, env, cont)
+        <span class="self">self</span>.evaluate(s, args, env, cont)
     }
 
-    <span class="kw">fn </span>evaluate_lem(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
-        args: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;],
-        env: <span class="kw-2">&amp;</span>LEMPtr&lt;F&gt;,
-        cont: <span class="kw-2">&amp;</span>LEMPtr&lt;F&gt;,
-    ) -&gt; Vec&lt;LEMPtr&lt;F&gt;&gt; {
-        <span class="macro">vec!</span>[<span class="self">self</span>.evaluate_lem_simple(s, args), <span class="kw-2">*</span>env, <span class="kw-2">*</span>cont]
+    <span class="kw">fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;], env: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, cont: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; Vec&lt;Ptr&lt;F&gt;&gt; {
+        <span class="macro">vec!</span>[<span class="self">self</span>.evaluate_simple(s, args), <span class="kw-2">*</span>env, <span class="kw-2">*</span>cont]
     }
 
     <span class="comment">// TODO: this default implementation should disappear once we make the switch to LEM
-    </span><span class="kw">fn </span>evaluate_lem_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, _s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;]) -&gt; LEMPtr&lt;F&gt; {
+    </span><span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, _s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
         <span class="macro">unimplemented!</span>()
     }
 }
@@ -630,11 +636,11 @@
         <span class="macro">todo!</span>()
     }
 
-    <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_alpha&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _cs: <span class="kw-2">&amp;mut </span>CS,
         _g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
-        _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        _store: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
         _input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
         _input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         _input_cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
@@ -644,11 +650,11 @@
         </span><span class="macro">unimplemented!</span>()
     }
 
-    <span class="kw">fn </span>synthesize_lem_internal&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_internal&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         not_dummy: <span class="kw-2">&amp;</span>Boolean,
         ptrs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;, SynthesisError&gt; {
@@ -656,31 +662,31 @@
         <span class="kw">let </span>args = <span class="kw-2">&amp;</span>ptrs[<span class="number">0</span>..arity];
         <span class="kw">let </span>env = <span class="kw-2">&amp;</span>ptrs[arity];
         <span class="kw">let </span>cont = <span class="kw-2">&amp;</span>ptrs[arity + <span class="number">1</span>];
-        <span class="self">self</span>.synthesize_lem(cs, g, s, not_dummy, args, env, cont)
+        <span class="self">self</span>.synthesize(cs, g, s, not_dummy, args, env, cont)
     }
 
-    <span class="kw">fn </span>synthesize_lem&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         not_dummy: <span class="kw-2">&amp;</span>Boolean,
         args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
         env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         cont: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;, SynthesisError&gt; {
         <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[
-            <span class="self">self</span>.synthesize_lem_simple(cs, g, s, not_dummy, args)<span class="question-mark">?</span>,
+            <span class="self">self</span>.synthesize_simple(cs, g, s, not_dummy, args)<span class="question-mark">?</span>,
             env.clone(),
             cont.clone(),
         ])
     }
 
-    <span class="kw">fn </span>synthesize_lem_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _cs: <span class="kw-2">&amp;mut </span>CS,
         _g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
-        _s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+        _s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         _not_dummy: <span class="kw-2">&amp;</span>Boolean,
         _args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
@@ -759,11 +765,11 @@
             <span class="number">2
         </span>}
 
-        <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw">fn </span>synthesize_alpha&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             cs: <span class="kw-2">&amp;mut </span>CS,
             g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
-            _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+            _store: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
             input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
             input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
             input_cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
@@ -784,11 +790,11 @@
             <span class="prelude-val">Ok</span>((expr, env, cont.into()))
         }
 
-        <span class="kw">fn </span>synthesize_lem&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             cs: <span class="kw-2">&amp;mut </span>CS,
             g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
-            s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+            s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
             _not_dummy: <span class="kw-2">&amp;</span>Boolean,
             input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
             input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
@@ -816,7 +822,13 @@
         </span>}
 
         <span class="doccomment">/// It squares the first arg and adds it to the second.
-        </span><span class="kw">fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: Ptr&lt;F&gt;, env: Ptr&lt;F&gt;, cont: ContPtr&lt;F&gt;) -&gt; IO&lt;F&gt; {
+        </span><span class="kw">fn </span>evaluate_alpha(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
+            args: AlphaPtr&lt;F&gt;,
+            env: AlphaPtr&lt;F&gt;,
+            cont: ContPtr&lt;F&gt;,
+        ) -&gt; IO&lt;F&gt; {
             <span class="kw">let </span><span class="prelude-val">Some</span>(argv) = s.fetch_list(<span class="kw-2">&amp;</span>args) <span class="kw">else </span>{
                 <span class="kw">return </span>IO {
                     expr: args,
@@ -865,7 +877,7 @@
             }
         }
 
-        <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, _s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
+        <span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, _s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt; {
             <span class="macro">unreachable!</span>()
         }
 
@@ -873,20 +885,20 @@
             <span class="bool-val">true
         </span>}
 
-        <span class="kw">fn </span>evaluate_lem(
+        <span class="kw">fn </span>evaluate(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
-            s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
-            args: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;],
-            env: <span class="kw-2">&amp;</span>LEMPtr&lt;F&gt;,
-            cont: <span class="kw-2">&amp;</span>LEMPtr&lt;F&gt;,
-        ) -&gt; Vec&lt;LEMPtr&lt;F&gt;&gt; {
-            <span class="kw">let </span>LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), a) = <span class="kw-2">&amp;</span>args[<span class="number">0</span>] <span class="kw">else </span>{
+            s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+            args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
+            env: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
+            cont: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
+        ) -&gt; Vec&lt;Ptr&lt;F&gt;&gt; {
+            <span class="kw">let </span>Ptr::Atom(LEMTag::Expr(ExprTag::Num), a) = <span class="kw-2">&amp;</span>args[<span class="number">0</span>] <span class="kw">else </span>{
                 <span class="kw">return </span><span class="macro">vec!</span>[args[<span class="number">0</span>], <span class="kw-2">*</span>env, s.cont_error()];
             };
-            <span class="kw">let </span>LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), b) = <span class="kw-2">&amp;</span>args[<span class="number">1</span>] <span class="kw">else </span>{
+            <span class="kw">let </span>Ptr::Atom(LEMTag::Expr(ExprTag::Num), b) = <span class="kw-2">&amp;</span>args[<span class="number">1</span>] <span class="kw">else </span>{
                 <span class="kw">return </span><span class="macro">vec!</span>[args[<span class="number">1</span>], <span class="kw-2">*</span>env, s.cont_error()];
             };
-            <span class="macro">vec!</span>[LEMPtr::num((<span class="kw-2">*</span>a * <span class="kw-2">*</span>a) + <span class="kw-2">*</span>b), <span class="kw-2">*</span>env, <span class="kw-2">*</span>cont]
+            <span class="macro">vec!</span>[Ptr::num((<span class="kw-2">*</span>a * <span class="kw-2">*</span>a) + <span class="kw-2">*</span>b), <span class="kw-2">*</span>env, <span class="kw-2">*</span>cont]
         }
     }
 

@@ -1994,7 +1994,7 @@
                                 // or alternately performing the ApplyContinuation part of reduction at the end of each (NIVC) coprocessor step.
                                 // Instead, we wrap this in a (potentially unoptimized) tail call.
                                 </span>cont,
-                            } = coprocessor.evaluate(store, args, env, cont);
+                            } = coprocessor.evaluate_alpha(store, args, env, cont);
 
                             <span class="kw">if </span>cont == store.intern_cont_error() {
                                 <span class="kw">return </span><span class="prelude-val">Ok</span>((

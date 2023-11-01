@@ -742,7 +742,7 @@
                     <span class="kw">let </span>cproc = lang
                         .lookup_by_sym(sym)
                         .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;Coprocessor for {sym} not found&quot;</span>))<span class="question-mark">?</span>;
-                    <span class="kw">let </span>out_ptrs = cproc.evaluate_lem_internal(store, <span class="kw-2">&amp;</span>inp_ptrs);
+                    <span class="kw">let </span>out_ptrs = cproc.evaluate_internal(store, <span class="kw-2">&amp;</span>inp_ptrs);
                     <span class="kw">if </span>out.len() != out_ptrs.len() {
                         <span class="macro">bail!</span>(<span class="string">&quot;Incompatible output length for coprocessor {sym}&quot;</span>)
                     }

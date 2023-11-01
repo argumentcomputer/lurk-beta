@@ -2184,7 +2184,7 @@
                     <span class="comment">// call the coprocessor&#39;s synthesize and then make sure that
                     // the output matches the data collected during interpretation
                     </span><span class="kw">let </span>inp_ptrs = bound_allocations.get_many_ptr(inp)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>synthesize_output = cproc.synthesize_lem_internal(
+                    <span class="kw">let </span>synthesize_output = cproc.synthesize_internal(
                         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;Coprocessor {sym}&quot;</span>)),
                         ctx.global_allocator,
                         ctx.store,

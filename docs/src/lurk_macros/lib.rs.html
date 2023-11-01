@@ -605,9 +605,6 @@
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Lurk Macros
 //!
 //! ## Derive macros for Lurk
@@ -643,18 +640,18 @@
 
 <span class="kw">fn </span>impl_enum_coproc(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; TokenStream {
     <span class="kw">let </span>eval_arity_arms = eval_arity_match_arms(name, variants);
+    <span class="kw">let </span>evaluate_alpha_arms = evaluate_alpha_match_arms(name, variants);
+    <span class="kw">let </span>simple_evaluate_alpha_arms = simple_evaluate_alpha_match_arms(name, variants);
+    <span class="kw">let </span>evaluate_internal_arms = evaluate_internal_match_arms(name, variants);
     <span class="kw">let </span>evaluate_arms = evaluate_match_arms(name, variants);
-    <span class="kw">let </span>simple_evaluate_arms = simple_evaluate_match_arms(name, variants);
-    <span class="kw">let </span>evaluate_lem_internal_arms = evaluate_lem_internal_match_arms(name, variants);
-    <span class="kw">let </span>evaluate_lem_arms = evaluate_lem_match_arms(name, variants);
-    <span class="kw">let </span>evaluate_lem_simple_arms = evaluate_lem_simple_match_arms(name, variants);
+    <span class="kw">let </span>evaluate_simple_arms = evaluate_simple_match_arms(name, variants);
     <span class="kw">let </span>has_circuit_arms = has_circuit_match_arms(name, variants);
 
     <span class="kw">let </span>arity_arms = arity_match_arms(name, variants);
+    <span class="kw">let </span>synthesize_alpha_arms = synthesize_alpha_match_arms(name, variants);
+    <span class="kw">let </span>synthesize_internal_arms = synthesize_internal_match_arms(name, variants);
     <span class="kw">let </span>synthesize_arms = synthesize_match_arms(name, variants);
-    <span class="kw">let </span>synthesize_lem_internal_arms = synthesize_lem_internal_match_arms(name, variants);
-    <span class="kw">let </span>synthesize_lem_arms = synthesize_lem_match_arms(name, variants);
-    <span class="kw">let </span>synthesize_lem_simple_arms = synthesize_lem_simple_match_arms(name, variants);
+    <span class="kw">let </span>synthesize_simple_arms = synthesize_simple_match_arms(name, variants);
 
     <span class="kw">let </span>from_impls = from_impls(name, variants);
 
@@ -666,33 +663,33 @@
                 }
             }
 
-            <span class="kw">fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::store::Store&lt;F&gt;, args: lurk::ptr::Ptr&lt;F&gt;, env: lurk::ptr::Ptr&lt;F&gt;, cont: lurk::ptr::ContPtr&lt;F&gt;) -&gt; lurk::eval::IO&lt;F&gt; {
+            <span class="kw">fn </span>evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::store::Store&lt;F&gt;, args: lurk::ptr::Ptr&lt;F&gt;, env: lurk::ptr::Ptr&lt;F&gt;, cont: lurk::ptr::ContPtr&lt;F&gt;) -&gt; lurk::eval::IO&lt;F&gt; {
+                <span class="kw">match </span><span class="self">self </span>{
+                    #evaluate_alpha_arms
+                }
+            }
+
+            <span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::store::Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[lurk::ptr::Ptr&lt;F&gt;]) -&gt; lurk::ptr::Ptr&lt;F&gt; {
+                <span class="kw">match </span><span class="self">self </span>{
+                    #simple_evaluate_alpha_arms
+                }
+            }
+
+            <span class="kw">fn </span>evaluate_internal(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::lem::store::Store&lt;F&gt;, ptrs: <span class="kw-2">&amp;</span>[lurk::lem::pointers::Ptr&lt;F&gt;]) -&gt; Vec&lt;lurk::lem::pointers::Ptr&lt;F&gt;&gt; {
+                <span class="kw">match </span><span class="self">self </span>{
+                    #evaluate_internal_arms
+                }
+            }
+
+            <span class="kw">fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::lem::store::Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[lurk::lem::pointers::Ptr&lt;F&gt;], env: <span class="kw-2">&amp;</span>lurk::lem::pointers::Ptr&lt;F&gt;, cont: <span class="kw-2">&amp;</span>lurk::lem::pointers::Ptr&lt;F&gt;) -&gt; Vec&lt;lurk::lem::pointers::Ptr&lt;F&gt;&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
                     #evaluate_arms
                 }
             }
 
-            <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::store::Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[lurk::ptr::Ptr&lt;F&gt;]) -&gt; lurk::ptr::Ptr&lt;F&gt; {
+            <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::lem::store::Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[lurk::lem::pointers::Ptr&lt;F&gt;]) -&gt; lurk::lem::pointers::Ptr&lt;F&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
-                    #simple_evaluate_arms
-                }
-            }
-
-            <span class="kw">fn </span>evaluate_lem_internal(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::lem::store::Store&lt;F&gt;, ptrs: <span class="kw-2">&amp;</span>[lurk::lem::pointers::Ptr&lt;F&gt;]) -&gt; Vec&lt;lurk::lem::pointers::Ptr&lt;F&gt;&gt; {
-                <span class="kw">match </span><span class="self">self </span>{
-                    #evaluate_lem_internal_arms
-                }
-            }
-
-            <span class="kw">fn </span>evaluate_lem(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::lem::store::Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[lurk::lem::pointers::Ptr&lt;F&gt;], env: <span class="kw-2">&amp;</span>lurk::lem::pointers::Ptr&lt;F&gt;, cont: <span class="kw-2">&amp;</span>lurk::lem::pointers::Ptr&lt;F&gt;) -&gt; Vec&lt;lurk::lem::pointers::Ptr&lt;F&gt;&gt; {
-                <span class="kw">match </span><span class="self">self </span>{
-                    #evaluate_lem_arms
-                }
-            }
-
-            <span class="kw">fn </span>evaluate_lem_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>lurk::lem::store::Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[lurk::lem::pointers::Ptr&lt;F&gt;]) -&gt; lurk::lem::pointers::Ptr&lt;F&gt; {
-                <span class="kw">match </span><span class="self">self </span>{
-                    #evaluate_lem_simple_arms
+                    #evaluate_simple_arms
                 }
             }
 
@@ -710,7 +707,7 @@
                 }
             }
 
-            <span class="kw">fn </span>synthesize&lt;CS: bellpepper_core::ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw">fn </span>synthesize_alpha&lt;CS: bellpepper_core::ConstraintSystem&lt;F&gt;&gt;(
                 <span class="kw-2">&amp;</span><span class="self">self</span>,
                 cs: <span class="kw-2">&amp;mut </span>CS,
                 g: <span class="kw-2">&amp;</span>lurk::circuit::gadgets::data::GlobalAllocations&lt;F&gt;,
@@ -721,11 +718,11 @@
                 not_dummy: <span class="kw-2">&amp;</span>bellpepper::gadgets::boolean::Boolean,
             ) -&gt; <span class="prelude-ty">Result</span>&lt;(lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;, lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;, lurk::circuit::gadgets::pointer::AllocatedContPtr&lt;F&gt;), bellpepper_core::SynthesisError&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
-                    #synthesize_arms
+                    #synthesize_alpha_arms
                 }
             }
 
-            <span class="kw">fn </span>synthesize_lem_internal&lt;CS: bellpepper_core::ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw">fn </span>synthesize_internal&lt;CS: bellpepper_core::ConstraintSystem&lt;F&gt;&gt;(
                 <span class="kw-2">&amp;</span><span class="self">self</span>,
                 cs: <span class="kw-2">&amp;mut </span>CS,
                 g: <span class="kw-2">&amp;</span>lurk::lem::circuit::GlobalAllocator&lt;F&gt;,
@@ -734,11 +731,11 @@
                 ptrs: <span class="kw-2">&amp;</span>[lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;],
             ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;&gt;, bellpepper_core::SynthesisError&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
-                    #synthesize_lem_internal_arms
+                    #synthesize_internal_arms
                 }
             }
 
-            <span class="kw">fn </span>synthesize_lem&lt;CS: bellpepper_core::ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw">fn </span>synthesize&lt;CS: bellpepper_core::ConstraintSystem&lt;F&gt;&gt;(
                 <span class="kw-2">&amp;</span><span class="self">self</span>,
                 cs: <span class="kw-2">&amp;mut </span>CS,
                 g: <span class="kw-2">&amp;</span>lurk::lem::circuit::GlobalAllocator&lt;F&gt;,
@@ -749,11 +746,11 @@
                 cont: <span class="kw-2">&amp;</span>lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;,
             ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;&gt;, bellpepper_core::SynthesisError&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
-                    #synthesize_lem_arms
+                    #synthesize_arms
                 }
             }
 
-            <span class="kw">fn </span>synthesize_lem_simple&lt;CS: bellpepper_core::ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw">fn </span>synthesize_simple&lt;CS: bellpepper_core::ConstraintSystem&lt;F&gt;&gt;(
                 <span class="kw-2">&amp;</span><span class="self">self</span>,
                 cs: <span class="kw-2">&amp;mut </span>CS,
                 g: <span class="kw-2">&amp;</span>lurk::lem::circuit::GlobalAllocator&lt;F&gt;,
@@ -762,7 +759,7 @@
                 args: <span class="kw-2">&amp;</span>[lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;],
             ) -&gt; <span class="prelude-ty">Result</span>&lt;lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;, bellpepper_core::SynthesisError&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
-                    #synthesize_lem_simple_arms
+                    #synthesize_simple_arms
                 }
             }
         }
@@ -784,6 +781,42 @@
     match_arms
 }
 
+<span class="kw">fn </span>evaluate_alpha_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
+    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
+    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
+        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
+
+        match_arms.extend(<span class="macro">quote! </span>{
+            #name::#variant_ident(coprocessor) =&gt; coprocessor.evaluate_alpha(s, args, env, cont),
+        });
+    }
+    match_arms
+}
+
+<span class="kw">fn </span>simple_evaluate_alpha_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
+    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
+    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
+        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
+
+        match_arms.extend(<span class="macro">quote! </span>{
+            #name::#variant_ident(coprocessor) =&gt; coprocessor.simple_evaluate_alpha(s, args),
+        });
+    }
+    match_arms
+}
+
+<span class="kw">fn </span>evaluate_internal_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
+    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
+    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
+        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
+
+        match_arms.extend(<span class="macro">quote! </span>{
+            #name::#variant_ident(coprocessor) =&gt; coprocessor.evaluate_internal(s, ptrs),
+        });
+    }
+    match_arms
+}
+
 <span class="kw">fn </span>evaluate_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
     <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
     <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
@@ -796,49 +829,13 @@
     match_arms
 }
 
-<span class="kw">fn </span>simple_evaluate_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
+<span class="kw">fn </span>evaluate_simple_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
     <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
     <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
         <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
 
         match_arms.extend(<span class="macro">quote! </span>{
-            #name::#variant_ident(coprocessor) =&gt; coprocessor.simple_evaluate(s, args),
-        });
-    }
-    match_arms
-}
-
-<span class="kw">fn </span>evaluate_lem_internal_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
-    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
-    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
-        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
-
-        match_arms.extend(<span class="macro">quote! </span>{
-            #name::#variant_ident(coprocessor) =&gt; coprocessor.evaluate_lem_internal(s, ptrs),
-        });
-    }
-    match_arms
-}
-
-<span class="kw">fn </span>evaluate_lem_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
-    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
-    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
-        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
-
-        match_arms.extend(<span class="macro">quote! </span>{
-            #name::#variant_ident(coprocessor) =&gt; coprocessor.evaluate_lem(s, args, env, cont),
-        });
-    }
-    match_arms
-}
-
-<span class="kw">fn </span>evaluate_lem_simple_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
-    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
-    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
-        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
-
-        match_arms.extend(<span class="macro">quote! </span>{
-            #name::#variant_ident(coprocessor) =&gt; coprocessor.evaluate_lem_simple(s, args),
+            #name::#variant_ident(coprocessor) =&gt; coprocessor.evaluate_simple(s, args),
         });
     }
     match_arms
@@ -868,52 +865,49 @@
     match_arms
 }
 
+<span class="kw">fn </span>synthesize_alpha_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
+    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
+    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
+        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
+
+        match_arms.extend(<span class="macro">quote! </span>{
+            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize_alpha(cs, g, store, input_exprs, input_env, input_cont, not_dummy),
+        });
+    }
+    match_arms
+}
+
+<span class="kw">fn </span>synthesize_internal_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
+    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
+    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
+        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
+
+        match_arms.extend(<span class="macro">quote! </span>{
+            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize_internal(cs, g, s, not_dummy, ptrs),
+        });
+    }
+    match_arms
+}
+
 <span class="kw">fn </span>synthesize_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
     <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
     <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
         <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
 
         match_arms.extend(<span class="macro">quote! </span>{
-            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize(cs, g, store, input_exprs, input_env, input_cont, not_dummy),
+            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize(cs, g, s, not_dummy, args, env, cont),
         });
     }
     match_arms
 }
 
-<span class="kw">fn </span>synthesize_lem_internal_match_arms(
-    name: <span class="kw-2">&amp;</span>Ident,
-    variants: <span class="kw-2">&amp;</span>DataEnum,
-) -&gt; proc_macro2::TokenStream {
+<span class="kw">fn </span>synthesize_simple_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
     <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
     <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
         <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
 
         match_arms.extend(<span class="macro">quote! </span>{
-            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize_lem_internal(cs, g, s, not_dummy, ptrs),
-        });
-    }
-    match_arms
-}
-
-<span class="kw">fn </span>synthesize_lem_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
-    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
-    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
-        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
-
-        match_arms.extend(<span class="macro">quote! </span>{
-            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize_lem(cs, g, s, not_dummy, args, env, cont),
-        });
-    }
-    match_arms
-}
-
-<span class="kw">fn </span>synthesize_lem_simple_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
-    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
-    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
-        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
-
-        match_arms.extend(<span class="macro">quote! </span>{
-            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize_lem_simple(cs, g, s, not_dummy, args),
+            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize_simple(cs, g, s, not_dummy, args),
         });
     }
     match_arms

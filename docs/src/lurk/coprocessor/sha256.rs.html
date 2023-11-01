@@ -175,10 +175,10 @@
         pointer::{AllocatedContPtr, AllocatedPtr},
     },
     field::LurkField,
-    lem::{pointers::Ptr <span class="kw">as </span>LEMPtr, store::Store <span class="kw">as </span>LEMStore},
+    lem::{pointers::Ptr, store::Store},
     num::Num,
-    ptr::Ptr,
-    store::Store,
+    ptr::Ptr <span class="kw">as </span>AlphaPtr,
+    store::Store <span class="kw">as </span>AlphaStore,
     tag::{ExprTag, Tag},
     z_ptr::ZPtr,
 };
@@ -257,11 +257,11 @@
         <span class="self">self</span>.n
     }
 
-    <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_alpha&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         _g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
-        _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        _store: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
         input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
         input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         input_cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
@@ -275,7 +275,7 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>synthesize_lem_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    </span><span class="kw">fn </span>synthesize_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         _g: <span class="kw-2">&amp;</span>lurk::lem::circuit::GlobalAllocator&lt;F&gt;,
@@ -292,7 +292,7 @@
         <span class="self">self</span>.n
     }
 
-    <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt; {
         <span class="kw">let </span>z_ptrs = args
             .iter()
             .map(|ptr| s.hash_expr(ptr).unwrap())
@@ -305,9 +305,9 @@
         <span class="bool-val">true
     </span>}
 
-    <span class="kw">fn </span>evaluate_lem_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;]) -&gt; LEMPtr&lt;F&gt; {
+    <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
         <span class="kw">let </span>z_ptrs = args.iter().map(|ptr| s.hash_ptr(ptr)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        LEMPtr::num(compute_sha256(<span class="self">self</span>.n, <span class="kw-2">&amp;</span>z_ptrs))
+        Ptr::num(compute_sha256(<span class="self">self</span>.n, <span class="kw-2">&amp;</span>z_ptrs))
     }
 }
 

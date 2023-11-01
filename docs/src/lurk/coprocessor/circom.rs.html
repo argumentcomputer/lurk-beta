@@ -230,9 +230,9 @@
         cli::paths::circom_dir,
         coprocessor::{CoCircuit, Coprocessor},
         field::LurkField,
-        lem::{pointers::Ptr <span class="kw">as </span>LEMPtr, store::Store <span class="kw">as </span>LEMStore},
-        ptr::Ptr,
-        store::Store,
+        lem::{pointers::Ptr, store::Store},
+        ptr::Ptr <span class="kw">as </span>AlphaPtr,
+        store::Store <span class="kw">as </span>AlphaStore,
     };
 
     <span class="kw">fn </span>print_error(name: <span class="kw-2">&amp;</span>str, available: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -317,11 +317,11 @@ Then run `lurk coprocessor --name {name} &lt;{}_FOLDER&gt;` to instantiate a new
             <span class="number">0
         </span>}
 
-        <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw">fn </span>synthesize_alpha&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             cs: <span class="kw-2">&amp;mut </span>CS,
             g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
-            _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+            _store: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
             input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
             input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
             input_cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
@@ -341,11 +341,11 @@ Then run `lurk coprocessor --name {name} &lt;{}_FOLDER&gt;` to instantiate a new
             <span class="prelude-val">Ok</span>((res, input_env.clone(), input_cont.clone()))
         }
 
-        <span class="kw">fn </span>synthesize_lem_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw">fn </span>synthesize_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             cs: <span class="kw-2">&amp;mut </span>CS,
             g: <span class="kw-2">&amp;</span><span class="kw">crate</span>::lem::circuit::GlobalAllocator&lt;F&gt;,
-            _s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;,
+            _s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
             _not_dummy: <span class="kw-2">&amp;</span>bellpepper_core::boolean::Boolean,
             args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
         ) -&gt; std::result::Result&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
@@ -371,12 +371,12 @@ Then run `lurk coprocessor --name {name} &lt;{}_FOLDER&gt;` to instantiate a new
             <span class="number">0
         </span>}
 
-        <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
-            <span class="self">self</span>.gadget.simple_evaluate(s, args)
+        <span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt; {
+            <span class="self">self</span>.gadget.simple_evaluate_alpha(s, args)
         }
 
-        <span class="kw">fn </span>evaluate_lem_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>LEMStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[LEMPtr&lt;F&gt;]) -&gt; LEMPtr&lt;F&gt; {
-            <span class="self">self</span>.gadget.simple_evaluate_lem(s, args)
+        <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
+            <span class="self">self</span>.gadget.evaluate_simple(s, args)
         }
 
         <span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
