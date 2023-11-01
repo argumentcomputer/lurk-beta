@@ -1794,6 +1794,8 @@
 <a href="#1794" id="1794">1794</a>
 <a href="#1795" id="1795">1795</a>
 <a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2048,7 +2050,9 @@
     })
 }
 
-<span class="kw">fn </span>car_cdr() -&gt; Func {
+<span class="doccomment">/// Simpler version of `car_cdr` that doesn&#39;t deconstruct strings to save some
+/// constraints
+</span><span class="kw">fn </span>car_cdr() -&gt; Func {
     <span class="macro">func!</span>(car_cdr(xs): <span class="number">2 </span>=&gt; {
         <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
@@ -3152,8 +3156,7 @@
                         <span class="kw">let </span>(operator, continuation, _foo, _foo) = decons4(cont);
                         <span class="kw">match </span>operator.tag {
                             Op1::Car =&gt; {
-                                <span class="comment">// Almost like car_cdr, except it returns
-                                // an error in case it can&#39;t deconstruct it
+                                <span class="comment">// `car_cdr` semantics
                                 </span><span class="kw">match </span>result.tag {
                                     Expr::Nil =&gt; {
                                         <span class="kw">return </span>(nil, env, continuation, makethunk)
@@ -3174,7 +3177,8 @@
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::Cdr =&gt; {
-                                <span class="kw">match </span>result.tag {
+                                <span class="comment">// `car_cdr` semantics
+                                </span><span class="kw">match </span>result.tag {
                                     Expr::Nil =&gt; {
                                         <span class="kw">return </span>(nil, env, continuation, makethunk)
                                     }

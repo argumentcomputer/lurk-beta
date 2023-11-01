@@ -179,6 +179,12 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::collections::{BTreeMap, HashMap};
@@ -186,16 +192,28 @@
 <span class="kw">use crate</span>::{
     field::{FWrap, LurkField},
     lem::{
-        pointers::{Ptr, ZChildren, ZPtr},
+        pointers::{Ptr, ZPtr},
         store::Store,
     },
 };
 
 <span class="kw">use </span><span class="kw">super</span>::field_data::HasFieldModulus;
 
-<span class="attr">#[derive(Debug, Default, Serialize, Deserialize)]
+<span class="doccomment">/// `ZPtrType` holds information about the `Ptr` that originated a certain `ZPtr`.
+/// If the `Ptr` was not atomic, `ZPtrType` can refer to its children once they
+/// have already been turned into `ZPtr`s.
+</span><span class="attr">#[derive(Debug, Serialize, Deserialize)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ZPtrType&lt;F: LurkField&gt; {
+    Atom,
+    Tuple2(ZPtr&lt;F&gt;, ZPtr&lt;F&gt;),
+    Tuple3(ZPtr&lt;F&gt;, ZPtr&lt;F&gt;, ZPtr&lt;F&gt;),
+    Tuple4(ZPtr&lt;F&gt;, ZPtr&lt;F&gt;, ZPtr&lt;F&gt;, ZPtr&lt;F&gt;),
+}
+
+<span class="doccomment">/// A `ZStore` is a stable IO format for `Store`, without index-based references
+</span><span class="attr">#[derive(Debug, Default, Serialize, Deserialize)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ZStore&lt;F: LurkField&gt; {
-    dag: BTreeMap&lt;ZPtr&lt;F&gt;, ZChildren&lt;F&gt;&gt;,
+    dag: BTreeMap&lt;ZPtr&lt;F&gt;, ZPtrType&lt;F&gt;&gt;,
     comms: BTreeMap&lt;FWrap&lt;F&gt;, (F, ZPtr&lt;F&gt;)&gt;,
 }
 
@@ -217,7 +235,7 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_children(<span class="kw-2">&amp;</span><span class="self">self</span>, z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ZChildren&lt;F&gt;&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_type(<span class="kw-2">&amp;</span><span class="self">self</span>, z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ZPtrType&lt;F&gt;&gt; {
         <span class="self">self</span>.dag.get(z_ptr)
     }
 
@@ -240,23 +258,21 @@
     ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     cache: <span class="kw-2">&amp;mut </span>HashMap&lt;Ptr&lt;F&gt;, ZPtr&lt;F&gt;&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;F&gt;&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>recurse = |ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;F&gt;&gt; {
+) -&gt; ZPtr&lt;F&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>recurse = |ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| -&gt; ZPtr&lt;F&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = cache.get(ptr) {
-            <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>z_ptr)
+            <span class="kw-2">*</span>z_ptr
         } <span class="kw">else </span>{
             <span class="kw">let </span>z_ptr = <span class="kw">match </span>ptr {
                 Ptr::Atom(tag, f) =&gt; {
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(<span class="kw-2">*</span>tag, <span class="kw-2">*</span>f);
-                    z_store.dag.insert(z_ptr, ZChildren::Atom);
+                    z_store.dag.insert(z_ptr, ZPtrType::Atom);
                     z_ptr
                 }
                 Ptr::Tuple2(tag, idx) =&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b)) = store.fetch_2_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple2&quot;</span>)
-                    };
-                    <span class="kw">let </span>a = populate_z_store(z_store, a, store, cache)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = populate_z_store(z_store, b, store, cache)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>(a, b) = store.expect_2_ptrs(<span class="kw-2">*</span>idx);
+                    <span class="kw">let </span>a = populate_z_store(z_store, a, store, cache);
+                    <span class="kw">let </span>b = populate_z_store(z_store, b, store, cache);
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
                         store.poseidon_cache.hash4(<span class="kw-2">&amp;</span>[
@@ -266,16 +282,14 @@
                             <span class="kw-2">*</span>b.value(),
                         ]),
                     );
-                    z_store.dag.insert(z_ptr, ZChildren::Tuple2(a, b));
+                    z_store.dag.insert(z_ptr, ZPtrType::Tuple2(a, b));
                     z_ptr
                 }
                 Ptr::Tuple3(tag, idx) =&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c)) = store.fetch_3_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple3&quot;</span>)
-                    };
-                    <span class="kw">let </span>a = populate_z_store(z_store, a, store, cache)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = populate_z_store(z_store, b, store, cache)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = populate_z_store(z_store, c, store, cache)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>(a, b, c) = store.expect_3_ptrs(<span class="kw-2">*</span>idx);
+                    <span class="kw">let </span>a = populate_z_store(z_store, a, store, cache);
+                    <span class="kw">let </span>b = populate_z_store(z_store, b, store, cache);
+                    <span class="kw">let </span>c = populate_z_store(z_store, c, store, cache);
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
                         store.poseidon_cache.hash6(<span class="kw-2">&amp;</span>[
@@ -287,17 +301,15 @@
                             <span class="kw-2">*</span>c.value(),
                         ]),
                     );
-                    z_store.dag.insert(z_ptr, ZChildren::Tuple3(a, b, c));
+                    z_store.dag.insert(z_ptr, ZPtrType::Tuple3(a, b, c));
                     z_ptr
                 }
                 Ptr::Tuple4(tag, idx) =&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c, d)) = store.fetch_4_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple4&quot;</span>)
-                    };
-                    <span class="kw">let </span>a = populate_z_store(z_store, a, store, cache)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = populate_z_store(z_store, b, store, cache)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = populate_z_store(z_store, c, store, cache)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>d = populate_z_store(z_store, d, store, cache)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>(a, b, c, d) = store.expect_4_ptrs(<span class="kw-2">*</span>idx);
+                    <span class="kw">let </span>a = populate_z_store(z_store, a, store, cache);
+                    <span class="kw">let </span>b = populate_z_store(z_store, b, store, cache);
+                    <span class="kw">let </span>c = populate_z_store(z_store, c, store, cache);
+                    <span class="kw">let </span>d = populate_z_store(z_store, d, store, cache);
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
                         store.poseidon_cache.hash8(<span class="kw-2">&amp;</span>[
@@ -311,12 +323,12 @@
                             <span class="kw-2">*</span>d.value(),
                         ]),
                     );
-                    z_store.dag.insert(z_ptr, ZChildren::Tuple4(a, b, c, d));
+                    z_store.dag.insert(z_ptr, ZPtrType::Tuple4(a, b, c, d));
                     z_ptr
                 }
             };
             cache.insert(<span class="kw-2">*</span>ptr, z_ptr);
-            <span class="prelude-val">Ok</span>(z_ptr)
+            z_ptr
         }
     };
     recurse(ptr)
@@ -332,26 +344,26 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = cache.get(z_ptr) {
             <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>z_ptr)
         } <span class="kw">else </span>{
-            <span class="kw">let </span>ptr = <span class="kw">match </span>z_store.get_children(z_ptr) {
-                <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Couldn&#39;t find ZPtr&quot;</span>),
-                <span class="prelude-val">Some</span>(ZChildren::Atom) =&gt; Ptr::Atom(z_ptr.tag(), <span class="kw-2">*</span>z_ptr.value()),
-                <span class="prelude-val">Some</span>(ZChildren::Tuple2(z1, z2)) =&gt; {
+            <span class="kw">let </span>ptr = <span class="kw">match </span>z_store.get_type(z_ptr) {
+                <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Couldn&#39;t find ZPtr on ZStore&quot;</span>),
+                <span class="prelude-val">Some</span>(ZPtrType::Atom) =&gt; Ptr::Atom(<span class="kw-2">*</span>z_ptr.tag(), <span class="kw-2">*</span>z_ptr.value()),
+                <span class="prelude-val">Some</span>(ZPtrType::Tuple2(z1, z2)) =&gt; {
                     <span class="kw">let </span>ptr1 = populate_store(store, z1, z_store, cache)<span class="question-mark">?</span>;
                     <span class="kw">let </span>ptr2 = populate_store(store, z2, z_store, cache)<span class="question-mark">?</span>;
-                    store.intern_2_ptrs_hydrated(z_ptr.tag(), ptr1, ptr2, <span class="kw-2">*</span>z_ptr)
+                    store.intern_2_ptrs_hydrated(<span class="kw-2">*</span>z_ptr.tag(), ptr1, ptr2, <span class="kw-2">*</span>z_ptr)
                 }
-                <span class="prelude-val">Some</span>(ZChildren::Tuple3(z1, z2, z3)) =&gt; {
+                <span class="prelude-val">Some</span>(ZPtrType::Tuple3(z1, z2, z3)) =&gt; {
                     <span class="kw">let </span>ptr1 = populate_store(store, z1, z_store, cache)<span class="question-mark">?</span>;
                     <span class="kw">let </span>ptr2 = populate_store(store, z2, z_store, cache)<span class="question-mark">?</span>;
                     <span class="kw">let </span>ptr3 = populate_store(store, z3, z_store, cache)<span class="question-mark">?</span>;
-                    store.intern_3_ptrs_hydrated(z_ptr.tag(), ptr1, ptr2, ptr3, <span class="kw-2">*</span>z_ptr)
+                    store.intern_3_ptrs_hydrated(<span class="kw-2">*</span>z_ptr.tag(), ptr1, ptr2, ptr3, <span class="kw-2">*</span>z_ptr)
                 }
-                <span class="prelude-val">Some</span>(ZChildren::Tuple4(z1, z2, z3, z4)) =&gt; {
+                <span class="prelude-val">Some</span>(ZPtrType::Tuple4(z1, z2, z3, z4)) =&gt; {
                     <span class="kw">let </span>ptr1 = populate_store(store, z1, z_store, cache)<span class="question-mark">?</span>;
                     <span class="kw">let </span>ptr2 = populate_store(store, z2, z_store, cache)<span class="question-mark">?</span>;
                     <span class="kw">let </span>ptr3 = populate_store(store, z3, z_store, cache)<span class="question-mark">?</span>;
                     <span class="kw">let </span>ptr4 = populate_store(store, z4, z_store, cache)<span class="question-mark">?</span>;
-                    store.intern_4_ptrs_hydrated(z_ptr.tag(), ptr1, ptr2, ptr3, ptr4, <span class="kw-2">*</span>z_ptr)
+                    store.intern_4_ptrs_hydrated(<span class="kw-2">*</span>z_ptr.tag(), ptr1, ptr2, ptr3, ptr4, <span class="kw-2">*</span>z_ptr)
                 }
             };
             cache.insert(<span class="kw-2">*</span>z_ptr, ptr);

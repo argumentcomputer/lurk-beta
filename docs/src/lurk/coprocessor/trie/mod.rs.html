@@ -1684,7 +1684,7 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>comm_tag = g
-            .get_allocated_const(ExprTag::Comm.to_field())
+            .get_tag(<span class="kw-2">&amp;</span>ExprTag::Comm)
             .expect(<span class="string">&quot;Comm tag should have been allocated&quot;</span>);
 
         <span class="prelude-val">Ok</span>(AllocatedPtr::from_parts(
@@ -1848,7 +1848,7 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>num_tag = g
-            .get_allocated_const(ExprTag::Num.to_field())
+            .get_tag(<span class="kw-2">&amp;</span>ExprTag::Num)
             .expect(<span class="string">&quot;Num tag should have been allocated&quot;</span>);
         <span class="prelude-val">Ok</span>(AllocatedPtr::from_parts(num_tag.clone(), new_root_val))
     }

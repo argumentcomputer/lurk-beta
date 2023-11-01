@@ -92,13 +92,13 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Commitment&lt;F&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(secret: <span class="prelude-ty">Option</span>&lt;F&gt;, payload: Ptr&lt;F&gt;, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(secret: <span class="prelude-ty">Option</span>&lt;F&gt;, payload: Ptr&lt;F&gt;, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>secret = secret.unwrap_or(F::NON_HIDING_COMMITMENT_SECRET);
         <span class="kw">let </span>(hash, z_payload) = store.hide_and_return_z_payload(secret, payload);
         <span class="kw">let </span><span class="kw-2">mut </span>z_store = ZStore::&lt;F&gt;::default();
-        populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>payload, store, <span class="kw-2">&amp;mut </span>HashMap::default())<span class="question-mark">?</span>;
+        populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>payload, store, <span class="kw-2">&amp;mut </span>HashMap::default());
         z_store.add_comm(hash, secret, z_payload);
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ hash, z_store })
+        <span class="self">Self </span>{ hash, z_store }
     }
 
     <span class="attr">#[inline]

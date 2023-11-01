@@ -230,7 +230,7 @@
         cli::paths::circom_dir,
         coprocessor::{CoCircuit, Coprocessor},
         field::LurkField,
-        lem::{pointers::Ptr <span class="kw">as </span>LEMPtr, store::Store <span class="kw">as </span>LEMStore, Tag},
+        lem::{pointers::Ptr <span class="kw">as </span>LEMPtr, store::Store <span class="kw">as </span>LEMStore},
         ptr::Ptr,
         store::Store,
     };
@@ -357,7 +357,7 @@ Then run `lurk coprocessor --name {name} &lt;{}_FOLDER&gt;` to instantiate a new
                 })<span class="question-mark">?</span>;
             <span class="kw">let </span>output = circom_scotia::synthesize(cs, <span class="self">self</span>.config.r1cs.clone(), <span class="prelude-val">Some</span>(witness))<span class="question-mark">?</span>;
             <span class="kw">let </span>num_tag = g
-                .get_allocated_const(Tag::Expr(<span class="kw">crate</span>::tag::ExprTag::Num).to_field())
+                .get_tag(<span class="kw-2">&amp;</span><span class="kw">crate</span>::tag::ExprTag::Num)
                 .expect(<span class="string">&quot;Num tag should have been allocated&quot;</span>);
             <span class="kw">let </span>res = AllocatedPtr::from_parts(num_tag.clone(), output);
 

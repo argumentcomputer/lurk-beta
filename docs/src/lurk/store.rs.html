@@ -3915,7 +3915,7 @@
                     <span class="prelude-val">Some</span>(ptr)
                 }
                 (tag, <span class="prelude-val">None</span>) =&gt; {
-                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_maybe_opaque(tag, z_ptr.<span class="number">1</span>);
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_maybe_opaque(<span class="kw-2">*</span>tag, z_ptr.<span class="number">1</span>);
                     <span class="self">self</span>.create_z_expr_ptr(ptr, <span class="kw-2">*</span>z_ptr.value());
                     <span class="prelude-val">Some</span>(ptr)
                 }
@@ -3942,7 +3942,7 @@
             Binop, Binop2, Call, Call0, Call2, Dummy, Emit, Error, If, Let, LetRec, Lookup,
             Outermost, Tail, Terminal, Unop,
         };
-        <span class="kw">let </span>tag: ContTag = z_ptr.tag();
+        <span class="kw">let </span>tag: ContTag = <span class="kw-2">*</span>z_ptr.tag();
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cont) = z_store.get_cont(z_ptr) {
             <span class="kw">let </span>continuation = <span class="kw">match </span>cont {
