@@ -143,12 +143,45 @@ fn do_test<C: Coprocessor<Fr>>(
 }
 
 #[test]
-fn simple_evaluation() {
+fn self_evaluating() {
     let s = &Store::<Fr>::default();
+    let expr_num = "999";
+    let expt_num = Ptr::num_u64(999);
 
-    let expr = "999";
-    let expected = Ptr::num_u64(999);
-    test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, None, None, 1, &None);
+    let expr_u64 = "999u64";
+    let expt_u64 = Ptr::u64(999);
+
+    let expr_char = "'a'";
+    let expt_char = Ptr::char('a');
+
+    let expr_str = "\"abc\"";
+    let expt_str = s.intern_string("abc");
+
+    let expr_nil = "nil";
+    let expt_nil = s.intern_nil();
+
+    let expr_t = "t";
+    let expt_t = s.intern_lurk_symbol("t");
+
+    let expr_key = ":key";
+    let expt_key = s.key("key");
+
+    [
+        (expr_num, expt_num),
+        (expr_u64, expt_u64),
+        (expr_char, expt_char),
+        (expr_str, expt_str),
+        (expr_nil, expt_nil),
+        (expr_t, expt_t),
+        (expr_key, expt_key),
+    ]
+    .into_iter()
+    .for_each(|(expr, expt)| {
+        test_aux::<Coproc<Fr>>(s, expr, Some(expt), None, None, None, 1, &None);
+    });
+
+    let fun = s.intern_fun(s.intern_user_symbol("x"), s.list(vec![expt_nil]), expt_nil);
+    do_test_aux::<Coproc<Fr>>(s, &fun, Some(fun), None, None, None, 1, &None);
 }
 
 #[test]
@@ -2280,17 +2313,6 @@ fn test_eval_env_regression() {
 
     test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, 5, &None);
     test_aux::<Coproc<Fr>>(s, expr2, Some(res), None, Some(terminal), None, 6, &None);
-}
-
-#[test]
-fn test_u64_self_evaluating() {
-    let s = &Store::<Fr>::default();
-
-    let expr = "123u64";
-    let res = Ptr::u64(123);
-    let terminal = s.cont_terminal();
-
-    test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 1, &None);
 }
 
 #[test]
