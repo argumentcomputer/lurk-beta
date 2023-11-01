@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 /// An implementation of the [metrics::Recorder] trait that emits metrics to a thread-local metrics
 /// sink.
-pub struct MetricsRecorder;
+pub(crate) struct MetricsRecorder;
 
 impl Recorder for MetricsRecorder {
     fn describe_counter(&self, _key: KeyName, _unit: Option<Unit>, _description: SharedString) {}

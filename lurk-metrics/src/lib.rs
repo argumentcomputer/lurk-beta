@@ -146,7 +146,7 @@ struct ThreadMetricsSinkHandle {
 
 impl ThreadMetricsSinkHandle {
     /// Run a closure with access to the thread-local metrics sink
-    pub fn with<F, T>(f: F) -> T
+    pub(crate) fn with<F, T>(f: F) -> T
     where
         F: FnOnce(&ThreadMetricsSinkHandle) -> T,
     {
