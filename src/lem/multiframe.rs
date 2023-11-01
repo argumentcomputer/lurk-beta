@@ -110,8 +110,8 @@ impl<F: LurkField> EvaluationStore for Store<F> {
         self.hydrate_z_cache()
     }
 
-    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
-        Ok(self.hash_ptr(left)? == self.hash_ptr(right)?)
+    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> bool {
+        self.ptr_eq(left, right)
     }
 }
 
@@ -127,7 +127,7 @@ fn assert_eq_ptrs_aptrs<F: LurkField>(
     assert_eq!(ptrs.len(), aptrs.len());
     if !blank {
         for (aptr, ptr) in aptrs.iter().zip(ptrs) {
-            let z_ptr = store.hash_ptr(ptr).expect("hash_ptr failed");
+            let z_ptr = store.hash_ptr(ptr);
             let (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) =
                 (aptr.tag().get_value(), aptr.hash().get_value())
             else {
@@ -274,7 +274,7 @@ fn synthesize_frames_parallel<F: LurkField, CS: ConstraintSystem<F>, C: Coproces
                     .input
                     .iter()
                     .map(|input_ptr| {
-                        let z_ptr = store.hash_ptr(input_ptr).expect("hash_ptr failed");
+                        let z_ptr = store.hash_ptr(input_ptr);
                         AllocatedPtr::alloc(&mut frame_cs, || Ok(z_ptr)).expect("allocation failed")
                     })
                     .collect::<Vec<_>>()
@@ -339,14 +339,14 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     fn io_to_scalar_vector(
         store: &Self::Store,
         io: &<Self::EvalFrame as FrameLike<Ptr<F>, Ptr<F>>>::FrameIO,
-    ) -> Result<Vec<F>, Self::StoreError> {
-        store.to_vector(io).map_err(|e| store::Error(e.to_string()))
+    ) -> Vec<F> {
+        store.to_scalar_vector(io)
     }
 
     fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
         let mut wcs = WitnessCS::new();
 
-        let z_scalar = s.to_vector(self.input.as_ref().unwrap()).unwrap();
+        let z_scalar = s.to_scalar_vector(self.input.as_ref().unwrap());
 
         let mut bogus_cs = WitnessCS::<F>::new();
         let z: Vec<AllocatedNum<F>> = z_scalar
@@ -665,7 +665,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
             |store: &Store<F>, frames: &[Frame<F>], input: &[Ptr<F>], output: &[Ptr<F>]| {
                 let mut allocated_input = Vec::with_capacity(input.len());
                 for (i, ptr) in input.iter().enumerate() {
-                    let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
+                    let z_ptr = store.hash_ptr(ptr);
 
                     let allocated_tag = AllocatedNum::alloc_infallible(
                         &mut cs.namespace(|| format!("allocated tag for input {i}")),
@@ -686,7 +686,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
 
                 let mut allocated_output = Vec::with_capacity(output.len());
                 for (i, ptr) in output.iter().enumerate() {
-                    let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
+                    let z_ptr = store.hash_ptr(ptr);
 
                     let allocated_tag = AllocatedNum::alloc_infallible(
                         &mut cs.namespace(|| format!("allocated tag for output {i}")),
@@ -758,12 +758,12 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
         let store = self.store.expect("store missing");
         let mut res = Vec::with_capacity(self.public_input_size());
         for ptr in input {
-            let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
+            let z_ptr = store.hash_ptr(ptr);
             res.push(z_ptr.tag().to_field());
             res.push(*z_ptr.value());
         }
         for ptr in output {
-            let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
+            let z_ptr = store.hash_ptr(ptr);
             res.push(z_ptr.tag().to_field());
             res.push(*z_ptr.value());
         }
@@ -971,7 +971,7 @@ mod tests {
         let frame = frames.first().unwrap();
         let mut input = Vec::with_capacity(frame.input.len());
         for ptr in &frame.input {
-            let z_ptr = store.hash_ptr(ptr).unwrap();
+            let z_ptr = store.hash_ptr(ptr);
             let allocated_tag = AllocatedNum::alloc_infallible(&mut cs, || z_ptr.tag_field());
             allocated_tag.inputize(&mut cs).unwrap();
             let allocated_hash = AllocatedNum::alloc_infallible(&mut cs, || *z_ptr.value());

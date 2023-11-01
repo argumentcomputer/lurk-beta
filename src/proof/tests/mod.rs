@@ -223,10 +223,10 @@ where
     }
 
     if let Some(expected_result) = expected_result {
-        assert!(s.ptr_eq(&expected_result, output.expr()).unwrap());
+        assert!(s.ptr_eq(&expected_result, output.expr()));
     }
     if let Some(expected_env) = expected_env {
-        assert!(s.ptr_eq(&expected_env, output.env()).unwrap());
+        assert!(s.ptr_eq(&expected_env, output.env()));
     }
     if let Some(expected_cont) = expected_cont {
         assert_eq!(&expected_cont, output.cont());

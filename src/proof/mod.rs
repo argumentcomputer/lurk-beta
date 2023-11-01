@@ -71,7 +71,7 @@ pub trait EvaluationStore {
     fn hydrate_z_cache(&self);
 
     /// hash-equality of the expressions represented by Ptrs
-    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error>;
+    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> bool;
 }
 
 /// Trait to support multiple `MultiFrame` implementations.
@@ -120,7 +120,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
     fn io_to_scalar_vector(
         store: &Self::Store,
         io: &<Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO,
-    ) -> Result<Vec<F>, Self::StoreError>;
+    ) -> Vec<F>;
 
     /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
     fn precedes(&self, maybe_next: &Self) -> bool;

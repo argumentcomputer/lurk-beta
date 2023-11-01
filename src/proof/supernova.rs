@@ -270,9 +270,8 @@ where
         lang: Arc<Lang<F, C>>,
     ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize, usize), ProofError> {
         store.hydrate_z_cache();
-        let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
-        let zi =
-            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
+        let z0 = M::io_to_scalar_vector(store, frames[0].input());
+        let zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
         let folding_config = Arc::new(FoldingConfig::new_nivc(lang, self.reduction_count));
 
         let nivc_steps = M::from_frames(self.reduction_count(), frames, store, &folding_config);

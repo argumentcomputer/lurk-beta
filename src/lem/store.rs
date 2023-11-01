@@ -345,23 +345,21 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn hide(&self, secret: F, payload: Ptr<F>) -> Result<Ptr<F>> {
-        Ok(Ptr::comm(
-            self.hide_and_return_z_payload(secret, payload)?.0,
-        ))
+    pub fn hide(&self, secret: F, payload: Ptr<F>) -> Ptr<F> {
+        Ptr::comm(self.hide_and_return_z_payload(secret, payload).0)
     }
 
-    pub fn hide_and_return_z_payload(&self, secret: F, payload: Ptr<F>) -> Result<(F, ZPtr<F>)> {
-        let z_ptr = self.hash_ptr(&payload)?;
+    pub fn hide_and_return_z_payload(&self, secret: F, payload: Ptr<F>) -> (F, ZPtr<F>) {
+        let z_ptr = self.hash_ptr(&payload);
         let hash = self
             .poseidon_cache
             .hash3(&[secret, z_ptr.tag_field(), *z_ptr.value()]);
         self.add_comm(hash, secret, payload);
-        Ok((hash, z_ptr))
+        (hash, z_ptr)
     }
 
     #[inline]
-    pub fn commit(&self, payload: Ptr<F>) -> Result<Ptr<F>> {
+    pub fn commit(&self, payload: Ptr<F>) -> Ptr<F> {
         self.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
     }
 
@@ -551,18 +549,16 @@ impl<F: LurkField> Store<F> {
     /// Warning: without cache hits, this function might blow up Rust's recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`
     /// beforehand or by using `hash_ptr` instead, which is slightly slower.
-    fn hash_ptr_unsafe(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
+    fn hash_ptr_unsafe(&self, ptr: &Ptr<F>) -> ZPtr<F> {
         match ptr {
-            Ptr::Atom(tag, x) => Ok(ZPtr::from_parts(*tag, *x)),
+            Ptr::Atom(tag, x) => ZPtr::from_parts(*tag, *x),
             Ptr::Tuple2(tag, idx) => {
                 if let Some(z_ptr) = self.z_cache.get(ptr) {
-                    Ok(*z_ptr)
+                    *z_ptr
                 } else {
-                    let Some((a, b)) = self.fetch_2_ptrs(*idx) else {
-                        bail!("Index {idx} not found on tuple2")
-                    };
-                    let a = self.hash_ptr_unsafe(a)?;
-                    let b = self.hash_ptr_unsafe(b)?;
+                    let (a, b) = self.fetch_2_ptrs(*idx).expect("Index missing from tuple2");
+                    let a = self.hash_ptr_unsafe(a);
+                    let b = self.hash_ptr_unsafe(b);
                     let z_ptr = ZPtr::from_parts(
                         *tag,
                         self.poseidon_cache.hash4(&[
@@ -573,19 +569,17 @@ impl<F: LurkField> Store<F> {
                         ]),
                     );
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
-                    Ok(z_ptr)
+                    z_ptr
                 }
             }
             Ptr::Tuple3(tag, idx) => {
                 if let Some(z_ptr) = self.z_cache.get(ptr) {
-                    Ok(*z_ptr)
+                    *z_ptr
                 } else {
-                    let Some((a, b, c)) = self.fetch_3_ptrs(*idx) else {
-                        bail!("Index {idx} not found on tuple3")
-                    };
-                    let a = self.hash_ptr_unsafe(a)?;
-                    let b = self.hash_ptr_unsafe(b)?;
-                    let c = self.hash_ptr_unsafe(c)?;
+                    let (a, b, c) = self.fetch_3_ptrs(*idx).expect("Index missing from tuple3");
+                    let a = self.hash_ptr_unsafe(a);
+                    let b = self.hash_ptr_unsafe(b);
+                    let c = self.hash_ptr_unsafe(c);
                     let z_ptr = ZPtr::from_parts(
                         *tag,
                         self.poseidon_cache.hash6(&[
@@ -598,20 +592,18 @@ impl<F: LurkField> Store<F> {
                         ]),
                     );
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
-                    Ok(z_ptr)
+                    z_ptr
                 }
             }
             Ptr::Tuple4(tag, idx) => {
                 if let Some(z_ptr) = self.z_cache.get(ptr) {
-                    Ok(*z_ptr)
+                    *z_ptr
                 } else {
-                    let Some((a, b, c, d)) = self.fetch_4_ptrs(*idx) else {
-                        bail!("Index {idx} not found on tuple4")
-                    };
-                    let a = self.hash_ptr_unsafe(a)?;
-                    let b = self.hash_ptr_unsafe(b)?;
-                    let c = self.hash_ptr_unsafe(c)?;
-                    let d = self.hash_ptr_unsafe(d)?;
+                    let (a, b, c, d) = self.fetch_4_ptrs(*idx).expect("Index missing from tuple4");
+                    let a = self.hash_ptr_unsafe(a);
+                    let b = self.hash_ptr_unsafe(b);
+                    let c = self.hash_ptr_unsafe(c);
+                    let d = self.hash_ptr_unsafe(d);
                     let z_ptr = ZPtr::from_parts(
                         *tag,
                         self.poseidon_cache.hash8(&[
@@ -626,7 +618,7 @@ impl<F: LurkField> Store<F> {
                         ]),
                     );
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
-                    Ok(z_ptr)
+                    z_ptr
                 }
             }
         }
@@ -637,7 +629,7 @@ impl<F: LurkField> Store<F> {
     fn hydrate_z_cache_with_ptrs(&self, ptrs: &[&Ptr<F>]) {
         for chunk in ptrs.chunks(256) {
             chunk.par_iter().for_each(|ptr| {
-                self.hash_ptr_unsafe(ptr).expect("hash_ptr failed");
+                self.hash_ptr_unsafe(ptr);
             });
         }
     }
@@ -665,7 +657,7 @@ impl<F: LurkField> Store<F> {
     /// Safe version of `hash_ptr_unsafe` that doesn't hit a stack overflow by
     /// precomputing the pointers that need to be hashed in order to hash the
     /// provided `ptr`
-    pub fn hash_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
+    pub fn hash_ptr(&self, ptr: &Ptr<F>) -> ZPtr<F> {
         if self.is_below_safe_threshold() {
             // just run `hash_ptr_unsafe` for extra speed when the dehydrated
             // queue is small enough
@@ -688,25 +680,19 @@ impl<F: LurkField> Store<F> {
             match ptr {
                 Ptr::Atom(..) => (),
                 Ptr::Tuple2(_, idx) => {
-                    let Some((a, b)) = self.fetch_2_ptrs(*idx) else {
-                        bail!("Index {idx} not found on tuple2")
-                    };
+                    let (a, b) = self.fetch_2_ptrs(*idx).expect("Index missing from tuple2");
                     for ptr in [a, b] {
                         feed_loop!(ptr)
                     }
                 }
                 Ptr::Tuple3(_, idx) => {
-                    let Some((a, b, c)) = self.fetch_3_ptrs(*idx) else {
-                        bail!("Index {idx} not found on tuple3")
-                    };
+                    let (a, b, c) = self.fetch_3_ptrs(*idx).expect("Index missing from tuple3");
                     for ptr in [a, b, c] {
                         feed_loop!(ptr)
                     }
                 }
                 Ptr::Tuple4(_, idx) => {
-                    let Some((a, b, c, d)) = self.fetch_4_ptrs(*idx) else {
-                        bail!("Index {idx} not found on tuple4")
-                    };
+                    let (a, b, c, d) = self.fetch_4_ptrs(*idx).expect("Index missing from tuple4");
                     for ptr in [a, b, c, d] {
                         feed_loop!(ptr)
                     }
@@ -719,20 +705,20 @@ impl<F: LurkField> Store<F> {
         self.hash_ptr_unsafe(ptr)
     }
 
-    pub fn to_vector(&self, ptrs: &[Ptr<F>]) -> Result<Vec<F>> {
+    pub fn to_scalar_vector(&self, ptrs: &[Ptr<F>]) -> Vec<F> {
         ptrs.iter()
-            .try_fold(Vec::with_capacity(2 * ptrs.len()), |mut acc, ptr| {
-                let z_ptr = self.hash_ptr(ptr)?;
+            .fold(Vec::with_capacity(2 * ptrs.len()), |mut acc, ptr| {
+                let z_ptr = self.hash_ptr(ptr);
                 acc.push(z_ptr.tag_field());
                 acc.push(*z_ptr.value());
-                Ok(acc)
+                acc
             })
     }
 
     /// Equality of the content-addressed versions of two pointers
     #[inline]
-    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool> {
-        Ok(self.hash_ptr(a)? == self.hash_ptr(b)?)
+    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
+        self.hash_ptr(a) == self.hash_ptr(b)
     }
 }
 
@@ -1123,13 +1109,13 @@ mod tests {
         let store = Store::<Fr>::default();
         let ptr = store.intern_string(&string);
         // `hash_ptr_unsafe` would overflow the stack, whereas `hash_ptr` works
-        let x = store.hash_ptr(&ptr).unwrap();
+        let x = store.hash_ptr(&ptr);
 
         let store = Store::<Fr>::default();
         let ptr = store.intern_string(&string);
         store.hydrate_z_cache();
         // but `hash_ptr_unsafe` works just fine after manual hydration
-        let y = store.hash_ptr_unsafe(&ptr).unwrap();
+        let y = store.hash_ptr_unsafe(&ptr);
 
         // and, of course, those functions result on the same `ZPtr`
         assert_eq!(x, y);
@@ -1152,7 +1138,7 @@ mod tests {
             ]),
         ]);
 
-        let hi_hash = s.hash_ptr(&hi_ptr).unwrap().1;
+        let hi_hash = s.hash_ptr(&hi_ptr).1;
         assert_eq!(hi_hash, hi_hash_manual);
     }
 
@@ -1163,8 +1149,8 @@ mod tests {
         let bar_ptr = s.intern_string("bar");
         let foo_bar_ptr = s.intern_symbol(&Symbol::sym_from_vec(vec!["foo".into(), "bar".into()]));
 
-        let foo_z_ptr = s.hash_ptr(&foo_ptr).unwrap();
-        let bar_z_ptr = s.hash_ptr(&bar_ptr).unwrap();
+        let foo_z_ptr = s.hash_ptr(&foo_ptr);
+        let bar_z_ptr = s.hash_ptr(&bar_ptr);
 
         let foo_bar_hash_manual = s.poseidon_cache.hash4(&[
             ExprTag::Str.to_field(),
@@ -1178,7 +1164,7 @@ mod tests {
             ]),
         ]);
 
-        let foo_bar_hash = s.hash_ptr(&foo_bar_ptr).unwrap().1;
+        let foo_bar_hash = s.hash_ptr(&foo_bar_ptr).1;
         assert_eq!(foo_bar_hash, foo_bar_hash_manual);
     }
 }

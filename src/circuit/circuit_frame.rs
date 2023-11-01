@@ -131,8 +131,8 @@ impl<F: LurkField> EvaluationStore for Store<F> {
         self.hydrate_scalar_cache()
     }
 
-    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
-        self.ptr_eq(left, right)
+    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> bool {
+        self.ptr_eq(left, right).unwrap()
     }
 }
 
@@ -178,8 +178,8 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     fn io_to_scalar_vector(
         store: &Self::Store,
         io: &<Self::EvalFrame as FrameLike<Ptr<F>, ContPtr<F>>>::FrameIO,
-    ) -> Result<Vec<F>, Self::StoreError> {
-        io.to_vector(store)
+    ) -> Vec<F> {
+        io.to_vector(store).unwrap()
     }
 
     fn compute_witness(&self, s: &Self::Store) -> WitnessCS<F> {
