@@ -149,34 +149,6 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>lurk_macros::serde_test;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
@@ -227,25 +199,6 @@
         }
     }
 
-    <span class="doccomment">/// Converts an entire store to a `ZStore`
-    /// WARNING: This will leak secrets used for opaque data in
-    /// `Store::comm_store`. Not for use with hiding commitments
-    </span><span class="kw">pub fn </span>to_z_store(store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="self">Self </span>{
-        store.hydrate_scalar_cache();
-        <span class="kw">let </span><span class="kw-2">mut </span>zstore = ZStore::new();
-        <span class="kw">for </span>zptr <span class="kw">in </span>store.z_expr_ptr_map.keys_cloned() {
-            <span class="kw">let </span>ptr = store.z_expr_ptr_map.get(<span class="kw-2">&amp;</span>zptr).unwrap();
-            <span class="kw">let </span>zexpr = store.to_z_expr(ptr);
-            zstore.expr_map.insert(zptr, zexpr);
-        }
-        <span class="kw">for </span>zptr <span class="kw">in </span>store.z_cont_ptr_map.keys_cloned() {
-            <span class="kw">let </span>ptr = store.z_cont_ptr_map.get(<span class="kw-2">&amp;</span>zptr).unwrap();
-            <span class="kw">let </span>zcont = store.to_z_cont(ptr);
-            zstore.cont_map.insert(zptr, zcont);
-        }
-        zstore
-    }
-
     <span class="doccomment">/// Creates a new `ZStore` and adds all `ZExprPtrs` reachable from the hashed `expr`
     /// Inserts child pointers into `ZStore` with `to_z_store_with_ptr`,
     /// then inserts top level pointer
@@ -255,15 +208,6 @@
             <span class="prelude-val">Ok</span>((new, z_ptr)) =&gt; (new, <span class="prelude-val">Some</span>(z_ptr)),
             <span class="kw">_ </span>=&gt; (ZStore::new(), <span class="prelude-val">None</span>),
         }
-    }
-
-    <span class="doccomment">/// Converts a Lurk expression to a `ZExpr` and stores it in the `ZStore`, returning
-    /// the resulting `ZExprPtr`
-    </span><span class="kw">pub fn </span>insert_expr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, expr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ZExprPtr&lt;F&gt;&gt; {
-        <span class="kw">let </span>z_ptr = store.hash_expr(expr)<span class="question-mark">?</span>;
-        <span class="kw">let </span>z_expr = ZExpr::from_ptr(store, expr);
-        <span class="self">self</span>.expr_map.insert(z_ptr, z_expr);
-        <span class="prelude-val">Some</span>(z_ptr)
     }
 
     <span class="doccomment">/// Returns the `ZExpr` immediately corresponding to the `ZExprPtr`, where &quot;immediate&quot; means

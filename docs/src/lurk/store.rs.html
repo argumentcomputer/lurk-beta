@@ -2422,33 +2422,6 @@
 <a href="#2422" id="2422">2422</a>
 <a href="#2423" id="2423">2423</a>
 <a href="#2424" id="2424">2424</a>
-<a href="#2425" id="2425">2425</a>
-<a href="#2426" id="2426">2426</a>
-<a href="#2427" id="2427">2427</a>
-<a href="#2428" id="2428">2428</a>
-<a href="#2429" id="2429">2429</a>
-<a href="#2430" id="2430">2430</a>
-<a href="#2431" id="2431">2431</a>
-<a href="#2432" id="2432">2432</a>
-<a href="#2433" id="2433">2433</a>
-<a href="#2434" id="2434">2434</a>
-<a href="#2435" id="2435">2435</a>
-<a href="#2436" id="2436">2436</a>
-<a href="#2437" id="2437">2437</a>
-<a href="#2438" id="2438">2438</a>
-<a href="#2439" id="2439">2439</a>
-<a href="#2440" id="2440">2440</a>
-<a href="#2441" id="2441">2441</a>
-<a href="#2442" id="2442">2442</a>
-<a href="#2443" id="2443">2443</a>
-<a href="#2444" id="2444">2444</a>
-<a href="#2445" id="2445">2445</a>
-<a href="#2446" id="2446">2446</a>
-<a href="#2447" id="2447">2447</a>
-<a href="#2448" id="2448">2448</a>
-<a href="#2449" id="2449">2449</a>
-<a href="#2450" id="2450">2450</a>
-<a href="#2451" id="2451">2451</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>elsa::sync::{FrozenMap, FrozenVec};
 <span class="kw">use </span>elsa::sync_index_set::FrozenIndexSet;
@@ -3736,20 +3709,6 @@
         <span class="self">self</span>.get_z_cont(ptr, <span class="kw-2">&amp;mut </span><span class="prelude-val">None</span>).ok().map(|x| x.<span class="number">0</span>)
     }
 
-    <span class="kw">pub fn </span>hash_string(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>str) -&gt; ZExprPtr&lt;F&gt; {
-        <span class="kw">let </span>ptr = <span class="self">self</span>.intern_string(s);
-        <span class="self">self</span>.get_z_expr(<span class="kw-2">&amp;</span>ptr, <span class="kw-2">&amp;mut </span><span class="prelude-val">None</span>)
-            .expect(<span class="string">&quot;known string can&#39;t be opaque&quot;</span>)
-            .<span class="number">0
-    </span>}
-
-    <span class="kw">pub fn </span>hash_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Symbol) -&gt; ZExprPtr&lt;F&gt; {
-        <span class="kw">let </span>ptr = <span class="self">self</span>.intern_symbol(s);
-        <span class="self">self</span>.get_z_expr(<span class="kw-2">&amp;</span>ptr, <span class="kw-2">&amp;mut </span><span class="prelude-val">None</span>)
-            .expect(<span class="string">&quot;known symbol can&#39;t be opaque&quot;</span>)
-            .<span class="number">0
-    </span>}
-
     <span class="kw">pub fn </span>car_cdr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;), Error&gt; {
         <span class="kw">match </span>ptr.tag {
             ExprTag::Nil =&gt; <span class="prelude-val">Ok</span>((<span class="macro">lurk_sym_ptr!</span>(<span class="self">self</span>, nil), <span class="macro">lurk_sym_ptr!</span>(<span class="self">self</span>, nil))),
@@ -3794,19 +3753,6 @@
                 <span class="string">&quot;one or more values missing when comparing Ptrs for equality&quot;</span>.into(),
             )),
         }
-    }
-
-    <span class="kw">pub fn </span>cons_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, a: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, b: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; bool {
-        <span class="macro">assert_eq!</span>(ExprTag::Cons, a.tag);
-        <span class="macro">assert_eq!</span>(ExprTag::Cons, b.tag);
-
-        <span class="kw">let </span>a_opaque = a.is_opaque();
-        <span class="kw">let </span>b_opaque = b.is_opaque();
-
-        <span class="kw">if </span>!a_opaque &amp;&amp; !b_opaque {
-            <span class="kw">return </span>a == b;
-        }
-        <span class="self">self</span>.hash_expr(a) == <span class="self">self</span>.hash_expr(b)
     }
 
     <span class="doccomment">/// Fill the cache for Scalars. Only Ptrs which have been interned since last hydration will be hashed, so it is
