@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (31bc7e2c4 2023-10-30)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (9d83ac217 2023-10-31)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1168,20 +1168,6 @@
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
 <a href="#1170" id="1170">1170</a>
-<a href="#1171" id="1171">1171</a>
-<a href="#1172" id="1172">1172</a>
-<a href="#1173" id="1173">1173</a>
-<a href="#1174" id="1174">1174</a>
-<a href="#1175" id="1175">1175</a>
-<a href="#1176" id="1176">1176</a>
-<a href="#1177" id="1177">1177</a>
-<a href="#1178" id="1178">1178</a>
-<a href="#1179" id="1179">1179</a>
-<a href="#1180" id="1180">1180</a>
-<a href="#1181" id="1181">1181</a>
-<a href="#1182" id="1182">1182</a>
-<a href="#1183" id="1183">1183</a>
-<a href="#1184" id="1184">1184</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>elsa::{
@@ -1529,23 +1515,21 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>hide(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
-        <span class="prelude-val">Ok</span>(Ptr::comm(
-            <span class="self">self</span>.hide_and_return_z_payload(secret, payload)<span class="question-mark">?</span>.<span class="number">0</span>,
-        ))
+    </span><span class="kw">pub fn </span>hide(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+        Ptr::comm(<span class="self">self</span>.hide_and_return_z_payload(secret, payload).<span class="number">0</span>)
     }
 
-    <span class="kw">pub fn </span>hide_and_return_z_payload(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(F, ZPtr&lt;F&gt;)&gt; {
-        <span class="kw">let </span>z_ptr = <span class="self">self</span>.hash_ptr(<span class="kw-2">&amp;</span>payload)<span class="question-mark">?</span>;
+    <span class="kw">pub fn </span>hide_and_return_z_payload(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr&lt;F&gt;) -&gt; (F, ZPtr&lt;F&gt;) {
+        <span class="kw">let </span>z_ptr = <span class="self">self</span>.hash_ptr(<span class="kw-2">&amp;</span>payload);
         <span class="kw">let </span>hash = <span class="self">self
             </span>.poseidon_cache
             .hash3(<span class="kw-2">&amp;</span>[secret, z_ptr.tag_field(), <span class="kw-2">*</span>z_ptr.value()]);
         <span class="self">self</span>.add_comm(hash, secret, payload);
-        <span class="prelude-val">Ok</span>((hash, z_ptr))
+        (hash, z_ptr)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>, payload: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
+    </span><span class="kw">pub fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>, payload: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
         <span class="self">self</span>.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
     }
 
@@ -1735,18 +1719,16 @@
     /// Warning: without cache hits, this function might blow up Rust&#39;s recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`
     /// beforehand or by using `hash_ptr` instead, which is slightly slower.
-    </span><span class="kw">fn </span>hash_ptr_unsafe(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;F&gt;&gt; {
+    </span><span class="kw">fn </span>hash_ptr_unsafe(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; ZPtr&lt;F&gt; {
         <span class="kw">match </span>ptr {
-            Ptr::Atom(tag, x) =&gt; <span class="prelude-val">Ok</span>(ZPtr::from_parts(<span class="kw-2">*</span>tag, <span class="kw-2">*</span>x)),
+            Ptr::Atom(tag, x) =&gt; ZPtr::from_parts(<span class="kw-2">*</span>tag, <span class="kw-2">*</span>x),
             Ptr::Tuple2(tag, idx) =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = <span class="self">self</span>.z_cache.get(ptr) {
-                    <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>z_ptr)
+                    <span class="kw-2">*</span>z_ptr
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b)) = <span class="self">self</span>.fetch_2_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple2&quot;</span>)
-                    };
-                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr_unsafe(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr_unsafe(b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>(a, b) = <span class="self">self</span>.fetch_2_ptrs(<span class="kw-2">*</span>idx).expect(<span class="string">&quot;Index missing from tuple2&quot;</span>);
+                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr_unsafe(a);
+                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr_unsafe(b);
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
                         <span class="self">self</span>.poseidon_cache.hash4(<span class="kw-2">&amp;</span>[
@@ -1757,19 +1739,17 @@
                         ]),
                     );
                     <span class="self">self</span>.z_cache.insert(<span class="kw-2">*</span>ptr, Box::new(z_ptr));
-                    <span class="prelude-val">Ok</span>(z_ptr)
+                    z_ptr
                 }
             }
             Ptr::Tuple3(tag, idx) =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = <span class="self">self</span>.z_cache.get(ptr) {
-                    <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>z_ptr)
+                    <span class="kw-2">*</span>z_ptr
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c)) = <span class="self">self</span>.fetch_3_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple3&quot;</span>)
-                    };
-                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr_unsafe(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr_unsafe(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="self">self</span>.hash_ptr_unsafe(c)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>(a, b, c) = <span class="self">self</span>.fetch_3_ptrs(<span class="kw-2">*</span>idx).expect(<span class="string">&quot;Index missing from tuple3&quot;</span>);
+                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr_unsafe(a);
+                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr_unsafe(b);
+                    <span class="kw">let </span>c = <span class="self">self</span>.hash_ptr_unsafe(c);
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
                         <span class="self">self</span>.poseidon_cache.hash6(<span class="kw-2">&amp;</span>[
@@ -1782,20 +1762,18 @@
                         ]),
                     );
                     <span class="self">self</span>.z_cache.insert(<span class="kw-2">*</span>ptr, Box::new(z_ptr));
-                    <span class="prelude-val">Ok</span>(z_ptr)
+                    z_ptr
                 }
             }
             Ptr::Tuple4(tag, idx) =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = <span class="self">self</span>.z_cache.get(ptr) {
-                    <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>z_ptr)
+                    <span class="kw-2">*</span>z_ptr
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c, d)) = <span class="self">self</span>.fetch_4_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple4&quot;</span>)
-                    };
-                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr_unsafe(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr_unsafe(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="self">self</span>.hash_ptr_unsafe(c)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>d = <span class="self">self</span>.hash_ptr_unsafe(d)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>(a, b, c, d) = <span class="self">self</span>.fetch_4_ptrs(<span class="kw-2">*</span>idx).expect(<span class="string">&quot;Index missing from tuple4&quot;</span>);
+                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr_unsafe(a);
+                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr_unsafe(b);
+                    <span class="kw">let </span>c = <span class="self">self</span>.hash_ptr_unsafe(c);
+                    <span class="kw">let </span>d = <span class="self">self</span>.hash_ptr_unsafe(d);
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
                         <span class="self">self</span>.poseidon_cache.hash8(<span class="kw-2">&amp;</span>[
@@ -1810,7 +1788,7 @@
                         ]),
                     );
                     <span class="self">self</span>.z_cache.insert(<span class="kw-2">*</span>ptr, Box::new(z_ptr));
-                    <span class="prelude-val">Ok</span>(z_ptr)
+                    z_ptr
                 }
             }
         }
@@ -1821,7 +1799,7 @@
     </span><span class="kw">fn </span>hydrate_z_cache_with_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Ptr&lt;F&gt;]) {
         <span class="kw">for </span>chunk <span class="kw">in </span>ptrs.chunks(<span class="number">256</span>) {
             chunk.par_iter().for_each(|ptr| {
-                <span class="self">self</span>.hash_ptr_unsafe(ptr).expect(<span class="string">&quot;hash_ptr failed&quot;</span>);
+                <span class="self">self</span>.hash_ptr_unsafe(ptr);
             });
         }
     }
@@ -1849,7 +1827,7 @@
     <span class="doccomment">/// Safe version of `hash_ptr_unsafe` that doesn&#39;t hit a stack overflow by
     /// precomputing the pointers that need to be hashed in order to hash the
     /// provided `ptr`
-    </span><span class="kw">pub fn </span>hash_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;F&gt;&gt; {
+    </span><span class="kw">pub fn </span>hash_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; ZPtr&lt;F&gt; {
         <span class="kw">if </span><span class="self">self</span>.is_below_safe_threshold() {
             <span class="comment">// just run `hash_ptr_unsafe` for extra speed when the dehydrated
             // queue is small enough
@@ -1872,25 +1850,19 @@
             <span class="kw">match </span>ptr {
                 Ptr::Atom(..) =&gt; (),
                 Ptr::Tuple2(<span class="kw">_</span>, idx) =&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b)) = <span class="self">self</span>.fetch_2_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple2&quot;</span>)
-                    };
+                    <span class="kw">let </span>(a, b) = <span class="self">self</span>.fetch_2_ptrs(<span class="kw-2">*</span>idx).expect(<span class="string">&quot;Index missing from tuple2&quot;</span>);
                     <span class="kw">for </span>ptr <span class="kw">in </span>[a, b] {
                         <span class="macro">feed_loop!</span>(ptr)
                     }
                 }
                 Ptr::Tuple3(<span class="kw">_</span>, idx) =&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c)) = <span class="self">self</span>.fetch_3_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple3&quot;</span>)
-                    };
+                    <span class="kw">let </span>(a, b, c) = <span class="self">self</span>.fetch_3_ptrs(<span class="kw-2">*</span>idx).expect(<span class="string">&quot;Index missing from tuple3&quot;</span>);
                     <span class="kw">for </span>ptr <span class="kw">in </span>[a, b, c] {
                         <span class="macro">feed_loop!</span>(ptr)
                     }
                 }
                 Ptr::Tuple4(<span class="kw">_</span>, idx) =&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c, d)) = <span class="self">self</span>.fetch_4_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple4&quot;</span>)
-                    };
+                    <span class="kw">let </span>(a, b, c, d) = <span class="self">self</span>.fetch_4_ptrs(<span class="kw-2">*</span>idx).expect(<span class="string">&quot;Index missing from tuple4&quot;</span>);
                     <span class="kw">for </span>ptr <span class="kw">in </span>[a, b, c, d] {
                         <span class="macro">feed_loop!</span>(ptr)
                     }
@@ -1903,20 +1875,20 @@
         </span><span class="self">self</span>.hash_ptr_unsafe(ptr)
     }
 
-    <span class="kw">pub fn </span>to_vector(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;F&gt;&gt; {
+    <span class="kw">pub fn </span>to_scalar_vector(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Vec&lt;F&gt; {
         ptrs.iter()
-            .try_fold(Vec::with_capacity(<span class="number">2 </span>* ptrs.len()), |<span class="kw-2">mut </span>acc, ptr| {
-                <span class="kw">let </span>z_ptr = <span class="self">self</span>.hash_ptr(ptr)<span class="question-mark">?</span>;
+            .fold(Vec::with_capacity(<span class="number">2 </span>* ptrs.len()), |<span class="kw-2">mut </span>acc, ptr| {
+                <span class="kw">let </span>z_ptr = <span class="self">self</span>.hash_ptr(ptr);
                 acc.push(z_ptr.tag_field());
                 acc.push(<span class="kw-2">*</span>z_ptr.value());
-                <span class="prelude-val">Ok</span>(acc)
+                acc
             })
     }
 
     <span class="doccomment">/// Equality of the content-addressed versions of two pointers
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, a: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, b: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.hash_ptr(a)<span class="question-mark">? </span>== <span class="self">self</span>.hash_ptr(b)<span class="question-mark">?</span>)
+    </span><span class="kw">pub fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, a: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, b: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; bool {
+        <span class="self">self</span>.hash_ptr(a) == <span class="self">self</span>.hash_ptr(b)
     }
 }
 
@@ -2307,13 +2279,13 @@
         <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>ptr = store.intern_string(<span class="kw-2">&amp;</span>string);
         <span class="comment">// `hash_ptr_unsafe` would overflow the stack, whereas `hash_ptr` works
-        </span><span class="kw">let </span>x = store.hash_ptr(<span class="kw-2">&amp;</span>ptr).unwrap();
+        </span><span class="kw">let </span>x = store.hash_ptr(<span class="kw-2">&amp;</span>ptr);
 
         <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>ptr = store.intern_string(<span class="kw-2">&amp;</span>string);
         store.hydrate_z_cache();
         <span class="comment">// but `hash_ptr_unsafe` works just fine after manual hydration
-        </span><span class="kw">let </span>y = store.hash_ptr_unsafe(<span class="kw-2">&amp;</span>ptr).unwrap();
+        </span><span class="kw">let </span>y = store.hash_ptr_unsafe(<span class="kw-2">&amp;</span>ptr);
 
         <span class="comment">// and, of course, those functions result on the same `ZPtr`
         </span><span class="macro">assert_eq!</span>(x, y);
@@ -2336,7 +2308,7 @@
             ]),
         ]);
 
-        <span class="kw">let </span>hi_hash = s.hash_ptr(<span class="kw-2">&amp;</span>hi_ptr).unwrap().<span class="number">1</span>;
+        <span class="kw">let </span>hi_hash = s.hash_ptr(<span class="kw-2">&amp;</span>hi_ptr).<span class="number">1</span>;
         <span class="macro">assert_eq!</span>(hi_hash, hi_hash_manual);
     }
 
@@ -2347,8 +2319,8 @@
         <span class="kw">let </span>bar_ptr = s.intern_string(<span class="string">&quot;bar&quot;</span>);
         <span class="kw">let </span>foo_bar_ptr = s.intern_symbol(<span class="kw-2">&amp;</span>Symbol::sym_from_vec(<span class="macro">vec!</span>[<span class="string">&quot;foo&quot;</span>.into(), <span class="string">&quot;bar&quot;</span>.into()]));
 
-        <span class="kw">let </span>foo_z_ptr = s.hash_ptr(<span class="kw-2">&amp;</span>foo_ptr).unwrap();
-        <span class="kw">let </span>bar_z_ptr = s.hash_ptr(<span class="kw-2">&amp;</span>bar_ptr).unwrap();
+        <span class="kw">let </span>foo_z_ptr = s.hash_ptr(<span class="kw-2">&amp;</span>foo_ptr);
+        <span class="kw">let </span>bar_z_ptr = s.hash_ptr(<span class="kw-2">&amp;</span>bar_ptr);
 
         <span class="kw">let </span>foo_bar_hash_manual = s.poseidon_cache.hash4(<span class="kw-2">&amp;</span>[
             ExprTag::Str.to_field(),
@@ -2362,7 +2334,7 @@
             ]),
         ]);
 
-        <span class="kw">let </span>foo_bar_hash = s.hash_ptr(<span class="kw-2">&amp;</span>foo_bar_ptr).unwrap().<span class="number">1</span>;
+        <span class="kw">let </span>foo_bar_hash = s.hash_ptr(<span class="kw-2">&amp;</span>foo_bar_ptr).<span class="number">1</span>;
         <span class="macro">assert_eq!</span>(foo_bar_hash, foo_bar_hash_manual);
     }
 }
