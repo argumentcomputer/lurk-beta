@@ -48,25 +48,6 @@ impl<F: LurkField> ZStore<F> {
         }
     }
 
-    /// Converts an entire store to a `ZStore`
-    /// WARNING: This will leak secrets used for opaque data in
-    /// `Store::comm_store`. Not for use with hiding commitments
-    pub fn to_z_store(store: &Store<F>) -> Self {
-        store.hydrate_scalar_cache();
-        let mut zstore = ZStore::new();
-        for zptr in store.z_expr_ptr_map.keys_cloned() {
-            let ptr = store.z_expr_ptr_map.get(&zptr).unwrap();
-            let zexpr = store.to_z_expr(ptr);
-            zstore.expr_map.insert(zptr, zexpr);
-        }
-        for zptr in store.z_cont_ptr_map.keys_cloned() {
-            let ptr = store.z_cont_ptr_map.get(&zptr).unwrap();
-            let zcont = store.to_z_cont(ptr);
-            zstore.cont_map.insert(zptr, zcont);
-        }
-        zstore
-    }
-
     /// Creates a new `ZStore` and adds all `ZExprPtrs` reachable from the hashed `expr`
     /// Inserts child pointers into `ZStore` with `to_z_store_with_ptr`,
     /// then inserts top level pointer
@@ -76,15 +57,6 @@ impl<F: LurkField> ZStore<F> {
             Ok((new, z_ptr)) => (new, Some(z_ptr)),
             _ => (ZStore::new(), None),
         }
-    }
-
-    /// Converts a Lurk expression to a `ZExpr` and stores it in the `ZStore`, returning
-    /// the resulting `ZExprPtr`
-    pub fn insert_expr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-        let z_ptr = store.hash_expr(expr)?;
-        let z_expr = ZExpr::from_ptr(store, expr);
-        self.expr_map.insert(z_ptr, z_expr);
-        Some(z_ptr)
     }
 
     /// Returns the `ZExpr` immediately corresponding to the `ZExprPtr`, where "immediate" means

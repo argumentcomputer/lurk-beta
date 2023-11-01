@@ -144,13 +144,6 @@ impl Status {
         }
     }
 
-    pub fn is_incomplete(&self) -> bool {
-        match self {
-            Self::Incomplete => true,
-            Self::Terminal | Self::Error => false,
-        }
-    }
-
     pub fn to_cont<F: LurkField>(&self, s: &Store<F>) -> Option<ContPtr<F>> {
         match self {
             Self::Terminal => Some(s.intern_cont_terminal()),
