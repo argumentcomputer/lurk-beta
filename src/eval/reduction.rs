@@ -565,7 +565,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 // or alternately performing the ApplyContinuation part of reduction at the end of each (NIVC) coprocessor step.
                                 // Instead, we wrap this in a (potentially unoptimized) tail call.
                                 cont,
-                            } = coprocessor.evaluate(store, args, env, cont);
+                            } = coprocessor.evaluate_alpha(store, args, env, cont);
 
                             if cont == store.intern_cont_error() {
                                 return Ok((

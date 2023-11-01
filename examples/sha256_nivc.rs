@@ -73,7 +73,7 @@ fn main() {
     let call = sha256_nivc(store, n, &(0..n).collect::<Vec<_>>());
 
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
-    lang.add_coprocessor_lem(cproc_sym, Sha256Coprocessor::new(n), store);
+    lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n), store);
     let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_lang(&lang, false);

@@ -23,9 +23,9 @@ pub mod non_wasm {
         cli::paths::circom_dir,
         coprocessor::{CoCircuit, Coprocessor},
         field::LurkField,
-        lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore},
-        ptr::Ptr,
-        store::Store,
+        lem::{pointers::Ptr, store::Store},
+        ptr::Ptr as AlphaPtr,
+        store::Store as AlphaStore,
     };
 
     fn print_error(name: &str, available: &[String]) -> Result<()> {
@@ -110,11 +110,11 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
             0
         }
 
-        fn synthesize<CS: ConstraintSystem<F>>(
+        fn synthesize_alpha<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
             g: &GlobalAllocations<F>,
-            _store: &Store<F>,
+            _store: &AlphaStore<F>,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,
             input_cont: &AllocatedContPtr<F>,
@@ -134,11 +134,11 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
             Ok((res, input_env.clone(), input_cont.clone()))
         }
 
-        fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+        fn synthesize_simple<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
             g: &crate::lem::circuit::GlobalAllocator<F>,
-            _s: &LEMStore<F>,
+            _s: &Store<F>,
             _not_dummy: &bellpepper_core::boolean::Boolean,
             args: &[AllocatedPtr<F>],
         ) -> std::result::Result<AllocatedPtr<F>, SynthesisError> {
@@ -164,12 +164,12 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
             0
         }
 
-        fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
-            self.gadget.simple_evaluate(s, args)
+        fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
+            self.gadget.simple_evaluate_alpha(s, args)
         }
 
-        fn evaluate_lem_simple(&self, s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F> {
-            self.gadget.simple_evaluate_lem(s, args)
+        fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+            self.gadget.evaluate_simple(s, args)
         }
 
         fn has_circuit(&self) -> bool {

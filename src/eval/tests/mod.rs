@@ -2923,7 +2923,7 @@ pub(crate) mod coproc {
     fn test_dumb_lang() {
         let s = &mut Store::<Fr>::new();
 
-        let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
+        let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings_alpha(
             s,
             vec![(user_sym("cproc-dumb"), DumbCoprocessor::new().into())],
         );

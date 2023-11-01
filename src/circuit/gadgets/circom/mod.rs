@@ -4,9 +4,9 @@
 
 use crate::{
     field::LurkField,
-    lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore},
-    ptr::Ptr,
-    store::Store,
+    lem::{pointers::Ptr, store::Store},
+    ptr::Ptr as AlphaPtr,
+    store::Store as AlphaStore,
 };
 
 use super::pointer::AllocatedPtr;
@@ -27,7 +27,7 @@ pub trait CircomGadget<F: LurkField>: Send + Sync + Clone {
 
     fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)>;
 
-    fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
+    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F>;
 
-    fn simple_evaluate_lem(&self, s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F>;
+    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
 }

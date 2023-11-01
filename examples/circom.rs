@@ -41,12 +41,11 @@ use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 
 use lurk::eval::lang::Lang;
 use lurk::field::LurkField;
-use lurk::lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore};
+use lurk::lem::{pointers::Ptr, store::Store};
 use lurk::proof::{nova::NovaProver, Prover};
-use lurk::ptr::Ptr;
 use lurk::public_parameters::instance::{Instance, Kind};
 use lurk::public_parameters::public_params;
-use lurk::store::Store;
+use lurk::{ptr::Ptr as AlphaPtr, store::Store as AlphaStore};
 use lurk::{Num, Symbol};
 use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
@@ -80,7 +79,7 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
         vec![a, b]
     }
 
-    fn simple_evaluate(&self, s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, _args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
         // TODO: actually use the lurk inputs
         let expected = Num::Scalar(
             F::from_str_vartime(
@@ -91,9 +90,9 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
         s.intern_num(expected)
     }
 
-    fn simple_evaluate_lem(&self, _s: &LEMStore<F>, _args: &[LEMPtr<F>]) -> LEMPtr<F> {
+    fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
         // TODO: actually use the lurk inputs
-        LEMPtr::num(
+        Ptr::num(
             F::from_str_vartime(
                 "55165702627807990590530466439275329993482327026534454077267643456",
             )
@@ -111,11 +110,11 @@ enum Sha256Coproc<F: LurkField> {
 /// `cargo run --release -- circom --name sha256_2 examples/sha256/`
 /// `cargo run --release --example circom`
 fn main() {
-    let store = &LEMStore::<Fr>::default();
+    let store = &Store::<Fr>::default();
     let sym_str = Symbol::new(&[".circom_sha256_2"], false); // two inputs
     let circom_sha256: CircomSha256<Fr> = CircomSha256::new(0);
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
-    lang.add_coprocessor_lem(sym_str, CircomCoprocessor::new(circom_sha256), store);
+    lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_sha256), store);
 
     let expr = "(.circom_sha256_2)".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();

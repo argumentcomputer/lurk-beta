@@ -2779,7 +2779,7 @@ fn test_dumb_lang() {
     let name = user_sym("cproc-dumb");
 
     let s = &Store::default();
-    lang.add_coprocessor_lem(name, dumb, s);
+    lang.add_coprocessor(name, dumb, s);
 
     // 9^2 + 8 = 89
     let expr = "(cproc-dumb 9 8)";

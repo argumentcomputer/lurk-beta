@@ -594,7 +594,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     // call the coprocessor's synthesize and then make sure that
                     // the output matches the data collected during interpretation
                     let inp_ptrs = bound_allocations.get_many_ptr(inp)?;
-                    let synthesize_output = cproc.synthesize_lem_internal(
+                    let synthesize_output = cproc.synthesize_internal(
                         &mut cs.namespace(|| format!("Coprocessor {sym}")),
                         ctx.global_allocator,
                         ctx.store,
