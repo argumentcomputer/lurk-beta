@@ -73,11 +73,12 @@ jobs:
       - uses: actions-rs/toolchain@v1
       - uses: Swatinem/rust-cache@v2
       - name: Load env vars
-        uses: xom9ikk/dotenv@v2
-        with:
-          path: bench.env
-          # Strict load => panic if .env file not found
-          load-mode: strict
+        run: |
+          set -a
+          source bench.env
+          set +a
+          env | grep -E 'LURK|EC_GPU|CUDA'
+        working-directory: ${{ github.workspace }}/benches
       # Run the comparative benchmark and comment output on the PR
       - uses: boa-dev/criterion-compare-action@v3
         with:
