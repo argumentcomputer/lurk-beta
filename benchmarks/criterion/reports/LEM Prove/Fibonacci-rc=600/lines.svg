@@ -93,6 +93,7 @@ Input Size (Elements)
 <circle cx="86" cy="472" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="86" cy="473" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="86" cy="471" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
+<circle cx="86" cy="472" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="86" cy="473" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="86" cy="472" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="86" cy="472" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
@@ -103,10 +104,11 @@ Input Size (Elements)
 <circle cx="933" cy="57" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="933" cy="53" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="933" cy="52" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
+<circle cx="933" cy="58" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="933" cy="57" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="933" cy="55" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
 <circle cx="933" cy="58" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#082222" stroke-width="1" points="86,471 86,472 86,473 86,473 86,472 86,473 86,471 86,473 86,472 86,472 933,56 933,56 933,56 933,56 933,57 933,53 933,52 933,57 933,55 933,58 "/>
+<polyline fill="none" opacity="1" stroke="#082222" stroke-width="1" points="86,471 86,472 86,473 86,473 86,472 86,473 86,471 86,472 86,473 86,472 86,472 933,56 933,56 933,56 933,56 933,57 933,53 933,52 933,58 933,57 933,55 933,58 "/>
 <text x="131" y="67" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#000000">
 Fibonacci-rc=600
 </text>

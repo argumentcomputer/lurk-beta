@@ -58,15 +58,15 @@ Input Size (Elements)
 3600.0
 </text>
 <polyline fill="none" opacity="1" stroke="#000000" stroke-width="1" points="933,474 933,479 "/>
-<circle cx="86" cy="473" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#082222" stroke-width="1" points="86,473 "/>
-<circle cx="933" cy="52" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#068B57" stroke-width="1" points="933,52 "/>
+<circle cx="933" cy="52" r="3" opacity="1" fill="#082222" stroke="none" stroke-width="1"/>
+<polyline fill="none" opacity="1" stroke="#082222" stroke-width="1" points="933,52 "/>
+<circle cx="86" cy="473" r="3" opacity="1" fill="#068B57" stroke="none" stroke-width="1"/>
+<polyline fill="none" opacity="1" stroke="#068B57" stroke-width="1" points="86,473 "/>
 <text x="131" y="67" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#000000">
-Fibonacci-rc=100
+Fibonacci-rc=600
 </text>
 <text x="131" y="82" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#000000">
-Fibonacci-rc=600
+Fibonacci-rc=100
 </text>
 <rect x="101" y="67" width="20" height="10" opacity="1" fill="#082222" stroke="none"/>
 <rect x="101" y="82" width="20" height="10" opacity="1" fill="#068B57" stroke="none"/>
