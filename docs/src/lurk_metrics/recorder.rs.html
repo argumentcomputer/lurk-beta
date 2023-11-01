@@ -106,7 +106,7 @@
 
 <span class="doccomment">/// An implementation of the [metrics::Recorder] trait that emits metrics to a thread-local metrics
 /// sink.
-</span><span class="kw">pub struct </span>MetricsRecorder;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>MetricsRecorder;
 
 <span class="kw">impl </span>Recorder <span class="kw">for </span>MetricsRecorder {
     <span class="kw">fn </span>describe_counter(<span class="kw-2">&amp;</span><span class="self">self</span>, _key: KeyName, _unit: <span class="prelude-ty">Option</span>&lt;Unit&gt;, _description: SharedString) {}

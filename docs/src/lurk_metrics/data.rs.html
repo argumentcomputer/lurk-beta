@@ -179,11 +179,11 @@
 
 <span class="doccomment">/// A map of metrics data
 </span><span class="attr">#[derive(Debug, Default)]
-</span><span class="kw">pub struct </span>Metrics(HashMap&lt;Key, Metric&gt;);
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Metrics(HashMap&lt;Key, Metric&gt;);
 
 <span class="kw">impl </span>Metrics {
     <span class="doccomment">/// Get a mutable reference to a metric, creating it if it doesn&#39;t already exist in the map
-    </span><span class="kw">pub fn </span>get_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, typ: MetricType, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="kw-2">&amp;mut </span>Metric {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, typ: MetricType, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="kw-2">&amp;mut </span>Metric {
         <span class="kw">if </span>!<span class="self">self</span>.<span class="number">0</span>.contains_key(key) {
             <span class="self">self</span>.<span class="number">0</span>.insert(key.clone(), Metric::new(typ));
         }
@@ -191,7 +191,7 @@
     }
 
     <span class="doccomment">/// Aggregate another [Metrics] into this one
-    </span><span class="kw">pub fn </span>aggregate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: Metrics) {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>aggregate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: Metrics) {
         <span class="kw">for </span>(key, data) <span class="kw">in </span>other.<span class="number">0 </span>{
             <span class="kw">match </span><span class="self">self</span>.<span class="number">0</span>.get_mut(<span class="kw-2">&amp;</span>key) {
                 <span class="prelude-val">Some</span>(me) =&gt; {
@@ -205,7 +205,7 @@
     }
 
     <span class="doccomment">/// Emit this [Metrics] object
-    </span><span class="kw">pub fn </span>emit(<span class="self">self</span>) {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>emit(<span class="self">self</span>) {
         <span class="kw">let </span><span class="kw-2">mut </span>keys = <span class="self">self</span>.<span class="number">0</span>.keys().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         keys.sort();
         <span class="kw">for </span>key <span class="kw">in </span>keys {
@@ -232,20 +232,20 @@
     }
 
     <span class="attr">#[cfg(test)]
-    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span>Key, <span class="kw-2">&amp;</span>Metric)&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span>Key, <span class="kw-2">&amp;</span>Metric)&gt; {
         <span class="self">self</span>.<span class="number">0</span>.iter()
     }
 }
 
 <span class="attr">#[derive(Debug, Clone, Copy)]
-</span><span class="kw">pub enum </span>MetricType {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>MetricType {
     Counter,
     Gauge,
     Histogram,
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>Metric {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Metric {
     Counter(ValueAndCount&lt;u64&gt;),
     Gauge(ValueAndCount&lt;f64&gt;),
     <span class="comment">// Fixed scaling configuration for histograms, tuned for
@@ -264,7 +264,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>increment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: u64) {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>increment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: u64) {
         <span class="kw">match </span><span class="self">self </span>{
             Metric::Counter(inner) =&gt; {
                 inner.sum += value;
@@ -279,7 +279,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: f64) {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: f64) {
         <span class="kw">match </span><span class="self">self </span>{
             Metric::Counter(_inner) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;set counter values are not supported&quot;</span>),
             Metric::Gauge(inner) =&gt; {
@@ -336,8 +336,8 @@
 }
 
 <span class="attr">#[derive(Debug, Default)]
-</span><span class="kw">pub struct </span>ValueAndCount&lt;T&gt; {
-    <span class="kw">pub </span>sum: T,
-    <span class="kw">pub </span>n: u64,
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ValueAndCount&lt;T&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) sum: T,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) n: u64,
 }
 </code></pre></div></section></main></body></html>

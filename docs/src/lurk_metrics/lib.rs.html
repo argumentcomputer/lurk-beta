@@ -384,7 +384,7 @@
 
 <span class="kw">impl </span>ThreadMetricsSinkHandle {
     <span class="doccomment">/// Run a closure with access to the thread-local metrics sink
-    </span><span class="kw">pub fn </span>with&lt;F, T&gt;(f: F) -&gt; T
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with&lt;F, T&gt;(f: F) -&gt; T
     <span class="kw">where
         </span>F: FnOnce(<span class="kw-2">&amp;</span>ThreadMetricsSinkHandle) -&gt; T,
     {
