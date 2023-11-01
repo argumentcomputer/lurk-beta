@@ -8,11 +8,11 @@ pub const METRICS_TARGET_NAME: &str = "lurk::metrics";
 
 /// A map of metrics data
 #[derive(Debug, Default)]
-pub struct Metrics(HashMap<Key, Metric>);
+pub(crate) struct Metrics(HashMap<Key, Metric>);
 
 impl Metrics {
     /// Get a mutable reference to a metric, creating it if it doesn't already exist in the map
-    pub fn get_mut(&mut self, typ: MetricType, key: &Key) -> &mut Metric {
+    pub(crate) fn get_mut(&mut self, typ: MetricType, key: &Key) -> &mut Metric {
         if !self.0.contains_key(key) {
             self.0.insert(key.clone(), Metric::new(typ));
         }
@@ -20,7 +20,7 @@ impl Metrics {
     }
 
     /// Aggregate another [Metrics] into this one
-    pub fn aggregate(&mut self, other: Metrics) {
+    pub(crate) fn aggregate(&mut self, other: Metrics) {
         for (key, data) in other.0 {
             match self.0.get_mut(&key) {
                 Some(me) => {
@@ -34,7 +34,7 @@ impl Metrics {
     }
 
     /// Emit this [Metrics] object
-    pub fn emit(self) {
+    pub(crate) fn emit(self) {
         let mut keys = self.0.keys().collect::<Vec<_>>();
         keys.sort();
         for key in keys {
@@ -61,20 +61,20 @@ impl Metrics {
     }
 
     #[cfg(test)]
-    pub fn iter(&self) -> impl Iterator<Item = (&Key, &Metric)> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&Key, &Metric)> {
         self.0.iter()
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum MetricType {
+pub(crate) enum MetricType {
     Counter,
     Gauge,
     Histogram,
 }
 
 #[derive(Debug)]
-pub enum Metric {
+pub(crate) enum Metric {
     Counter(ValueAndCount<u64>),
     Gauge(ValueAndCount<f64>),
     // Fixed scaling configuration for histograms, tuned for
@@ -93,7 +93,7 @@ impl Metric {
         }
     }
 
-    pub fn increment(&mut self, value: u64) {
+    pub(crate) fn increment(&mut self, value: u64) {
         match self {
             Metric::Counter(inner) => {
                 inner.sum += value;
@@ -108,7 +108,7 @@ impl Metric {
         }
     }
 
-    pub fn set(&mut self, value: f64) {
+    pub(crate) fn set(&mut self, value: f64) {
         match self {
             Metric::Counter(_inner) => panic!("set counter values are not supported"),
             Metric::Gauge(inner) => {
@@ -165,7 +165,7 @@ impl Display for Metric {
 }
 
 #[derive(Debug, Default)]
-pub struct ValueAndCount<T> {
-    pub sum: T,
-    pub n: u64,
+pub(crate) struct ValueAndCount<T> {
+    pub(crate) sum: T,
+    pub(crate) n: u64,
 }

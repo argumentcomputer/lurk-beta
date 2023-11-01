@@ -76,11 +76,13 @@ mod base64 {
 }
 
 pub type NovaProofCache = FileMap<String, Proof<'static, S1>>;
+#[must_use]
 pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
     FileMap::<String, Proof<'_, S1>>::new(format!("nova_proofs.{reduction_count}")).unwrap()
 }
 
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
+#[must_use]
 pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
@@ -347,10 +349,7 @@ pub struct Cert<F: LurkField> {
 }
 
 impl<F: LurkField> Claim<F> {
-    pub fn is_evaluation(&self) -> bool {
-        self.evaluation().is_some()
-    }
-    pub fn is_opening(&self) -> bool {
+    pub(crate) fn is_opening(&self) -> bool {
         self.opening().is_some()
     }
     pub fn evaluation(&self) -> Option<Evaluation> {
@@ -359,7 +358,7 @@ impl<F: LurkField> Claim<F> {
             _ => None,
         }
     }
-    pub fn ptr_evaluation(&self) -> Option<PtrEvaluation<F>> {
+    pub(crate) fn ptr_evaluation(&self) -> Option<PtrEvaluation<F>> {
         match self {
             Self::PtrEvaluation(e) => Some(e.clone()),
             _ => None,
@@ -497,7 +496,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         Ok(Commitment { comm: digest })
     }
 
-    pub fn ptr(&self, s: &Store<F>) -> Ptr<F> {
+    pub(crate) fn ptr(&self, s: &Store<F>) -> Ptr<F> {
         s.intern_opaque_comm(self.comm)
     }
 
