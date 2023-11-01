@@ -244,7 +244,7 @@ pub(crate) mod test {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::circuit::gadgets::constraints::{add, alloc_equal, and, mul};
+    use crate::circuit::gadgets::constraints::{alloc_equal, and, mul};
     use crate::lem::Tag as LEMTag;
     use crate::tag::{ExprTag, Tag};
     use std::marker::PhantomData;
@@ -278,7 +278,7 @@ pub(crate) mod test {
 
             // a^2 + b = c
             let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
-            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
+            let c = a2.add(&mut cs.namespace(|| "add"), b.hash())?;
             let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
 
             let result_expr0 =
