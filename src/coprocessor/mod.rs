@@ -16,6 +16,7 @@ use crate::tag::Tag;
 use crate::z_data::z_ptr::ZExprPtr;
 
 pub mod circom;
+pub mod gadgets;
 pub mod sha256;
 pub mod trie;
 
@@ -344,12 +345,11 @@ pub(crate) mod test {
             input_cont: &AllocatedPtr<F>,
         ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
             let num_tag = g
-                .get_allocated_const(LEMTag::Expr(ExprTag::Num).to_field())
+                .get_tag(&ExprTag::Num)
                 .expect("Num tag should have been allocated");
 
-            let err_cont_z_ptr = s.hash_ptr(&s.cont_error());
             let cont_err = g
-                .get_allocated_ptr_from_z_ptr(&err_cont_z_ptr)
+                .get_allocated_ptr_from_ptr(&s.cont_error(), s)
                 .expect("Error pointer should have been allocated");
 
             let (expr, env, cont) =

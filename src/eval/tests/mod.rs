@@ -2671,7 +2671,7 @@ fn test_root_sym() {
     let z_ptr = &s.hash_expr(&x).unwrap();
 
     assert_eq!(&Fr::zero(), z_ptr.value());
-    assert_eq!(ExprTag::Sym, z_ptr.tag());
+    assert_eq!(&ExprTag::Sym, z_ptr.tag());
 }
 
 #[test]
@@ -2737,8 +2737,8 @@ fn test_sym_hash_values() {
     assert_eq!(consed_with_root_z_ptr.value(), toplevel_z_ptr.value());
 
     // The tags differ though.
-    assert_eq!(ExprTag::Sym, sym_z_ptr.tag());
-    assert_eq!(ExprTag::Key, key_z_ptr.tag());
+    assert_eq!(&ExprTag::Sym, sym_z_ptr.tag());
+    assert_eq!(&ExprTag::Key, key_z_ptr.tag());
 }
 
 #[test]

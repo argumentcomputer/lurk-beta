@@ -158,14 +158,3 @@ impl<F: LurkField> ZPtr<F> {
         Self(Tag::Expr(Nil), F::ZERO)
     }
 }
-
-/// `ZChildren` keeps track of the children of `ZPtr`s, in case they have any.
-/// This information is saved during hydration and is needed to content-address
-/// a store.
-#[derive(Debug, Serialize, Deserialize)]
-pub enum ZChildren<F: LurkField> {
-    Atom,
-    Tuple2(ZPtr<F>, ZPtr<F>),
-    Tuple3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
-    Tuple4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
-}

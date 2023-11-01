@@ -252,6 +252,8 @@ fn make_eval_step(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     })
 }
 
+/// Simpler version of `car_cdr` that doesn't deconstruct strings to save some
+/// constraints
 fn car_cdr() -> Func {
     func!(car_cdr(xs): 2 => {
         let nil = Symbol("nil");
@@ -1356,8 +1358,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         let (operator, continuation, _foo, _foo) = decons4(cont);
                         match operator.tag {
                             Op1::Car => {
-                                // Almost like car_cdr, except it returns
-                                // an error in case it can't deconstruct it
+                                // `car_cdr` semantics
                                 match result.tag {
                                     Expr::Nil => {
                                         return (nil, env, continuation, makethunk)
@@ -1378,6 +1379,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return(result, env, err, errctrl)
                             }
                             Op1::Cdr => {
+                                // `car_cdr` semantics
                                 match result.tag {
                                     Expr::Nil => {
                                         return (nil, env, continuation, makethunk)
