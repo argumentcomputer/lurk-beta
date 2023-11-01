@@ -217,7 +217,7 @@ mod tests {
         std::env::set_var("LURK_PUBLIC_PARAMS", tmp_dir.path());
 
         let lang: Arc<Lang<S1, Coproc<S1>>> = Arc::new(Lang::new());
-        type OG = crate::proof::nova::C1Lurk<'static, S1, Coproc<S1>>;
+        type OG = crate::proof::nova::C1LEM<'static, S1, Coproc<S1>>;
         let instance = Instance::new(10, lang, true, Kind::NovaPublicParams);
         // Without disk cache, writes to tmpfile
         let _public_params = public_params::<S1, Coproc<S1>, OG>(&instance).unwrap();
