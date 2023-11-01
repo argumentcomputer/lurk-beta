@@ -444,7 +444,7 @@
         std::env::set_var(<span class="string">&quot;LURK_PUBLIC_PARAMS&quot;</span>, tmp_dir.path());
 
         <span class="kw">let </span>lang: Arc&lt;Lang&lt;S1, Coproc&lt;S1&gt;&gt;&gt; = Arc::new(Lang::new());
-        <span class="kw">type </span>OG = <span class="kw">crate</span>::proof::nova::C1Lurk&lt;<span class="lifetime">&#39;static</span>, S1, Coproc&lt;S1&gt;&gt;;
+        <span class="kw">type </span>OG = <span class="kw">crate</span>::proof::nova::C1LEM&lt;<span class="lifetime">&#39;static</span>, S1, Coproc&lt;S1&gt;&gt;;
         <span class="kw">let </span>instance = Instance::new(<span class="number">10</span>, lang, <span class="bool-val">true</span>, Kind::NovaPublicParams);
         <span class="comment">// Without disk cache, writes to tmpfile
         </span><span class="kw">let </span>_public_params = public_params::&lt;S1, Coproc&lt;S1&gt;, OG&gt;(<span class="kw-2">&amp;</span>instance).unwrap();
