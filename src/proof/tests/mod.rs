@@ -203,8 +203,8 @@ where
         let wcs_inputs = wcs.input_assignment();
         let wcs_aux = wcs.aux_assignment();
 
-        assert_eq!(None, mismatch(&cs_inputs, &wcs_inputs));
-        assert_eq!(None, mismatch(&cs_aux, &wcs_aux));
+        assert_eq!(None, mismatch(&cs_inputs, wcs_inputs));
+        assert_eq!(None, mismatch(&cs_aux, wcs_aux));
 
         previous_frame = Some(multiframe);
 
