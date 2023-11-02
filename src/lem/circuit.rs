@@ -38,7 +38,7 @@ use std::{
 use crate::{
     circuit::gadgets::{
         constraints::{
-            add, alloc_equal, alloc_is_zero, and, div, enforce_product_and_sum,
+            alloc_equal, alloc_is_zero, and, div, enforce_product_and_sum,
             enforce_selector_with_premise, implies_equal, implies_equal_const, implies_pack,
             implies_u64, implies_unequal_const, mul, or, pick, sub,
         },
@@ -789,7 +789,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let b = bound_allocations.get_ptr(b)?;
                 let a_num = a.hash();
                 let b_num = b.hash();
-                let c_num = add(cs.namespace(|| "add"), a_num, b_num)?;
+                let c_num = a_num.add(cs.namespace(|| "add"), b_num)?;
                 let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
@@ -848,9 +848,9 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let b_num = bound_allocations.get_ptr(b)?.hash();
                 let diff = sub(cs.namespace(|| "diff"), a_num, b_num)?;
                 // Double a, b, a-b
-                let double_a = add(cs.namespace(|| "double_a"), a_num, a_num)?;
-                let double_b = add(cs.namespace(|| "double_b"), b_num, b_num)?;
-                let double_diff = add(cs.namespace(|| "double_diff"), &diff, &diff)?;
+                let double_a = a_num.add(cs.namespace(|| "double_a"), a_num)?;
+                let double_b = b_num.add(cs.namespace(|| "double_b"), b_num)?;
+                let double_diff = diff.add(cs.namespace(|| "double_diff"), &diff)?;
                 // Get slot allocated preimages/bits for the double of a, b, a-b
                 let (double_a_preimg, double_a_bits) =
                     &ctx.bit_decomp_slots[next_slot.consume_bit_decomp()];

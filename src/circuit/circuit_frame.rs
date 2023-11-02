@@ -32,7 +32,7 @@ use super::gadgets::constraints::{
     pick, pick_const, sub,
 };
 use crate::circuit::circuit_frame::constraints::{
-    add, allocate_is_negative, boolean_to_num, enforce_pack, enforce_product_and_sum, mul,
+    allocate_is_negative, boolean_to_num, enforce_pack, enforce_product_and_sum, mul,
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::circuit::ToInputs;
@@ -4304,7 +4304,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             ContTag::Binop2.to_field(),
         )?;
 
-        let sum = add(&mut cs.namespace(|| "sum"), a, b)?;
+        let sum = a.add(&mut cs.namespace(|| "sum"), b)?;
         let diff = sub(&mut cs.namespace(|| "difference"), a, b)?;
         let product = mul(&mut cs.namespace(|| "product"), a, b)?;
 
@@ -4486,9 +4486,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         // Subtraction in U64 is almost the same as subtraction in the field.
         // If the difference is negative, we need to add 2^64 to get back to U64 domain.
-        let field_arithmetic_result_plus_2p64 = add(
+        let field_arithmetic_result_plus_2p64 = field_arithmetic_result.hash().add(
             &mut cs.namespace(|| "field arithmetic result plus 2^64"),
-            field_arithmetic_result.hash(),
             &g.power2_64_num,
         )?;
 
@@ -5383,11 +5382,8 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
         &alloc_q_num,
         &alloc_arg2_num,
     )?;
-    let sum_u64mod = add(
-        &mut cs.namespace(|| "sum remainder mod u64"),
-        &product_u64mod,
-        &alloc_r_num,
-    )?;
+    let sum_u64mod =
+        product_u64mod.add(&mut cs.namespace(|| "sum remainder mod u64"), &alloc_r_num)?;
     let u64mod_decomp = alloc_equal(
         &mut cs.namespace(|| "check u64 mod decomposition"),
         &sum_u64mod,
@@ -5657,11 +5653,8 @@ fn destructure_list_aux<F: LurkField, CS: ConstraintSystem<F>>(
     let is_cons = alloc_equal(&mut cs.namespace(|| "is_cons"), list.tag(), &g.cons_tag)?;
     let increment = boolean_to_num(&mut cs.namespace(|| "increment"), &is_cons)?;
 
-    let new_length_so_far = add(
-        &mut cs.namespace(|| "new_length_so_far"),
-        &increment,
-        length_so_far,
-    )?;
+    let new_length_so_far =
+        increment.add(&mut cs.namespace(|| "new_length_so_far"), length_so_far)?;
 
     if n == 0 {
         return Ok(new_length_so_far.clone());
