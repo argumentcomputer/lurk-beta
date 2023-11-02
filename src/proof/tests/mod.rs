@@ -200,8 +200,8 @@ where
         let cs_inputs = cs.scalar_inputs();
         let cs_aux = cs.scalar_aux();
 
-        let wcs_inputs = wcs.scalar_inputs();
-        let wcs_aux = wcs.scalar_aux();
+        let wcs_inputs = wcs.input_assignment();
+        let wcs_aux = wcs.aux_assignment();
 
         assert_eq!(None, mismatch(&cs_inputs, &wcs_inputs));
         assert_eq!(None, mismatch(&cs_aux, &wcs_aux));
