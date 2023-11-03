@@ -111,8 +111,6 @@ impl PublicParamMemCache {
         default: Fn,
     ) -> Result<Arc<PublicParams<F, M>>, Error>
     where
-        F::CK1: Sync + Send,
-        F::CK2: Sync + Send,
         <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
         <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     {

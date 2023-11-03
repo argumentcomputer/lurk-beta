@@ -27,8 +27,6 @@ pub fn public_params<
     instance: &Instance<'static, F, C, M>,
 ) -> Result<Arc<PublicParams<F, M>>, Error>
 where
-    F::CK1: Sync + Send,
-    F::CK2: Sync + Send,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
@@ -90,8 +88,6 @@ pub fn supernova_circuit_params<
     instance: &Instance<'a, F, C, M>,
 ) -> Result<NovaCircuitShape<F>, Error>
 where
-    F::CK1: Sync + Send,
-    F::CK2: Sync + Send,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
@@ -118,8 +114,6 @@ pub fn supernova_aux_params<
     instance: &Instance<'a, F, C, M>,
 ) -> Result<SuperNovaAuxParams<F>, Error>
 where
-    F::CK1: Sync + Send,
-    F::CK2: Sync + Send,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
@@ -151,8 +145,6 @@ pub fn supernova_public_params<
     instance_primary: &Instance<'a, F, C, M>,
 ) -> Result<supernova::PublicParams<F, M>, Error>
 where
-    F::CK1: Sync + Send,
-    F::CK2: Sync + Send,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
