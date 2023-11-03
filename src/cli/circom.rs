@@ -86,7 +86,6 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, name: &str) -> R
         // because circom and lurk have different semantics about which field should be specified
         // (circom wants the base field and lurk the scalar field).
         match lurk_field.as_str() {
-            "BLS12-381" => "bn128",
             "PALLAS" => "vesta",
             "VESTA" => "pallas",
             _ => bail!("unsupported field"),

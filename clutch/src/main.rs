@@ -17,7 +17,6 @@ fn main() -> Result<()> {
 
     let default_field = LanguageField::Pallas;
     let field = match std::env::var("LURK_FIELD").as_deref() {
-        Ok("BLS12-381") => LanguageField::BLS12_381,
         Ok("PALLAS") => LanguageField::Pallas,
         Ok("VESTA") => LanguageField::Vesta,
         _ => default_field,

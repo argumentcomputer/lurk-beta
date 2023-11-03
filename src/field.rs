@@ -41,8 +41,6 @@ pub enum LanguageField {
     Pallas,
     /// The Vesta field,
     Vesta,
-    /// The BLS12-381 scalar field,
-    BLS12_381,
     /// The BN256 scalar field,
     BN256,
     /// THe Grumpkin scalar field,
@@ -54,7 +52,6 @@ impl std::fmt::Display for LanguageField {
         match self {
             Self::Pallas => write!(f, "Pallas"),
             Self::Vesta => write!(f, "Vesta"),
-            Self::BLS12_381 => write!(f, "BLS12-381"),
             Self::BN256 => write!(f, "BN256"),
             Self::Grumpkin => write!(f, "Grumpkin"),
         }
@@ -357,10 +354,6 @@ pub mod tests {
 
     proptest! {
       #[test]
-      fn prop_bls_repr_bytes_consistency(f1 in any::<FWrap<Fr>>()) {
-        repr_bytes_consistency(f1)
-      }
-      #[test]
       fn prop_pallas_repr_bytes_consistency(f1 in any::<FWrap<pallas::Scalar>>()) {
           repr_bytes_consistency(f1)
       }
@@ -461,15 +454,6 @@ pub mod tests {
         #[test]
         fn prop_vesta_tag_roundtrip(x in any::<u64>()){
             let f1 = vesta::Scalar::from(x);
-            let bytes = f1.to_repr().as_ref().to_vec();
-            let mut bytes_from_u64 = [0u8; 32];
-            bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());
-            assert_eq!(bytes, bytes_from_u64);
-        }
-
-        #[test]
-        fn prop_bls_tag_roundtrip(x in any::<u64>()){
-            let f1 = pasta_curves::pallas::Scalar::from(x);
             let bytes = f1.to_repr().as_ref().to_vec();
             let mut bytes_from_u64 = [0u8; 32];
             bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());

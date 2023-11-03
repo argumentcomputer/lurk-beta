@@ -93,7 +93,6 @@ bin/lurk
 Set the environment variable `LURK_FIELD` to specify the scalar field of the Lurk language instance:
 - `LURK_FIELD=PALLAS` (default): scalar field of Pallas
 - `LURK_FIELD=VESTA`: scalar field of Vesta
-- `LURK_FIELD=BLS12-381`: scalar field of BLS12-381
 
 ```
 ➜  lurk-rs ✗ bin/lurk

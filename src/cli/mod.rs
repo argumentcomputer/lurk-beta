@@ -353,7 +353,6 @@ impl ReplCli {
         match field {
             LanguageField::Pallas => repl!(rc, limit, pallas::Scalar, backend.clone()),
             LanguageField::Vesta => todo!(),
-            LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),
             LanguageField::Grumpkin => todo!(),
         }
@@ -408,7 +407,6 @@ impl LoadCli {
         match field {
             LanguageField::Pallas => load!(rc, limit, pallas::Scalar, backend.clone()),
             LanguageField::Vesta => todo!(),
-            LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),
             LanguageField::Grumpkin => todo!(),
         }

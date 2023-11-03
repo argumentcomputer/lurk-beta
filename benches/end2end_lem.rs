@@ -1,7 +1,6 @@
 use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode,
 };
-use pasta_curves::pallas::Scalar as Fr;
 use pasta_curves::pallas::Scalar as Fq;
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
@@ -102,7 +101,6 @@ fn store_benchmark_lem(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
 
-    let bls12_store = Store::<Fr>::default();
     let pallas_store = Store::<Fq>::default();
 
     let state = State::init_lurk_state().rccell();
@@ -111,14 +109,6 @@ fn store_benchmark_lem(c: &mut Criterion) {
     let sizes = [(10, 16), (10, 160)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
-
-        let bls12_id = BenchmarkId::new("store_go_base_bls12", &parameter_string);
-        group.bench_with_input(bls12_id, &size, |b, &s| {
-            b.iter(|| {
-                let result = go_base::<Fr>(&bls12_store, state.clone(), s.0, s.1);
-                black_box(result)
-            })
-        });
 
         let pasta_id = BenchmarkId::new("store_go_base_pallas", &parameter_string);
         group.bench_with_input(pasta_id, &size, |b, &s| {
@@ -141,7 +131,6 @@ fn hydration_benchmark_lem(c: &mut Criterion) {
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
 
-    let bls12_store = Store::<Fr>::default();
     let pallas_store = Store::<Fq>::default();
 
     let state = State::init_lurk_state().rccell();
@@ -150,14 +139,6 @@ fn hydration_benchmark_lem(c: &mut Criterion) {
     let sizes = [(10, 16), (10, 160)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
-
-        {
-            let benchmark_id = BenchmarkId::new("hydration_go_base_bls12", &parameter_string);
-            group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let _ptr = go_base::<Fr>(&bls12_store, state.clone(), s.0, s.1);
-                b.iter(|| bls12_store.hydrate_z_cache())
-            });
-        }
 
         {
             let benchmark_id = BenchmarkId::new("hydration_go_base_pallas", &parameter_string);
@@ -181,7 +162,6 @@ fn eval_benchmark_lem(c: &mut Criterion) {
         .sample_size(60);
 
     let limit = 1_000_000_000;
-    let bls12_store = Store::default();
     let pallas_store = Store::default();
 
     let state = State::init_lurk_state().rccell();
@@ -190,15 +170,6 @@ fn eval_benchmark_lem(c: &mut Criterion) {
     let sizes = [(10, 16), (10, 160)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
-
-        {
-            let benchmark_id = BenchmarkId::new("eval_go_base_bls12", &parameter_string);
-            group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let ptr = go_base::<Fr>(&bls12_store, state.clone(), s.0, s.1);
-                b.iter(|| evaluate_simple::<Fr, Coproc<Fr>>(None, ptr, &bls12_store, limit))
-            });
-        }
-
         {
             let benchmark_id = BenchmarkId::new("eval_go_base_pallas", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
@@ -218,7 +189,6 @@ fn eval_benchmark_lem(c: &mut Criterion) {
 //          .sample_size(60);
 
 //     let limit = 1_000_000_000;
-//     let _lang_bls = Lang::<Fr, Coproc<Fr>>::new();
 //     let _lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
 //     let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
 

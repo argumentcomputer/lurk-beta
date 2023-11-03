@@ -33,7 +33,7 @@ itertools = "0.9"
 lurk-macros = { path = "lurk-macros" }
 lurk-metrics = { path = "lurk-metrics" }
 metrics = { workspace = true }
-neptune = { workspace = true, features = ["arity2", "arity4", "arity8", "arity16", "pasta", "bls"] }
+neptune = { workspace = true, features = ["arity2", "arity4", "arity8", "arity16", "pasta"] }
 nom = "7.1.3"
 nom_locate = "4.1.0"
 nova = { workspace = true }
