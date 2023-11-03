@@ -236,8 +236,8 @@ where
     let pp = nova::PublicParams::new(
         &circuit_primary,
         &circuit_secondary,
-        Some(commitment_size_hint1),
-        Some(commitment_size_hint2),
+        &*commitment_size_hint1,
+        &*commitment_size_hint2,
     );
     let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
     PublicParams { pp, pk, vk }

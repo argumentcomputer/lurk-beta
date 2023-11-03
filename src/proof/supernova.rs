@@ -9,6 +9,7 @@ use nova::{
     },
     traits::{
         circuit_supernova::{StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit},
+        snark::default_commitment_key_hint,
         Group,
     },
 };
@@ -92,7 +93,12 @@ where
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
     let non_uniform_circuit = M::blank(folding_config, Meta::Lurk, 0);
-    let pp = SuperNovaPublicParams::<F, M>::new(&non_uniform_circuit);
+    // TODO: use `&*SS::commitment_key_floor()`, where `SS<G>: RelaxedR1CSSNARKTrait<G>`` when https://github.com/lurk-lab/arecibo/issues/27 closes
+    let pp = SuperNovaPublicParams::<F, M>::new(
+        &non_uniform_circuit,
+        &*default_commitment_key_hint(),
+        &*default_commitment_key_hint(),
+    );
     PublicParams { pp }
 }
 
