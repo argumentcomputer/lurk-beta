@@ -263,10 +263,6 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     }
 }
 
-impl LurkField for blstrs::Scalar {
-    const FIELD: LanguageField = LanguageField::BLS12_381;
-}
-
 impl LurkField for pasta_curves::pallas::Scalar {
     const FIELD: LanguageField = LanguageField::Pallas;
 }
@@ -348,7 +344,7 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
 #[cfg(test)]
 pub mod tests {
     use crate::z_data::{from_z_data, to_z_data};
-    use blstrs::Scalar as Fr;
+    use pasta_curves::pallas::Scalar as Fr;
     use pasta_curves::{pallas, vesta};
 
     use super::*;
@@ -473,7 +469,7 @@ pub mod tests {
 
         #[test]
         fn prop_bls_tag_roundtrip(x in any::<u64>()){
-            let f1 = blstrs::Scalar::from(x);
+            let f1 = pasta_curves::pallas::Scalar::from(x);
             let bytes = f1.to_repr().as_ref().to_vec();
             let mut bytes_from_u64 = [0u8; 32];
             bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());
