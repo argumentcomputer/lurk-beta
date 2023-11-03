@@ -1574,7 +1574,6 @@ impl Func {
         let bit_decomp_cost = match F::FIELD {
             LanguageField::Pallas => 298,
             LanguageField::Vesta => 301,
-            LanguageField::BLS12_381 => 388,
             _ => todo!(),
         };
 
