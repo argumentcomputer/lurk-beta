@@ -62,6 +62,62 @@ flowchart TD
 ## Issues
 We use GitHub issues to track public bugs. Please ensure your description is clear and has sufficient instructions to be able to reproduce the issue.
 
+## Lurk-rs Repository Organization and Dependency Management
+
+Welcome to the Lurk-rs project! Here's an introduction to the branch organization and the chain of dependencies in the Lurk-rs repository.
+
+### Major Dependencies
+
+The main repo is [lurk-rs](https://github.com/lurk-lab/lurk-rs) with major dependencies:
+
+- [bellpepper](https://github.com/lurk-lab/bellpepper)
+- [neptune](https://github.com/lurk-lab/neptune)
+- [arecibo](https://github.com/lurk-lab/arecibo) - a fork of the upstream repo [nova](https://github.com/microsoft/Nova)
+
+### Forked Dependencies
+
+Additionally, Lurk-rs depends on the following forked repositories:
+
+- [pasta_curves](https://github.com/lurk-lab/pasta_curves) (forked from [zcash/pasta_curves](https://github.com/zcash/pasta_curves))
+- [pasta-msm](https://github.com/lurk-lab/pasta-msm) (forked from [supranational/pasta-msm](https://github.com/supranational/pasta-msm))
+- [ec-gpu](https://github.com/lurk-lab/ec-gpu) (forked from [filecoin-project/ec-gpu](https://github.com/filecoin-project/ec-gpu))
+
+For rapid iterations and to address issues in these dependencies, Lurk's **master** branch directly depends on the **dev** branch of its dependencies (transitively).
+
+### Branch Management (forked dependencies)
+
+- **Main Branch:** For repositories with an upstream, our main branch always mirrors the upstream. Never make direct changes here as they would be overwritten.
+  
+- **Dev Branch:** Contains bleeding-edge changes on top of the upstream repository. Always ahead of the main branch.
+
+### Branch management (source repositories)
+
+- **Main:** Stable branch for repositories where we're the source of truth and have regular releases (e.g., bellpepper and neptune).
+  
+- **Dev:** Contains rapid developments and updates.
+
+### Where to Make Changes?
+- For integration in a release: target the **main** branch.
+  
+- For immediate development integration: target the **dev** branch. Do note, changes here get picked up upstream. CI processes ensure Lurk's compatibility with these changes.
+
+## Dependency Diagram
+
+```mermaid
+graph TD
+    LURK[lurk-rs] --> BELL[bellpepper]
+    LURK --> NEPT[neptune]
+    LURK --> AREC[arecibo]
+    AREC --> NOVA[nova]
+    LURK --> PASTA_CURVES[pasta_curves]
+    PASTA_CURVES --> ZCASH_PASTA[zcash/pasta_curves]
+    LURK --> PASTA_MSM[pasta-msm]
+    PASTA_MSM --> SUPRA_PASTA[supranational/pasta-msm]
+    LURK --> EC_GPU[ec-gpu]
+    EC_GPU --> FILECOIN_EC[filecoin-project/ec-gpu]
+```
+
+
 ## For maintainers: Benchmarking
 
 To trigger a benchmark:
