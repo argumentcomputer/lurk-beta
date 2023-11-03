@@ -56,17 +56,19 @@ struct ProveParams {
 }
 
 impl ProveParams {
-    fn name(&self) -> String {
-        format!("Fibonacci-rc={}", self.reduction_count)
-    }
-
-    fn params(&self) -> String {
+    fn name_params(&self) -> (String, String) {
         let output_type = bench_parameters_env().unwrap_or("stdout".into());
         match output_type.as_ref() {
-            "pr-comment" => format!("num-{}", self.fib_n),
-            "commit-comment" => todo!(),
+            "pr-comment" => ("".into(), format!("num-{}", self.fib_n)),
+            "commit-comment" => (
+                format!("branch={}", env!("VERGEN_GIT_BRANCH")),
+                format!("num-{}", self.fib_n),
+            ),
             "gh-pages" => todo!(),
-            _ => format!("num-{}/{}-{}", self.fib_n, self.sha, self.date),
+            _ => (
+                "".into(),
+                format!("num-{}-{}-{}", self.fib_n, self.sha, self.date),
+            ),
         }
     }
 }
@@ -123,9 +125,10 @@ fn fibo_prove<M: measurement::Measurement>(
     c.throughput(criterion::Throughput::Elements(
         rc * u64::div_ceil((11 + 16 * prove_params.fib_n) as u64, rc),
     ));
+    let (name, params) = prove_params.name_params();
 
     c.bench_with_input(
-        BenchmarkId::new(prove_params.name(), prove_params.params()),
+        BenchmarkId::new(name, params),
         &prove_params,
         |b, prove_params| {
             let store = Store::default();
@@ -161,15 +164,17 @@ fn fibonacci_prove(c: &mut Criterion) {
 
     let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
     let batch_sizes = [100, 200];
-    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("LEM Prove");
-    group.sampling_mode(SamplingMode::Flat); // This can take a *while*
-    group.sample_size(10);
-    group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
 
     let state = State::init_lurk_state().rccell();
 
-    for fib_n in batch_sizes.iter() {
-        for reduction_count in reduction_counts.iter() {
+    for reduction_count in reduction_counts.iter() {
+        let mut group: BenchmarkGroup<'_, _> =
+            c.benchmark_group(format!("LEM Prove - rc={}", reduction_count));
+        group.sampling_mode(SamplingMode::Flat); // This can take a *while*
+        group.sample_size(10);
+        group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
+
+        for fib_n in batch_sizes.iter() {
             let prove_params = ProveParams {
                 fib_n: *fib_n,
                 reduction_count: *reduction_count,
