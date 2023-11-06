@@ -1,5 +1,138 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `lurk` crate."><title>lurk - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (fee5518cd 2023-11-05)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../lurk/index.html">lurk</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><ul class="block">
-            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">lurk</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/lurk/lib.rs.html#1-40">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.Symbol"><code>pub use symbol::<a class="struct" href="symbol/struct.Symbol.html" title="struct lurk::symbol::Symbol">Symbol</a>;</code></div></li><li><div class="item-name" id="reexport.UInt"><code>pub use uint::<a class="enum" href="uint/enum.UInt.html" title="enum lurk::uint::UInt">UInt</a>;</code></div></li><li><div class="item-name" id="reexport.z_cont"><code>pub use z_data::<a class="mod" href="z_data/z_cont/index.html" title="mod lurk::z_data::z_cont">z_cont</a>;</code></div></li><li><div class="item-name" id="reexport.z_expr"><code>pub use z_data::<a class="mod" href="z_data/z_expr/index.html" title="mod lurk::z_data::z_expr">z_expr</a>;</code></div></li><li><div class="item-name" id="reexport.z_ptr"><code>pub use z_data::<a class="mod" href="z_data/z_ptr/index.html" title="mod lurk::z_data::z_ptr">z_ptr</a>;</code></div></li><li><div class="item-name" id="reexport.z_store"><code>pub use z_data::<a class="mod" href="z_data/z_store/index.html" title="mod lurk::z_data::z_store">z_store</a>;</code></div></li></ul><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="circuit/index.html" title="mod lurk::circuit">circuit</a></div></li><li><div class="item-name"><a class="mod" href="cli/index.html" title="mod lurk::cli">cli</a></div></li><li><div class="item-name"><a class="mod" href="config/index.html" title="mod lurk::config">config</a></div><div class="desc docblock-short">Global config for Lurk
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Lurk"><title>lurk - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (fee5518cd 2023-11-05)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../lurk/index.html">lurk</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">lurk</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/lurk/lib.rs.html#1-41">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="lurk"><a href="#lurk">Lurk</a></h2>
+<p><img src="https://github.com/lurk-lab/lurk-rs/actions/workflows/ci.yml/badge.svg" alt="lurk-rs" />
+<img src="https://img.shields.io/badge/rustc-1.70+-blue.svg" alt="minimum rustc 1.70" />
+<a href="https://deps.rs/repo/github/lurk-lab/lurk-rs"><img src="https://deps.rs/repo/github/lurk-lab/lurk-rs/status.svg" alt="dependency status" /></a>
+<img src="https://img.shields.io/crates/v/lurk.svg" alt="crates.io" /></p>
+<h2 id="status-alpha"><a href="#status-alpha">Status (Alpha)</a></h2>
+<p>Lurk is currently in Alpha. Code that runs in the Lurk Alpha release is expected to also run in Lurk Beta, and eventually Lurk 1.0. However, some low-level data representations are anticipated to change, and we will be refactoring the circuit implementation to increase auditability and further our confidence in Lurk’s cryptographic security. Also note that since Lurk inherits some security properties from the underlying proving system, those who would rely on Lurk should investigate the security and status of Nova itself. We encourage early adopters to begin writing real applications taking advantage of Lurk so you can begin to familiarize yourself with the programming model. Likewise, we welcome your feedback – which will help ensure ongoing development meets user need.</p>
+<p>For support and discussions, please visit our <a href="https://zulip.lurk-lab.com/">Zulip forum</a>.</p>
+<h2 id="overview"><a href="#overview">Overview</a></h2>
+<p>Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A reference implementation focused on describing and developing the core language can be found in the <a href="https://github.com/lurk-lab/lurk-lisp"><code>lurk</code></a> repo.</p>
+<p>Lurk’s distinguishing feature relative to most programming languages is that correct execution of Lurk programs can be directly proved using zk-SNARKs. The resulting proofs are succinct: they are relatively small, can be verified quickly, and they reveal only the information explicitly contained in the statement to be proved.</p>
+<p>For more detailed information, refer to the paper: <a href="https://eprint.iacr.org/2023/369">https://eprint.iacr.org/2023/369</a></p>
+<p>Lurk’s distinguishing feature relative to most zk-SNARK authoring languages is that Lurk is Turing complete, so arbitrary computational claims can be made and proved (subject to resource limitations, obviously). Because Lurk is a Lisp, its code is simply Lurk data, and any Lurk data can be directly evaluated as a Lurk program. Lurk constructs compound data using SNARK-friendly Poseidon hashes (provided by <a href="https://github.com/lurk-lab/neptune">Neptune</a>), so its data is naturally content-addressable.</p>
+<h2 id="proofs"><a href="#proofs">Proofs</a></h2>
+<p>Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience still have room for significant optimization and improvement, but simple examples can be found in the <a href="fcomm/README.md">fcomm example directory</a>.</p>
+<h2 id="backends"><a href="#backends">Backends</a></h2>
+<ul>
+<li>Nova is Lurk’s officially-supported IVC backend. It uses Lurk Lab’s Arecibo fork of the <a href="https://github.com/lurk-lab/arecibo">Nova proving system</a> and the Pasta Curves.</li>
+<li>SuperNova is Lurk’s in-development NIVC backend. It uses Arecibo’s <a href="https://github.com/lurk-lab/arecibo/tree/dev/src/supernova">SuperNova extension ot the Nova proving system</a> and the Pasta Curves.</li>
+<li>Future work may target Halo2 or other proving systems.</li>
+</ul>
+<p>It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves parameterized on scalar field and hash function. When backends use the same scalar field and hash function, they can be used to generate equivalent proofs. This is because the concrete representation of content-addressed data is fixed.</p>
+<h2 id="performance"><a href="#performance">Performance</a></h2>
+<p>Lurk backend integration is still immature, so current performance is not representative. As a rough approximation, we estimate that for entirely general computation using Lurk’s universal circuit, Nova proving throughput will be on the order of 1,000 iterations per second per GPU. We expect that most compute-heavy applications will use optimized ‘coprocessor’ circuits, which will  dramatically improve performance. Planned improvements to Nova will allow for smaller inner circuits, further improving throughput – and for full parallelization of reduction proofs.</p>
+<h2 id="specs"><a href="#specs">Specs</a></h2>
+<ul>
+<li><a href="https://blog.lurk-lang.org/posts/circuit-spec">Lurk Spec</a></li>
+<li><a href="notes/eval.md">Evaluation Spec</a></li>
+<li><a href="notes/reduction-notes.md">Reduction Notes</a></li>
+</ul>
+<h2 id="security-audit"><a href="#security-audit">Security Audit</a></h2>
+<p>Lurk’s Alpha release has undergone a <a href="https://blog.lurk-lang.org/posts/alpha-audit/inference-security-assessment-3-2023.pdf">security audit</a> as of 03/29/2023, performed by <a href="https://inference.ag/company/">Inference</a>.</p>
+<h2 id="versioning"><a href="#versioning">Versioning</a></h2>
+<p>Please note that the Lurk language and spec will be versioned independently from the crates that implement the spec. This is necessary semantic versioning implies different requirements for the language and its implementation. For example, Lurk Alpha is released as crate <code>lurk 0.2.0</code>. It is our intention for these two versioning systems to coincide at 1.0. The next major Lurk release will be Lurk Beta, but there may be multiple minor-version crate releases before then.</p>
+<hr />
+<h2 id="build"><a href="#build">Build</a></h2><h3 id="submodules"><a href="#submodules">Submodules</a></h3>
+<p>Lurk source files used in tests are in the <a href="https://github.com/lurk-lab/lurk-lib">lurk-lib</a> submodule. You must
+initialize and update submodules before test will pass:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>git submodule update --init --recursive</code></pre></div>
+<h3 id="wasm"><a href="#wasm">Wasm</a></h3><h4 id="prerequisites"><a href="#prerequisites">Prerequisites</a></h4>
+<ul>
+<li><a href="https://clang.llvm.org/get_started.html">clang</a></li>
+</ul>
+<p>Lurk can be compiled to Wasm with</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>cargo build --target wasm32-unknown-unknown</code></pre></div>
+<p>If using Nix without a system-wide <code>clang</code> install (e.g. NixOS):</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>CC=clang cargo build --target wasm32-unknown-unknown</code></pre></div>
+<h3 id="repl"><a href="#repl">Repl</a></h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>cargo run --release</code></pre></div>
+<p>Or use the wrapper script:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>bin/lurk</code></pre></div>
+<p>Set the environment variable <code>LURK_FIELD</code> to specify the scalar field of the Lurk language instance:</p>
+<ul>
+<li><code>LURK_FIELD=PALLAS</code> (default): scalar field of Pallas</li>
+<li><code>LURK_FIELD=VESTA</code>: scalar field of Vesta</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>➜  lurk-rs ✗ bin/lurk
+    Finished release [optimized] target(s) <span class="kw">in </span><span class="number">0.06s
+     </span>Running `target/release/lurk`
+Lurk REPL welcomes you.
+&gt; (<span class="kw">let </span>((square (lambda (x) (* x x)))) (square <span class="number">8</span>))
+[<span class="number">9 </span>iterations] =&gt; <span class="number">64
+</span>&gt;</code></pre></div>
+<p>Or enable <code>info</code> log-level for a trace of reduction frames:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>➜  lurk-rs ✗ RUST_LOG=info bin/lurk
+    Finished release [optimized] target(s) <span class="kw">in </span><span class="number">0.05s
+     </span>Running `target/release/lurk`
+Lurk REPL welcomes you.
+&gt; (<span class="kw">let </span>((square (lambda (x) (* x x)))) (square <span class="number">8</span>))
+ INFO  lurk::eval &gt; Frame: <span class="number">0
+	</span>Expr: (<span class="kw">let </span>((square (lambda (x) (* x x)))) (square <span class="number">8</span>))
+	Env: nil
+	Cont: Outermost
+ INFO  lurk::eval &gt; Frame: <span class="number">1
+	</span>Expr: (lambda (x) (* x x))
+	Env: nil
+	Cont: Let{ var: square, body: (square <span class="number">8</span>), saved_env: nil, continuation: Outermost }
+ INFO  lurk::eval &gt; Frame: <span class="number">2
+	</span>Expr: (square <span class="number">8</span>)
+	Env: ((square . &lt;FUNCTION (x) (* x x)&gt;))
+	Cont: Tail{ saved_env: nil, continuation: Outermost }
+ INFO  lurk::eval &gt; Frame: <span class="number">3
+	</span>Expr: square
+	Env: ((square . &lt;FUNCTION (x) (* x x)&gt;))
+	Cont: Call{ unevaled_arg: <span class="number">8</span>, saved_env: ((square . &lt;FUNCTION (x) (* x x)&gt;)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
+ INFO  lurk::eval &gt; Frame: <span class="number">4
+	</span>Expr: <span class="number">8
+	</span>Env: ((square . &lt;FUNCTION (x) (* x x)&gt;))
+	Cont: Call2{ function: &lt;FUNCTION (x) (* x x)&gt;, saved_env: ((square . &lt;FUNCTION (x) (* x x)&gt;)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
+ INFO  lurk::eval &gt; Frame: <span class="number">5
+	</span>Expr: (* x x)
+	Env: ((x . <span class="number">8</span>))
+	Cont: Tail{ saved_env: nil, continuation: Outermost }
+ INFO  lurk::eval &gt; Frame: <span class="number">6
+	</span>Expr: x
+	Env: ((x . <span class="number">8</span>))
+	Cont: Binop{ operator: product#, unevaled_args: (x), saved_env: ((x . <span class="number">8</span>)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
+ INFO  lurk::eval &gt; Frame: <span class="number">7
+	</span>Expr: x
+	Env: ((x . <span class="number">8</span>))
+	Cont: Binop2{ operator: product#, evaled_arg: <span class="number">8</span>, continuation: Tail{ saved_env: nil, continuation: Outermost } }
+ INFO  lurk::eval &gt; Frame: <span class="number">8
+	</span>Expr: Thunk{ value: <span class="number">64 </span>=&gt; cont: Outermost}
+	Env: nil
+	Cont: Dummy
+ INFO  lurk::eval &gt; Frame: <span class="number">9
+	</span>Expr: <span class="number">64
+	</span>Env: nil
+	Cont: Terminal
+[<span class="number">9 </span>iterations] =&gt; <span class="number">64
+</span>&gt; </code></pre></div>
+<h3 id="install"><a href="#install">Install</a></h3>
+<p>You can install the <code>lurk</code> Repl on your machine with</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>$ cargo install --path .</code></pre></div>
+<h3 id="nix"><a href="#nix">Nix</a></h3>
+<p>Install <a href="https://nixos.org">Nix</a> and <a href="https://nixos.wiki/wiki/Flakes">enable Nix flakes</a>. Then, you can enter into a Nix devshell with the appropriate dependencies for Lurk with</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>$ nix develop</code></pre></div>
+<p>or</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>$ direnv allow</code></pre></div>
+<p>And then build with Cargo as usual:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>$ cargo build</code></pre></div>
+<h3 id="license"><a href="#license">License</a></h3>
+<p>MIT or Apache 2.0</p>
+</div></details><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.Symbol"><code>pub use symbol::<a class="struct" href="symbol/struct.Symbol.html" title="struct lurk::symbol::Symbol">Symbol</a>;</code></div></li><li><div class="item-name" id="reexport.UInt"><code>pub use uint::<a class="enum" href="uint/enum.UInt.html" title="enum lurk::uint::UInt">UInt</a>;</code></div></li><li><div class="item-name" id="reexport.z_cont"><code>pub use z_data::<a class="mod" href="z_data/z_cont/index.html" title="mod lurk::z_data::z_cont">z_cont</a>;</code></div></li><li><div class="item-name" id="reexport.z_expr"><code>pub use z_data::<a class="mod" href="z_data/z_expr/index.html" title="mod lurk::z_data::z_expr">z_expr</a>;</code></div></li><li><div class="item-name" id="reexport.z_ptr"><code>pub use z_data::<a class="mod" href="z_data/z_ptr/index.html" title="mod lurk::z_data::z_ptr">z_ptr</a>;</code></div></li><li><div class="item-name" id="reexport.z_store"><code>pub use z_data::<a class="mod" href="z_data/z_store/index.html" title="mod lurk::z_data::z_store">z_store</a>;</code></div></li></ul><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="circuit/index.html" title="mod lurk::circuit">circuit</a></div></li><li><div class="item-name"><a class="mod" href="cli/index.html" title="mod lurk::cli">cli</a></div></li><li><div class="item-name"><a class="mod" href="config/index.html" title="mod lurk::config">config</a></div><div class="desc docblock-short">Global config for Lurk
 Includes settings for cache locations, public parameters, and parallelism.</div></li><li><div class="item-name"><a class="mod" href="cont/index.html" title="mod lurk::cont">cont</a></div></li><li><div class="item-name"><a class="mod" href="coprocessor/index.html" title="mod lurk::coprocessor">coprocessor</a></div></li><li><div class="item-name"><a class="mod" href="error/index.html" title="mod lurk::error">error</a></div></li><li><div class="item-name"><a class="mod" href="eval/index.html" title="mod lurk::eval">eval</a></div></li><li><div class="item-name"><a class="mod" href="expr/index.html" title="mod lurk::expr">expr</a></div></li><li><div class="item-name"><a class="mod" href="field/index.html" title="mod lurk::field">field</a></div><div class="desc docblock-short">The finite field used in the language.</div></li><li><div class="item-name"><a class="mod" href="hash/index.html" title="mod lurk::hash">hash</a></div></li><li><div class="item-name"><a class="mod" href="hash_witness/index.html" title="mod lurk::hash_witness">hash_witness</a></div></li><li><div class="item-name"><a class="mod" href="lem/index.html" title="mod lurk::lem">lem</a></div><div class="desc docblock-short">Lurk Evaluation Model (LEM)</div></li><li><div class="item-name"><a class="mod" href="package/index.html" title="mod lurk::package">package</a></div></li><li><div class="item-name"><a class="mod" href="parser/index.html" title="mod lurk::parser">parser</a></div></li><li><div class="item-name"><a class="mod" href="proof/index.html" title="mod lurk::proof">proof</a></div><div class="desc docblock-short">This module offers a connection the the backend proving engine of Lurk.
 Abstracted behind the <code>Prover</code> and <code>Verifier</code> traits, the proving engine
 has two instantiations:</div></li><li><div class="item-name"><a class="mod" href="ptr/index.html" title="mod lurk::ptr">ptr</a></div></li><li><div class="item-name"><a class="mod" href="public_parameters/index.html" title="mod lurk::public_parameters">public_parameters</a></div></li><li><div class="item-name"><a class="mod" href="repl/index.html" title="mod lurk::repl">repl</a></div></li><li><div class="item-name"><a class="mod" href="state/index.html" title="mod lurk::state">state</a></div><div class="desc docblock-short">This module implements an abstraction for the Lurk state, which changes as
