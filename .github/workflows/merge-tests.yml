@@ -101,6 +101,8 @@ jobs:
       - name: Set base ref variable
         run: echo "BASE_REF=$(git rev-parse HEAD)" | tee -a $GITHUB_ENV
         working-directory: ${{ github.workspace }}/master
+      - name: Set bench output format type
+        run: echo "LURK_BENCH_OUTPUT=commit-comment" | tee -a $GITHUB_ENV
       - name: Run GPU bench on base branch
         run: just --dotenv-filename bench.env gpu-bench fibonacci_lem
         working-directory: ${{ github.workspace }}/master/benches

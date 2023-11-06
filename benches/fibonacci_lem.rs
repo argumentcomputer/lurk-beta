@@ -56,17 +56,19 @@ struct ProveParams {
 }
 
 impl ProveParams {
-    fn name(&self) -> String {
-        format!("Fibonacci-rc={}", self.reduction_count)
-    }
-
-    fn params(&self) -> String {
+    fn name_params(&self) -> (String, String) {
         let output_type = bench_parameters_env().unwrap_or("stdout".into());
         match output_type.as_ref() {
-            "pr-comment" => format!("num-{}", self.fib_n),
-            "commit-comment" => todo!(),
+            "pr-comment" => ("fib".into(), format!("num-{}", self.fib_n)),
+            "commit-comment" => (
+                format!("fib-branch={}", env!("VERGEN_GIT_BRANCH")),
+                format!("num-{}", self.fib_n),
+            ),
             "gh-pages" => todo!(),
-            _ => format!("num-{}/{}-{}", self.fib_n, self.sha, self.date),
+            _ => (
+                "fib".into(),
+                format!("num-{}-{}-{}", self.fib_n, self.sha, self.date),
+            ),
         }
     }
 }
@@ -100,7 +102,7 @@ fn noise_threshold_env() -> anyhow::Result<f64> {
         })
 }
 
-fn fibo_prove<M: measurement::Measurement>(
+fn fibonacci_prove<M: measurement::Measurement>(
     prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
     state: &Rc<RefCell<State>>,
@@ -123,9 +125,10 @@ fn fibo_prove<M: measurement::Measurement>(
     c.throughput(criterion::Throughput::Elements(
         rc * u64::div_ceil((11 + 16 * prove_params.fib_n) as u64, rc),
     ));
+    let (name, params) = prove_params.name_params();
 
     c.bench_with_input(
-        BenchmarkId::new(prove_params.name(), prove_params.params()),
+        BenchmarkId::new(name, params),
         &prove_params,
         |b, prove_params| {
             let store = Store::default();
@@ -154,29 +157,32 @@ fn fibo_prove<M: measurement::Measurement>(
     );
 }
 
-fn fibonacci_prove(c: &mut Criterion) {
-    tracing_subscriber::fmt::init();
+fn fibonacci_benchmark(c: &mut Criterion) {
+    // Uncomment to record the logs. May negatively impact performance
+    //tracing_subscriber::fmt::init();
     set_bench_config();
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
     let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
     let batch_sizes = [100, 200];
-    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("LEM Prove");
-    group.sampling_mode(SamplingMode::Flat); // This can take a *while*
-    group.sample_size(10);
-    group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
 
     let state = State::init_lurk_state().rccell();
 
-    for fib_n in batch_sizes.iter() {
-        for reduction_count in reduction_counts.iter() {
+    for reduction_count in reduction_counts.iter() {
+        let mut group: BenchmarkGroup<'_, _> =
+            c.benchmark_group(format!("LEM Fibonacci Prove - rc = {}", reduction_count));
+        group.sampling_mode(SamplingMode::Flat); // This can take a *while*
+        group.sample_size(10);
+        group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
+
+        for fib_n in batch_sizes.iter() {
             let prove_params = ProveParams {
                 fib_n: *fib_n,
                 reduction_count: *reduction_count,
                 date: env!("VERGEN_GIT_COMMIT_DATE"),
                 sha: env!("VERGEN_GIT_SHA"),
             };
-            fibo_prove(prove_params, &mut group, &state);
+            fibonacci_prove(prove_params, &mut group, &state);
         }
     }
 }
@@ -190,7 +196,7 @@ cfg_if::cfg_if! {
             .sample_size(10)
             .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
             targets =
-             fibonacci_prove,
+             fibonacci_benchmark,
          }
     } else {
         criterion_group! {
@@ -199,7 +205,7 @@ cfg_if::cfg_if! {
             .measurement_time(Duration::from_secs(120))
             .sample_size(10);
             targets =
-             fibonacci_prove,
+             fibonacci_benchmark,
          }
     }
 }
