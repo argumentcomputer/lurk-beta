@@ -49,7 +49,7 @@ rand = { workspace = true }
 rand_core = { version = "0.6.4", default-features = false }
 rand_xorshift = "0.3.0"
 rayon = "1.7.0"
-rustyline-derive = "0.8.0"
+rustyline-derive = "0.9.0"
 serde = { workspace = true, features = ["derive"] }
 serde_bytes = "0.11.12"
 serde_json = { workspace = true }
