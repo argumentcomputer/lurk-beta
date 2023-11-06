@@ -119,8 +119,8 @@ jobs:
           GPU_NAME=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader,nounits | tail -n1)
           # Get CPU model
           CPU_MODEL=$(grep '^model name' /proc/cpuinfo | head -1 | awk -F ': ' '{ print $2 }')
-          # Get total RAM
-          TOTAL_RAM=$(grep MemTotal /proc/meminfo | awk '{print $2 $3}')
+          # Get total RAM in GB
+          TOTAL_RAM=$(grep MemTotal /proc/meminfo | awk '{$2=$2/(1024^2); print $2, "GB RAM";}')
           
           # Use conditionals to ensure that only non-empty variables are inserted
           [[ ! -z "$GPU_NAME" ]] && sed -i "/^\"\"\"$/i $GPU_NAME" tables.toml
