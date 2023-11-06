@@ -105,7 +105,7 @@ pprof = { version = "0.13" }
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
 tempfile = { workspace = true }
-tracing-test = "0.1"
+tracing-test = "0.2"
 
 [build-dependencies]
 vergen = { version = "8", features = ["build", "git", "gitcl"] }
