@@ -10,7 +10,7 @@ rust-version = "1.71.1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ahash = "0.7.6"
+ahash = "0.8.6"
 anyhow = { workspace = true }
 anymap = "1.0.0-beta.2"
 base32ct = { version = "0.2.0", features = ["std"] }
@@ -19,7 +19,7 @@ base-x = "0.2.11"
 bellpepper = { workspace = true }
 bellpepper-core = { workspace = true }
 bincode = { workspace = true }
-bytecount = "=0.6.4"
+bytecount = "0.6.7"
 camino = { workspace = true, features = ["serde1"] }
 clap = { workspace = true, features = ["derive"] }
 config = "0.13.3"
@@ -28,8 +28,8 @@ ff = { workspace = true }
 fxhash = "0.2.1"
 generic-array = "0.14.7"
 hex = { version = "0.4.3", features = ["serde"] }
-indexmap = { version = "1.9.3", features = ["rayon", "serde"] }
-itertools = "0.9"
+indexmap = { version = "2.1.0", features = ["rayon", "serde"] }
+itertools = "0.11"
 lurk-macros = { path = "lurk-macros" }
 lurk-metrics = { path = "lurk-metrics" }
 metrics = { workspace = true }
@@ -49,7 +49,7 @@ rand = { workspace = true }
 rand_core = { version = "0.6.4", default-features = false }
 rand_xorshift = "0.3.0"
 rayon = "1.7.0"
-rustyline-derive = "0.8.0"
+rustyline-derive = "0.9.0"
 serde = { workspace = true, features = ["derive"] }
 serde_bytes = "0.11.12"
 serde_json = { workspace = true }
@@ -101,11 +101,11 @@ cfg-if = "1.0.0"
 ascii_table = "4.0.2"
 criterion = "0.4"
 hex = "0.4.3"
-pprof = { version = "0.11" }
+pprof = { version = "0.13" }
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
 tempfile = { workspace = true }
-tracing-test = "0.1"
+tracing-test = "0.2"
 
 [build-dependencies]
 vergen = { version = "8", features = ["build", "git", "gitcl"] }

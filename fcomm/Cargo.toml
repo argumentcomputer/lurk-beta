@@ -42,5 +42,5 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 assert_cmd = "2.0.12"
 insta = { version = "1.31.0", features = ["json"] }
 num_cpus = "1.16.0"
-predicates = "2.1.5"
+predicates = "3.0.4"
 tempfile = { workspace = true }

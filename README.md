@@ -1,7 +1,8 @@
 # Lurk
 
-[![CircleCI](https://circleci.com/gh/lurk-lab/lurk-rs.svg?style=shield)](https://circleci.com/gh/lurk-lab/lurk-rs)
+![lurk-rs](https://github.com/lurk-lab/lurk-rs/actions/workflows/ci.yml/badge.svg)
 ![minimum rustc 1.70][msrv-image]
+[![dependency status](https://deps.rs/repo/github/lurk-lab/lurk-rs/status.svg)](https://deps.rs/repo/github/lurk-lab/lurk-rs)
 ![crates.io][crates-image]
 
 [msrv-image]: https://img.shields.io/badge/rustc-1.70+-blue.svg
