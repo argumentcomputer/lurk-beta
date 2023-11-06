@@ -59,14 +59,14 @@ impl ProveParams {
     fn name_params(&self) -> (String, String) {
         let output_type = bench_parameters_env().unwrap_or("stdout".into());
         match output_type.as_ref() {
-            "pr-comment" => ("".into(), format!("num-{}", self.fib_n)),
+            "pr-comment" => ("fib".into(), format!("num-{}", self.fib_n)),
             "commit-comment" => (
-                format!("branch={}", env!("VERGEN_GIT_BRANCH")),
+                format!("fib-branch={}", env!("VERGEN_GIT_BRANCH")),
                 format!("num-{}", self.fib_n),
             ),
             "gh-pages" => todo!(),
             _ => (
-                "".into(),
+                "fib".into(),
                 format!("num-{}-{}-{}", self.fib_n, self.sha, self.date),
             ),
         }
@@ -102,7 +102,7 @@ fn noise_threshold_env() -> anyhow::Result<f64> {
         })
 }
 
-fn fibo_prove<M: measurement::Measurement>(
+fn fibonacci_prove<M: measurement::Measurement>(
     prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
     state: &Rc<RefCell<State>>,
@@ -157,8 +157,9 @@ fn fibo_prove<M: measurement::Measurement>(
     );
 }
 
-fn fibonacci_prove(c: &mut Criterion) {
-    tracing_subscriber::fmt::init();
+fn fibonacci_benchmark(c: &mut Criterion) {
+    // Uncomment to record the logs. May negatively impact performance
+    //tracing_subscriber::fmt::init();
     set_bench_config();
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
@@ -169,7 +170,7 @@ fn fibonacci_prove(c: &mut Criterion) {
 
     for reduction_count in reduction_counts.iter() {
         let mut group: BenchmarkGroup<'_, _> =
-            c.benchmark_group(format!("LEM Prove - rc={}", reduction_count));
+            c.benchmark_group(format!("LEM Fibonacci Prove - rc = {}", reduction_count));
         group.sampling_mode(SamplingMode::Flat); // This can take a *while*
         group.sample_size(10);
         group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
@@ -181,7 +182,7 @@ fn fibonacci_prove(c: &mut Criterion) {
                 date: env!("VERGEN_GIT_COMMIT_DATE"),
                 sha: env!("VERGEN_GIT_SHA"),
             };
-            fibo_prove(prove_params, &mut group, &state);
+            fibonacci_prove(prove_params, &mut group, &state);
         }
     }
 }
@@ -195,7 +196,7 @@ cfg_if::cfg_if! {
             .sample_size(10)
             .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
             targets =
-             fibonacci_prove,
+             fibonacci_benchmark,
          }
     } else {
         criterion_group! {
@@ -204,7 +205,7 @@ cfg_if::cfg_if! {
             .measurement_time(Duration::from_secs(120))
             .sample_size(10);
             targets =
-             fibonacci_prove,
+             fibonacci_benchmark,
          }
     }
 }
