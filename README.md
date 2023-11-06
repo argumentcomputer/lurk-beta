@@ -59,7 +59,7 @@ Please note that the Lurk language and spec will be versioned independently from
 Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lab/lurk-lib) submodule. You must
 initialize and update submodules before test will pass:
 
-```
+```ignore
 git submodule update --init --recursive
 ```
 
@@ -69,24 +69,24 @@ git submodule update --init --recursive
 - [clang](https://clang.llvm.org/get_started.html)
 
 Lurk can be compiled to Wasm with
-```
+```ignore
 cargo build --target wasm32-unknown-unknown
 ```
 
 If using Nix without a system-wide `clang` install (e.g. NixOS):
-```
+```ignore
 CC=clang cargo build --target wasm32-unknown-unknown
 ```
 
 ## Repl
 
-```
+```ignore
 cargo run --release
 ```
 
 Or use the wrapper script:
 
-```
+```ignore
 bin/lurk
 ```
 
@@ -94,7 +94,7 @@ Set the environment variable `LURK_FIELD` to specify the scalar field of the Lur
 - `LURK_FIELD=PALLAS` (default): scalar field of Pallas
 - `LURK_FIELD=VESTA`: scalar field of Vesta
 
-```
+```ignore
 ➜  lurk-rs ✗ bin/lurk
     Finished release [optimized] target(s) in 0.06s
      Running `target/release/lurk`
@@ -105,7 +105,7 @@ Lurk REPL welcomes you.
 ```
 
 Or enable `info` log-level for a trace of reduction frames:
-```
+```ignore
 ➜  lurk-rs ✗ RUST_LOG=info bin/lurk
     Finished release [optimized] target(s) in 0.05s
      Running `target/release/lurk`
@@ -158,7 +158,7 @@ Lurk REPL welcomes you.
 ## Install
 
 You can install the `lurk` Repl on your machine with
-```
+```ignore
 $ cargo install --path .
 ```
 
@@ -166,18 +166,18 @@ $ cargo install --path .
 
 Install [Nix](https://nixos.org) and [enable Nix flakes](https://nixos.wiki/wiki/Flakes). Then, you can enter into a Nix devshell with the appropriate dependencies for Lurk with
 
-```
+```ignore
 $ nix develop
 ```
 or
 
-```
+```ignore
 $ direnv allow
 ```
 
 And then build with Cargo as usual:
 
-```
+```ignore
 $ cargo build
 ```
 
