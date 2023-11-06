@@ -28,7 +28,7 @@ ff = { workspace = true }
 fxhash = "0.2.1"
 generic-array = "0.14.7"
 hex = { version = "0.4.3", features = ["serde"] }
-indexmap = { version = "1.9.3", features = ["rayon", "serde"] }
+indexmap = { version = "2.1.0", features = ["rayon", "serde"] }
 itertools = "0.11"
 lurk-macros = { path = "lurk-macros" }
 lurk-metrics = { path = "lurk-metrics" }
