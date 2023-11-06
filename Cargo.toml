@@ -19,7 +19,7 @@ base-x = "0.2.11"
 bellpepper = { workspace = true }
 bellpepper-core = { workspace = true }
 bincode = { workspace = true }
-bytecount = "=0.6.4"
+bytecount = "0.6.7"
 camino = { workspace = true, features = ["serde1"] }
 clap = { workspace = true, features = ["derive"] }
 config = "0.13.3"
