@@ -64,7 +64,7 @@ impl ProveParams {
                 format!("fib-branch={}", env!("VERGEN_GIT_BRANCH")),
                 format!("num-{}", self.fib_n),
             ),
-            "gh-pages" => todo!(),
+            // TODO: refine "gh-pages",
             _ => (
                 "fib".into(),
                 format!("num-{}-{}-{}", self.fib_n, self.sha, self.date),
