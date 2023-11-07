@@ -571,9 +571,6 @@
 <a href="#571" id="571">571</a>
 <a href="#572" id="572">572</a>
 <a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::Utf8Path;
@@ -943,11 +940,8 @@
 
 <span class="kw">impl</span>&lt;F: CurveCycleEquipped + DeserializeOwned&gt; MetaCmd&lt;F&gt;
 <span class="kw">where
-    </span><span class="comment">// TODO(huitseeker): this is a bit pedantic, revisit later.
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::CK1: Sync + Send,
-    &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::CK2: Sync + Send,
 {
     <span class="kw">const </span>VERIFY: MetaCmd&lt;F&gt; = MetaCmd {
         name:

@@ -130,8 +130,6 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{hash_map::Entry, HashMap},
     sync::{Arc, Mutex},
@@ -245,9 +243,7 @@
         default: Fn,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;PublicParams&lt;F, M&gt;&gt;, Error&gt;
     <span class="kw">where
-        </span>F::CK1: Sync + Send,
-        F::CK2: Sync + Send,
-        &lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+        </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
         &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     {
         <span class="comment">// re-grab the lock

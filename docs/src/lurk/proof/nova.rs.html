@@ -656,22 +656,6 @@
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
 <a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -681,10 +665,9 @@
 <span class="kw">use </span>nova::{
     errors::NovaError,
     provider::bn256_grumpkin::{bn256, grumpkin},
-    provider::pedersen::CommitmentKeyExtTrait,
     traits::{
         circuit::{StepCircuit, TrivialCircuit},
-        commitment::CommitmentEngineTrait,
+        evaluation::EvaluationEngineTrait,
         snark::RelaxedR1CSSNARKTrait,
         Group,
     },
@@ -719,42 +702,29 @@
 /// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
 /// not expect more than one such cycle to be supported at a time for a given field.
 </span><span class="kw">pub trait </span>CurveCycleEquipped: LurkField {
-    <span class="doccomment">/// ## Why the next 4 types?
-    ///
-    /// The next 4 types are purely technical, and aim at laying out type bounds in a way that rust can find them.
-    /// They should eventually be replaceable by a bound on projections, once bounds on associated types progress.
-    /// They are technically equivalent to bounds of
-    ///  &lt;Self::G1::CE as CommitmentEngineTrait&lt;Self::G1&gt;&gt;::CommitmentKey: CommitmentKeyExtTrait&lt;Self::G1, CE = &lt;Self::G1 as Group&gt;::CE&gt;,
-    ///  &lt;Self::G2::CE as CommitmentEngineTrait&lt;Self::G2&gt;&gt;::CommitmentKey: CommitmentKeyExtTrait&lt;Self::G2, CE = &lt;G2 as Group&gt;::CE&gt;,
-    /// but where clauses can&#39;t be *found* by the compiler at the point where Self::G1, Self::G2 are used
+    <span class="doccomment">/// ## Why the next 2 types?
 
-    /// ## OK, but why do we need bounds at all in the first place?
+    /// In theory it would be sufficient to abstract over the two group types of the curve cycle, but in practice Nova is a
+    /// bit idiosyncratic in the [`nova::traits::evaluation::EvaluationEngineTrait&lt;G&gt;`], (PCS) it uses on these (its multilinear IPA : [`nova::provider::ipa_pc::EvaluationEngine&lt;G&gt;`])
+    /// *and* that implementation requires an additional trait bound `CommitmentKeyExtTrait` for this type.
     ///
-    /// As to *why* those see https://github.com/microsoft/Nova/pull/200
-    /// and the bound `CommitmentKey&lt;G&gt;: CommitmentKeyExtTrait&lt;G, CE = G::CE&gt;` on [`nova::provider::ipa_pc::EvaluationEngine&lt;G&gt;`]
-    /// Essentially, Nova relies on a commitment scheme that is additively homomorphic, but encodes the practicalities of this
-    /// (properties are unwieldy to encode) in the form of this CommitmentKeyExtTrait.
+    /// The following abstracts over curve cycle groups for which there exists an implementation of [`nova::traits::evaluation::EvaluationEngineTrait&lt;G&gt;`],
+    /// encapsulating these idiosyncracies within Nova.
 
-    /// The type of the commitment key used for points of the first curve in the cycle.
-    </span><span class="kw">type </span>CK1: CommitmentKeyExtTrait&lt;<span class="self">Self</span>::G1&gt;;
-    <span class="doccomment">/// The type of the commitment key used for points of the second curve in the cycle.
-    </span><span class="kw">type </span>CK2: CommitmentKeyExtTrait&lt;<span class="self">Self</span>::G2&gt;;
-    <span class="doccomment">/// The commitment engine type for the first curve in the cycle.
-    </span><span class="kw">type </span>CE1: CommitmentEngineTrait&lt;<span class="self">Self</span>::G1, CommitmentKey = <span class="self">Self</span>::CK1&gt;;
-    <span class="doccomment">/// The commitment engine type for the second curve in the cycle.
-    </span><span class="kw">type </span>CE2: CommitmentEngineTrait&lt;<span class="self">Self</span>::G2, CommitmentKey = <span class="self">Self</span>::CK2&gt;;
+    /// a concrete implementation of an [`nova::traits::evaluation::EvaluationEngineTrait&lt;G&gt;`] for G1,
+    </span><span class="kw">type </span>EE1: EvaluationEngineTrait&lt;<span class="self">Self</span>::G1&gt;;
+    <span class="doccomment">/// a concrete implementation of an [`nova::traits::evaluation::EvaluationEngineTrait&lt;G&gt;`] for G2,
+    </span><span class="kw">type </span>EE2: EvaluationEngineTrait&lt;<span class="self">Self</span>::G2&gt;;
 
     <span class="doccomment">/// The group type for the first curve in the cycle.
-    </span><span class="kw">type </span>G1: Group&lt;Base = &lt;<span class="self">Self</span>::G2 <span class="kw">as </span>Group&gt;::Scalar, Scalar = <span class="self">Self</span>, CE = <span class="self">Self</span>::CE1&gt;;
+    </span><span class="kw">type </span>G1: Group&lt;Base = &lt;<span class="self">Self</span>::G2 <span class="kw">as </span>Group&gt;::Scalar, Scalar = <span class="self">Self</span>&gt;;
     <span class="doccomment">/// The  group type for the second curve in the cycle.
-    </span><span class="kw">type </span>G2: Group&lt;Base = &lt;<span class="self">Self</span>::G1 <span class="kw">as </span>Group&gt;::Scalar, CE = <span class="self">Self</span>::CE2&gt;;
+    </span><span class="kw">type </span>G2: Group&lt;Base = &lt;<span class="self">Self</span>::G1 <span class="kw">as </span>Group&gt;::Scalar&gt;;
 }
 
 <span class="kw">impl </span>CurveCycleEquipped <span class="kw">for </span>pallas::Scalar {
-    <span class="kw">type </span>CK1 = nova::provider::pedersen::CommitmentKey&lt;pallas::Point&gt;;
-    <span class="kw">type </span>CK2 = nova::provider::pedersen::CommitmentKey&lt;vesta::Point&gt;;
-    <span class="kw">type </span>CE1 = nova::provider::pedersen::CommitmentEngine&lt;pallas::Point&gt;;
-    <span class="kw">type </span>CE2 = nova::provider::pedersen::CommitmentEngine&lt;vesta::Point&gt;;
+    <span class="kw">type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::G1&gt;;
+    <span class="kw">type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::G2&gt;;
 
     <span class="kw">type </span>G1 = pallas::Point;
     <span class="kw">type </span>G2 = vesta::Point;
@@ -762,10 +732,8 @@
 <span class="comment">// The impl CurveCycleEquipped for vesta::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 
 </span><span class="kw">impl </span>CurveCycleEquipped <span class="kw">for </span>bn256::Scalar {
-    <span class="kw">type </span>CK1 = nova::provider::pedersen::CommitmentKey&lt;bn256::Point&gt;;
-    <span class="kw">type </span>CK2 = nova::provider::pedersen::CommitmentKey&lt;grumpkin::Point&gt;;
-    <span class="kw">type </span>CE1 = nova::provider::pedersen::CommitmentEngine&lt;bn256::Point&gt;;
-    <span class="kw">type </span>CE2 = nova::provider::pedersen::CommitmentEngine&lt;grumpkin::Point&gt;;
+    <span class="kw">type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::G1&gt;;
+    <span class="kw">type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::G2&gt;;
 
     <span class="kw">type </span>G1 = bn256::Point;
     <span class="kw">type </span>G2 = grumpkin::Point;
@@ -778,9 +746,9 @@
 </span><span class="kw">pub type </span>G2&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::G2;
 
 <span class="doccomment">/// Type alias for the Evaluation Engine using G1 group elements.
-</span><span class="kw">pub type </span>EE1&lt;F&gt; = nova::provider::ipa_pc::EvaluationEngine&lt;G1&lt;F&gt;&gt;;
+</span><span class="kw">pub type </span>EE1&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::EE1;
 <span class="doccomment">/// Type alias for the Evaluation Engine using G2 group elements.
-</span><span class="kw">pub type </span>EE2&lt;F&gt; = nova::provider::ipa_pc::EvaluationEngine&lt;G2&lt;F&gt;&gt;;
+</span><span class="kw">pub type </span>EE2&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::EE2;
 
 <span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
 </span><span class="comment">// NOTE: this is not a SNARK that uses computational commitments,
