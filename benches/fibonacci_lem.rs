@@ -60,10 +60,14 @@ impl ProveParams {
         let output_type = bench_parameters_env().unwrap_or("stdout".into());
         match output_type.as_ref() {
             "pr-comment" => ("fib".into(), format!("num-{}", self.fib_n)),
-            "commit-comment" => (
-                format!("fib-branch={}", env!("VERGEN_GIT_BRANCH")),
-                format!("num-{}", self.fib_n),
-            ),
+            "commit-comment" => {
+                let branch = env!("VERGEN_GIT_BRANCH");
+                let branch_name = parse_merge_branch(branch).unwrap();
+                (
+                    format!("fib-branch={}", branch_name),
+                    format!("num-{}", self.fib_n),
+                )
+            }
             // TODO: refine "gh-pages",
             _ => (
                 "fib".into(),
@@ -71,6 +75,23 @@ impl ProveParams {
             ),
         }
     }
+}
+
+// Gets the last bit of a merge queue branch name for `commit-comment` comparison
+// E.g. `gh-readonly-queue/master/pr-857-25c170bf85cd0676fd01237acd` => `pr-857-25c170bf85cd0676fd01237acd`
+// Returns the input if the branch doesn't start with `gh-readonly-queue`
+fn parse_merge_branch(branch: &str) -> anyhow::Result<String> {
+    let mut branch_split = branch.split('/');
+    let ret = branch_split.next().map_or_else(
+        || anyhow::bail!("Expected a non-empty string"),
+        |x| match x {
+            "gh-readonly-queue" => branch_split
+                .last()
+                .ok_or_else(|| anyhow::anyhow!("Expected a merge queue branch")),
+            _ => Ok(branch),
+        },
+    )?;
+    Ok(ret.into())
 }
 
 fn bench_parameters_env() -> anyhow::Result<String> {
