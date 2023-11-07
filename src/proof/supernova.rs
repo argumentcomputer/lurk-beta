@@ -146,19 +146,14 @@ where
 
         for (i, step) in nivc_steps.iter().enumerate() {
             info!("prove_recursively, step {i}");
-            let augmented_circuit_index = step.circuit_index();
-            let program_counter = F::from(augmented_circuit_index as u64);
 
             let mut recursive_snark = recursive_snark_option.clone().unwrap_or_else(|| {
-                info!("iter_base_step {i}");
-                RecursiveSNARK::iter_base_step(
+                info!("RecursiveSnark::new {i}");
+                RecursiveSNARK::new(
                     &pp.pp,
-                    augmented_circuit_index,
+                    step,
                     step,
                     &step.secondary_circuit(),
-                    Some(program_counter),
-                    augmented_circuit_index,
-                    step.num_circuits(),
                     &z0_primary,
                     &z0_secondary,
                 )
@@ -168,17 +163,12 @@ where
             info!("prove_step {i}");
 
             recursive_snark
-                .prove_step(
-                    &pp.pp,
-                    augmented_circuit_index,
-                    step,
-                    &step.secondary_circuit(),
-                )
+                .prove_step(&pp.pp, step, &step.secondary_circuit())
                 .unwrap();
 
             recursive_snark_option = Some(recursive_snark);
 
-            last_circuit_index = augmented_circuit_index;
+            last_circuit_index = step.circuit_index();
         }
 
         // This probably should be made unnecessary.
