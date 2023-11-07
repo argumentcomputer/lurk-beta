@@ -278,6 +278,9 @@ fn car_cdr() -> Func {
 /// `run_cproc` is meant to be used in the context of NIVC, when the circuit for
 /// each coprocessor is detached from Lurk's universal circuit.
 ///
+/// The following is a LEM pseudo-code for what this function implements:
+///
+/// ```ignore
 /// run_cproc(cproc, env, cont): 3 {
 ///     let err: Cont::Error = HASH_8_ZEROS;
 ///     let nil = Symbol("nil");
@@ -318,6 +321,7 @@ fn car_cdr() -> Func {
 ///     // not a proper Cproc expression... just loop
 ///     return (cproc, env, cont);
 /// }
+/// ```
 fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     let evaluated_args = if arity == 0 {
         Var::new("_evaluated_args")
@@ -430,6 +434,9 @@ pub fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
 /// Tells whether `head`, which is assumed to be a symbol, corresponds to the name
 /// of a coprocessor in the `Lang`.
 ///
+/// The following is a LEM pseudo-code for what this function implements:
+///
+/// ```ignore
 /// is_cproc(head): 1 {
 ///     let nil = Symbol("nil");
 ///     let nil = cast(nil, Expr::Nil);
@@ -442,6 +449,7 @@ pub fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
 ///     };
 ///     return (nil)
 /// }
+/// ```
 fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
     if cprocs.is_empty() {
         func!(is_cproc(_head): 1 => {
@@ -484,12 +492,16 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 /// Bonus: destructuring the list of arguments for the coprocessors share
 /// allocated slots
 ///
+/// The following is a LEM pseudo-code for what this function implements:
+///
+/// ```ignore
 /// match_and_run_cproc(cproc_name, evaluated_args, env, cont): 4 {
 ///     let err: Cont::Error = HASH_8_ZEROS;
 ///     let nil = Symbol("nil");
 ///     let nil = cast(nil, Expr::Nil);
 ///     let makethunk = Symbol("make-thunk");
 ///     let errctrl = Symbol("error");
+///     let ret = Symbol("return");
 ///     match symbol cproc_name {
 ///         x => {
 ///             // `n` is the arity of the coprocessor `x`
@@ -508,7 +520,10 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 ///                         Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
 ///                         match cont.tag {
 ///                             Cont::Error => {
-///                                 return (expr, env, cont, errctrl);
+///                                 return (expr, env, err, errctrl);
+///                             }
+///                             Cont::Terminal => {
+///                                 return (expr, env, cont, ret);
 ///                             }
 ///                         };
 ///                         return (expr, env, cont, makethunk);
@@ -522,6 +537,7 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 ///         ...
 ///     }
 /// }
+/// ```
 fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
     let max_arity = cprocs.iter().fold(0, |acc, (_, a)| acc.max(*a));
     let cproc_name = Var::new("cproc_name");
@@ -545,8 +561,13 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
         ops: vec![],
         ctrl: ctrl!(return (expr, env, err, errctrl)),
     };
-    let mut check_cproc_error_map = IndexMap::with_capacity(1);
+    let ret_block_from_cproc = Block {
+        ops: vec![],
+        ctrl: ctrl!(return (expr, env, cont, ret)),
+    };
+    let mut check_cproc_error_map = IndexMap::with_capacity(2);
     check_cproc_error_map.insert(Tag::Cont(Error), err_block_from_cproc);
+    check_cproc_error_map.insert(Tag::Cont(Terminal), ret_block_from_cproc);
     let check_cproc_error_ctrl = Ctrl::MatchTag(
         cont.clone(),
         check_cproc_error_map,
@@ -612,12 +633,14 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
             op!(let err: Cont::Error = HASH_8_ZEROS),
             op!(let makethunk = Symbol("make-thunk")),
             op!(let errctrl = Symbol("error")),
+            op!(let ret = Symbol("return")),
         ]
     } else {
         vec![
             op!(let err: Cont::Error = HASH_8_ZEROS),
             op!(let makethunk = Symbol("make-thunk")),
             op!(let errctrl = Symbol("error")),
+            op!(let ret = Symbol("return")),
             op!(let nil = Symbol("nil")),
             op!(let nil = cast(nil, Expr::Nil)),
         ]
@@ -1080,7 +1103,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         let (op) = get_unop(head);
                         let op_is_nil = eq_tag(op, nil);
                         if !op_is_nil {
-                            let rest_is_nil = eq_tag(rest, nil);
                             if !rest_is_nil {
                                 let (arg1, end) = decons2(rest);
                                 let end_is_nil = eq_tag(end, nil);
@@ -1096,7 +1118,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         let (op) = get_binop(head);
                         let op_is_nil = eq_tag(op, nil);
                         if !op_is_nil {
-                            let rest_is_nil = eq_tag(rest, nil);
                             if !rest_is_nil {
                                 let (arg1, more) = decons2(rest);
                                 let more_is_nil = eq_tag(more, nil);
@@ -1112,6 +1133,10 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         let (is_cproc) = is_cproc(head);
                         let is_cproc_is_t = eq_val(is_cproc, t);
                         if is_cproc_is_t {
+                            if rest_is_nil {
+                                let cont: Cont::Cproc = cons4(head, nil, nil, cont);
+                                return (nil, env, cont, apply);
+                            }
                             let (arg, unevaled_args) = car_cdr(rest);
                             let cont: Cont::Cproc = cons4(head, unevaled_args, nil, cont);
                             return (arg, env, cont, ret);
@@ -1769,8 +1794,8 @@ mod tests {
     use pasta_curves::pallas::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 9120;
-    const NUM_CONSTRAINTS: usize = 11052;
+    const NUM_AUX: usize = 9118;
+    const NUM_CONSTRAINTS: usize = 11064;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,

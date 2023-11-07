@@ -265,7 +265,7 @@ pub(crate) mod test {
             num_tag: &AllocatedNum<F>,
             cont_error: &AllocatedPtr<F>,
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-            let a = input_exprs[0].clone();
+            let a = &input_exprs[0];
             let b = &input_exprs[1];
 
             let a_is_num = alloc_equal(&mut cs.namespace(|| "fst is num"), a.tag(), num_tag)?;
@@ -290,7 +290,7 @@ pub(crate) mod test {
                 &mut cs.namespace(|| "result_expr"),
                 &a_is_num,
                 &result_expr0,
-                &a,
+                a,
             )?;
 
             let result_cont = AllocatedPtr::pick(
@@ -447,6 +447,97 @@ pub(crate) mod test {
     }
 
     impl<F: LurkField> DumbCoprocessor<F> {
+        pub(crate) fn new() -> Self {
+            Self {
+                _p: Default::default(),
+            }
+        }
+    }
+
+    /// A coprocessor that simply halts the CEK machine, for testing purposes
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub(crate) struct Terminator<F: LurkField> {
+        _p: PhantomData<F>,
+    }
+
+    impl<F: LurkField> CoCircuit<F> for Terminator<F> {
+        fn arity(&self) -> usize {
+            0
+        }
+
+        fn synthesize_alpha<CS: ConstraintSystem<F>>(
+            &self,
+            _cs: &mut CS,
+            g: &GlobalAllocations<F>,
+            _store: &AlphaStore<F>,
+            _input_exprs: &[AllocatedPtr<F>],
+            input_env: &AllocatedPtr<F>,
+            _input_cont: &AllocatedContPtr<F>,
+            _not_dummy: &Boolean,
+        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
+        {
+            Ok((g.nil_ptr.clone(), input_env.clone(), g.terminal_ptr.clone()))
+        }
+
+        fn synthesize<CS: ConstraintSystem<F>>(
+            &self,
+            _cs: &mut CS,
+            g: &GlobalAllocator<F>,
+            s: &Store<F>,
+            _not_dummy: &Boolean,
+            _args: &[AllocatedPtr<F>],
+            env: &AllocatedPtr<F>,
+            _cont: &AllocatedPtr<F>,
+        ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
+            let nil = g
+                .get_allocated_ptr_from_ptr(&s.intern_nil(), s)
+                .expect("nil pointer not allocated");
+            let term = g
+                .get_allocated_ptr_from_ptr(&s.cont_terminal(), s)
+                .expect("terminal pointer not allocated");
+            Ok(vec![nil, env.clone(), term])
+        }
+    }
+
+    impl<F: LurkField> Coprocessor<F> for Terminator<F> {
+        fn eval_arity(&self) -> usize {
+            0
+        }
+
+        fn evaluate_alpha(
+            &self,
+            s: &AlphaStore<F>,
+            args: AlphaPtr<F>,
+            env: AlphaPtr<F>,
+            _cont: ContPtr<F>,
+        ) -> IO<F> {
+            IO {
+                expr: args,
+                env,
+                cont: s.get_cont_terminal(),
+            }
+        }
+
+        fn simple_evaluate_alpha(&self, _s: &AlphaStore<F>, _args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
+            unreachable!()
+        }
+
+        fn evaluate(
+            &self,
+            s: &Store<F>,
+            _args: &[Ptr<F>],
+            env: &Ptr<F>,
+            _cont: &Ptr<F>,
+        ) -> Vec<Ptr<F>> {
+            vec![s.intern_nil(), *env, s.cont_terminal()]
+        }
+
+        fn has_circuit(&self) -> bool {
+            true
+        }
+    }
+
+    impl<F: LurkField> Terminator<F> {
         pub(crate) fn new() -> Self {
             Self {
                 _p: Default::default(),

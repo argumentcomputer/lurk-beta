@@ -3368,6 +3368,34 @@ fn test_dumb_lang() {
 }
 
 #[test]
+fn test_terminator_lang() {
+    use crate::{coprocessor::test::Terminator, state::user_sym};
+
+    let mut lang = Lang::<Fr, Terminator<Fr>>::new();
+    let dumb = Terminator::new();
+    let name = user_sym("terminate");
+
+    let s = &Store::default();
+    lang.add_coprocessor(name, dumb, s);
+
+    let expr = "(terminate)";
+
+    let res = s.intern_nil();
+    let terminal = s.cont_terminal();
+
+    test_aux::<_, _, C1LEM<'_, _, Terminator<_>>>(
+        s,
+        expr,
+        Some(res),
+        None,
+        Some(terminal),
+        None,
+        1,
+        &Some(lang.into()),
+    );
+}
+
+#[test]
 fn test_trie_lang() {
     use crate::coprocessor::trie::{install_lem, TrieCoproc};
 
@@ -3396,7 +3424,7 @@ fn test_trie_lang() {
         None,
         Some(terminal),
         None,
-        5,
+        4,
         DEFAULT_REDUCTION_COUNT,
         false,
         None,
@@ -3474,7 +3502,7 @@ fn test_trie_lang() {
         None,
         Some(terminal),
         None,
-        10,
+        9,
         DEFAULT_REDUCTION_COUNT,
         false,
         None,
@@ -3493,7 +3521,7 @@ fn test_trie_lang() {
         None,
         Some(terminal),
         None,
-        14,
+        13,
         DEFAULT_REDUCTION_COUNT,
         false,
         None,

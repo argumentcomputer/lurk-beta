@@ -2939,7 +2939,7 @@ fn test_trie_lang() {
         None,
         None,
         None,
-        5,
+        4,
         &Some(&lang),
     );
 
@@ -3009,7 +3009,7 @@ fn test_trie_lang() {
         None,
         None,
         None,
-        10,
+        9,
         &Some(&lang),
     );
 
@@ -3026,7 +3026,35 @@ fn test_trie_lang() {
         None,
         None,
         None,
-        14,
+        13,
+        &Some(&lang),
+    );
+}
+
+#[test]
+fn test_terminator_lang() {
+    use crate::{coprocessor::test::Terminator, state::user_sym};
+
+    let mut lang = Lang::<Fr, Terminator<Fr>>::new();
+    let dumb = Terminator::new();
+    let name = user_sym("terminate");
+
+    let s = &Store::default();
+    lang.add_coprocessor(name, dumb, s);
+
+    let expr = "(terminate)";
+
+    let res = s.intern_nil();
+    let terminal = s.cont_terminal();
+
+    test_aux(
+        s,
+        expr,
+        Some(res),
+        None,
+        Some(terminal),
+        None,
+        1,
         &Some(&lang),
     );
 }
