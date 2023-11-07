@@ -17,7 +17,7 @@ use crate::{
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
-        eval::{evaluate, evaluate_simple},
+        eval::{evaluate_simple_with_env, evaluate_with_env},
         interpreter::Frame,
         multiframe::MultiFrame,
         pointers::Ptr,
@@ -63,6 +63,13 @@ struct Evaluation<F: LurkField> {
     iterations: usize,
 }
 
+impl<F: LurkField> Evaluation<F> {
+    #[inline]
+    fn get_result(&self) -> Option<&Ptr<F>> {
+        self.frames.last().and_then(|frame| frame.output.first())
+    }
+}
+
 #[allow(dead_code)]
 pub struct Repl<F: LurkField> {
     store: Store<F>,
@@ -93,6 +100,10 @@ fn pad(a: usize, m: usize) -> usize {
 }
 
 impl<F: LurkField> Repl<F> {
+    fn get_evaluation(&self) -> &Option<Evaluation<F>> {
+        &self.evaluation
+    }
+
     fn peek1(&self, cmd: &str, args: &Ptr<F>) -> Result<Ptr<F>> {
         let (first, rest) = self.store.car_cdr(args)?;
         if !rest.is_nil() {
@@ -295,10 +306,7 @@ impl Repl<F> {
         let commitment = Commitment::new(Some(secret), payload, &self.store);
         let hash_str = &commitment.hash.hex_digits();
         commitment.persist()?;
-        println!(
-            "Data: {}\nHash: 0x{hash_str}",
-            payload.fmt_to_string(&self.store, &self.state.borrow())
-        );
+        println!("Hash: 0x{hash_str}");
         Ok(())
     }
 
@@ -337,8 +345,13 @@ impl Repl<F> {
     }
 
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
-        let (ptrs, iterations, emitted) =
-            evaluate_simple::<F, Coproc<F>>(None, expr_ptr, &self.store, self.limit)?;
+        let (ptrs, iterations, emitted) = evaluate_simple_with_env::<F, Coproc<F>>(
+            None,
+            expr_ptr,
+            self.env,
+            &self.store,
+            self.limit,
+        )?;
         match ptrs[2].tag() {
             Tag::Cont(ContTag::Terminal) => Ok((ptrs, iterations, emitted)),
             t => {
@@ -356,8 +369,13 @@ impl Repl<F> {
         &mut self,
         expr_ptr: Ptr<F>,
     ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
-        let (ptrs, iterations, emitted) =
-            evaluate_simple::<F, Coproc<F>>(None, expr_ptr, &self.store, self.limit)?;
+        let (ptrs, iterations, emitted) = evaluate_simple_with_env::<F, Coproc<F>>(
+            None,
+            expr_ptr,
+            self.env,
+            &self.store,
+            self.limit,
+        )?;
         if matches!(
             ptrs[2].tag(),
             Tag::Cont(ContTag::Terminal) | Tag::Cont(ContTag::Error)
@@ -373,13 +391,12 @@ impl Repl<F> {
 
     fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize)> {
         let (frames, iterations) =
-            evaluate::<F, Coproc<F>>(None, expr_ptr, &self.store, self.limit)?;
+            evaluate_with_env::<F, Coproc<F>>(None, expr_ptr, self.env, &self.store, self.limit)?;
         let output = frames[frames.len() - 1].output.clone();
         self.evaluation = Some(Evaluation { frames, iterations });
         Ok((output, iterations))
     }
 
-    // #[allow(dead_code)]
     fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<F> {
         let first = self.peek1(cmd, args)?;
         let num = self.store.intern_lurk_symbol("num");
@@ -393,7 +410,7 @@ impl Repl<F> {
         Ok(hash)
     }
 
-    fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
+    pub fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         self.eval_expr_and_memoize(expr_ptr)
             .map(|(output, iterations)| {
                 let iterations_display = Self::pretty_iterations_display(iterations);
@@ -471,7 +488,11 @@ impl Repl<F> {
     }
 
     pub fn load_file(&mut self, file_path: &Utf8Path, demo: bool) -> Result<()> {
-        let input = read_to_string(file_path)?;
+        let input = if std::env::var("LURK_PANIC_IF_CANT_LOAD") == Ok("true".into()) {
+            read_to_string(file_path).unwrap_or_else(|_| panic!("File not found: {}", file_path))
+        } else {
+            read_to_string(file_path)?
+        };
         if demo {
             println!("Loading {file_path} in demo mode");
         } else {

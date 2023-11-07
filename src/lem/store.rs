@@ -470,7 +470,7 @@ impl<F: LurkField> Store<F> {
 
     /// Fetches a cons list that was interned. If the list is improper, the second
     /// element of the returned pair will carry the improper terminating value
-    fn fetch_list(&self, ptr: &Ptr<F>) -> Option<(Vec<Ptr<F>>, Option<Ptr<F>>)> {
+    pub fn fetch_list(&self, ptr: &Ptr<F>) -> Option<(Vec<Ptr<F>>, Option<Ptr<F>>)> {
         match ptr {
             Ptr::Tuple2(Tag::Expr(Nil), _) => Some((vec![], None)),
             Ptr::Tuple2(Tag::Expr(Cons), mut idx) => {

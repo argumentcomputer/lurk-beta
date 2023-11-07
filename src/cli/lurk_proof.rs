@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use ::nova::{
     supernova::NonUniformCircuit,
@@ -12,7 +12,7 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
-    lem::pointers::ZPtr,
+    lem::{pointers::ZPtr, store::Store},
     proof::{
         nova::{self, CurveCycleEquipped, G1, G2},
         supernova::C2,
@@ -22,12 +22,13 @@ use crate::{
         instance::{Instance, Kind},
         public_params,
     },
+    state::{initial_lurk_state, State},
 };
 
 use super::{
     field_data::{dump, load, HasFieldModulus},
     paths::{proof_meta_path, proof_path},
-    zstore::ZStore,
+    zstore::{populate_store, ZStore},
 };
 
 /// Carries extra information to help with visualization, experiments etc.
@@ -92,6 +93,53 @@ impl<F: LurkField + Serialize> LurkProofMeta<F> {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
         dump(self, &proof_meta_path(proof_key))
+    }
+}
+
+impl<F: LurkField + DeserializeOwned> LurkProofMeta<F> {
+    pub(crate) fn inspect_proof(
+        proof_key: &str,
+        store_state: Option<(&Store<F>, &State)>,
+        full: bool,
+    ) -> Result<()> {
+        let proof_meta: LurkProofMeta<F> = load(&proof_meta_path(proof_key))?;
+        let do_inspect = |store: &Store<F>, state: &State| {
+            let mut cache = HashMap::default();
+            let z_store = &proof_meta.z_store;
+            let expr = populate_store(store, &proof_meta.expr, z_store, &mut cache)?;
+            let expr_out = populate_store(store, &proof_meta.expr_out, z_store, &mut cache)?;
+            if full {
+                let env = populate_store(store, &proof_meta.env, z_store, &mut cache)?;
+                let cont = populate_store(store, &proof_meta.cont, z_store, &mut cache)?;
+                let env_out = populate_store(store, &proof_meta.env_out, z_store, &mut cache)?;
+                let cont_out = populate_store(store, &proof_meta.cont_out, z_store, &mut cache)?;
+                println!(
+                    "Input:\n  Expr: {}\n  Env:  {}\n  Cont: {}",
+                    expr.fmt_to_string(store, state),
+                    env.fmt_to_string(store, state),
+                    cont.fmt_to_string(store, state),
+                );
+                println!(
+                    "Output:\n  Expr: {}\n  Env:  {}\n  Cont: {}",
+                    expr_out.fmt_to_string(store, state),
+                    env_out.fmt_to_string(store, state),
+                    cont_out.fmt_to_string(store, state),
+                );
+            } else {
+                println!(
+                    "Input:\n  {}\nOutput:\n  {}",
+                    expr.fmt_to_string(store, state),
+                    expr_out.fmt_to_string(store, state)
+                );
+            }
+            println!("Iterations: {}", proof_meta.iterations);
+            Ok(())
+        };
+        if let Some((store, state)) = store_state {
+            do_inspect(store, state)
+        } else {
+            do_inspect(&Store::default(), initial_lurk_state())
+        }
     }
 }
 
