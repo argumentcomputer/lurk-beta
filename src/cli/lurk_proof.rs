@@ -100,8 +100,6 @@ impl<'a, F: CurveCycleEquipped + Serialize, M: MultiFrameTrait<'a, F, Coproc<F>>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <F as CurveCycleEquipped>::CK1: Sync + Send,
-    <F as CurveCycleEquipped>::CK2: Sync + Send,
 {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
@@ -119,8 +117,6 @@ impl<
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <F as CurveCycleEquipped>::CK1: Sync + Send,
-    <F as CurveCycleEquipped>::CK2: Sync + Send,
 {
     pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
         let lurk_proof: LurkProof<'_, F, Coproc<F>, M> = load(&proof_path(proof_key))?;

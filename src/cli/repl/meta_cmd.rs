@@ -367,11 +367,8 @@ impl MetaCmd<F> {
 
 impl<F: CurveCycleEquipped + DeserializeOwned> MetaCmd<F>
 where
-    // TODO(huitseeker): this is a bit pedantic, revisit later.
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <F as CurveCycleEquipped>::CK1: Sync + Send,
-    <F as CurveCycleEquipped>::CK2: Sync + Send,
 {
     const VERIFY: MetaCmd<F> = MetaCmd {
         name:
