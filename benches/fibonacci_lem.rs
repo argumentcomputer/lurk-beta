@@ -61,7 +61,7 @@ impl ProveParams {
         match output_type.as_ref() {
             "pr-comment" => ("fib".into(), format!("num-{}", self.fib_n)),
             "commit-comment" => (
-                format!("fib-branch={}", env!("VERGEN_GIT_BRANCH")),
+                format!("fib-ref={}", env!("VERGEN_GIT_SHA")),
                 format!("num-{}", self.fib_n),
             ),
             // TODO: refine "gh-pages",
