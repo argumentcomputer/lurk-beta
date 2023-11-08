@@ -1,0 +1,60 @@
+# Run GPU benchmark on a local branch when manually triggered
+name: Manual GPU benchmarks
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  gpu-benchmark:
+    name: Run local fibonacci bench
+    runs-on: [self-hosted, gpu-bench]
+    steps:
+      # Set up GPU
+      # Check we have access to the machine's Nvidia drivers
+      - run: nvidia-smi
+      # Check that CUDA is installed with a driver-compatible version
+      # This must also be compatible with the GPU architecture, see above link
+      - run: nvcc --version
+      - uses: actions/checkout@v4
+      # Install dependencies
+      - uses: actions-rs/toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.15
+      - name: Install criterion
+        run: |
+          cargo install cargo-criterion
+          cargo install criterion-table
+      - name: Set bench output format type
+        run: echo "LURK_BENCH_OUTPUT=commit-comment" | tee -a $GITHUB_ENV
+      - name: Run GPU bench on branch
+        run: just --dotenv-filename bench.env gpu-bench fibonacci_lem
+        working-directory: ${{ github.workspace }}/benches
+      - name: copy the benchmark template and prepare it with data
+        run: |
+          cp .github/tables.toml .
+          # Get GPU name
+          GPU_NAME=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader,nounits | tail -n1)
+          # Get CPU model
+          CPU_MODEL=$(grep '^model name' /proc/cpuinfo | head -1 | awk -F ': ' '{ print $2 }')
+          # Get total RAM in GB
+          TOTAL_RAM=$(grep MemTotal /proc/meminfo | awk '{$2=$2/(1024^2); print $2, "GB RAM";}')
+
+          # Use conditionals to ensure that only non-empty variables are inserted
+          [[ ! -z "$GPU_NAME" ]] && sed -i "/^\"\"\"$/i $GPU_NAME" tables.toml
+          [[ ! -z "$CPU_MODEL" ]] && sed -i "/^\"\"\"$/i $CPU_MODEL" tables.toml
+          [[ ! -z "$TOTAL_RAM" ]] && sed -i "/^\"\"\"$/i $TOTAL_RAM" tables.toml
+        working-directory: ${{ github.workspace }}
+      # Create a `criterion-table` and write in commit comment
+      - name: Run `criterion-table`
+        run: cat ${{ github.sha }}.json | criterion-table > BENCHMARKS.md
+      - name: Write bench on commit comment
+        uses: peter-evans/commit-comment@v3
+        with:
+          body-path: BENCHMARKS.md
+
