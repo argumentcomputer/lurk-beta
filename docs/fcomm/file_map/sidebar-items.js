@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["data_dir"],"struct":["FileMap"],"trait":["FileStore"]};

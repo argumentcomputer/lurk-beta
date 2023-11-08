@@ -13,7 +13,7 @@
 <p>For more detailed information, refer to the paper: <a href="https://eprint.iacr.org/2023/369">https://eprint.iacr.org/2023/369</a></p>
 <p>Lurk’s distinguishing feature relative to most zk-SNARK authoring languages is that Lurk is Turing complete, so arbitrary computational claims can be made and proved (subject to resource limitations, obviously). Because Lurk is a Lisp, its code is simply Lurk data, and any Lurk data can be directly evaluated as a Lurk program. Lurk constructs compound data using SNARK-friendly Poseidon hashes (provided by <a href="https://github.com/lurk-lab/neptune">Neptune</a>), so its data is naturally content-addressable.</p>
 <h2 id="proofs"><a href="#proofs">Proofs</a></h2>
-<p>Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience still have room for significant optimization and improvement, but simple examples can be found in the <a href="fcomm/README.md">fcomm example directory</a>.</p>
+<p>Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience still have room for significant optimization and improvement, but simple examples can be found in the <a href="demo/">demo example directory</a>.</p>
 <h2 id="backends"><a href="#backends">Backends</a></h2>
 <ul>
 <li>Nova is Lurk’s officially-supported IVC backend. It uses Lurk Lab’s Arecibo fork of the <a href="https://github.com/lurk-lab/arecibo">Nova proving system</a> and the Pasta Curves.</li>
