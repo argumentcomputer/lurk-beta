@@ -26,7 +26,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Linux Tests
         run: |
-          cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored ignored-only -E 'all() - test(test_make_fcomm_examples) - test(test_demo)'
+          cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored ignored-only -E 'all() - test(test_demo)'
 
   linux-arm:
     if: github.event_name != 'pull_request' || github.event.action == 'enqueued'

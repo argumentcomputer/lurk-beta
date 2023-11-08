@@ -26,7 +26,7 @@ Lurk's distinguishing feature relative to most zk-SNARK authoring languages is t
 
 # Proofs
 
-Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience still have room for significant optimization and improvement, but simple examples can be found in the [fcomm example directory](fcomm/README.md).
+Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience still have room for significant optimization and improvement, but simple examples can be found in the [demo example directory](demo/).
 
 # Backends
 - Nova is Lurk's officially-supported IVC backend. It uses Lurk Lab's Arecibo fork of the [Nova proving system](https://github.com/lurk-lab/arecibo) and the Pasta Curves.
