@@ -20,7 +20,6 @@ pub mod parser;
 pub mod proof;
 pub mod ptr;
 pub mod public_parameters;
-pub mod repl;
 pub mod state;
 pub mod store;
 pub mod symbol;
@@ -35,7 +34,3 @@ pub use symbol::Symbol;
 pub use uint::UInt;
 
 pub use z_data::{z_cont, z_expr, z_ptr, z_store};
-
-pub const TEST_SEED: [u8; 16] = [
-    0x62, 0x59, 0x5d, 0xbe, 0x3d, 0x76, 0x3d, 0x8d, 0xdb, 0x17, 0x32, 0x37, 0x06, 0x54, 0xe5, 0xbc,
-];
