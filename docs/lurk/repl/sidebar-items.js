@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["repl","repl_cli","run_repl"],"struct":["Repl","ReplState"],"trait":["ReplTrait"]};
