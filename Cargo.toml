@@ -58,7 +58,7 @@ tap = "1.0.1"
 stable_deref_trait = "1.2.0"
 thiserror = { workspace = true }
 abomonation = { workspace = true }
-abomonation_derive = { git = "https://github.com/lurk-lab/abomonation_derive.git" }
+abomonation_derive = { version = "0.1.0", package = "abomonation_derive_ng" }
 crossbeam = "0.8.2"
 byteorder = "1.4.3"
 circom-scotia = { git = "https://github.com/lurk-lab/circom-scotia", branch = "dev" }
@@ -125,7 +125,7 @@ bincode = "1.3.3"
 clap = "4.3.17"
 ff = "0.13"
 metrics = "0.21.1"
-neptune = { git = "https://github.com/lurk-lab/neptune", branch = "dev" }
+neptune = { git = "https://github.com/lurk-lab/neptune", branch = "dev", features = ["abomonation"] }
 nova = { git = "https://github.com/lurk-lab/arecibo", branch = "dev", package = "nova-snark" }
 once_cell = "1.18.0"
 pairing = { version = "0.23" }
