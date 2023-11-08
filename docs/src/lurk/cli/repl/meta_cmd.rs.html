@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (189d6c71f 2023-11-06)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (7adc89b69 2023-11-07)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -571,6 +571,115 @@
 <a href="#571" id="571">571</a>
 <a href="#572" id="572">572</a>
 <a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::Utf8Path;
@@ -579,7 +688,7 @@
 <span class="kw">use </span>std::process;
 
 <span class="kw">use crate</span>::{
-    cli::lurk_proof::LurkProof,
+    cli::lurk_proof::{LurkProof, LurkProofMeta},
     eval::lang::Coproc,
     field::LurkField,
     lem::{multiframe::MultiFrame, pointers::Ptr, Tag},
@@ -604,20 +713,19 @@
 </span><span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>LOAD: MetaCmd&lt;F&gt; = MetaCmd {
         name: <span class="string">&quot;load&quot;</span>,
-        summary: <span class="string">&quot;Load lurk expressions from a file path.&quot;</span>,
+        summary: <span class="string">&quot;Load lurk expressions from a file.&quot;</span>,
         format: <span class="string">&quot;!(load &lt;string&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;Load lurk expressions from a file path.&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(load \&quot;my_file.lurk\&quot;)&quot;</span>],
         run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">match </span>repl.store.fetch_string(<span class="kw-2">&amp;</span>first) {
                 <span class="prelude-val">Some</span>(path) =&gt; {
                     <span class="kw">let </span>joined = repl.pwd_path.join(Utf8Path::new(<span class="kw-2">&amp;</span>path));
-                    repl.load_file(<span class="kw-2">&amp;</span>joined, <span class="bool-val">false</span>)<span class="question-mark">?
-                </span>}
+                    repl.load_file(<span class="kw-2">&amp;</span>joined, <span class="bool-val">false</span>)
+                }
                 <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Argument of `load` must be a string.&quot;</span>),
             }
-            <span class="prelude-val">Ok</span>(())
         },
     };
 }
@@ -804,13 +912,12 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;(let ((n (open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0))) (* (car n) (cdr n)))&quot;</span>,
+            <span class="string">&quot;(let ((n (open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25))) (* (car n) (cdr n)))&quot;</span>,
         ],
         run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
-            repl.hide(ff::Field::ZERO, first_io[<span class="number">0</span>])<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(())
+            repl.hide(F::NON_HIDING_COMMITMENT_SECRET, first_io[<span class="number">0</span>])
         }
     };
 }
@@ -854,12 +961,11 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;(fetch 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)&quot;</span>,
+            <span class="string">&quot;!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
         ],
         run: |repl, cmd, args| {
             <span class="kw">let </span>hash = repl.get_comm_hash(cmd, args)<span class="question-mark">?</span>;
-            repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(())
+            repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)
         },
     };
 }
@@ -872,12 +978,11 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;!(open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)&quot;</span>,
+            <span class="string">&quot;!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
         ],
         run: |repl, cmd, args| {
             <span class="kw">let </span>hash = repl.get_comm_hash(cmd, args)<span class="question-mark">?</span>;
-            repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(())
+            repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">true</span>)
         },
     };
 }
@@ -925,15 +1030,14 @@
         ],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
-            <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\&quot;)&quot;</span>,
-            <span class="string">&quot;!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)&quot;</span>,
+            <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
+            <span class="string">&quot;!(open 0x002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf)&quot;</span>,
         ],
         run: |repl, cmd, args| {
             <span class="kw">if </span>!args.is_nil() {
                 repl.eval_expr_and_memoize(repl.peek1(cmd, args)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
             }
-            repl.prove_last_frames()<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(())
+            repl.prove_last_frames()
         }
     };
 }
@@ -944,15 +1048,10 @@
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">const </span>VERIFY: MetaCmd&lt;F&gt; = MetaCmd {
-        name:
-            <span class="string">&quot;verify&quot;</span>,
-        summary:
-            <span class="string">&quot;Verify a proof&quot;</span>,
-        format:
-            <span class="string">&quot;!(verify &lt;string&gt;)&quot;</span>,
-        description: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;Verify proof id &lt;string&gt; and print the result.&quot;</span>,
-        ],
+        name: <span class="string">&quot;verify&quot;</span>,
+        summary: <span class="string">&quot;Verify a proof&quot;</span>,
+        format: <span class="string">&quot;!(verify &lt;string&gt;)&quot;</span>,
+        description: <span class="kw-2">&amp;</span>[<span class="string">&quot;Verify proof key &lt;string&gt; and print the result.&quot;</span>],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
             <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\&quot;)&quot;</span>,
@@ -963,8 +1062,7 @@
             <span class="kw">let </span>proof_id = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
             LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">&#39;_</span>, <span class="kw">_</span>, Coproc&lt;F&gt;&gt;&gt;::verify_proof(
                 <span class="kw-2">&amp;</span>proof_id,
-            )<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(())
+            )
         }
     };
 }
@@ -1044,20 +1142,19 @@
                 Tag::Expr(ExprTag::Str) =&gt; {
                     <span class="kw">let </span>name = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
                     <span class="kw">let </span>package_name = repl.state.borrow_mut().intern(name);
-                    repl.state.borrow_mut().set_current_package(package_name)<span class="question-mark">?</span>;
+                    repl.state.borrow_mut().set_current_package(package_name)
                 }
                 Tag::Expr(ExprTag::Sym) =&gt; {
                     <span class="kw">let </span>package_name = repl.get_symbol(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
                     repl.state
                         .borrow_mut()
-                        .set_current_package(package_name.into())<span class="question-mark">?</span>;
+                        .set_current_package(package_name.into())
                 }
                 <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(
                     <span class="string">&quot;Expected string or symbol. Got {}&quot;</span>,
                     first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
                 ),
             }
-            <span class="prelude-val">Ok</span>(())
         },
     };
 }
@@ -1066,7 +1163,7 @@
     <span class="kw">const </span>HELP: MetaCmd&lt;F&gt; = MetaCmd {
         name: <span class="string">&quot;help&quot;</span>,
         summary: <span class="string">&quot;Print help message.&quot;</span>,
-        format: <span class="string">&quot;!(help [&lt;string&gt;|&lt;symbol&gt;])&quot;</span>,
+        format: <span class="string">&quot;!(help &lt;string|symbol&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;Without arguments it prints a summary of all available commands.&quot;</span>,
             <span class="string">&quot;Otherwise the full help for the command in the first argument is printed.&quot;</span>,
@@ -1118,7 +1215,124 @@
 }
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
-    <span class="kw">const </span>CMDS: [MetaCmd&lt;F&gt;; <span class="number">19</span>] = [
+    <span class="kw">fn </span>call(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>(hash_ptr, args) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
+        <span class="kw">let </span>hash_expr = <span class="kw">match </span>hash_ptr.tag() {
+            Tag::Expr(ExprTag::Cons) =&gt; hash_ptr,
+            <span class="kw">_ </span>=&gt; repl.store.list(<span class="macro">vec!</span>[hash_ptr]),
+        };
+        <span class="kw">let </span>hash = repl.get_comm_hash(cmd, <span class="kw-2">&amp;</span>hash_expr)<span class="question-mark">?</span>;
+        <span class="kw">if </span>repl.store.open(hash).is_none() {
+            repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+        }
+        <span class="kw">let </span>open = repl.store.intern_lurk_symbol(<span class="string">&quot;open&quot;</span>);
+        <span class="kw">let </span>open_expr = repl.store.list(<span class="macro">vec!</span>[open, Ptr::num(hash)]);
+        <span class="kw">let </span>(args_vec, <span class="kw">_</span>) = repl
+            .store
+            .fetch_list(<span class="kw-2">&amp;</span>args)
+            .expect(<span class="string">&quot;data must have been interned&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>expr_vec = Vec::with_capacity(args_vec.len() + <span class="number">1</span>);
+        expr_vec.push(open_expr);
+        expr_vec.extend(args_vec);
+        repl.handle_non_meta(repl.store.list(expr_vec))
+    }
+
+    <span class="kw">const </span>CALL: MetaCmd&lt;F&gt; = MetaCmd {
+        name: <span class="string">&quot;call&quot;</span>,
+        summary: <span class="string">&quot;Open a functional commitment then apply arguments to it&quot;</span>,
+        format: <span class="string">&quot;!(call &lt;hash&gt; &lt;args&gt;)&quot;</span>,
+        description: <span class="kw-2">&amp;</span>[],
+        example: <span class="kw-2">&amp;</span>[
+            <span class="string">&quot;(commit (lambda (x) x))&quot;</span>,
+            <span class="string">&quot;!(call 0x39a14e7823d7af7275e83f0cb74f80ca4217c6c6930761b0bbd6879b123dbbc2 0)&quot;</span>,
+        ],
+        run: <span class="self">Self</span>::call,
+    };
+}
+
+<span class="kw">impl </span>MetaCmd&lt;F&gt; {
+    <span class="kw">const </span>CHAIN: MetaCmd&lt;F&gt; = MetaCmd {
+        name: <span class="string">&quot;chain&quot;</span>,
+        summary: <span class="string">&quot;Chain a functional commitment by applying the provided arguments to it&quot;</span>,
+        format: <span class="string">&quot;!(chain &lt;hash&gt; &lt;args&gt;)&quot;</span>,
+        description: <span class="kw-2">&amp;</span>[
+            <span class="string">&quot;Chain a functional commitment by applying the provided arguments to it.&quot;</span>,
+            <span class="string">&quot;The chained function must return a pair whose first component is the actual result&quot;</span>,
+            <span class="string">&quot;  and the second is a commitment to the next function&quot;</span>,
+        ],
+        example: <span class="kw-2">&amp;</span>[
+            <span class="string">&quot;!(commit (letrec ((add (lambda (counter x)
+                       (let ((counter (+ counter x)))
+                         (cons counter (commit (add counter)))))))
+               (add 0)))&quot;</span>,
+            <span class="string">&quot;!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 1)&quot;</span>,
+        ],
+        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| {
+            <span class="self">Self</span>::call(repl, cmd, args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>ev = repl
+                .get_evaluation()
+                .as_ref()
+                .expect(<span class="string">&quot;evaluation must have been set&quot;</span>);
+            <span class="kw">let </span>result = ev
+                .get_result()
+                .expect(<span class="string">&quot;evaluation result must have been set&quot;</span>);
+            <span class="kw">let </span>(<span class="kw">_</span>, comm) = repl.store.car_cdr(result)<span class="question-mark">?</span>;
+            <span class="kw">let </span>Ptr::Atom(Tag::Expr(ExprTag::Comm), hash) = comm <span class="kw">else </span>{
+                <span class="macro">bail!</span>(<span class="string">&quot;Second component of a chain must be a commitment&quot;</span>)
+            };
+            <span class="kw">let </span>(<span class="kw">_</span>, fun) = repl
+                .store
+                .open(hash)
+                .expect(<span class="string">&quot;data must have been committed&quot;</span>);
+            repl.hide(F::NON_HIDING_COMMITMENT_SECRET, <span class="kw-2">*</span>fun)
+        },
+    };
+}
+
+<span class="kw">impl</span>&lt;F: LurkField + DeserializeOwned&gt; MetaCmd&lt;F&gt; {
+    <span class="kw">fn </span>inspect(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, full: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+        <span class="kw">let </span>proof_id = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
+        LurkProofMeta::&lt;F&gt;::inspect_proof(
+            <span class="kw-2">&amp;</span>proof_id,
+            <span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())),
+            full,
+        )
+    }
+
+    <span class="kw">const </span>INSPECT: MetaCmd&lt;F&gt; = MetaCmd {
+        name: <span class="string">&quot;inspect&quot;</span>,
+        summary: <span class="string">&quot;Print part of a proof claim&quot;</span>,
+        format: <span class="string">&quot;!(inspect &lt;string&gt;)&quot;</span>,
+        description: <span class="kw-2">&amp;</span>[],
+        example: <span class="kw-2">&amp;</span>[
+            <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
+            <span class="string">&quot;!(inspect \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
+        ],
+        run: |repl, cmd, args| {
+            <span class="self">Self</span>::inspect(repl, cmd, args, <span class="bool-val">false</span>)
+        }
+    };
+}
+
+<span class="kw">impl</span>&lt;F: LurkField + DeserializeOwned&gt; MetaCmd&lt;F&gt; {
+    <span class="kw">const </span>INSPECT_FULL: MetaCmd&lt;F&gt; = MetaCmd {
+        name: <span class="string">&quot;inspect-full&quot;</span>,
+        summary: <span class="string">&quot;Print a proof claim&quot;</span>,
+        format: <span class="string">&quot;!(inspect-full &lt;string&gt;)&quot;</span>,
+        description: <span class="kw-2">&amp;</span>[],
+        example: <span class="kw-2">&amp;</span>[
+            <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
+            <span class="string">&quot;!(inspect-full \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
+        ],
+        run: |repl, cmd, args| {
+            <span class="self">Self</span>::inspect(repl, cmd, args, <span class="bool-val">true</span>)
+        }
+    };
+}
+
+<span class="kw">impl </span>MetaCmd&lt;F&gt; {
+    <span class="kw">const </span>CMDS: [MetaCmd&lt;F&gt;; <span class="number">23</span>] = [
         MetaCmd::LOAD,
         MetaCmd::DEF,
         MetaCmd::DEFREC,
@@ -1138,6 +1352,10 @@
         MetaCmd::IMPORT,
         MetaCmd::IN_PACKAGE,
         MetaCmd::HELP,
+        MetaCmd::CALL,
+        MetaCmd::CHAIN,
+        MetaCmd::INSPECT,
+        MetaCmd::INSPECT_FULL,
     ];
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>cmds() -&gt; std::collections::HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, MetaCmd&lt;F&gt;&gt; {
