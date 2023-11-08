@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 use std::process;
 
 use crate::{
-    cli::lurk_proof::LurkProof,
+    cli::lurk_proof::{LurkProof, LurkProofMeta},
     eval::lang::Coproc,
     field::LurkField,
     lem::{multiframe::MultiFrame, pointers::Ptr, Tag},
@@ -31,20 +31,19 @@ type F = pasta_curves::pallas::Scalar; // TODO: generalize this
 impl MetaCmd<F> {
     const LOAD: MetaCmd<F> = MetaCmd {
         name: "load",
-        summary: "Load lurk expressions from a file path.",
+        summary: "Load lurk expressions from a file.",
         format: "!(load <string>)",
         description: &[],
-        example: &["Load lurk expressions from a file path."],
+        example: &["!(load \"my_file.lurk\")"],
         run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             match repl.store.fetch_string(&first) {
                 Some(path) => {
                     let joined = repl.pwd_path.join(Utf8Path::new(&path));
-                    repl.load_file(&joined, false)?
+                    repl.load_file(&joined, false)
                 }
                 _ => bail!("Argument of `load` must be a string."),
             }
-            Ok(())
         },
     };
 }
@@ -231,13 +230,12 @@ impl MetaCmd<F> {
         description: &[],
         example: &[
             "!(commit '(13 . 21))",
-            "(let ((n (open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0))) (* (car n) (cdr n)))",
+            "(let ((n (open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25))) (* (car n) (cdr n)))",
         ],
         run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
-            repl.hide(ff::Field::ZERO, first_io[0])?;
-            Ok(())
+            repl.hide(F::NON_HIDING_COMMITMENT_SECRET, first_io[0])
         }
     };
 }
@@ -281,12 +279,11 @@ impl MetaCmd<F> {
         description: &[],
         example: &[
             "!(commit '(13 . 21))",
-            "(fetch 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)",
+            "!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
         ],
         run: |repl, cmd, args| {
             let hash = repl.get_comm_hash(cmd, args)?;
-            repl.fetch(&hash, false)?;
-            Ok(())
+            repl.fetch(&hash, false)
         },
     };
 }
@@ -299,12 +296,11 @@ impl MetaCmd<F> {
         description: &[],
         example: &[
             "!(commit '(13 . 21))",
-            "!(open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)",
+            "!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
         ],
         run: |repl, cmd, args| {
             let hash = repl.get_comm_hash(cmd, args)?;
-            repl.fetch(&hash, true)?;
-            Ok(())
+            repl.fetch(&hash, true)
         },
     };
 }
@@ -352,15 +348,14 @@ impl MetaCmd<F> {
         ],
         example: &[
             "!(prove '(1 2 3))",
-            "!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")",
-            "!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)",
+            "!(verify \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
+            "!(open 0x002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf)",
         ],
         run: |repl, cmd, args| {
             if !args.is_nil() {
                 repl.eval_expr_and_memoize(repl.peek1(cmd, args)?)?;
             }
-            repl.prove_last_frames()?;
-            Ok(())
+            repl.prove_last_frames()
         }
     };
 }
@@ -371,15 +366,10 @@ where
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     const VERIFY: MetaCmd<F> = MetaCmd {
-        name:
-            "verify",
-        summary:
-            "Verify a proof",
-        format:
-            "!(verify <string>)",
-        description: &[
-            "Verify proof id <string> and print the result.",
-        ],
+        name: "verify",
+        summary: "Verify a proof",
+        format: "!(verify <string>)",
+        description: &["Verify proof key <string> and print the result."],
         example: &[
             "!(prove '(1 2 3))",
             "!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")",
@@ -390,8 +380,7 @@ where
             let proof_id = repl.get_string(&first)?;
             LurkProof::<_, _, MultiFrame<'_, _, Coproc<F>>>::verify_proof(
                 &proof_id,
-            )?;
-            Ok(())
+            )
         }
     };
 }
@@ -471,20 +460,19 @@ impl<F: LurkField> MetaCmd<F> {
                 Tag::Expr(ExprTag::Str) => {
                     let name = repl.get_string(&first)?;
                     let package_name = repl.state.borrow_mut().intern(name);
-                    repl.state.borrow_mut().set_current_package(package_name)?;
+                    repl.state.borrow_mut().set_current_package(package_name)
                 }
                 Tag::Expr(ExprTag::Sym) => {
                     let package_name = repl.get_symbol(&first)?;
                     repl.state
                         .borrow_mut()
-                        .set_current_package(package_name.into())?;
+                        .set_current_package(package_name.into())
                 }
                 _ => bail!(
                     "Expected string or symbol. Got {}",
                     first.fmt_to_string(&repl.store, &repl.state.borrow())
                 ),
             }
-            Ok(())
         },
     };
 }
@@ -493,7 +481,7 @@ impl<F: LurkField> MetaCmd<F> {
     const HELP: MetaCmd<F> = MetaCmd {
         name: "help",
         summary: "Print help message.",
-        format: "!(help [<string>|<symbol>])",
+        format: "!(help <string|symbol>)",
         description: &[
             "Without arguments it prints a summary of all available commands.",
             "Otherwise the full help for the command in the first argument is printed.",
@@ -545,7 +533,124 @@ impl<F: LurkField> MetaCmd<F> {
 }
 
 impl MetaCmd<F> {
-    const CMDS: [MetaCmd<F>; 19] = [
+    fn call(repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>) -> Result<()> {
+        let (hash_ptr, args) = repl.store.car_cdr(args)?;
+        let hash_expr = match hash_ptr.tag() {
+            Tag::Expr(ExprTag::Cons) => hash_ptr,
+            _ => repl.store.list(vec![hash_ptr]),
+        };
+        let hash = repl.get_comm_hash(cmd, &hash_expr)?;
+        if repl.store.open(hash).is_none() {
+            repl.fetch(&hash, false)?;
+        }
+        let open = repl.store.intern_lurk_symbol("open");
+        let open_expr = repl.store.list(vec![open, Ptr::num(hash)]);
+        let (args_vec, _) = repl
+            .store
+            .fetch_list(&args)
+            .expect("data must have been interned");
+        let mut expr_vec = Vec::with_capacity(args_vec.len() + 1);
+        expr_vec.push(open_expr);
+        expr_vec.extend(args_vec);
+        repl.handle_non_meta(repl.store.list(expr_vec))
+    }
+
+    const CALL: MetaCmd<F> = MetaCmd {
+        name: "call",
+        summary: "Open a functional commitment then apply arguments to it",
+        format: "!(call <hash> <args>)",
+        description: &[],
+        example: &[
+            "(commit (lambda (x) x))",
+            "!(call 0x39a14e7823d7af7275e83f0cb74f80ca4217c6c6930761b0bbd6879b123dbbc2 0)",
+        ],
+        run: Self::call,
+    };
+}
+
+impl MetaCmd<F> {
+    const CHAIN: MetaCmd<F> = MetaCmd {
+        name: "chain",
+        summary: "Chain a functional commitment by applying the provided arguments to it",
+        format: "!(chain <hash> <args>)",
+        description: &[
+            "Chain a functional commitment by applying the provided arguments to it.",
+            "The chained function must return a pair whose first component is the actual result",
+            "  and the second is a commitment to the next function",
+        ],
+        example: &[
+            "!(commit (letrec ((add (lambda (counter x)
+                       (let ((counter (+ counter x)))
+                         (cons counter (commit (add counter)))))))
+               (add 0)))",
+            "!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 1)",
+        ],
+        run: |repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>| {
+            Self::call(repl, cmd, args)?;
+            let ev = repl
+                .get_evaluation()
+                .as_ref()
+                .expect("evaluation must have been set");
+            let result = ev
+                .get_result()
+                .expect("evaluation result must have been set");
+            let (_, comm) = repl.store.car_cdr(result)?;
+            let Ptr::Atom(Tag::Expr(ExprTag::Comm), hash) = comm else {
+                bail!("Second component of a chain must be a commitment")
+            };
+            let (_, fun) = repl
+                .store
+                .open(hash)
+                .expect("data must have been committed");
+            repl.hide(F::NON_HIDING_COMMITMENT_SECRET, *fun)
+        },
+    };
+}
+
+impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
+    fn inspect(repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>, full: bool) -> Result<()> {
+        let first = repl.peek1(cmd, args)?;
+        let proof_id = repl.get_string(&first)?;
+        LurkProofMeta::<F>::inspect_proof(
+            &proof_id,
+            Some((&repl.store, &repl.state.borrow())),
+            full,
+        )
+    }
+
+    const INSPECT: MetaCmd<F> = MetaCmd {
+        name: "inspect",
+        summary: "Print part of a proof claim",
+        format: "!(inspect <string>)",
+        description: &[],
+        example: &[
+            "!(prove '(1 2 3))",
+            "!(inspect \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
+        ],
+        run: |repl, cmd, args| {
+            Self::inspect(repl, cmd, args, false)
+        }
+    };
+}
+
+impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
+    const INSPECT_FULL: MetaCmd<F> = MetaCmd {
+        name: "inspect-full",
+        summary: "Print a proof claim",
+        format: "!(inspect-full <string>)",
+        description: &[],
+        example: &[
+            "!(prove '(1 2 3))",
+            "!(inspect-full \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
+        ],
+        run: |repl, cmd, args| {
+            Self::inspect(repl, cmd, args, true)
+        }
+    };
+}
+
+impl MetaCmd<F> {
+    const CMDS: [MetaCmd<F>; 23] = [
         MetaCmd::LOAD,
         MetaCmd::DEF,
         MetaCmd::DEFREC,
@@ -565,6 +670,10 @@ impl MetaCmd<F> {
         MetaCmd::IMPORT,
         MetaCmd::IN_PACKAGE,
         MetaCmd::HELP,
+        MetaCmd::CALL,
+        MetaCmd::CHAIN,
+        MetaCmd::INSPECT,
+        MetaCmd::INSPECT_FULL,
     ];
 
     pub(super) fn cmds() -> std::collections::HashMap<&'static str, MetaCmd<F>> {

@@ -1,0 +1,57 @@
+;; First, we define a stateful function that adds its input to an internal counter, initialized to 0.
+
+;; The function returns a new counter value and a commitment to a replacement function wrapping the new counter.
+
+!(commit (letrec ((add (lambda (counter x)
+                          (let ((counter (+ counter x)))
+                            (cons counter (commit (add counter)))))))
+            (add 0)))
+
+;; We chain a next commitment by applying the committed function to a value of 9.
+
+!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 9)
+
+;; The new counter value is 9, and the function returns a new functional commitment.
+
+;; This new commitment is now the head of the chain.
+
+;; Next, we ccreate a proof of this transtion.
+
+!(prove)
+
+;; We can verify the proof.
+
+!(verify "Nova_Pallas_10_241f5c936d5c11e9c99b52017354738f9024c084fdfe49da9ad4a39fb2fe6619")
+
+;; Now let's chain another call to the new head, adding 12 to the counter.
+
+!(chain 0x251ccd3ecf6ae912eeb6558733b04b50e0b0c374a2dd1b797fcca84b0d9a8794 12)
+
+;; Now the counter is 21, and we have a new head commitment.
+
+;; Prove it.
+
+!(prove)
+
+;; And verify.
+
+!(verify "Nova_Pallas_10_369621a97ad8521369e49e773e0a531b0162d2f193877fbdfb308d3b2a23eea2")
+
+;; One more time, we'll add 14 to the head commitment's internal state.
+
+!(chain 0x281605259696cd2529c00806465c9726d81df4ccd2c3500312c991c1fd572592 14)
+
+;; 21 + 14 = 35, as expected.
+
+;; Prove.
+
+!(prove)
+
+;; Verify.
+
+!(verify "Nova_Pallas_10_057ebe2b592d6d82c1badc86493f6118a70c81aebb3b53a054d9b2517ad118f2")
+
+;; Repeat indefinitely.
+
+;; At every step, we have proof that the head commitment was correctly derived from the previous and some input.
+

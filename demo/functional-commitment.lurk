@@ -1,0 +1,29 @@
+;; Let's define a function: f(x) = 3x^2 + 9x + 2
+
+!(def f (lambda (x) (+ (* 3 (* x x)) (+ (* 9 x) 2))))
+
+!(assert-eq (f 5) 122)
+
+;; We can create a cryptographic commitment to f.
+
+!(commit f)
+
+;; We open the functional commitment on input 5: Evaluate f(5).
+
+!(call 0x178453ec28175e52c42a6467520df4a1322dd03e06abb3dfc829425ac590e48c 5)
+
+;; We can prove the functional-commitment opening.
+
+!(prove)
+
+;; We can inspect the input/output expressions of the proof.
+
+!(inspect "Nova_Pallas_10_02058c301605abc546248c543d450e07172690e7fb6be0fa27be6d5a898817e0")
+
+;; Or the full proof claim
+
+!(inspect-full "Nova_Pallas_10_02058c301605abc546248c543d450e07172690e7fb6be0fa27be6d5a898817e0")
+
+;; Finally, and most importantly, we can verify the proof.
+
+!(verify "Nova_Pallas_10_02058c301605abc546248c543d450e07172690e7fb6be0fa27be6d5a898817e0")

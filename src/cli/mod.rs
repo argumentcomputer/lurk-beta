@@ -53,6 +53,8 @@ enum Command {
     Repl(ReplArgs),
     /// Verifies a Lurk proof
     Verify(VerifyArgs),
+    /// Inspects a Lurk proof
+    Inspect(InspectArgs),
     /// Instantiates a new circom gadget to interface with bellpepper.
     ///
     /// See `lurk circom --help` for more details
@@ -415,9 +417,9 @@ impl LoadCli {
 
 #[derive(Args, Debug)]
 struct VerifyArgs {
-    /// ID of the proof to be verified
+    /// Key of the proof to be verified
     #[clap(value_parser)]
-    proof_id: String,
+    proof_key: String,
 
     /// Path to public parameters directory
     #[clap(long, value_parser)]
@@ -430,6 +432,21 @@ struct VerifyArgs {
     /// Config file, containing the lowest precedence parameters
     #[clap(long, value_parser)]
     config: Option<Utf8PathBuf>,
+}
+
+#[derive(Args, Debug)]
+struct InspectArgs {
+    /// Key of the proof to be inspected
+    #[clap(value_parser)]
+    proof_key: String,
+
+    /// Flag to show the entire proof meta-data
+    #[arg(long)]
+    full: bool,
+
+    /// Path to proofs directory
+    #[clap(long, value_parser)]
+    proofs_dir: Option<Utf8PathBuf>,
 }
 
 /// To setup a new circom gadget `<NAME>`, place your circom files in a designated folder and
@@ -578,9 +595,23 @@ impl Cli {
                 cli_config(verify_args.config.as_ref(), Some(&cli_settings));
 
                 LurkProof::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>::verify_proof(
-                    &verify_args.proof_id,
-                )?;
-                Ok(())
+                    &verify_args.proof_key,
+                )
+            }
+            #[allow(unused_variables)]
+            Command::Inspect(inspect_args) => {
+                use crate::cli::lurk_proof::LurkProofMeta;
+                let mut cli_settings = HashMap::new();
+                if let Some(dir) = inspect_args.proofs_dir {
+                    cli_settings.insert("proofs_dir", dir.to_string());
+                }
+                cli_config(None, Some(&cli_settings));
+
+                LurkProofMeta::<pallas::Scalar>::inspect_proof(
+                    &inspect_args.proof_key,
+                    None,
+                    inspect_args.full,
+                )
             }
             Command::Circom(circom_args) => {
                 use crate::cli::circom::create_circom_gadget;
@@ -593,8 +624,7 @@ impl Cli {
                 }
                 cli_config(circom_args.config.as_ref(), Some(&cli_settings));
 
-                create_circom_gadget(&circom_args.circom_folder, &circom_args.name)?;
-                Ok(())
+                create_circom_gadget(&circom_args.circom_folder, &circom_args.name)
             }
             Command::PublicParams(public_params_args) => {
                 let mut cli_settings = HashMap::new();
@@ -604,9 +634,8 @@ impl Cli {
 
                 cli_config(public_params_args.config.as_ref(), Some(&cli_settings));
 
-                create_lurk_dirs().unwrap();
-                public_params_args.run()?;
-                Ok(())
+                create_lurk_dirs()?;
+                public_params_args.run()
             }
         }
     }
