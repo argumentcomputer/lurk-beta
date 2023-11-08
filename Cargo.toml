@@ -112,7 +112,7 @@ vergen = { version = "8", features = ["build", "git", "gitcl"] }
 
 [workspace]
 resolver = "2"
-members = ["clutch", "fcomm", "lurk-macros", "lurk-metrics"]
+members = ["fcomm", "lurk-macros", "lurk-metrics"]
 
 # Dependencies that should be kept in sync through the whole workspace
 [workspace.dependencies]
