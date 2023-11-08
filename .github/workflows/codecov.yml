@@ -25,7 +25,7 @@ jobs:
       - name: Build
         run: cargo build --profile dev-ci
       - name: Collect coverage data
-        run: cargo llvm-cov nextest --lcov --output-path lcov.info --profile ci --release --workspace --run-ignored ignored-only -E 'all() - test(groth16::tests::outer_prove_recursion) - test(test_make_fcomm_examples) - test(test_functional_commitments_demo) - test(test_chained_functional_commitments_demo)'
+        run: cargo llvm-cov nextest --lcov --output-path lcov.info --profile ci --release --workspace --run-ignored ignored-only -E 'all() - test(groth16::tests::outer_prove_recursion) - test(test_make_fcomm_examples)'
       - name: Upload coverage data to codecov
         uses: codecov/codecov-action@v3
         with:
