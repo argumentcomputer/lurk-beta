@@ -1819,6 +1819,31 @@
 <a href="#1819" id="1819">1819</a>
 <a href="#1820" id="1820">1820</a>
 <a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
+<a href="#1823" id="1823">1823</a>
+<a href="#1824" id="1824">1824</a>
+<a href="#1825" id="1825">1825</a>
+<a href="#1826" id="1826">1826</a>
+<a href="#1827" id="1827">1827</a>
+<a href="#1828" id="1828">1828</a>
+<a href="#1829" id="1829">1829</a>
+<a href="#1830" id="1830">1830</a>
+<a href="#1831" id="1831">1831</a>
+<a href="#1832" id="1832">1832</a>
+<a href="#1833" id="1833">1833</a>
+<a href="#1834" id="1834">1834</a>
+<a href="#1835" id="1835">1835</a>
+<a href="#1836" id="1836">1836</a>
+<a href="#1837" id="1837">1837</a>
+<a href="#1838" id="1838">1838</a>
+<a href="#1839" id="1839">1839</a>
+<a href="#1840" id="1840">1840</a>
+<a href="#1841" id="1841">1841</a>
+<a href="#1842" id="1842">1842</a>
+<a href="#1843" id="1843">1843</a>
+<a href="#1844" id="1844">1844</a>
+<a href="#1845" id="1845">1845</a>
+<a href="#1846" id="1846">1846</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2122,6 +2147,9 @@
 /// `run_cproc` is meant to be used in the context of NIVC, when the circuit for
 /// each coprocessor is detached from Lurk&#39;s universal circuit.
 ///
+/// The following is a LEM pseudo-code for what this function implements:
+///
+/// ```ignore
 /// run_cproc(cproc, env, cont): 3 {
 ///     let err: Cont::Error = HASH_8_ZEROS;
 ///     let nil = Symbol(&quot;nil&quot;);
@@ -2162,6 +2190,7 @@
 ///     // not a proper Cproc expression... just loop
 ///     return (cproc, env, cont);
 /// }
+/// ```
 </span><span class="kw">fn </span>run_cproc(cproc_sym: Symbol, arity: usize) -&gt; Func {
     <span class="kw">let </span>evaluated_args = <span class="kw">if </span>arity == <span class="number">0 </span>{
         Var::new(<span class="string">&quot;_evaluated_args&quot;</span>)
@@ -2274,6 +2303,9 @@
 <span class="doccomment">/// Tells whether `head`, which is assumed to be a symbol, corresponds to the name
 /// of a coprocessor in the `Lang`.
 ///
+/// The following is a LEM pseudo-code for what this function implements:
+///
+/// ```ignore
 /// is_cproc(head): 1 {
 ///     let nil = Symbol(&quot;nil&quot;);
 ///     let nil = cast(nil, Expr::Nil);
@@ -2286,6 +2318,7 @@
 ///     };
 ///     return (nil)
 /// }
+/// ```
 </span><span class="kw">fn </span>is_cproc(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)]) -&gt; Func {
     <span class="kw">if </span>cprocs.is_empty() {
         <span class="macro">func!</span>(is_cproc(_head): <span class="number">1 </span>=&gt; {
@@ -2328,12 +2361,16 @@
 /// Bonus: destructuring the list of arguments for the coprocessors share
 /// allocated slots
 ///
+/// The following is a LEM pseudo-code for what this function implements:
+///
+/// ```ignore
 /// match_and_run_cproc(cproc_name, evaluated_args, env, cont): 4 {
 ///     let err: Cont::Error = HASH_8_ZEROS;
 ///     let nil = Symbol(&quot;nil&quot;);
 ///     let nil = cast(nil, Expr::Nil);
 ///     let makethunk = Symbol(&quot;make-thunk&quot;);
 ///     let errctrl = Symbol(&quot;error&quot;);
+///     let ret = Symbol(&quot;return&quot;);
 ///     match symbol cproc_name {
 ///         x =&gt; {
 ///             // `n` is the arity of the coprocessor `x`
@@ -2352,7 +2389,10 @@
 ///                         Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
 ///                         match cont.tag {
 ///                             Cont::Error =&gt; {
-///                                 return (expr, env, cont, errctrl);
+///                                 return (expr, env, err, errctrl);
+///                             }
+///                             Cont::Terminal =&gt; {
+///                                 return (expr, env, cont, ret);
 ///                             }
 ///                         };
 ///                         return (expr, env, cont, makethunk);
@@ -2366,6 +2406,7 @@
 ///         ...
 ///     }
 /// }
+/// ```
 </span><span class="kw">fn </span>match_and_run_cproc(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)]) -&gt; Func {
     <span class="kw">let </span>max_arity = cprocs.iter().fold(<span class="number">0</span>, |acc, (<span class="kw">_</span>, a)| acc.max(<span class="kw-2">*</span>a));
     <span class="kw">let </span>cproc_name = Var::new(<span class="string">&quot;cproc_name&quot;</span>);
@@ -2389,8 +2430,13 @@
         ops: <span class="macro">vec!</span>[],
         ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(expr, env, err, errctrl)),
     };
-    <span class="kw">let </span><span class="kw-2">mut </span>check_cproc_error_map = IndexMap::with_capacity(<span class="number">1</span>);
+    <span class="kw">let </span>ret_block_from_cproc = Block {
+        ops: <span class="macro">vec!</span>[],
+        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(expr, env, cont, ret)),
+    };
+    <span class="kw">let </span><span class="kw-2">mut </span>check_cproc_error_map = IndexMap::with_capacity(<span class="number">2</span>);
     check_cproc_error_map.insert(Tag::Cont(Error), err_block_from_cproc);
+    check_cproc_error_map.insert(Tag::Cont(Terminal), ret_block_from_cproc);
     <span class="kw">let </span>check_cproc_error_ctrl = Ctrl::MatchTag(
         cont.clone(),
         check_cproc_error_map,
@@ -2456,12 +2502,14 @@
             <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS),
             <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>)),
             <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>)),
         ]
     } <span class="kw">else </span>{
         <span class="macro">vec!</span>[
             <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS),
             <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>)),
             <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>)),
             <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
             <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
         ]
@@ -2924,7 +2972,6 @@
                         </span><span class="kw">let </span>(op) = get_unop(head);
                         <span class="kw">let </span>op_is_nil = eq_tag(op, nil);
                         <span class="kw">if </span>!op_is_nil {
-                            <span class="kw">let </span>rest_is_nil = eq_tag(rest, nil);
                             <span class="kw">if </span>!rest_is_nil {
                                 <span class="kw">let </span>(arg1, end) = decons2(rest);
                                 <span class="kw">let </span>end_is_nil = eq_tag(end, nil);
@@ -2940,7 +2987,6 @@
                         </span><span class="kw">let </span>(op) = get_binop(head);
                         <span class="kw">let </span>op_is_nil = eq_tag(op, nil);
                         <span class="kw">if </span>!op_is_nil {
-                            <span class="kw">let </span>rest_is_nil = eq_tag(rest, nil);
                             <span class="kw">if </span>!rest_is_nil {
                                 <span class="kw">let </span>(arg1, more) = decons2(rest);
                                 <span class="kw">let </span>more_is_nil = eq_tag(more, nil);
@@ -2956,6 +3002,10 @@
                         </span><span class="kw">let </span>(is_cproc) = is_cproc(head);
                         <span class="kw">let </span>is_cproc_is_t = eq_val(is_cproc, t);
                         <span class="kw">if </span>is_cproc_is_t {
+                            <span class="kw">if </span>rest_is_nil {
+                                <span class="kw">let </span>cont: Cont::Cproc = cons4(head, nil, nil, cont);
+                                <span class="kw">return </span>(nil, env, cont, apply);
+                            }
                             <span class="kw">let </span>(arg, unevaled_args) = car_cdr(rest);
                             <span class="kw">let </span>cont: Cont::Cproc = cons4(head, unevaled_args, nil, cont);
                             <span class="kw">return </span>(arg, env, cont, ret);
@@ -3613,8 +3663,8 @@
     <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
 
     <span class="kw">const </span>NUM_INPUTS: usize = <span class="number">1</span>;
-    <span class="kw">const </span>NUM_AUX: usize = <span class="number">9120</span>;
-    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">11052</span>;
+    <span class="kw">const </span>NUM_AUX: usize = <span class="number">9118</span>;
+    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">11064</span>;
     <span class="kw">const </span>NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: <span class="number">14</span>,
         hash6: <span class="number">3</span>,
