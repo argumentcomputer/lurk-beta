@@ -1,4 +1,4 @@
-name: Nightly tests on master
+name: Nightly tests on main
 
 on:
   schedule:

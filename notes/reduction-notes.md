@@ -13,7 +13,7 @@ corresponding arithmetic circuit. The initial Lurk circuit implementation is spe
 
 Because the circuit must check the computation to be proved, many aspects of the implementation itself must be fully
 specified. The reference implementation of Lurk expression evaluation in
-[`eval.rs`](https://github.com/lurk-lab/lurk-rs/blob/master/src/eval.rs) provides an intermediate step between the
+[`eval.rs`](https://github.com/lurk-lab/lurk-rs/blob/main/src/eval.rs) provides an intermediate step between the
 high-level specification and the low-level circuit. Not every aspect of the implementation is essential, but every part
 which directly corresponds to the layout of the constraint system is.
 
@@ -32,7 +32,7 @@ Taking these one at a time:
 1. Because the SNARK-friendly Poseidon hashes (provided by the [Neptune](https://github.com/lurk-lab/neptune)
    library) are relatively expensive, and because Lurk does not provide explicit access to the hash values, we avoid
    computing them during evaluation -- instead relying on the
-   [Store](https://github.com/lurk-lab/lurk-rs/blob/master/src/store.rs) to manage cheaper expression pointers in a way
+   [Store](https://github.com/lurk-lab/lurk-rs/blob/main/src/store.rs) to manage cheaper expression pointers in a way
    that preserves equality. All such pointers are resolved to content-addressable tagged hashes before circuit
    synthesis. The Store is used during synthesis when the preimage of a hash known at synthesis needs to be 'looked
    up'.
