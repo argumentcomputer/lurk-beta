@@ -211,21 +211,6 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         self.index.get(z_ptr).copied()
     }
 
-    pub fn get_coprocessor(&self, index: usize) -> Option<&C> {
-        self.coprocessors.get_index(index).map(|(_, (c, _))| c)
-    }
-
-    pub fn get_coprocessor_z_ptr(&self, index: usize) -> Option<&ZExprPtr<F>> {
-        self.coprocessors
-            .get_index(index)
-            .map(|(_, (_, z_ptr))| z_ptr)
-    }
-
-    pub fn get_coprocessor_from_zptr(&self, z_ptr: &ZExprPtr<F>) -> Option<&C> {
-        self.get_index(z_ptr)
-            .and_then(|index| self.get_coprocessor(index))
-    }
-
     #[inline]
     pub fn get_index_by_symbol(&self, sym: &Symbol) -> Option<usize> {
         self.coprocessors.get_index_of(sym)

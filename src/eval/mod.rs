@@ -67,19 +67,8 @@ pub enum Meta<F: LurkField> {
 }
 
 impl<F: LurkField> Meta<F> {
-    pub fn is_lurk(&self) -> bool {
-        *self == Self::Lurk
-    }
-
     pub fn is_coprocessor(&self) -> bool {
         matches!(self, Self::Coprocessor(_))
-    }
-
-    pub fn get_coprocessor_z_ptr(&self) -> Option<&ZExprPtr<F>> {
-        match self {
-            Self::Lurk => None,
-            Self::Coprocessor(z_ptr) => Some(z_ptr),
-        }
     }
 }
 
