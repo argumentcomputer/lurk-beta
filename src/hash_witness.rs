@@ -8,7 +8,6 @@ use once_cell::sync::OnceCell;
 use crate::cont::Continuation;
 use crate::error::ReductionError;
 use crate::field::{FWrap, LurkField};
-use crate::hash::HashConst;
 use crate::lurk_sym_ptr;
 use crate::ptr::{ContPtr, Ptr};
 use crate::state::State;
@@ -356,43 +355,6 @@ impl<Name: HashName, T: ContentAddressed<F>, const L: usize, F: LurkField>
             names_and_ptrs: OnceCell::new(),
             circuit_witness_blocks: OnceCell::new(),
         }
-    }
-}
-
-impl<Name: HashName, T: ContentAddressed<F>, const L: usize, F: LurkField>
-    CircuitHashWitness<Name, T, L, F>
-where
-    T::ScalarPtrRepr: Debug,
-{
-    pub fn names_and_ptrs(&self, s: &Store<F>) -> &Vec<(Name, Option<T::ScalarPtrRepr>)> {
-        self.names_and_ptrs.get_or_init(|| {
-            self.hash_witness
-                .slots
-                .iter()
-                .map(|(name, x)| (*name, (*x).to_scalar_ptr_repr(s)))
-                .collect::<Vec<_>>()
-        })
-    }
-
-    /// Precompute the witness blocks for all the named hashes.
-    pub fn circuit_witness_blocks(
-        &self,
-        s: &Store<F>,
-        hash_constants: &HashConst<'_, F>,
-    ) -> &HashCircuitWitnessBlocks<F> {
-        self.circuit_witness_blocks.get_or_init(|| {
-            // TODO: In order to be interesting or useful, this should call a Neptune
-            // API function (which doesn't exist yet) to perform batched witness-generation.
-            // That code could be optimized and parallelized, eventually even performed on GPU.
-            self.names_and_ptrs(s)
-                .iter()
-                .map(|(_, scalar_ptr_repr)| {
-                    let scalar_ptr_repr = scalar_ptr_repr.as_ref().unwrap();
-                    let preimage = scalar_ptr_repr.preimage();
-                    hash_constants.cache_hash_witness_aux(&preimage)
-                })
-                .collect::<Vec<_>>()
-        })
     }
 }
 

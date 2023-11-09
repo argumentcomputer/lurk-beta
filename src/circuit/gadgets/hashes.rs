@@ -175,7 +175,6 @@ impl<'a, F: LurkField> HashConst<'a, F> {
 }
 
 impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
-
     pub fn get_cons(
         &mut self,
         name: ConsName,
