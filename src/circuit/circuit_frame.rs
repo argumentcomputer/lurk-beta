@@ -3,9 +3,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use bellpepper::util_cs::{witness_cs::WitnessCS, Comparable};
-use bellpepper_core::{
-    boolean::Boolean, num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError,
-};
+use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 use rayon::prelude::*;
 use tracing::{debug, info};
 
@@ -33,13 +31,12 @@ use crate::circuit::circuit_frame::constraints::{
     allocate_is_negative, boolean_to_num, enforce_pack, enforce_product_and_sum, mul,
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
-use crate::circuit::ToInputs;
 use crate::coprocessor::Coprocessor;
 use crate::eval::{Frame, Meta, Witness, IO};
 use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
-use crate::proof::{supernova::FoldingConfig, Provable};
+use crate::proof::supernova::FoldingConfig;
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
@@ -480,38 +477,6 @@ impl<F: LurkField, C: Coprocessor<F>> MultiFrame<'_, F, C> {
     }
 }
 
-impl<
-        F: LurkField, // W: Copy + Sync,
-        C: Coprocessor<F>,
-    > Provable<F> for MultiFrame<'_, F, C>
-{
-    fn public_inputs(&self) -> Vec<F> {
-        let mut inputs: Vec<_> = Vec::with_capacity(self.public_input_size());
-
-        if let Some(input) = &self.input {
-            inputs.extend(input.to_inputs(self.get_store()));
-        } else {
-            panic!("public inputs for blank circuit");
-        }
-        if let Some(output) = &self.output {
-            inputs.extend(output.to_inputs(self.get_store()));
-        } else {
-            panic!("public outputs for blank circuit");
-        }
-
-        inputs
-    }
-
-    fn public_input_size(&self) -> usize {
-        let input_output_size = IO::<F>::input_size();
-        input_output_size * 2
-    }
-
-    fn reduction_count(&self) -> usize {
-        self.count
-    }
-}
-
 type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
 
 impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
@@ -580,93 +545,6 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
             let store: Store<F> = Default::default();
             store.hydrate_scalar_cache();
             reduce(&store)
-        }
-    }
-}
-
-impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, C> {
-    #[tracing::instrument(skip_all, name = "<MultiFrame as Circuit>::synthesize")]
-    fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        ////////////////////////////////////////////////////////////////////////////////
-        // Bind public inputs.
-        //
-        // Initial input:
-        let mut synth = |store,
-                         frames: &[CircuitFrame<'_, F, C>],
-                         input: Option<IO<F>>,
-                         output: Option<IO<F>>| {
-            let input_expr = AllocatedPtr::bind_input(
-                &mut cs.namespace(|| "outer input expression"),
-                input.as_ref().map(|input| &input.expr),
-                store,
-            )?;
-
-            let input_env = AllocatedPtr::bind_input(
-                &mut cs.namespace(|| "outer input env"),
-                input.as_ref().map(|input| &input.env),
-                store,
-            )?;
-
-            let input_cont = AllocatedContPtr::bind_input(
-                &mut cs.namespace(|| "outer input cont"),
-                input.as_ref().map(|input| &input.cont),
-                store,
-            )?;
-
-            // Final output:
-            let output_expr = AllocatedPtr::bind_input(
-                &mut cs.namespace(|| "outer output expression"),
-                output.as_ref().map(|output| &output.expr),
-                store,
-            )?;
-
-            let output_env = AllocatedPtr::bind_input(
-                &mut cs.namespace(|| "outer output env"),
-                output.as_ref().map(|output| &output.env),
-                store,
-            )?;
-
-            let output_cont = AllocatedContPtr::bind_input(
-                &mut cs.namespace(|| "outer output cont"),
-                output.as_ref().map(|output| &output.cont),
-                store,
-            )?;
-
-            //
-            // End public inputs.
-            ////////////////////////////////////////////////////////////////////////////////
-            let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
-
-            let (new_expr, new_env, new_cont) =
-                self.synthesize_frames(cs, store, input_expr, input_env, input_cont, frames, &g);
-
-            output_expr.enforce_equal(
-                &mut cs.namespace(|| "outer output expr is correct"),
-                &new_expr,
-            );
-            output_env.enforce_equal(
-                &mut cs.namespace(|| "outer output env is correct"),
-                &new_env,
-            );
-            output_cont.enforce_equal(
-                &mut cs.namespace(|| "outer output cont is correct"),
-                &new_cont,
-            );
-
-            Ok(())
-        };
-
-        match self.store {
-            Some(s) => {
-                let frames = self.frames.as_ref().unwrap();
-                synth(s, frames, self.input, self.output)
-            }
-            None => {
-                let store = Default::default();
-                assert!(self.frames.is_none());
-                let frames = vec![CircuitFrame::blank(); self.count];
-                synth(&store, &frames, self.input, self.output)
-            }
         }
     }
 }
