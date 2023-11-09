@@ -4,7 +4,7 @@ name: Merge group tests
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    branches: [master]
+    branches: [main]
   merge_group:
 
 concurrency:
@@ -65,7 +65,7 @@ jobs:
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
   # TODO: Make this a required status check
-  # Run comparative benchmark against master, reject on regression
+  # Run comparative benchmark against main, reject on regression
   gpu-benchmark:
     if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     name: Run fibonacci bench on GPU
@@ -92,25 +92,25 @@ jobs:
       # Checkout base branch for comparative bench
       - uses: actions/checkout@v4
         with:
-          ref: master
-          path: master
+          ref: main
+          path: main
       # Copy the script so the base can bench with the same parameters
       - name: Copy source script to base branch
-        run: cp justfile bench.env ../master/benches
+        run: cp justfile bench.env ../main/benches
         working-directory: ${{ github.workspace }}/benches
       - name: Set base ref variable
         run: echo "BASE_REF=$(git rev-parse HEAD)" | tee -a $GITHUB_ENV
-        working-directory: ${{ github.workspace }}/master
+        working-directory: ${{ github.workspace }}/main
       - name: Set bench output format type
         run: echo "LURK_BENCH_OUTPUT=commit-comment" | tee -a $GITHUB_ENV
       - name: Run GPU bench on base branch
         run: just --dotenv-filename bench.env gpu-bench fibonacci
-        working-directory: ${{ github.workspace }}/master/benches
+        working-directory: ${{ github.workspace }}/main/benches
       - name: Copy bench output to PR branch
         run: |
           mkdir -p target
-          cp -r master/target/criterion target
-          cp master/${{ env.BASE_REF }}.json .
+          cp -r main/target/criterion target
+          cp main/${{ env.BASE_REF }}.json .
       - name: Run GPU bench on PR branch
         run: just --dotenv-filename bench.env gpu-bench fibonacci
         working-directory: ${{ github.workspace }}/benches

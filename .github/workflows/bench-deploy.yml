@@ -1,8 +1,8 @@
-name: GPU benchmark on `master`
+name: GPU benchmark on `main`
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   # TODO: Account for different `justfile` and `bench.env` files

@@ -1,4 +1,4 @@
-# Creates a PR benchmark comment with a comparison to master
+# Creates a PR benchmark comment with a comparison to main
 name: Benchmark pull requests
 on:
   issue_comment:

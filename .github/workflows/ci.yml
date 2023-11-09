@@ -4,7 +4,7 @@ on:
   merge_group:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    branches: [master]
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always

@@ -5,7 +5,7 @@ We want to make contributing to this project as easy and transparent as possible
 ## Pull Requests
 If you want to contribute a bug fix or feature to lurk, here's how to proceed:
 
-1. Fork the repo and create your branch from `master`.
+1. Fork the repo and create your branch from `main`.
 2. If you've added code that should be tested, add tests.
 3. If you've changed APIs, update the documentation.
 4. Ensure the test suite passes.
@@ -26,7 +26,7 @@ The maintainers will review your pull request as soon as they can, and it can on
 A pull-request must meet certain criteria before it can be merged.
 
 1. If you are fine with a squash merge, your pull-request's final commit should have at least one approval from a reviewer, and from all maintainers listed in the .github/CODEOWNERS file for the touched code sections.
-2. If you prefer a classic merge, the pull-request should meet the above conditions, and and it should be a fast-forward merge from master, which implies it must also be up-to-date.
+2. If you prefer a classic merge, the pull-request should meet the above conditions, and and it should be a fast-forward merge from main, which implies it must also be up-to-date.
 
 **Warning:** An up-to-date, rebased branch is required for a fast-forward merge. This means that your branch should not contain any merge commits: while we do not object to `Merge` as a pull-request merge method, we prefer the pull-request's history to be linear. To achieve this, you can update your local branch with `git pull --rebase` (see [doc](https://www.git-scm.com/docs/git-pull)).
 
@@ -51,9 +51,9 @@ flowchart TD
     Rebase --> Review
 
     Merge --> |It worked| Celebrate
-    Merge --> |Somebody pushed to master before maintainer| Rebase
+    Merge --> |Somebody pushed to main before maintainer| Rebase
 
-    MQueue -.-> |PR squash-merges cleanly on master & passes CI| Celebrate
+    MQueue -.-> |PR squash-merges cleanly on main & passes CI| Celebrate
     MQueue -.-> |Github merge queue found squash-merge or CI issue| Rebase
 ```
 
@@ -82,7 +82,7 @@ Additionally, Lurk-rs depends on the following forked repositories:
 - [pasta-msm](https://github.com/lurk-lab/pasta-msm) (forked from [supranational/pasta-msm](https://github.com/supranational/pasta-msm))
 - [ec-gpu](https://github.com/lurk-lab/ec-gpu) (forked from [filecoin-project/ec-gpu](https://github.com/filecoin-project/ec-gpu))
 
-For rapid iterations and to address issues in these dependencies, Lurk's **master** branch directly depends on the **dev** branch of its dependencies (transitively).
+For rapid iterations and to address issues in these dependencies, Lurk's **main** branch directly depends on the **dev** branch of its dependencies (transitively).
 
 ### Branch Management (forked dependencies)
 
