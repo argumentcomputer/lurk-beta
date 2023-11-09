@@ -6,16 +6,12 @@ use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 use neptune::circuit2_witness::{poseidon_hash_allocated_witness, poseidon_hash_scalar_witness};
 
-use crate::circuit::gadgets::pointer::{AllocatedPtr, AsAllocatedHashComponents};
+use crate::circuit::gadgets::pointer::AllocatedPtr;
 
-use crate::config::lurk_config;
 use crate::field::{FWrap, LurkField};
-use crate::hash::{HashConst, HashConstants};
-use crate::hash_witness::{
-    ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, Digest, HashName, WitnessBlock,
-};
+use crate::hash::HashConst;
+use crate::hash_witness::{ConsName, ContName, Digest, HashName, WitnessBlock};
 use crate::ptr::ContPtr;
-use crate::store::Store;
 
 #[derive(Clone, Debug)]
 pub struct AllocatedHash<F: LurkField, PreimageType> {
@@ -34,25 +30,6 @@ pub(crate) struct Slot<Name: Debug, AllocatedType> {
 }
 
 impl<Name: Debug, F: LurkField, PreimageType> Slot<Name, AllocatedHash<F, PreimageType>> {
-    pub(crate) fn new(name: Name, allocated: AllocatedHash<F, PreimageType>) -> Self {
-        Self {
-            name: Ok(name),
-            allocated,
-            consumed: false,
-        }
-    }
-    pub(crate) fn new_dummy(allocated: AllocatedHash<F, PreimageType>) -> Self {
-        Self {
-            name: Err(()),
-            allocated,
-            consumed: false,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn is_dummy(&self) -> bool {
-        self.name.is_err()
-    }
     pub(crate) fn is_blank(&self) -> bool {
         self.allocated.digest.get_value().is_none()
     }
@@ -97,77 +74,6 @@ pub(crate) type AllocatedConsWitness<'a, F> = AllocatedWitness<ConsName, Allocat
 pub(crate) type AllocatedContWitness<'a, F> = AllocatedWitness<ContName, AllocatedNumHash<F>>;
 
 type HashCircuitWitnessCache<F> = HashMap<Vec<FWrap<F>>, (Vec<F>, F)>;
-
-impl<F: LurkField> AllocatedPtrHash<F> {
-    fn alloc<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        constants: &HashConstants<F>,
-        preimage: Vec<AllocatedPtr<F>>,
-        hash_circuit_witness_cache: Option<&mut HashCircuitWitnessCache<F>>,
-    ) -> Result<Self, SynthesisError> {
-        let constants = constants.constants((2 * preimage.len()).into());
-
-        let pr: Vec<AllocatedNum<F>> = preimage
-            .iter()
-            .flat_map(|x| x.as_allocated_hash_components())
-            .cloned()
-            .collect();
-
-        let digest = constants.hash(cs, pr, hash_circuit_witness_cache)?;
-
-        Ok(Self { preimage, digest })
-    }
-
-    fn alloc_with_witness<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        constants: &HashConstants<F>,
-        preimage: Vec<AllocatedPtr<F>>,
-        block: &(WitnessBlock<F>, Digest<F>),
-    ) -> Result<Self, SynthesisError> {
-        let constants = constants.constants((2 * preimage.len()).into());
-
-        let pr: Vec<AllocatedNum<F>> = preimage
-            .iter()
-            .flat_map(|x| x.as_allocated_hash_components())
-            .cloned()
-            .collect();
-
-        let digest = constants.hash_with_witness(cs, pr, Some(block))?;
-
-        Ok(Self { preimage, digest })
-    }
-}
-
-impl<F: LurkField> AllocatedNumHash<F> {
-    fn alloc<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        constants: &HashConstants<F>,
-        preimage: Vec<AllocatedNum<F>>,
-        hash_circuit_witness_cache: Option<&mut HashCircuitWitnessCache<F>>,
-    ) -> Result<Self, SynthesisError> {
-        let constants = constants.constants(preimage.len().into());
-
-        let pr: Vec<AllocatedNum<F>> = preimage.to_vec();
-
-        let digest = constants.hash(cs, pr, hash_circuit_witness_cache)?;
-
-        Ok(Self { preimage, digest })
-    }
-    fn alloc_with_witness<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        constants: &HashConstants<F>,
-        preimage: Vec<AllocatedNum<F>>,
-        block: &(WitnessBlock<F>, Digest<F>),
-    ) -> Result<Self, SynthesisError> {
-        let constants = constants.constants(preimage.len().into());
-
-        let pr: Vec<AllocatedNum<F>> = preimage.to_vec();
-
-        let digest = constants.hash_with_witness(cs, pr, Some(block))?;
-
-        Ok(Self { preimage, digest })
-    }
-}
 
 impl<'a, F: LurkField> HashConst<'a, F> {
     #[allow(dead_code)]
@@ -269,70 +175,6 @@ impl<'a, F: LurkField> HashConst<'a, F> {
 }
 
 impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
-    pub fn from_cons_witness<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        s: &Store<F>,
-        cons_circuit_witness: &'a ConsCircuitWitness<F>,
-    ) -> Result<Self, SynthesisError> {
-        let cons_witness = cons_circuit_witness.hash_witness;
-        let mut slots = Vec::with_capacity(cons_witness.slots.len());
-
-        let names_and_ptrs = cons_circuit_witness.names_and_ptrs(s);
-        let cons_constants: HashConst<'_, F> = s.poseidon_constants().constants(4.into());
-
-        let circuit_witness_blocks = if cs.is_witness_generator()
-            && lurk_config(None, None)
-                .perf
-                .witness_generation
-                .precompute_neptune
-        {
-            Some(cons_circuit_witness.circuit_witness_blocks(s, &cons_constants))
-        } else {
-            None
-        };
-
-        for (i, (name, spr)) in names_and_ptrs.iter().enumerate() {
-            let cs = &mut cs.namespace(|| format!("slot-{i}"));
-
-            let allocated_car = AllocatedPtr::alloc(&mut cs.namespace(|| "car"), || {
-                spr.as_ref()
-                    .map(|x| x.car)
-                    .ok_or(SynthesisError::AssignmentMissing)
-            })?;
-
-            let allocated_cdr = AllocatedPtr::alloc(&mut cs.namespace(|| "cdr"), || {
-                spr.as_ref()
-                    .map(|x| x.cdr)
-                    .ok_or(SynthesisError::AssignmentMissing)
-            })?;
-
-            let allocated_hash = if let Some(blocks) = circuit_witness_blocks {
-                AllocatedPtrHash::alloc_with_witness(
-                    &mut cs.namespace(|| "cons"),
-                    s.poseidon_constants(),
-                    vec![allocated_car, allocated_cdr],
-                    &blocks[i],
-                )?
-            } else {
-                AllocatedPtrHash::alloc(
-                    &mut cs.namespace(|| "cons"),
-                    s.poseidon_constants(),
-                    vec![allocated_car, allocated_cdr],
-                    None,
-                )?
-            };
-
-            if spr.is_some() {
-                slots.push(Slot::new(*name, allocated_hash));
-            } else {
-                slots.push(Slot::new_dummy(allocated_hash));
-            }
-        }
-
-        Ok(Self {
-            slots: slots.to_vec(),
-        })
-    }
 
     pub fn get_cons(
         &mut self,
@@ -394,82 +236,6 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
         } else {
             None
         }
-    }
-
-    pub fn from_cont_witness<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        s: &Store<F>,
-        cont_circuit_witness: &'a ContCircuitWitness<F>,
-    ) -> Result<Self, SynthesisError> {
-        let cont_witness = cont_circuit_witness.hash_witness;
-        let mut slots = Vec::with_capacity(cont_witness.slots.len());
-
-        let names_and_ptrs = cont_circuit_witness.names_and_ptrs(s);
-        let cont_constants: HashConst<'_, F> = s.poseidon_constants().constants(8.into());
-
-        let circuit_witness_blocks = if cs.is_witness_generator()
-            && lurk_config(None, None)
-                .perf
-                .witness_generation
-                .precompute_neptune
-        {
-            Some(cont_circuit_witness.circuit_witness_blocks(s, &cont_constants))
-        } else {
-            None
-        };
-
-        for (i, (name, spr)) in names_and_ptrs.iter().enumerate() {
-            let cs = &mut cs.namespace(|| format!("slot-{i}"));
-
-            let components = spr.as_ref().map(|spr| spr.components);
-            let allocated_components = if let Some(components) = components {
-                components
-                    .iter()
-                    .enumerate()
-                    .map(|(i, component)| {
-                        AllocatedNum::alloc(&mut cs.namespace(|| format!("component_{i}")), || {
-                            Ok(*component)
-                        })
-                        .unwrap()
-                    })
-                    .collect::<Vec<_>>()
-            } else {
-                (0..8usize)
-                    .map(|i| {
-                        AllocatedNum::alloc(
-                            &mut cs.namespace(|| format!("component_{i}")),
-                            // This should never be called, because this branch is only taken when stub is blank.
-                            || Err(SynthesisError::AssignmentMissing),
-                        )
-                        .unwrap()
-                    })
-                    .collect::<Vec<_>>()
-            };
-
-            let allocated_hash = if let Some(blocks) = circuit_witness_blocks {
-                AllocatedNumHash::alloc_with_witness(
-                    &mut cs.namespace(|| "cont"),
-                    s.poseidon_constants(),
-                    allocated_components,
-                    &blocks[i],
-                )?
-            } else {
-                AllocatedNumHash::alloc(
-                    &mut cs.namespace(|| "cont"),
-                    s.poseidon_constants(),
-                    allocated_components,
-                    None,
-                )?
-            };
-
-            if spr.as_ref().map(|spr| spr.cont).is_some() {
-                slots.push(Slot::new(*name, allocated_hash));
-            } else {
-                slots.push(Slot::new_dummy(allocated_hash));
-            }
-        }
-
-        Ok(Self { slots })
     }
 
     pub fn get_components(

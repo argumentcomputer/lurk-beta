@@ -216,15 +216,6 @@ impl Flow {
     pub fn is_parallel(&self) -> bool {
         !self.is_sequential()
     }
-
-    /// Returns the number of parallel threads to run
-    pub fn num_threads(&self) -> usize {
-        match self {
-            Self::Sequential => 1,
-            Self::Parallel => num_cpus::get(),
-            Self::ParallelN(threads) => *threads,
-        }
-    }
 }
 
 /// Shortcut to easily set `PerfConfig`

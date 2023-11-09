@@ -455,10 +455,6 @@ impl<
         Self::new_from_stub(Stub::Dummy)
     }
 
-    pub fn new_blank() -> Self {
-        Self::new_from_stub(Stub::Blank)
-    }
-
     pub fn get_assigned_slot(&mut self, name: Name) -> &mut Stub<T> {
         let i = name.index();
         let (slot_name, p) = self.slots[i];
