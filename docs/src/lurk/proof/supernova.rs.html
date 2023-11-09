@@ -403,19 +403,6 @@
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -432,10 +419,9 @@
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{marker::PhantomData, ops::Index, sync::Arc};
-<span class="kw">use </span>tracing::{debug, info};
+<span class="kw">use </span>tracing::info;
 
 <span class="kw">use crate</span>::{
-    circuit::MultiFrame,
     coprocessor::Coprocessor,
     error::ProofError,
     eval::{lang::Lang, Meta},
@@ -771,18 +757,6 @@
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::IVC(<span class="kw">_</span>, rc) | <span class="self">Self</span>::NIVC(<span class="kw">_</span>, rc) =&gt; <span class="kw-2">*</span>rc,
         }
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
-    <span class="doccomment">/// Return the circuit index assigned to this `MultiFrame`&#39;s inner computation, as labeled by its `Meta`, and determined by its `FoldingConfig`.
-    </span><span class="kw">pub fn </span>circuit_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="macro">debug!</span>(
-            <span class="string">&quot;getting circuit_index for {:?}: {}&quot;</span>,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.meta,
-            <span class="self">self</span>.folding_config.circuit_index(<span class="kw-2">&amp;</span><span class="self">self</span>.meta)
-        );
-        <span class="self">self</span>.folding_config.circuit_index(<span class="kw-2">&amp;</span><span class="self">self</span>.meta)
     }
 }
 
