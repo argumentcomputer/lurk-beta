@@ -7,7 +7,6 @@ use crate::store::Store;
 pub mod gadgets;
 
 pub mod circuit_frame;
-pub(crate) use circuit_frame::*;
 
 pub trait ToInputs<F: LurkField> {
     fn to_inputs(&self, store: &Store<F>) -> Vec<F>;

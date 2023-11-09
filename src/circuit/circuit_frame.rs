@@ -1,10 +1,8 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use bellpepper::util_cs::{witness_cs::WitnessCS, Comparable};
+use bellpepper::util_cs::Comparable;
 use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
-use rayon::prelude::*;
 use tracing::{debug, info};
 
 use crate::{
@@ -13,12 +11,8 @@ use crate::{
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
-    config::lurk_config,
     field::LurkField,
-    hash::HashConst,
-    hash_witness::{
-        ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, HashCircuitWitnessCache,
-    },
+    hash_witness::{ConsName, ContName},
     store::NamedConstants,
     tag::Tag,
 };
@@ -32,9 +26,8 @@ use crate::circuit::circuit_frame::constraints::{
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::coprocessor::Coprocessor;
-use crate::eval::{Frame, Meta, Witness, IO};
+use crate::eval::{Witness, IO};
 use crate::expr::Thunk;
-use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
 use crate::proof::supernova::FoldingConfig;
 use crate::ptr::Ptr;
@@ -54,19 +47,6 @@ pub struct CircuitFrame<'a, F: LurkField, C: Coprocessor<F>> {
     _p: PhantomData<C>,
 }
 
-#[derive(Debug, Clone)]
-pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
-    pub store: Option<&'a Store<F>>,
-    pub input: Option<IO<F>>,
-    pub output: Option<IO<F>>,
-    pub frames: Option<Vec<CircuitFrame<'a, F, C>>>,
-    pub cached_witness: Option<WitnessCS<F>>,
-    pub count: usize,
-    pub folding_config: Arc<FoldingConfig<F, C>>,
-    pub meta: Meta<F>,
-    pub next_pc: Option<usize>,
-}
-
 impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
     pub fn blank() -> Self {
         Self {
@@ -77,475 +57,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
             _p: Default::default(),
         }
     }
-
-    pub fn from_frame(frame: &Frame<IO<F>, Witness<F>, F, C>, store: &'a Store<F>) -> Self {
-        CircuitFrame {
-            store: Some(store),
-            input: Some(frame.input),
-            output: Some(frame.output),
-            witness: Some(frame.witness),
-            _p: Default::default(),
-        }
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    pub fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>) -> Self {
-        let count = match meta {
-            Meta::Lurk => folding_config.reduction_count(),
-            Meta::Coprocessor(_zptr) => 1,
-        };
-        Self {
-            store: None,
-            input: None,
-            output: None,
-            frames: None,
-            next_pc: None,
-            cached_witness: None,
-            count,
-            folding_config,
-            meta,
-        }
-    }
-
-    pub fn get_store(&self) -> &Store<F> {
-        self.store.expect("store missing")
-    }
-
-    pub fn from_frames(
-        count: usize,
-        frames: &[Frame<IO<F>, Witness<F>, F, C>],
-        store: &'a Store<F>,
-        folding_config: &Arc<FoldingConfig<F, C>>,
-    ) -> Vec<Self> {
-        match &**folding_config {
-            FoldingConfig::IVC(..) => Self::from_frames_ivc(count, frames, store, folding_config),
-            FoldingConfig::NIVC(..) => Self::from_frames_nivc(count, frames, store, folding_config),
-        }
-    }
-
-    fn from_frames_ivc(
-        // we need this count, even though folding_config contains reduction_count
-        // because it might be overridden in the case of a coprocoessor, which should have rc=1.
-        // This is not ideal and might not *actually* be needed.
-        count: usize,
-        frames: &[Frame<IO<F>, Witness<F>, F, C>],
-        store: &'a Store<F>,
-        folding_config: &Arc<FoldingConfig<F, C>>,
-    ) -> Vec<Self> {
-        // `count` is the number of `Frames` to include per `MultiFrame`.
-        let total_frames = frames.len();
-        let n = (total_frames + count - 1) / count;
-        let mut multi_frames = Vec::with_capacity(n);
-
-        let mut meta = None;
-        for chunk in frames.chunks(count) {
-            let mut inner_frames = Vec::with_capacity(count);
-
-            for x in chunk {
-                let circuit_frame = CircuitFrame::from_frame(x, store);
-                meta.get_or_insert(x.meta);
-                inner_frames.push(circuit_frame);
-            }
-
-            let last_frame = chunk.last().expect("chunk must not be empty");
-            let last_circuit_frame = inner_frames
-                .last()
-                .expect("chunk must not be empty")
-                .clone();
-
-            // Fill out the MultiFrame, if needed, and capture output of the final actual frame.
-            inner_frames.resize(count, last_circuit_frame.clone());
-
-            let output = last_frame.output;
-            debug_assert!(!inner_frames.is_empty());
-
-            let meta = meta.unwrap_or(Meta::Lurk);
-
-            let mf = MultiFrame {
-                store: Some(store),
-                input: Some(chunk[0].input),
-                output: Some(output),
-                frames: Some(inner_frames),
-                next_pc: None,
-                cached_witness: None,
-                count,
-                folding_config: folding_config.clone(),
-                meta,
-            };
-
-            multi_frames.push(mf);
-        }
-
-        multi_frames
-    }
-
-    fn from_frames_nivc(
-        count: usize,
-        frames: &[Frame<IO<F>, Witness<F>, F, C>],
-        store: &'a Store<F>,
-        folding_config: &Arc<FoldingConfig<F, C>>,
-    ) -> Vec<Self> {
-        let mut steps = Vec::new();
-        let mut last_meta = frames[0].meta;
-        let mut consecutive_frames = Vec::new();
-
-        for frame in frames {
-            if frame.meta == last_meta {
-                let padding_frame = frame.clone();
-                consecutive_frames.push(padding_frame);
-            } else {
-                if last_meta == Meta::Lurk {
-                    consecutive_frames.push(frame.clone());
-                }
-                let new_steps = MultiFrame::from_frames_ivc(
-                    if last_meta == Meta::Lurk { count } else { 1 },
-                    &consecutive_frames,
-                    store,
-                    folding_config,
-                )
-                .into_iter();
-
-                steps.extend(new_steps);
-                consecutive_frames.truncate(0);
-                consecutive_frames.push(frame.clone());
-                last_meta = frame.meta;
-            }
-        }
-
-        // TODO: refactor
-        if !consecutive_frames.is_empty() {
-            let new_steps =
-                MultiFrame::from_frames_ivc(count, &consecutive_frames, store, folding_config)
-                    .into_iter();
-
-            steps.extend(new_steps);
-        }
-
-        if !steps.is_empty() {
-            let penultimate = steps.len() - 1;
-            for i in 0..(penultimate - 1) {
-                steps[i].next_pc = Some(steps[i + 1].circuit_index());
-            }
-        }
-        steps
-    }
-
-    pub fn synthesize_frames<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-        input_expr: AllocatedPtr<F>,
-        input_env: AllocatedPtr<F>,
-        input_cont: AllocatedContPtr<F>,
-        frames: &[CircuitFrame<'_, F, C>],
-        g: &GlobalAllocations<F>,
-    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
-        if cs.is_witness_generator()
-            && lurk_config(None, None)
-                .perf
-                .parallelism
-                .synthesis
-                .is_parallel()
-        {
-            self.synthesize_frames_parallel(
-                cs,
-                store,
-                &input_expr,
-                &input_env,
-                &input_cont,
-                frames,
-                g,
-            )
-        } else {
-            self.synthesize_frames_sequential(
-                cs, store, input_expr, input_env, input_cont, frames, &None, g,
-            )
-        }
-    }
-
-    pub fn synthesize_frames_sequential<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-        input_expr: AllocatedPtr<F>,
-        input_env: AllocatedPtr<F>,
-        input_cont: AllocatedContPtr<F>,
-        frames: &[CircuitFrame<'_, F, C>],
-        cons_and_cont_witnesses: &Option<Vec<(ConsCircuitWitness<F>, ContCircuitWitness<F>)>>,
-        g: &GlobalAllocations<F>,
-    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
-        let mut hash_circuit_witness_cache = HashMap::new();
-
-        let acc = (input_expr, input_env, input_cont);
-
-        let (_, (new_expr, new_env, new_cont)) =
-            frames.iter().fold((0, acc), |(i, allocated_io), frame| {
-                info!("synthesizing frame {i}");
-                if let Some(next_input) = frame.input {
-                    // Ensure all intermediate allocated I/O values match the provided execution trace.
-
-                    let next_expr_hash = store.hash_expr(&next_input.expr);
-                    let next_env_hash = store.hash_expr(&next_input.env);
-                    let next_cont_hash = store.hash_cont(&next_input.cont);
-
-                    assert_eq!(
-                        allocated_io.0.tag().get_value(),
-                        next_expr_hash.map(|x| x.tag_field()),
-                        "expr tag mismatch"
-                    );
-                    assert_eq!(
-                        allocated_io.0.hash().get_value(),
-                        next_expr_hash.map(|x| *x.value()),
-                        "expr mismatch"
-                    );
-                    assert_eq!(
-                        allocated_io.1.tag().get_value(),
-                        next_env_hash.map(|x| x.tag_field()),
-                        "env tag mismatch"
-                    );
-                    assert_eq!(
-                        allocated_io.1.hash().get_value(),
-                        next_env_hash.map(|x| *x.value()),
-                        "env mismatch"
-                    );
-                    assert_eq!(
-                        allocated_io.2.tag().get_value(),
-                        next_cont_hash.map(|x| x.tag_field()),
-                        "cont tag mismatch"
-                    );
-                    assert_eq!(
-                        allocated_io.2.hash().get_value(),
-                        next_cont_hash.map(|x| *x.value()),
-                        "cont mismatch"
-                    );
-                };
-                let (cons_witnesses, cont_witnesses) =
-                    if let Some(cons_and_cont_witnesses) = &cons_and_cont_witnesses {
-                        (
-                            Some(cons_and_cont_witnesses[i].0.clone()),
-                            Some(cons_and_cont_witnesses[i].1.clone()),
-                        )
-                    } else {
-                        (None, None)
-                    };
-
-                let new_allocated_io = frame
-                    .synthesize(
-                        cs,
-                        i,
-                        allocated_io,
-                        &self.folding_config,
-                        g,
-                        &mut hash_circuit_witness_cache,
-                        cons_witnesses,
-                        cont_witnesses,
-                    )
-                    .unwrap();
-
-                (i + 1, new_allocated_io)
-            });
-
-        (new_expr, new_env, new_cont)
-    }
-
-    pub fn synthesize_frames_parallel<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-        input_expr: &AllocatedPtr<F>,
-        input_env: &AllocatedPtr<F>,
-        input_cont: &AllocatedContPtr<F>,
-        frames: &[CircuitFrame<'_, F, C>],
-        g: &GlobalAllocations<F>,
-    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
-        assert!(cs.is_witness_generator());
-        let config = lurk_config(None, None);
-        assert!(config.perf.parallelism.synthesis.is_parallel());
-
-        // TODO: this probably belongs in config, perhaps per-Flow.
-        const MIN_CHUNK_SIZE: usize = 10;
-
-        let num_frames = frames.len();
-
-        let chunk_size = config
-            .perf
-            .parallelism
-            .synthesis
-            .chunk_size(num_frames, MIN_CHUNK_SIZE);
-
-        let css = frames
-            .par_chunks(chunk_size)
-            .enumerate()
-            .map(|(i, chunk)| {
-                let (input_expr, input_env, input_cont) = if i == 0 {
-                    (input_expr.clone(), input_env.clone(), input_cont.clone())
-                } else {
-                    let previous_frame = &frames[i * chunk_size];
-                    let mut bogus_cs = WitnessCS::new();
-                    let x = previous_frame.input.unwrap().expr;
-                    let input_expr =
-                        AllocatedPtr::alloc_ptr(&mut bogus_cs, store, || Ok(&x)).unwrap();
-                    let y = previous_frame.input.unwrap().env;
-                    let input_env =
-                        AllocatedPtr::alloc_ptr(&mut bogus_cs, store, || Ok(&y)).unwrap();
-                    let z = previous_frame.input.unwrap().cont;
-                    let input_cont =
-                        AllocatedContPtr::alloc_cont_ptr(&mut bogus_cs, store, || Ok(&z)).unwrap();
-                    (input_expr, input_env, input_cont)
-                };
-
-                let cons_and_cont_witnesses = {
-                    macro_rules! f {
-                        () => {
-                            |frame| {
-                                let cons_circuit_witness: ConsCircuitWitness<F> = frame
-                                    .witness
-                                    .map(|x| x.conses)
-                                    .unwrap_or_else(|| HashWitness::new_blank())
-                                    .into();
-
-                                let cons_constants: HashConst<'_, F> =
-                                    store.poseidon_constants().constants(4.into());
-
-                                // Force generating the witness. This is the important part!
-                                cons_circuit_witness.circuit_witness_blocks(store, &cons_constants);
-
-                                let cont_circuit_witness: ContCircuitWitness<F> = frame
-                                    .witness
-                                    .map(|x| x.conts)
-                                    .unwrap_or_else(|| HashWitness::new_blank())
-                                    .into();
-
-                                let cont_constants: HashConst<'_, F> =
-                                    store.poseidon_constants().constants(8.into());
-
-                                // Force generating the witness. This is the important part!
-                                cont_circuit_witness.circuit_witness_blocks(store, &cont_constants);
-
-                                (cons_circuit_witness, cont_circuit_witness)
-                            }
-                        };
-                    }
-
-                    if config.perf.parallelism.poseidon_witnesses.is_parallel() {
-                        chunk.par_iter().map(f!()).collect::<Vec<_>>()
-                    } else {
-                        chunk.iter().map(f!()).collect::<Vec<_>>()
-                    }
-                };
-
-                let mut cs = WitnessCS::new();
-
-                let output = self.synthesize_frames_sequential(
-                    &mut cs,
-                    store,
-                    input_expr,
-                    input_env,
-                    input_cont,
-                    chunk,
-                    &Some(cons_and_cont_witnesses),
-                    g,
-                );
-
-                (cs, output)
-            })
-            .collect::<Vec<_>>();
-
-        let mut final_output = None;
-
-        for (frames_cs, output) in css {
-            final_output = Some(output);
-
-            let aux = frames_cs.aux_slice();
-            cs.extend_aux(aux);
-        }
-
-        final_output.unwrap()
-    }
 }
 
 impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
-    }
-}
-
-impl<F: LurkField, C: Coprocessor<F>> MultiFrame<'_, F, C> {
-    pub fn precedes(&self, maybe_next: &Self) -> bool {
-        self.output == maybe_next.input
-    }
-}
-
-type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
-
-impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
-    #[tracing::instrument(skip_all, name = "CircuitFrame::synthesize", level = "debug")]
-    pub(crate) fn synthesize<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        i: usize,
-        inputs: AllocatedIO<F>,
-        folding_config: &Arc<FoldingConfig<F, C>>,
-        g: &GlobalAllocations<F>,
-        _hash_circuit_witness_cache: &mut HashCircuitWitnessCache<F>, // Currently unused.
-        cons_circuit_witness: Option<ConsCircuitWitness<F>>,
-        cont_circuit_witness: Option<ContCircuitWitness<F>>,
-    ) -> Result<AllocatedIO<F>, SynthesisError> {
-        let (input_expr, input_env, input_cont) = inputs;
-        let reduce = |store| {
-            let cons_circuit_witness = if let Some(ccw) = cons_circuit_witness {
-                ccw
-            } else {
-                let cons_witness = self
-                    .witness
-                    .map_or_else(|| HashWitness::new_blank(), |x| x.conses);
-
-                (cons_witness).into()
-            };
-
-            let mut allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
-                &mut cs.namespace(|| format!("allocated_cons_witness {i}")),
-                store,
-                &cons_circuit_witness,
-            )?;
-
-            let cont_circuit_witness = if let Some(ccw) = cont_circuit_witness {
-                ccw
-            } else {
-                let cont_witness = self
-                    .witness
-                    .map_or_else(|| HashWitness::new_blank(), |x| x.conts);
-                (cont_witness).into()
-            };
-
-            let mut allocated_cont_witness = AllocatedContWitness::from_cont_witness(
-                &mut cs.namespace(|| format!("allocated_cont_witness {i}")),
-                store,
-                &cont_circuit_witness,
-            )?;
-
-            reduce_expression(
-                &mut cs.namespace(|| format!("reduce expression {i}")),
-                &input_expr,
-                &input_env,
-                &input_cont,
-                &self.witness,
-                &mut allocated_cons_witness,
-                &mut allocated_cont_witness,
-                store,
-                folding_config,
-                g,
-            )
-        };
-
-        if let Some(store) = self.store {
-            reduce(store)
-        } else {
-            let store: Store<F> = Default::default();
-            store.hydrate_scalar_cache();
-            reduce(&store)
-        }
     }
 }
 
@@ -789,6 +305,7 @@ impl<'a, F: LurkField> CompResults<'a, F> {
     }
 }
 
+#[allow(dead_code)] //TODO(huitseeker): remove before flight (issue #874)
 fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
@@ -3073,6 +2590,7 @@ fn make_thunk<F: LurkField, CS: ConstraintSystem<F>>(
     Ok((result_expr, result_env, result_cont))
 }
 
+#[allow(dead_code)] // TODO(huitseeker): remove before flight (issue #874)
 fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cont: &AllocatedContPtr<F>,
