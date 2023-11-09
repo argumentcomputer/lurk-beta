@@ -351,10 +351,8 @@ where
         let z0_secondary = Self::z0_secondary();
 
         assert_eq!(circuits[0].frames().unwrap().len(), num_iters_per_step);
-        let (_circuit_primary, circuit_secondary): (
-            M,
-            TrivialCircuit<<G2<F> as Group>::Scalar>,
-        ) = crate::proof::nova::circuits(num_iters_per_step, lang);
+        let (_circuit_primary, circuit_secondary): (M, TrivialCircuit<<G2<F> as Group>::Scalar>) =
+            crate::proof::nova::circuits(num_iters_per_step, lang);
 
         tracing::debug!("circuits.len: {}", circuits.len());
 

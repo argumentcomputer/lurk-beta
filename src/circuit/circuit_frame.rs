@@ -16,13 +16,11 @@ use crate::{
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
     config::lurk_config,
-    eval::empty_sym_env,
     field::LurkField,
     hash::HashConst,
     hash_witness::{
         ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, HashCircuitWitnessCache,
     },
-    proof::CEKState,
     store::NamedConstants,
     tag::Tag,
 };
@@ -41,11 +39,9 @@ use crate::eval::{Frame, Meta, Witness, IO};
 use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
-use crate::proof::{
-    supernova::FoldingConfig, EvaluationStore, FrameLike, Provable,
-};
-use crate::ptr::{ContPtr, Ptr};
-use crate::store::{self, Store};
+use crate::proof::{supernova::FoldingConfig, Provable};
+use crate::ptr::Ptr;
+use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use num_bigint::BigUint;
 use num_integer::Integer;
@@ -72,68 +68,6 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub folding_config: Arc<FoldingConfig<F, C>>,
     pub meta: Meta<F>,
     pub next_pc: Option<usize>,
-}
-
-impl<F: LurkField> CEKState<Ptr<F>, ContPtr<F>> for IO<F> {
-    fn expr(&self) -> &Ptr<F> {
-        &self.expr
-    }
-    fn env(&self) -> &Ptr<F> {
-        &self.env
-    }
-    fn cont(&self) -> &ContPtr<F> {
-        &self.cont
-    }
-}
-
-impl<F: LurkField, C: Coprocessor<F>> FrameLike<Ptr<F>, ContPtr<F>>
-    for Frame<IO<F>, Witness<F>, F, C>
-{
-    type FrameIO = IO<F>;
-    fn input(&self) -> &Self::FrameIO {
-        &self.input
-    }
-    fn output(&self) -> &Self::FrameIO {
-        &self.output
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike<Ptr<F>, ContPtr<F>> for CircuitFrame<'a, F, C> {
-    // TODO: fix the inability to return an error here
-    // We *could* add an Error type here, but actually, this is a case where a builder pattern
-    // would resolve the initialization of these structures
-    type FrameIO = IO<F>;
-    fn input(&self) -> &Self::FrameIO {
-        self.input.as_ref().unwrap()
-    }
-    fn output(&self) -> &Self::FrameIO {
-        self.output.as_ref().unwrap()
-    }
-}
-
-impl<F: LurkField> EvaluationStore for Store<F> {
-    type Ptr = Ptr<F>;
-    type ContPtr = ContPtr<F>;
-    type Error = store::Error;
-
-    fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error> {
-        Store::read(self, expr).map_err(|e| store::Error(e.to_string()))
-    }
-    fn initial_empty_env(&self) -> Self::Ptr {
-        empty_sym_env(self)
-    }
-    fn get_cont_terminal(&self) -> Self::ContPtr {
-        // qualified syntax for the
-        Store::get_cont_terminal(self)
-    }
-
-    fn hydrate_z_cache(&self) {
-        self.hydrate_scalar_cache()
-    }
-
-    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> bool {
-        self.ptr_eq(left, right).unwrap()
-    }
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {

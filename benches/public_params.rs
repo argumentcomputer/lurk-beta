@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, SamplingMode};
 use lurk::{
-    lem::multiframe::MultiFrame,
     eval::lang::{Coproc, Lang},
+    lem::multiframe::MultiFrame,
     proof::nova,
 };
 use std::sync::Arc;
