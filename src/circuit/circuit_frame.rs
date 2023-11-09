@@ -16,7 +16,7 @@ use crate::{
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
     config::lurk_config,
-    eval::{empty_sym_env, lang::Lang},
+    eval::empty_sym_env,
     field::LurkField,
     hash::HashConst,
     hash_witness::{
@@ -42,7 +42,7 @@ use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
 use crate::proof::{
-    supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Provable,
+    supernova::FoldingConfig, EvaluationStore, FrameLike, Provable,
 };
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::{self, Store};
@@ -133,147 +133,6 @@ impl<F: LurkField> EvaluationStore for Store<F> {
 
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> bool {
         self.ptr_eq(left, right).unwrap()
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
-    type Ptr = Ptr<F>;
-    type ContPtr = ContPtr<F>;
-    type Store = Store<F>;
-    type StoreError = store::Error;
-    type EvalFrame = Frame<IO<F>, Witness<F>, F, C>;
-    type CircuitFrame = CircuitFrame<'a, F, C>;
-    type GlobalAllocation = GlobalAllocations<F>;
-    type AllocatedIO = AllocatedIO<F>;
-
-    fn emitted(store: &Self::Store, eval_frame: &Self::EvalFrame) -> Vec<Ptr<F>> {
-        match eval_frame.output.maybe_emitted_expression(store) {
-            Some(ptr) => vec![ptr],
-            None => Vec::default(),
-        }
-    }
-
-    fn get_evaluation_frames(
-        padding_predicate: impl Fn(usize) -> bool,
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &Self::Store,
-        limit: usize,
-        lang: &Lang<F, C>,
-    ) -> Result<Vec<Frame<IO<F>, Witness<F>, F, C>>, crate::error::ProofError> {
-        let frames = crate::eval::Evaluator::generate_frames(
-            expr,
-            env,
-            store,
-            limit,
-            padding_predicate,
-            lang,
-        )?;
-
-        store.hydrate_scalar_cache();
-
-        Ok(frames)
-    }
-
-    fn io_to_scalar_vector(
-        store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike<Ptr<F>, ContPtr<F>>>::FrameIO,
-    ) -> Vec<F> {
-        io.to_vector(store).unwrap()
-    }
-
-    fn compute_witness(&self, s: &Self::Store) -> WitnessCS<F> {
-        let mut wcs = WitnessCS::new();
-
-        let input = self.input.unwrap();
-
-        let expr = s.hash_expr(&input.expr).unwrap();
-        let env = s.hash_expr(&input.env).unwrap();
-        let cont = s.hash_cont(&input.cont).unwrap();
-
-        let z_scalar = [
-            expr.tag().to_field(),
-            *expr.value(),
-            env.tag().to_field(),
-            *env.value(),
-            cont.tag().to_field(),
-            *cont.value(),
-        ];
-
-        let mut bogus_cs = WitnessCS::<F>::new();
-        let z: Vec<AllocatedNum<F>> = z_scalar
-            .iter()
-            .map(|x| AllocatedNum::alloc_infallible(&mut bogus_cs, || *x))
-            .collect::<Vec<_>>();
-
-        let _ = nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice());
-
-        wcs
-    }
-
-    fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>> {
-        &mut self.cached_witness
-    }
-
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr<F>, ContPtr<F>>>::FrameIO> {
-        &self.output
-    }
-
-    fn frames(&self) -> Option<&Vec<Self::CircuitFrame>> {
-        self.frames.as_ref()
-    }
-
-    fn precedes(&self, maybe_next: &Self) -> bool {
-        self.output == maybe_next.input
-    }
-
-    fn synthesize_frames<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Self::Store,
-        input: Self::AllocatedIO,
-        frames: &[Self::CircuitFrame],
-        g: &GlobalAllocations<F>,
-    ) -> Result<Self::AllocatedIO, SynthesisError> {
-        let (allocated_expr, allocated_env, allocated_cont) = input;
-        Ok(MultiFrame::synthesize_frames(
-            self,
-            cs,
-            store,
-            allocated_expr,
-            allocated_env,
-            allocated_cont,
-            frames,
-            g,
-        ))
-    }
-
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>, _pc: usize) -> Self {
-        MultiFrame::blank(folding_config, meta)
-    }
-
-    fn from_frames(
-        count: usize,
-        frames: &[Self::EvalFrame],
-        store: &'a Self::Store,
-        folding_config: &Arc<FoldingConfig<F, C>>,
-    ) -> Vec<Self> {
-        MultiFrame::from_frames(count, frames, store, folding_config)
-    }
-
-    /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
-    fn make_dummy(
-        count: usize,
-        circuit_frame: Option<CircuitFrame<'a, F, C>>,
-        store: &'a Self::Store,
-        folding_config: Arc<FoldingConfig<F, C>>,
-        meta: Meta<F>,
-    ) -> Self {
-        MultiFrame::make_dummy(count, circuit_frame, store, folding_config, meta)
-    }
-
-    fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
-        frames.iter().rev().skip_while(|f| f.is_complete()).count()
     }
 }
 
@@ -439,36 +298,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             }
         }
         steps
-    }
-
-    /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
-    pub(crate) fn make_dummy(
-        count: usize,
-        circuit_frame: Option<CircuitFrame<'a, F, C>>,
-        store: &'a Store<F>,
-        folding_config: Arc<FoldingConfig<F, C>>,
-        meta: Meta<F>,
-    ) -> Self {
-        let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
-            (
-                Some(vec![circuit_frame.clone(); count]),
-                circuit_frame.input,
-                circuit_frame.output,
-            )
-        } else {
-            (None, None, None)
-        };
-        Self {
-            store: Some(store),
-            input,
-            output,
-            frames,
-            next_pc: None,
-            cached_witness: None,
-            count,
-            folding_config,
-            meta,
-        }
     }
 
     pub fn synthesize_frames<CS: ConstraintSystem<F>>(

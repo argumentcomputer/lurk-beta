@@ -1,5 +1,4 @@
 mod nova_tests_lem;
-mod nova_tests_lurk;
 
 use abomonation::Abomonation;
 use bellpepper::util_cs::{metric_cs::MetricCS, witness_cs::WitnessCS, Comparable};

@@ -44,7 +44,7 @@ jobs:
       - uses: boa-dev/criterion-compare-action@v3
         with:
           # Optional. Compare only this benchmark target
-          benchName: "fibonacci_lem"
+          benchName: "fibonacci"
           # Needed. The name of the branch to compare with
           branchName: ${{ github.ref_name }}
 
@@ -93,7 +93,7 @@ jobs:
         with:
           # Note: Removing `benchName` causes `criterion` errors: https://github.com/boa-dev/criterion-compare-action#troubleshooting
           # Optional. Compare only this benchmark target
-          benchName: "fibonacci_lem"
+          benchName: "fibonacci"
           # Optional. Features activated in the benchmark
           features: "cuda"
           # Needed. The name of the branch to compare with

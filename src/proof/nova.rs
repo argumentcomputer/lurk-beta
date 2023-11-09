@@ -104,8 +104,6 @@ pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<G2<F>, EE2<F>>;
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
 /// to reflect it this should not be used outside the Nova context
-pub type C1Lurk<'a, F, C> = crate::circuit::circuit_frame::MultiFrame<'a, F, C>;
-/// LEM's version of C1
 pub type C1LEM<'a, F, C> = crate::lem::multiframe::MultiFrame<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialCircuit<<G2<F> as Group>::Scalar>;
@@ -354,7 +352,7 @@ where
 
         assert_eq!(circuits[0].frames().unwrap().len(), num_iters_per_step);
         let (_circuit_primary, circuit_secondary): (
-            MultiFrame<'_, F, C>,
+            M,
             TrivialCircuit<<G2<F> as Group>::Scalar>,
         ) = crate::proof::nova::circuits(num_iters_per_step, lang);
 

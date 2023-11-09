@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, SamplingMode};
 use lurk::{
-    circuit::circuit_frame::MultiFrame,
+    lem::multiframe::MultiFrame,
     eval::lang::{Coproc, Lang},
     proof::nova,
 };
