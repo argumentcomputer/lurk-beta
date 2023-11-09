@@ -225,18 +225,6 @@ impl Flow {
             Self::ParallelN(threads) => *threads,
         }
     }
-
-    /// Returns the number of parallel steps to run per thread with `rayon::prelude::par_chunks()`
-    pub fn chunk_size(&self, total_n: usize, min_chunk_size: usize) -> usize {
-        if self.is_sequential() {
-            total_n
-        } else {
-            let num_threads = self.num_threads();
-            let divides_evenly = total_n % num_threads == 0;
-
-            ((total_n / num_threads) + usize::from(!divides_evenly)).max(min_chunk_size)
-        }
-    }
 }
 
 /// Shortcut to easily set `PerfConfig`

@@ -12,9 +12,7 @@ use crate::{
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
     field::LurkField,
-    hash_witness::{
-        ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, HashCircuitWitnessCache,
-    },
+    hash_witness::{ConsName, ContName},
     store::NamedConstants,
     tag::Tag,
 };
@@ -28,9 +26,8 @@ use crate::circuit::circuit_frame::constraints::{
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::coprocessor::Coprocessor;
-use crate::eval::{Frame, Witness, IO};
+use crate::eval::{Witness, IO};
 use crate::expr::Thunk;
-use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
 use crate::proof::supernova::FoldingConfig;
 use crate::ptr::Ptr;
@@ -60,93 +57,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
             _p: Default::default(),
         }
     }
-
-    pub fn from_frame(frame: &Frame<IO<F>, Witness<F>, F, C>, store: &'a Store<F>) -> Self {
-        CircuitFrame {
-            store: Some(store),
-            input: Some(frame.input),
-            output: Some(frame.output),
-            witness: Some(frame.witness),
-            _p: Default::default(),
-        }
-    }
 }
 
 impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
-    }
-}
-
-type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
-
-impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
-    #[tracing::instrument(skip_all, name = "CircuitFrame::synthesize", level = "debug")]
-    pub(crate) fn synthesize<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        i: usize,
-        inputs: AllocatedIO<F>,
-        folding_config: &Arc<FoldingConfig<F, C>>,
-        g: &GlobalAllocations<F>,
-        _hash_circuit_witness_cache: &mut HashCircuitWitnessCache<F>, // Currently unused.
-        cons_circuit_witness: Option<ConsCircuitWitness<F>>,
-        cont_circuit_witness: Option<ContCircuitWitness<F>>,
-    ) -> Result<AllocatedIO<F>, SynthesisError> {
-        let (input_expr, input_env, input_cont) = inputs;
-        let reduce = |store| {
-            let cons_circuit_witness = if let Some(ccw) = cons_circuit_witness {
-                ccw
-            } else {
-                let cons_witness = self
-                    .witness
-                    .map_or_else(|| HashWitness::new_blank(), |x| x.conses);
-
-                (cons_witness).into()
-            };
-
-            let mut allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
-                &mut cs.namespace(|| format!("allocated_cons_witness {i}")),
-                store,
-                &cons_circuit_witness,
-            )?;
-
-            let cont_circuit_witness = if let Some(ccw) = cont_circuit_witness {
-                ccw
-            } else {
-                let cont_witness = self
-                    .witness
-                    .map_or_else(|| HashWitness::new_blank(), |x| x.conts);
-                (cont_witness).into()
-            };
-
-            let mut allocated_cont_witness = AllocatedContWitness::from_cont_witness(
-                &mut cs.namespace(|| format!("allocated_cont_witness {i}")),
-                store,
-                &cont_circuit_witness,
-            )?;
-
-            reduce_expression(
-                &mut cs.namespace(|| format!("reduce expression {i}")),
-                &input_expr,
-                &input_env,
-                &input_cont,
-                &self.witness,
-                &mut allocated_cons_witness,
-                &mut allocated_cont_witness,
-                store,
-                folding_config,
-                g,
-            )
-        };
-
-        if let Some(store) = self.store {
-            reduce(store)
-        } else {
-            let store: Store<F> = Default::default();
-            store.hydrate_scalar_cache();
-            reduce(&store)
-        }
     }
 }
 
@@ -390,6 +305,7 @@ impl<'a, F: LurkField> CompResults<'a, F> {
     }
 }
 
+#[allow(dead_code)] //TODO(huitseeker): remove before flight (issue #874)
 fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
@@ -2674,6 +2590,7 @@ fn make_thunk<F: LurkField, CS: ConstraintSystem<F>>(
     Ok((result_expr, result_env, result_cont))
 }
 
+#[allow(dead_code)] // TODO(huitseeker): remove before flight (issue #874)
 fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cont: &AllocatedContPtr<F>,
