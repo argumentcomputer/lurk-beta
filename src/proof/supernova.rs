@@ -14,10 +14,9 @@ use nova::{
 };
 use serde::{Deserialize, Serialize};
 use std::{marker::PhantomData, ops::Index, sync::Arc};
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::{
-    circuit::MultiFrame,
     coprocessor::Coprocessor,
     error::ProofError,
     eval::{lang::Lang, Meta},
@@ -353,18 +352,6 @@ impl<F: LurkField, C: Coprocessor<F>> FoldingConfig<F, C> {
         match self {
             Self::IVC(_, rc) | Self::NIVC(_, rc) => *rc,
         }
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    /// Return the circuit index assigned to this `MultiFrame`'s inner computation, as labeled by its `Meta`, and determined by its `FoldingConfig`.
-    pub fn circuit_index(&self) -> usize {
-        debug!(
-            "getting circuit_index for {:?}: {}",
-            &self.meta,
-            self.folding_config.circuit_index(&self.meta)
-        );
-        self.folding_config.circuit_index(&self.meta)
     }
 }
 
