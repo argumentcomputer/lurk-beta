@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 
 use abomonation::Abomonation;
-use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use ff::{Field, PrimeField};
 use nova::{
     supernova::{
@@ -25,7 +24,7 @@ use crate::{
     field::LurkField,
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, G1, G2},
-        {EvaluationStore, FrameLike, MultiFrameTrait, Provable, Prover},
+        {EvaluationStore, FrameLike, MultiFrameTrait, Prover},
     },
 };
 
@@ -366,98 +365,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             self.folding_config.circuit_index(&self.meta)
         );
         self.folding_config.circuit_index(&self.meta)
-    }
-}
-
-/// Implement `supernova::StepCircuit` for `MultiFrame`. This is the universal Lurk circuit that will be included as the
-/// first circuit (index 0) of every Lurk NIVC circuit set.
-impl<F: LurkField, C: Coprocessor<F>> SuperStepCircuit<F> for MultiFrame<'_, F, C> {
-    fn arity(&self) -> usize {
-        self.public_input_size() / 2
-    }
-
-    fn circuit_index(&self) -> usize {
-        self.circuit_index()
-    }
-
-    fn synthesize<CS>(
-        &self,
-        cs: &mut CS,
-        pc: std::option::Option<&AllocatedNum<F>>,
-        z: &[AllocatedNum<F>],
-    ) -> Result<(std::option::Option<AllocatedNum<F>>, Vec<AllocatedNum<F>>), SynthesisError>
-    where
-        CS: ConstraintSystem<F>,
-    {
-        if let Some(pc) = pc {
-            if pc.get_value() == Some(F::ZERO) {
-                debug!("synthesizing StepCircuit for Lurk");
-            } else {
-                debug!(
-                    "synthesizing StepCircuit for Coprocessor with pc: {:?}",
-                    pc.get_value()
-                );
-            }
-        }
-        let output = <MultiFrame<'_, F, C> as nova::traits::circuit::StepCircuit<F>>::synthesize(
-            self, cs, z,
-        )?;
-
-        let next_pc = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "next_pc"), || {
-            self.next_pc
-                // This is missing in the case of a final `MultiFrame`. The Lurk circuit is defined to always have index
-                // 0, so it is a good default in this case.
-                .map_or(F::ZERO, |x| F::from(x as u64))
-        });
-        debug!("synthesizing with next_pc: {:?}", next_pc.get_value());
-
-        Ok((Some(next_pc), output))
-    }
-}
-
-/// All steps of an NIVC computation
-impl<'a, F, C1> NonUniformCircuit<G1<F>, G2<F>, MultiFrame<'a, F, C1>, C2<F>>
-    for MultiFrame<'a, F, C1>
-where
-    F: CurveCycleEquipped + LurkField,
-    C1: Coprocessor<F>,
-    <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
-{
-    fn num_circuits(&self) -> usize {
-        assert!(self.meta.is_lurk());
-        self.folding_config.lang().coprocessor_count() + 1
-    }
-
-    fn primary_circuit(&self, circuit_index: usize) -> Self {
-        debug!(
-            "getting primary_circuit for index {circuit_index} and Meta: {:?}",
-            self.meta
-        );
-        if circuit_index == 0 {
-            debug!("using Lurk circuit");
-            return self.clone();
-        };
-        if let Some(z_ptr) = self
-            .folding_config
-            .lang()
-            .get_coprocessor_z_ptr(circuit_index - 1)
-        {
-            let meta = Meta::Coprocessor(*z_ptr);
-            debug!(
-                "using coprocessor {} with meta: {:?}",
-                circuit_index - 1,
-                meta
-            );
-            Self::blank(self.folding_config.clone(), meta)
-        } else {
-            debug!("unsupported primary circuit index: {circuit_index}");
-            panic!("unsupported primary circuit index")
-        }
-    }
-
-    fn secondary_circuit(&self) -> C2<F> {
-        Default::default()
     }
 }
 

@@ -6,20 +6,14 @@ use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
 };
+use pasta_curves::Fq;
 
 use lurk::{
-    circuit::circuit_frame::MultiFrame,
-    eval::{
-        empty_sym_env,
-        lang::{Coproc, Lang},
-    },
+    eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::nova::NovaProver,
-    proof::supernova::FoldingConfig,
-    proof::Prover,
-    ptr::Ptr,
+    lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
+    proof::{supernova::FoldingConfig, MultiFrameTrait},
     state::State,
-    store::Store,
 };
 
 fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr<F> {
@@ -37,7 +31,7 @@ fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr
 "#
     );
 
-    store.read_with_state(state, &program).unwrap()
+    store.read(state, &program).unwrap()
 }
 
 fn synthesize<M: measurement::Measurement>(
@@ -46,8 +40,7 @@ fn synthesize<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
 ) {
     let limit = 1_000_000;
-    let lang_pallas = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
-    let lang_rc = Arc::new(lang_pallas.clone());
+    let lang_rc = Arc::new(Lang::<Fq, Coproc<Fq>>::new());
     let state = State::init_lurk_state().rccell();
 
     c.bench_with_input(
@@ -55,17 +48,10 @@ fn synthesize<M: measurement::Measurement>(
         &reduction_count,
         |b, reduction_count| {
             let store = Store::default();
-            let env = empty_sym_env(&store);
             let fib_n = (reduction_count / 3) as u64; // Heuristic, since one fib is 35 iterations.
             let ptr = fib::<pasta_curves::Fq>(&store, state.clone(), black_box(fib_n));
-            let prover = NovaProver::<_, _, MultiFrame<'_, _, _>>::new(
-                *reduction_count,
-                lang_pallas.clone(),
-            );
+            let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
-            let frames = prover
-                .get_evaluation_frames(ptr, env, &store, limit, lang_rc.clone())
-                .unwrap();
             let folding_config =
                 Arc::new(FoldingConfig::new_ivc(lang_rc.clone(), *reduction_count));
 

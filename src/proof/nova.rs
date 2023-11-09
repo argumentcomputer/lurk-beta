@@ -1,8 +1,7 @@
 #![allow(non_snake_case)]
 
 use abomonation::Abomonation;
-use bellpepper::util_cs::witness_cs::WitnessCS;
-use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+use bellpepper_core::{num::AllocatedNum, ConstraintSystem};
 use ff::Field;
 use nova::{
     errors::NovaError,
@@ -24,20 +23,12 @@ use std::{
 };
 
 use crate::{
-    circuit::{
-        gadgets::{
-            data::GlobalAllocations,
-            pointer::{AllocatedContPtr, AllocatedPtr},
-        },
-        CircuitFrame, MultiFrame,
-    },
     config::lurk_config,
     coprocessor::Coprocessor,
     error::ProofError,
     eval::{lang::Lang, Meta},
     field::LurkField,
     proof::{supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Prover},
-    store::Store,
 };
 
 /// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
@@ -104,8 +95,6 @@ pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<G2<F>, EE2<F>>;
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
 /// to reflect it this should not be used outside the Nova context
-pub type C1Lurk<'a, F, C> = crate::circuit::circuit_frame::MultiFrame<'a, F, C>;
-/// LEM's version of C1
 pub type C1LEM<'a, F, C> = crate::lem::multiframe::MultiFrame<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialCircuit<<G2<F> as Group>::Scalar>;
@@ -353,10 +342,8 @@ where
         let z0_secondary = Self::z0_secondary();
 
         assert_eq!(circuits[0].frames().unwrap().len(), num_iters_per_step);
-        let (_circuit_primary, circuit_secondary): (
-            MultiFrame<'_, F, C>,
-            TrivialCircuit<<G2<F> as Group>::Scalar>,
-        ) = crate::proof::nova::circuits(num_iters_per_step, lang);
+        let (_circuit_primary, circuit_secondary): (M, TrivialCircuit<<G2<F> as Group>::Scalar>) =
+            crate::proof::nova::circuits(num_iters_per_step, lang);
 
         tracing::debug!("circuits.len: {}", circuits.len());
 
@@ -500,159 +487,5 @@ where
 
     fn z0_secondary() -> Vec<<F::G2 as Group>::Scalar> {
         vec![<G2<F> as Group>::Scalar::ZERO]
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C> {
-    fn arity(&self) -> usize {
-        6
-    }
-
-    #[tracing::instrument(skip_all, name = "<MultiFrame as StepCircuit>::synthesize")]
-    fn synthesize<CS>(
-        &self,
-        cs: &mut CS,
-        z: &[AllocatedNum<F>],
-    ) -> Result<Vec<AllocatedNum<F>>, SynthesisError>
-    where
-        CS: ConstraintSystem<F>,
-    {
-        assert_eq!(self.arity(), z.len());
-
-        if cs.is_witness_generator() {
-            if let Some(w) = &self.cached_witness {
-                let aux = w.aux_slice();
-                let end = aux.len() - 6;
-                let inputs = &w.inputs_slice()[1..];
-
-                cs.extend_aux(aux);
-                cs.extend_inputs(inputs);
-
-                let scalars = &aux[end..];
-
-                let allocated = {
-                    let mut bogus_cs = WitnessCS::new();
-
-                    scalars
-                        .iter()
-                        .map(|scalar| AllocatedNum::alloc_infallible(&mut bogus_cs, || *scalar))
-                        .collect::<Vec<_>>()
-                };
-
-                return Ok(allocated);
-            }
-        };
-        let input_expr = AllocatedPtr::by_index(0, z);
-        let input_env = AllocatedPtr::by_index(1, z);
-        let input_cont = AllocatedContPtr::by_index(2, z);
-
-        let count = self.count;
-
-        let (new_expr, new_env, new_cont) = match self.meta {
-            Meta::Lurk => match self.frames.as_ref() {
-                Some(frames) => {
-                    let s = self.store.expect("store missing");
-                    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
-
-                    self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
-                }
-                None => {
-                    assert!(self.store.is_none());
-                    let s = Store::default();
-                    let blank_frame = CircuitFrame::blank();
-                    let frames = vec![blank_frame; count];
-
-                    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
-
-                    self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g)
-                }
-            },
-            Meta::Coprocessor(z_ptr) => {
-                let c = self
-                    .folding_config
-                    .lang()
-                    .get_coprocessor_from_zptr(&z_ptr)
-                    .expect("coprocessor not found for a frame that requires one");
-                match self.frames.as_ref() {
-                    Some(frames) => {
-                        assert_eq!(1, frames.len());
-                        let s = self.store.expect("store missing");
-                        let g =
-                            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
-
-                        c.synthesize_step_circuit(
-                            cs,
-                            s,
-                            &g,
-                            &z_ptr,
-                            &input_expr,
-                            &input_env,
-                            &input_cont,
-                            &Boolean::Constant(false),
-                        )?
-                    }
-                    None => {
-                        assert!(self.store.is_none());
-                        let s = Store::default();
-
-                        let g =
-                            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
-
-                        c.synthesize_step_circuit(
-                            cs,
-                            &s,
-                            &g,
-                            &z_ptr,
-                            &input_expr,
-                            &input_env,
-                            &input_cont,
-                            &Boolean::Constant(false),
-                        )?
-                    }
-                }
-            }
-        };
-
-        Ok(vec![
-            new_expr.tag().clone(),
-            new_expr.hash().clone(),
-            new_env.tag().clone(),
-            new_env.hash().clone(),
-            new_cont.tag().clone(),
-            new_cont.hash().clone(),
-        ])
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    #[allow(dead_code)] // TODO(huitseeker): is this used?
-    fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
-        let mut wcs = WitnessCS::new();
-
-        let input = self.input.unwrap();
-
-        use crate::tag::Tag;
-        let expr = s.hash_expr(&input.expr).unwrap();
-        let env = s.hash_expr(&input.env).unwrap();
-        let cont = s.hash_cont(&input.cont).unwrap();
-
-        let z_scalar = [
-            expr.tag().to_field(),
-            *expr.value(),
-            env.tag().to_field(),
-            *env.value(),
-            cont.tag().to_field(),
-            *cont.value(),
-        ];
-
-        let mut bogus_cs = WitnessCS::<F>::new();
-        let z: Vec<AllocatedNum<F>> = z_scalar
-            .iter()
-            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
-            .collect::<Vec<_>>();
-
-        let _ = self.clone().synthesize(&mut wcs, z.as_slice());
-
-        wcs
     }
 }

@@ -104,7 +104,7 @@ jobs:
       - name: Set bench output format type
         run: echo "LURK_BENCH_OUTPUT=commit-comment" | tee -a $GITHUB_ENV
       - name: Run GPU bench on base branch
-        run: just --dotenv-filename bench.env gpu-bench fibonacci_lem
+        run: just --dotenv-filename bench.env gpu-bench fibonacci
         working-directory: ${{ github.workspace }}/master/benches
       - name: Copy bench output to PR branch
         run: |
@@ -112,7 +112,7 @@ jobs:
           cp -r master/target/criterion target
           cp master/${{ env.BASE_REF }}.json .
       - name: Run GPU bench on PR branch
-        run: just --dotenv-filename bench.env gpu-bench fibonacci_lem
+        run: just --dotenv-filename bench.env gpu-bench fibonacci
         working-directory: ${{ github.workspace }}/benches
       - name: copy the benchmark template and prepare it with data
         run: |
