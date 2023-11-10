@@ -655,32 +655,6 @@ pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(and)
 }
 
-/// This is a replication of Bellpepper's original `and`, but receives a mutable
-/// reference for the constraint system instead of a copy
-#[allow(dead_code)]
-pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
-    cs: &mut CS,
-    a: &Boolean,
-    b: &Boolean,
-) -> Result<Boolean, SynthesisError> {
-    match (a, b) {
-        // false AND x is always false
-        (Boolean::Constant(false), _) | (_, Boolean::Constant(false)) => {
-            Ok(Boolean::Constant(false))
-        }
-        // true AND x is always x
-        (Boolean::Constant(true), x) | (x, Boolean::Constant(true)) => Ok(x.clone()),
-        // a AND (NOT b)
-        (Boolean::Is(is), Boolean::Not(not)) | (Boolean::Not(not), Boolean::Is(is)) => {
-            Ok(Boolean::Is(AllocatedBit::and_not(cs, is, not)?))
-        }
-        // (NOT a) AND (NOT b) = a NOR b
-        (Boolean::Not(a), Boolean::Not(b)) => Ok(Boolean::Is(AllocatedBit::nor(cs, a, b)?)),
-        // a AND b
-        (Boolean::Is(a), Boolean::Is(b)) => Ok(Boolean::Is(AllocatedBit::and(cs, a, b)?)),
-    }
-}
-
 /// Takes a boolean premise and a function that produces a `LinearCombination` (with same specification as `enforce`).
 /// Enforces the constraint that if `premise` is true, then the resulting linear combination evaluates to one.
 pub(crate) fn enforce_implication_lc<
