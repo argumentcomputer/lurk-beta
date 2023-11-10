@@ -27,7 +27,7 @@ pub mod lang;
 mod reduction;
 
 #[cfg(test)]
-pub(crate) mod tests;
+mod tests;
 
 #[derive(Clone, Debug, PartialEq, Copy, Eq)]
 pub struct IO<F: LurkField> {

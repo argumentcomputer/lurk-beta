@@ -2907,7 +2907,7 @@ fn test_eval_non_symbol_binding_error() {
 }
 
 #[cfg(test)]
-pub(crate) mod coproc {
+mod coproc {
     use super::super::lang::Lang;
     use super::super::*;
     use super::*;

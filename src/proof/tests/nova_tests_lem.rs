@@ -1,3 +1,4 @@
+use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
@@ -8,7 +9,7 @@ use crate::{
     proof::nova::C1LEM,
     state::user_sym,
     state::State,
-    tag::{ExprTag, Op, Op1, Op2},
+    tag::{ExprTag, Op, Op1, Op2}, field::LurkField,
 };
 
 use super::{nova_test_full_aux, nova_test_full_aux2, test_aux, DEFAULT_REDUCTION_COUNT};
@@ -3246,7 +3247,14 @@ fn test_prove_head_with_sym_mimicking_value() {
 
 #[test]
 fn test_dumb_lang() {
-    use crate::{coprocessor::test::DumbCoprocessor, eval::tests::coproc::DumbCoproc};
+    use crate::coprocessor::test::DumbCoprocessor;
+
+    use crate::{self as lurk};
+
+    #[derive(Clone, Debug, Coproc)]
+    enum DumbCoproc<F: LurkField> {
+        DC(DumbCoprocessor<F>),
+    }
 
     let s = &Store::<Fr>::default();
 
