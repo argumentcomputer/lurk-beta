@@ -9,10 +9,8 @@ use crate::{
     field::LurkField,
 };
 
-use super::gadgets::constraints::{self, alloc_equal, alloc_is_zero, enforce_implication, sub};
-use crate::circuit::circuit_frame::constraints::{
-    allocate_is_negative, boolean_to_num, mul,
-};
+use super::gadgets::constraints::{self, alloc_equal, enforce_implication};
+use crate::circuit::circuit_frame::constraints::boolean_to_num;
 use crate::coprocessor::Coprocessor;
 use crate::eval::{Witness, IO};
 use crate::lurk_sym_ptr;
@@ -37,98 +35,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
             _p: Default::default(),
         }
     }
-}
-
-// Enforce div and mod operation for U64. We need to show that
-// arg1 = q * arg2 + r, such that 0 <= r < arg2.
-fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    cond: &Boolean,
-    arg1: &AllocatedPtr<F>,
-    arg2: &AllocatedPtr<F>,
-) -> Result<(AllocatedNum<F>, AllocatedNum<F>), SynthesisError> {
-    let arg1_u64 = match arg1.hash().get_value() {
-        Some(v) => v.to_u64_unchecked(),
-        None => 0, // Blank and Dummy
-    };
-    let arg2_u64 = match arg2.hash().get_value() {
-        Some(v) => v.to_u64_unchecked(),
-        None => 0, // Blank and Dummy
-    };
-
-    let (q, r) = if arg2_u64 != 0 {
-        (arg1_u64 / arg2_u64, arg1_u64 % arg2_u64)
-    } else {
-        (0, 0) // Dummy
-    };
-
-    let alloc_r_num =
-        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "r num"), || F::from_u64(r));
-    let alloc_q_num =
-        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "q num"), || F::from_u64(q));
-    let alloc_arg1_num =
-        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "arg1 num"), || F::from_u64(arg1_u64));
-    let alloc_arg2_num =
-        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "arg2 num"), || F::from_u64(arg2_u64));
-
-    // a = b * q + r
-    let product_u64mod = mul(
-        &mut cs.namespace(|| "product(q,arg2)"),
-        &alloc_q_num,
-        &alloc_arg2_num,
-    )?;
-    let sum_u64mod =
-        product_u64mod.add(&mut cs.namespace(|| "sum remainder mod u64"), &alloc_r_num)?;
-    let u64mod_decomp = alloc_equal(
-        &mut cs.namespace(|| "check u64 mod decomposition"),
-        &sum_u64mod,
-        &alloc_arg1_num,
-    )?;
-    let b_is_zero = alloc_is_zero(&mut cs.namespace(|| "b is zero"), arg2.hash())?;
-    let b_is_not_zero_and_cond = Boolean::and(
-        &mut cs.namespace(|| "b is not zero and cond"),
-        &b_is_zero.not(),
-        cond,
-    )?;
-    enforce_implication(
-        &mut cs.namespace(|| "enforce u64 mod decomposition"),
-        &b_is_not_zero_and_cond,
-        &u64mod_decomp,
-    );
-
-    enforce_less_than_bound(
-        &mut cs.namespace(|| "remainder in range b"),
-        cond,
-        &alloc_r_num,
-        &alloc_arg2_num,
-    )?;
-
-    Ok((alloc_q_num, alloc_r_num))
-}
-
-// Given that `cond` is satisfied, enforce the num < bound.
-// This is done by proving (bound - num) is positive.
-// `num` and `bound` must be a positive field element.
-// `cond` is a Boolean condition that enforces the validation iff it is True.
-fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    cond: &Boolean,
-    num: &AllocatedNum<F>,
-    bound: &AllocatedNum<F>,
-) -> Result<(), SynthesisError> {
-    let diff_bound_num = sub(&mut cs.namespace(|| "bound minus num"), bound, num)?;
-
-    let diff_bound_num_is_negative = allocate_is_negative(
-        &mut cs.namespace(|| "diff bound num is negative"),
-        &diff_bound_num,
-    )?;
-
-    enforce_implication(
-        &mut cs.namespace(|| "enforce u64 range"),
-        cond,
-        &diff_bound_num_is_negative.not(),
-    );
-    Ok(())
 }
 
 pub fn destructure_list<F: LurkField, CS: ConstraintSystem<F>>(
@@ -265,118 +171,9 @@ mod tests {
     use super::*;
     use crate::circuit::circuit_frame::constraints::popcount_equal;
     use crate::circuit::gadgets::constraints::implies_pack;
-    use crate::store::Store;
     use bellpepper_core::test_cs::TestConstraintSystem;
 
     use pasta_curves::pallas::Scalar as Fr;
-
-    #[test]
-    fn test_enforce_less_than_bound_corner_case() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-
-        let alloc_most_positive =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "most positive"), || {
-                Fr::most_positive()
-            });
-        let alloc_num =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "num"), || Fr::from_u64(42));
-        let cond = Boolean::Constant(true);
-
-        let res = enforce_less_than_bound(
-            &mut cs.namespace(|| "enforce less than bound"),
-            &cond,
-            &alloc_num,
-            &alloc_most_positive,
-        );
-        assert!(res.is_ok());
-        assert!(cs.is_satisfied());
-    }
-
-    #[test]
-    fn test_enforce_less_than_bound() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-        let alloc_num =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "num"), || Fr::from_u64(42));
-        let alloc_bound =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "bound"), || Fr::from_u64(43));
-        let cond = Boolean::Constant(true);
-
-        let res = enforce_less_than_bound(
-            &mut cs.namespace(|| "enforce less than bound"),
-            &cond,
-            &alloc_num,
-            &alloc_bound,
-        );
-        assert!(res.is_ok());
-        assert!(cs.is_satisfied());
-    }
-
-    #[test]
-    fn test_enforce_less_than_bound_negative() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-        let alloc_num =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "num"), || Fr::from_u64(43));
-        let alloc_bound =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "bound"), || Fr::from_u64(42));
-        let cond = Boolean::Constant(true);
-
-        let res = enforce_less_than_bound(
-            &mut cs.namespace(|| "enforce less than bound"),
-            &cond,
-            &alloc_num,
-            &alloc_bound,
-        );
-        assert!(res.is_ok());
-        assert!(!cs.is_satisfied());
-    }
-
-    #[test]
-    fn test_enforce_u64_div_mod() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
-
-        let a = s.num(42);
-        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
-        let b = s.num(5);
-        let alloc_b = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "b"), s, || Ok(&b)).unwrap();
-
-        let cond = Boolean::Constant(true);
-
-        let (q, r) = enforce_u64_div_mod(
-            &mut cs.namespace(|| "enforce u64 div mod"),
-            &cond,
-            &alloc_a,
-            &alloc_b,
-        )
-        .unwrap();
-        assert!(cs.is_satisfied());
-        assert_eq!(q.get_value(), Some(Fr::from_u64(8)));
-        assert_eq!(r.get_value(), Some(Fr::from_u64(2)));
-    }
-
-    #[test]
-    fn test_enforce_u64_div_mod_zero() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
-
-        let a = s.num(42);
-        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
-        let b = s.num(0);
-        let alloc_b = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "b"), s, || Ok(&b)).unwrap();
-
-        let cond = Boolean::Constant(true);
-
-        let (q, r) = enforce_u64_div_mod(
-            &mut cs.namespace(|| "enforce u64 div mod"),
-            &cond,
-            &alloc_a,
-            &alloc_b,
-        )
-        .unwrap();
-        assert!(cs.is_satisfied());
-        assert_eq!(q.get_value(), Some(Fr::from_u64(0)));
-        assert_eq!(r.get_value(), Some(Fr::from_u64(0)));
-    }
 
     #[test]
     fn test_enforce_popcount() {
