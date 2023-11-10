@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (fdaaaf9f9 2023-11-08)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (0f44eb32f 2023-11-09)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -575,11 +575,6 @@
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
@@ -993,22 +988,21 @@
     }
 
     <span class="kw">pub fn </span>handle_non_meta(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.eval_expr_and_memoize(expr_ptr)
-            .map(|(output, iterations)| {
-                <span class="kw">let </span>iterations_display = <span class="self">Self</span>::pretty_iterations_display(iterations);
-                <span class="kw">match </span>output[<span class="number">2</span>].tag() {
-                    Tag::Cont(ContTag::Terminal) =&gt; {
-                        <span class="macro">println!</span>(
-                            <span class="string">&quot;[{iterations_display}] =&gt; {}&quot;</span>,
-                            output[<span class="number">0</span>].fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
-                        )
-                    }
-                    Tag::Cont(ContTag::Error) =&gt; {
-                        <span class="macro">println!</span>(<span class="string">&quot;Evaluation encountered an error after {iterations_display}&quot;</span>)
-                    }
-                    <span class="kw">_ </span>=&gt; <span class="macro">println!</span>(<span class="string">&quot;Limit reached after {iterations_display}&quot;</span>),
-                }
-            })
+        <span class="kw">let </span>(output, iterations) = <span class="self">self</span>.eval_expr_and_memoize(expr_ptr)<span class="question-mark">?</span>;
+        <span class="kw">let </span>iterations_display = <span class="self">Self</span>::pretty_iterations_display(iterations);
+        <span class="kw">match </span>output[<span class="number">2</span>].tag() {
+            Tag::Cont(ContTag::Terminal) =&gt; {
+                <span class="macro">println!</span>(
+                    <span class="string">&quot;[{iterations_display}] =&gt; {}&quot;</span>,
+                    output[<span class="number">0</span>].fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
+                );
+                <span class="prelude-val">Ok</span>(())
+            }
+            Tag::Cont(ContTag::Error) =&gt; {
+                <span class="macro">bail!</span>(<span class="string">&quot;Evaluation encountered an error after {iterations_display}&quot;</span>)
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Limit reached after {iterations_display}&quot;</span>),
+        }
     }
 
     <span class="kw">fn </span>handle_meta(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1019,7 +1013,7 @@
                 <span class="kw">match </span><span class="self">self</span>.meta.get(cmdstr) {
                     <span class="prelude-val">Some</span>(cmd) =&gt; <span class="kw">match </span>(cmd.run)(<span class="self">self</span>, cmdstr, <span class="kw-2">&amp;</span>cdr) {
                         <span class="prelude-val">Ok</span>(()) =&gt; (),
-                        <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">println!</span>(<span class="string">&quot;meta command failed with {}&quot;</span>, e),
+                        <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;Meta command failed with {}&quot;</span>, e),
                     },
                     <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Unsupported meta command: {cmdstr}&quot;</span>),
                 }
@@ -1046,6 +1040,8 @@
         <span class="kw">let </span>(syntax_start, <span class="kw-2">mut </span>new_input, ptr, is_meta) =
             <span class="self">self</span>.store.read_maybe_meta(<span class="self">self</span>.state.clone(), <span class="kw-2">&amp;</span>input)<span class="question-mark">?</span>;
         <span class="kw">if </span>demo {
+            <span class="comment">// adjustment to print the exclamation mark in the right place
+            </span><span class="kw">let </span>syntax_start = syntax_start - usize::from(is_meta);
             <span class="kw">let </span>potential_commentaries = <span class="kw-2">&amp;</span>input[..syntax_start];
             <span class="kw">let </span>actual_syntax = <span class="kw-2">&amp;</span>input[syntax_start..new_input.location_offset()];
             <span class="kw">let </span>input_marker = <span class="kw-2">&amp;</span><span class="self">self</span>.input_marker();
@@ -1070,11 +1066,7 @@
     }
 
     <span class="kw">pub fn </span>load_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file_path: <span class="kw-2">&amp;</span>Utf8Path, demo: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>input = <span class="kw">if </span>std::env::var(<span class="string">&quot;LURK_PANIC_IF_CANT_LOAD&quot;</span>) == <span class="prelude-val">Ok</span>(<span class="string">&quot;true&quot;</span>.into()) {
-            read_to_string(file_path).unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;File not found: {}&quot;</span>, file_path))
-        } <span class="kw">else </span>{
-            read_to_string(file_path)<span class="question-mark">?
-        </span>};
+        <span class="kw">let </span>input = read_to_string(file_path)<span class="question-mark">?</span>;
         <span class="kw">if </span>demo {
             <span class="macro">println!</span>(<span class="string">&quot;Loading {file_path} in demo mode&quot;</span>);
         } <span class="kw">else </span>{
@@ -1125,24 +1117,22 @@
                         <span class="prelude-val">Ok</span>((.., expr_ptr, is_meta)) =&gt; {
                             <span class="kw">if </span>is_meta {
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_meta(expr_ptr) {
-                                    <span class="macro">println!</span>(<span class="string">&quot;!Error: {e}&quot;</span>);
+                                    <span class="macro">eprintln!</span>(<span class="string">&quot;!Error: {e}&quot;</span>)
                                 }
                             } <span class="kw">else if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_non_meta(expr_ptr) {
-                                <span class="macro">println!</span>(<span class="string">&quot;Error: {e}&quot;</span>);
+                                <span class="macro">eprintln!</span>(<span class="string">&quot;Error: {e}&quot;</span>)
                             }
                         }
                         <span class="prelude-val">Err</span>(parser::Error::NoInput) =&gt; (),
-                        <span class="prelude-val">Err</span>(e) =&gt; {
-                            <span class="macro">println!</span>(<span class="string">&quot;Read error: {e}&quot;</span>)
-                        }
+                        <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">eprintln!</span>(<span class="string">&quot;Read error: {e}&quot;</span>),
                     }
                 }
                 <span class="prelude-val">Err</span>(ReadlineError::Interrupted | ReadlineError::Eof) =&gt; {
                     <span class="macro">println!</span>(<span class="string">&quot;Exiting...&quot;</span>);
                     <span class="kw">break</span>;
                 }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">println!</span>(<span class="string">&quot;Read line error: {err}&quot;</span>);
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">eprintln!</span>(<span class="string">&quot;Read line error: {e}&quot;</span>);
                     <span class="kw">break</span>;
                 }
             }
