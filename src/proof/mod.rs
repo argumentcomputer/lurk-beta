@@ -18,11 +18,11 @@ mod tests;
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::Meta;
-use crate::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
+use crate::eval::{lang::Lang};
 use crate::field::LurkField;
 
-use crate::ptr::Ptr;
-use crate::store::Store;
+
+
 use ::nova::traits::circuit::StepCircuit;
 use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::ConstraintSystem;
@@ -239,23 +239,6 @@ pub trait Prover<'a, F: LurkField, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a
                     .map(|_| (multiframe.clone(), cs))
             })
             .collect::<Result<_, _>>()
-    }
-    /// Evaluates and generates the `Frame`s of the computation given the expression, environment, and store
-    fn get_evaluation_frames(
-        &self,
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &Store<F>,
-        limit: usize,
-        lang: Arc<Lang<F, C>>,
-    ) -> Result<Vec<Frame<IO<F>, Witness<F>, F, C>>, ProofError> {
-        let padding_predicate = |count| self.needs_frame_padding(count);
-
-        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, &lang)?;
-
-        store.hydrate_scalar_cache();
-
-        Ok(frames)
     }
 }
 
