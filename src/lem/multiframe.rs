@@ -481,7 +481,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                         let padding_frame = lurk_step
                             .call_simple(&output, store, lang, 0)
                             .expect("reduction step failed");
-                        assert_eq!(padding_frame.input, padding_frame.output);
+                        assert_eq!(output, padding_frame.output);
                         inner_frames.resize(reduction_count, padding_frame.clone());
                         inner_frames
                     } else {
@@ -554,7 +554,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                             let padding_frame = lurk_step
                                 .call_simple(&output, store, lang, 0)
                                 .expect("reduction step failed");
-                            assert_eq!(padding_frame.input, padding_frame.output);
+                            assert_eq!(output, padding_frame.output);
                             inner_frames.resize(reduction_count, padding_frame);
                         }
 

@@ -219,7 +219,7 @@ ledger2
 
 ;; Now we can transfer one unit from Church to Satoshi like before.
 
-!(chain 0x0757a47095c97d0a58a8ff66a2146949ee9d60d3f0a82887c203edf1748be711 '(1 0 2))
+!(chain 0x099f5f1cef164ac0a5ef8d6b0cefd930d2d0bf40666df3ae1b12abc33a5d297a '(1 0 2))
 
 !(prove)
 
@@ -227,16 +227,16 @@ ledger2
 
 ;; Then we can transfer 5 more, proceeding from the new head of the chain.
 
-!(chain 0x0d0b562063718f3623c1749268da4dd74ed33142edc411f4e74d7a84e64f3f30 '(5 0 2))
+!(chain 0x11abc1857d88646e3a6a2d0be605a3639feca2b79191c65efb7c6c139465820e '(5 0 2))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_045d2fef5862777cf50a9dc8df50650f1aebfcbfb8135adfea57fb8f45389af4") 
+!(verify "Nova_Pallas_10_3b5c0928297a8380b1003b343b2b35522b3c16a03fbf69b3deea91c50cbdfc66") 
 
 ;; And once more, this time we'll transfer 20 from Turing to Church.
 
-!(chain 0x3e232dc8d44c85697fa4205d0d945014d34b980af498aed9194216c27c489e05 '(20 1 0))
+!(chain 0x007f5ed09b15a2af11a0504a46884aff364eb7bb1e7e9543431443b962166cb5 '(20 1 0))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_25c76318cda48570568b9bb766ee9a906790c4dc94c96b1d6549e96c3bff8aa7")
+!(verify "Nova_Pallas_10_3dc75e7fc1fd2a629b04e6e7469ed20711a4012b03c3f1205c18a351b9cdb7ca")

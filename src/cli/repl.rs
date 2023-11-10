@@ -411,22 +411,21 @@ impl Repl<F> {
     }
 
     pub fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
-        self.eval_expr_and_memoize(expr_ptr)
-            .map(|(output, iterations)| {
-                let iterations_display = Self::pretty_iterations_display(iterations);
-                match output[2].tag() {
-                    Tag::Cont(ContTag::Terminal) => {
-                        println!(
-                            "[{iterations_display}] => {}",
-                            output[0].fmt_to_string(&self.store, &self.state.borrow())
-                        )
-                    }
-                    Tag::Cont(ContTag::Error) => {
-                        println!("Evaluation encountered an error after {iterations_display}")
-                    }
-                    _ => println!("Limit reached after {iterations_display}"),
-                }
-            })
+        let (output, iterations) = self.eval_expr_and_memoize(expr_ptr)?;
+        let iterations_display = Self::pretty_iterations_display(iterations);
+        match output[2].tag() {
+            Tag::Cont(ContTag::Terminal) => {
+                println!(
+                    "[{iterations_display}] => {}",
+                    output[0].fmt_to_string(&self.store, &self.state.borrow())
+                );
+                Ok(())
+            }
+            Tag::Cont(ContTag::Error) => {
+                bail!("Evaluation encountered an error after {iterations_display}")
+            }
+            _ => bail!("Limit reached after {iterations_display}"),
+        }
     }
 
     fn handle_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
@@ -437,7 +436,7 @@ impl Repl<F> {
                 match self.meta.get(cmdstr) {
                     Some(cmd) => match (cmd.run)(self, cmdstr, &cdr) {
                         Ok(()) => (),
-                        Err(e) => println!("meta command failed with {}", e),
+                        Err(e) => bail!("Meta command failed with {}", e),
                     },
                     None => bail!("Unsupported meta command: {cmdstr}"),
                 }
@@ -464,6 +463,8 @@ impl Repl<F> {
         let (syntax_start, mut new_input, ptr, is_meta) =
             self.store.read_maybe_meta(self.state.clone(), &input)?;
         if demo {
+            // adjustment to print the exclamation mark in the right place
+            let syntax_start = syntax_start - usize::from(is_meta);
             let potential_commentaries = &input[..syntax_start];
             let actual_syntax = &input[syntax_start..new_input.location_offset()];
             let input_marker = &self.input_marker();
@@ -488,11 +489,7 @@ impl Repl<F> {
     }
 
     pub fn load_file(&mut self, file_path: &Utf8Path, demo: bool) -> Result<()> {
-        let input = if std::env::var("LURK_PANIC_IF_CANT_LOAD") == Ok("true".into()) {
-            read_to_string(file_path).unwrap_or_else(|_| panic!("File not found: {}", file_path))
-        } else {
-            read_to_string(file_path)?
-        };
+        let input = read_to_string(file_path)?;
         if demo {
             println!("Loading {file_path} in demo mode");
         } else {
@@ -543,24 +540,22 @@ impl Repl<F> {
                         Ok((.., expr_ptr, is_meta)) => {
                             if is_meta {
                                 if let Err(e) = self.handle_meta(expr_ptr) {
-                                    println!("!Error: {e}");
+                                    eprintln!("!Error: {e}")
                                 }
                             } else if let Err(e) = self.handle_non_meta(expr_ptr) {
-                                println!("Error: {e}");
+                                eprintln!("Error: {e}")
                             }
                         }
                         Err(parser::Error::NoInput) => (),
-                        Err(e) => {
-                            println!("Read error: {e}")
-                        }
+                        Err(e) => eprintln!("Read error: {e}"),
                     }
                 }
                 Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
                     println!("Exiting...");
                     break;
                 }
-                Err(err) => {
-                    println!("Read line error: {err}");
+                Err(e) => {
+                    eprintln!("Read line error: {e}");
                     break;
                 }
             }

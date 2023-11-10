@@ -37,7 +37,6 @@ fn test_lurk_lib() {
     lurk_lib_examples.into_par_iter().for_each(|f| {
         let mut cmd = lurk_cmd();
         cmd.current_dir(LURK_LIB_EXAMPLES_DIR);
-        cmd.env("LURK_PANIC_IF_CANT_LOAD", "true");
         cmd.arg(f);
         cmd.assert().success();
     });
