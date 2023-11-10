@@ -7,14 +7,12 @@ use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, Syn
 use crate::{
     circuit::gadgets::{data::GlobalAllocations, pointer::AllocatedPtr},
     field::LurkField,
-    hash_witness::ConsName,
 };
 
-use super::gadgets::constraints::{self, alloc_equal, alloc_is_zero, enforce_implication, or, sub};
+use super::gadgets::constraints::{self, alloc_equal, alloc_is_zero, enforce_implication, sub};
 use crate::circuit::circuit_frame::constraints::{
     allocate_is_negative, boolean_to_num, mul,
 };
-use crate::circuit::gadgets::hashes::AllocatedConsWitness;
 use crate::coprocessor::Coprocessor;
 use crate::eval::{Witness, IO};
 use crate::lurk_sym_ptr;
@@ -131,181 +129,6 @@ fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
         &diff_bound_num_is_negative.not(),
     );
     Ok(())
-}
-
-fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    maybe_cons: &AllocatedPtr<F>,
-    name: ConsName,
-    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
-    not_dummy: &Boolean,
-    _store: &Store<F>,
-) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-    let maybe_cons_is_nil = maybe_cons.is_nil(&mut cs.namespace(|| "maybe_cons_is_nil"), g)?;
-
-    let cons_not_dummy = and!(cs, &maybe_cons_is_nil.not(), not_dummy)?;
-
-    let expect_dummy = !(cons_not_dummy.get_value().unwrap_or(false));
-
-    let (allocated_car, allocated_cdr, allocated_digest) =
-        allocated_cons_witness.get_cons(name, expect_dummy);
-
-    let real_cons = alloc_equal(
-        &mut cs.namespace(|| "cons is real"),
-        maybe_cons.hash(),
-        allocated_digest,
-    )?;
-
-    if cons_not_dummy.get_value().unwrap_or(false) && !real_cons.get_value().unwrap_or(true) {
-        tracing::debug!(
-            "{:?} {:?}",
-            maybe_cons.hash().get_value(),
-            &allocated_digest.get_value()
-        );
-        panic!("tried to take car_cdr of a non-dummy cons ({name:?}) but supplied wrong value");
-    }
-
-    implies!(cs, &cons_not_dummy, &real_cons);
-
-    let res_car = pick_ptr!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_car)?;
-    let res_cdr = pick_ptr!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_cdr)?;
-
-    Ok((res_car, res_cdr))
-}
-
-fn extend_named<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    env: &AllocatedPtr<F>,
-    var: &AllocatedPtr<F>,
-    val: &AllocatedPtr<F>,
-    name: ConsName,
-    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
-    not_dummy: &Boolean,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let new_binding = AllocatedPtr::construct_cons_named(
-        &mut cs.namespace(|| "extend binding"),
-        g,
-        var,
-        val,
-        ConsName::Binding,
-        allocated_cons_witness,
-        not_dummy,
-    )?;
-    AllocatedPtr::construct_cons_named(
-        cs,
-        g,
-        &new_binding,
-        env,
-        name,
-        allocated_cons_witness,
-        not_dummy,
-    )
-}
-
-fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    env: &AllocatedPtr<F>,
-    var: &AllocatedPtr<F>,
-    val: &AllocatedPtr<F>,
-    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
-    not_dummy: &Boolean,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let (binding_or_env, rest) = car_cdr_named(
-        &mut cs.namespace(|| "car_cdr env"),
-        g,
-        env,
-        ConsName::Env,
-        allocated_cons_witness,
-        not_dummy,
-        store,
-    )?;
-    let (var_or_binding, _val_or_more_bindings) = car_cdr_named(
-        &mut cs.namespace(|| "car_cdr binding_or_env"),
-        g,
-        &binding_or_env,
-        ConsName::EnvCar,
-        allocated_cons_witness,
-        not_dummy,
-        store,
-    )?;
-
-    let var_or_binding_is_cons =
-        var_or_binding.is_cons(&mut cs.namespace(|| "var_or_binding_is_cons"))?;
-
-    let cons = AllocatedPtr::construct_cons_named(
-        &mut cs.namespace(|| "cons var val"),
-        g,
-        var,
-        val,
-        ConsName::NewRecCadr,
-        allocated_cons_witness,
-        not_dummy,
-    )?;
-
-    let cons_branch_not_dummy = and!(cs, &var_or_binding_is_cons, not_dummy)?;
-    let non_cons_branch_not_dummy = and!(cs, &var_or_binding_is_cons.not(), not_dummy)?;
-    let list = AllocatedPtr::construct_cons_named(
-        &mut cs.namespace(|| "list cons"),
-        g,
-        &cons,
-        &g.nil_ptr,
-        ConsName::NewRec,
-        allocated_cons_witness,
-        &non_cons_branch_not_dummy,
-    )?;
-
-    let new_env_if_sym_or_nil = AllocatedPtr::construct_cons_named(
-        &mut cs.namespace(|| "new_env_if_sym_or_nil"),
-        g,
-        &list,
-        env,
-        ConsName::ExtendedRec,
-        allocated_cons_witness,
-        &non_cons_branch_not_dummy,
-    )?;
-
-    let cons2 = AllocatedPtr::construct_cons_named(
-        &mut cs.namespace(|| "cons cons binding_or_env"),
-        g,
-        &cons,
-        &binding_or_env,
-        ConsName::NewRec,
-        allocated_cons_witness,
-        &cons_branch_not_dummy,
-    )?;
-
-    let cons3 = AllocatedPtr::construct_cons_named(
-        &mut cs.namespace(|| "cons cons2 rest"),
-        g,
-        &cons2,
-        &rest,
-        ConsName::ExtendedRec,
-        allocated_cons_witness,
-        &cons_branch_not_dummy,
-    )?;
-
-    let is_sym = var_or_binding.is_sym(&mut cs.namespace(|| "var_or_binding is sym"))?;
-    let is_nil = var_or_binding.is_nil(&mut cs.namespace(|| "var_or_binding is nil"), g)?;
-    let is_sym_or_nil = or!(cs, &is_sym, &is_nil)?;
-    let is_cons = var_or_binding_is_cons;
-
-    let new_env_if_cons = AllocatedPtr::pick(
-        &mut cs.namespace(|| "new_env_if_cons"),
-        &is_cons,
-        &cons3,
-        &g.error_ptr, // This is being used as a signal, since extend_rec is expected to return a valid env.
-    )?;
-
-    AllocatedPtr::pick(
-        &mut cs.namespace(|| "extend_rec result"),
-        &is_sym_or_nil,
-        &new_env_if_sym_or_nil,
-        &new_env_if_cons,
-    )
 }
 
 pub fn destructure_list<F: LurkField, CS: ConstraintSystem<F>>(
