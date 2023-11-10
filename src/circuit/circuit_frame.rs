@@ -20,8 +20,6 @@ use crate::eval::{Witness, IO};
 use crate::lurk_sym_ptr;
 use crate::store::Store;
 
-use num_traits::FromPrimitive;
-
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
@@ -443,7 +441,7 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 mod tests {
     use super::*;
     use crate::circuit::circuit_frame::constraints::popcount_equal;
-    use crate::circuit::gadgets::constraints::enforce_pack;
+    use crate::circuit::gadgets::constraints::implies_pack;
     use crate::store::Store;
     use bellpepper_core::test_cs::TestConstraintSystem;
 
@@ -590,7 +588,7 @@ mod tests {
         let a_num =
             AllocatedNum::alloc_infallible(&mut cs.namespace(|| "a num"), || Fr::from_u64(42));
         let bits = a_num.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
-        enforce_pack(&mut cs, &bits, &a_num);
+        implies_pack(&mut cs, &Boolean::Constant(true), &bits, &a_num);
         assert!(cs.is_satisfied());
     }
 }

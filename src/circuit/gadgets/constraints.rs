@@ -178,15 +178,6 @@ pub(crate) fn implies_pack<F: LurkField, CS: ConstraintSystem<F>>(
     cs.enforce(|| "pack", diff, premise_lc, zero);
 }
 
-/// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
-pub(crate) fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: CS,
-    v: &[Boolean],
-    num: &AllocatedNum<F>,
-) {
-    implies_pack(cs, &Boolean::Constant(true), v, num)
-}
-
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
 ///
 /// a - b = difference
