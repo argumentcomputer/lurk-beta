@@ -816,7 +816,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
                 Boolean::and(
                     &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
                     a,
-                    &component_is_real
+                    &component_is_real,
                 )?;
             } else {
                 acc = Some(component_is_real.clone());
@@ -864,7 +864,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
                 Boolean::and(
                     &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
                     a,
-                    &component_is_real
+                    &component_is_real,
                 )?;
             } else {
                 acc = Some(component_is_real.clone());
