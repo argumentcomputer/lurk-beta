@@ -203,8 +203,8 @@ where
 {
     let (circuit_primary, circuit_secondary) = circuits(num_iters_per_step, lang);
 
-    let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<G1<F>>>::commitment_key_floor();
-    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<G2<F>>>::commitment_key_floor();
+    let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<G1<F>>>::ck_floor();
+    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<G2<F>>>::ck_floor();
 
     let pp = nova::PublicParams::new(
         &circuit_primary,
