@@ -598,11 +598,12 @@ impl MetaCmd<F> {
             let Ptr::Atom(Tag::Expr(ExprTag::Comm), hash) = comm else {
                 bail!("Second component of a chain must be a commitment")
             };
-            let (_, fun) = repl
+            // retrieve from store to persist
+            let (secret, fun) = repl
                 .store
                 .open(hash)
                 .expect("data must have been committed");
-            repl.hide(F::NON_HIDING_COMMITMENT_SECRET, *fun)
+            repl.hide(*secret, *fun)
         },
     };
 }

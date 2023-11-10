@@ -58,6 +58,7 @@ fn test_prove_and_verify() {
     file.write_all(b"!(verify \"Nova_Pallas_10_3f2526abf20fc9006dd93c0d3ff49954ef070ef52d2e88426974de42cc27bdb2\")\n").unwrap();
 
     let mut cmd = lurk_cmd();
+    cmd.env("LURK_PERF", "max-parallel-simple");
     cmd.arg("load");
     cmd.arg(lurk_file.into_string());
     cmd.arg("--public-params-dir");
@@ -68,4 +69,20 @@ fn test_prove_and_verify() {
     cmd.arg(commit_dir);
 
     cmd.assert().success();
+}
+
+#[test]
+fn test_repl_panic() {
+    let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
+    let tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
+    let lurk_file = tmp_dir.join("panic.lurk");
+
+    let mut file = File::create(lurk_file.clone()).unwrap();
+    // `x` is not bound
+    file.write_all(b"x\n").unwrap();
+
+    let mut cmd = lurk_cmd();
+    cmd.arg("load");
+    cmd.arg(lurk_file.into_string());
+    cmd.assert().failure();
 }
