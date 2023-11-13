@@ -1,6 +1,6 @@
 mod meta_cmd;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use rustyline::{
     error::ReadlineError,
@@ -13,7 +13,6 @@ use std::{cell::RefCell, collections::HashMap, fs::read_to_string, io::Write, rc
 use tracing::info;
 
 use crate::{
-    cli::paths::proof_path,
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
@@ -40,8 +39,8 @@ use super::{
     commitment::Commitment,
     field_data::load,
     lurk_proof::{LurkProof, LurkProofMeta},
-    paths::commitment_path,
-    zstore::{populate_store, populate_z_store, ZStore},
+    paths::{commitment_path, repl_history},
+    zstore::ZDag,
 };
 
 use meta_cmd::MetaCmd;
@@ -104,41 +103,41 @@ impl<F: LurkField> Repl<F> {
         &self.evaluation
     }
 
-    fn peek1(&self, cmd: &str, args: &Ptr<F>) -> Result<Ptr<F>> {
+    fn peek1(&self, args: &Ptr<F>) -> Result<Ptr<F>> {
         let (first, rest) = self.store.car_cdr(args)?;
         if !rest.is_nil() {
-            bail!("`{cmd}` accepts at most one argument")
+            bail!("At most one argument is accepted")
         }
         Ok(first)
     }
 
-    fn peek2(&self, cmd: &str, args: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {
+    fn peek2(&self, args: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {
         let (first, rest) = self.store.car_cdr(args)?;
         let (second, rest) = self.store.car_cdr(&rest)?;
         if !rest.is_nil() {
-            bail!("`{cmd}` accepts at most two arguments")
+            bail!("At most two arguments are accepted")
         }
         Ok((first, second))
     }
 
+    #[inline]
     fn get_string(&self, ptr: &Ptr<F>) -> Result<String> {
-        match self.store.fetch_string(ptr) {
-            None => bail!(
+        self.store.fetch_string(ptr).ok_or_else(|| {
+            anyhow!(
                 "Expected string. Got {}",
                 ptr.fmt_to_string(&self.store, &self.state.borrow())
-            ),
-            Some(string) => Ok(string),
-        }
+            )
+        })
     }
 
+    #[inline]
     fn get_symbol(&self, ptr: &Ptr<F>) -> Result<Symbol> {
-        match self.store.fetch_symbol(ptr) {
-            None => bail!(
+        self.store.fetch_symbol(ptr).ok_or_else(|| {
+            anyhow!(
                 "Expected symbol. Got {}",
                 ptr.fmt_to_string(&self.store, &self.state.borrow())
-            ),
-            Some(symbol) => Ok(symbol),
-        }
+            )
+        })
     }
 }
 
@@ -222,17 +221,14 @@ impl Repl<F> {
                     // saving to avoid clones
                     let input = &frames[0].input;
                     let output = &frames[n_frames - 1].output;
-                    let mut z_store = ZStore::<F>::default();
+                    let mut z_dag = ZDag::<F>::default();
                     let mut cache = HashMap::default();
-                    let expr = populate_z_store(&mut z_store, &input[0], &self.store, &mut cache);
-                    let env = populate_z_store(&mut z_store, &input[1], &self.store, &mut cache);
-                    let cont = populate_z_store(&mut z_store, &input[2], &self.store, &mut cache);
-                    let expr_out =
-                        populate_z_store(&mut z_store, &output[0], &self.store, &mut cache);
-                    let env_out =
-                        populate_z_store(&mut z_store, &output[1], &self.store, &mut cache);
-                    let cont_out =
-                        populate_z_store(&mut z_store, &output[2], &self.store, &mut cache);
+                    let expr = z_dag.populate_with(&input[0], &self.store, &mut cache);
+                    let env = z_dag.populate_with(&input[1], &self.store, &mut cache);
+                    let cont = z_dag.populate_with(&input[2], &self.store, &mut cache);
+                    let expr_out = z_dag.populate_with(&output[0], &self.store, &mut cache);
+                    let env_out = z_dag.populate_with(&output[1], &self.store, &mut cache);
+                    let cont_out = z_dag.populate_with(&output[2], &self.store, &mut cache);
 
                     let claim = Self::proof_claim(
                         &self.store,
@@ -244,20 +240,24 @@ impl Repl<F> {
                     let claim_comm = Commitment::new(None, claim, &self.store);
                     let claim_hash = &claim_comm.hash.hex_digits();
                     let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
-                    let proof_path = proof_path(proof_key);
 
-                    if proof_path.exists() {
+                    let lurk_proof_meta = LurkProofMeta {
+                        iterations: *iterations,
+                        expr_io: (expr, expr_out),
+                        env_io: Some((env, env_out)),
+                        cont_io: (cont, cont_out),
+                        z_dag,
+                    };
+
+                    if LurkProof::<_, _, MultiFrame<'_, _, Coproc<F>>>::is_cached(proof_key) {
                         info!("Proof already cached");
-                        // TODO: make sure that the proof file is not corrupted
                     } else {
-                        info!("Proof not cached");
-
-                        info!("Loading public parameters");
+                        info!("Proof not cached. Loading public parameters");
                         let instance =
                             Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
                         let pp = public_params(&instance)?;
 
-                        let prover = NovaProver::<F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
+                        let prover = NovaProver::<_, _, MultiFrame<'_, F, Coproc<F>>>::new(
                             self.rc,
                             (*self.lang).clone(),
                         );
@@ -279,21 +279,10 @@ impl Repl<F> {
                             lang: (*self.lang).clone(),
                         };
 
-                        let lurk_proof_meta = LurkProofMeta {
-                            iterations: *iterations,
-                            expr,
-                            env,
-                            cont,
-                            expr_out,
-                            env_out,
-                            cont_out,
-                            z_store,
-                        };
-
                         lurk_proof.persist(proof_key)?;
-                        lurk_proof_meta.persist(proof_key)?;
-                        claim_comm.persist()?;
                     }
+                    lurk_proof_meta.persist(proof_key)?;
+                    claim_comm.persist()?;
                     println!("Claim hash: 0x{claim_hash}");
                     println!("Proof key: \"{proof_key}\"");
                     Ok(())
@@ -312,15 +301,13 @@ impl Repl<F> {
 
     fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
         let commitment: Commitment<F> = load(&commitment_path(&hash.hex_digits()))?;
-        let comm_hash = commitment.hash;
-        if &comm_hash != hash {
+        if &commitment.hash != hash {
             bail!("Hash mismatch. Corrupted commitment file.")
         } else {
             let (secret, z_payload) = commitment.open()?;
-            let payload = populate_store(
-                &self.store,
+            let payload = commitment.z_store.populate_store(
                 z_payload,
-                &commitment.z_store,
+                &self.store,
                 &mut Default::default(),
             )?;
             self.store.hide(*secret, payload);
@@ -376,10 +363,7 @@ impl Repl<F> {
             &self.store,
             self.limit,
         )?;
-        if matches!(
-            ptrs[2].tag(),
-            Tag::Cont(ContTag::Terminal) | Tag::Cont(ContTag::Error)
-        ) {
+        if matches!(ptrs[2].tag(), Tag::Cont(ContTag::Terminal | ContTag::Error)) {
             Ok((ptrs, iterations, emitted))
         } else {
             bail!(
@@ -397,8 +381,8 @@ impl Repl<F> {
         Ok((output, iterations))
     }
 
-    fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<F> {
-        let first = self.peek1(cmd, args)?;
+    fn get_comm_hash(&mut self, args: &Ptr<F>) -> Result<F> {
+        let first = self.peek1(args)?;
         let num = self.store.intern_lurk_symbol("num");
         let expr = self.store.list(vec![num, first]);
         let (expr_io, ..) = self
@@ -434,7 +418,7 @@ impl Repl<F> {
             Some(symbol) => {
                 let cmdstr = symbol.name()?;
                 match self.meta.get(cmdstr) {
-                    Some(cmd) => match (cmd.run)(self, cmdstr, &cdr) {
+                    Some(cmd) => match (cmd.run)(self, &cdr) {
                         Ok(()) => (),
                         Err(e) => bail!("Meta command failed with {}", e),
                     },
@@ -526,7 +510,7 @@ impl Repl<F> {
             brackets: MatchingBracketValidator::new(),
         }));
 
-        let history_path = &crate::cli::paths::repl_history();
+        let history_path = &repl_history();
 
         if history_path.exists() {
             editor.load_history(history_path)?;

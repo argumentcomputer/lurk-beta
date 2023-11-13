@@ -1,9 +1,8 @@
 use abomonation::Abomonation;
 use anyhow::{bail, Context, Result};
-use camino::Utf8Path;
 use nova::traits::Group;
-use serde::de::DeserializeOwned;
-use std::process;
+use serde::{de::DeserializeOwned, Serialize};
+use std::{collections::HashMap, process};
 
 use crate::{
     cli::lurk_proof::{LurkProof, LurkProofMeta},
@@ -23,7 +22,7 @@ pub(super) struct MetaCmd<F: LurkField> {
     format: &'static str,
     description: &'static [&'static str],
     example: &'static [&'static str],
-    pub(super) run: fn(repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>) -> Result<()>,
+    pub(super) run: fn(repl: &mut Repl<F>, args: &Ptr<F>) -> Result<()>,
 }
 
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
@@ -35,14 +34,12 @@ impl MetaCmd<F> {
         format: "!(load <string>)",
         description: &[],
         example: &["!(load \"my_file.lurk\")"],
-        run: |repl, cmd, args| {
-            let first = repl.peek1(cmd, args)?;
-            match repl.store.fetch_string(&first) {
-                Some(path) => {
-                    let joined = repl.pwd_path.join(Utf8Path::new(&path));
-                    repl.load_file(&joined, false)
-                }
-                _ => bail!("Argument of `load` must be a string."),
+        run: |repl, args| {
+            let first = repl.peek1(args)?;
+            if let Some(path) = repl.store.fetch_string(&first) {
+                repl.load_file(&repl.pwd_path.join(path), false)
+            } else {
+                bail!("Argument of `load` must be a string.")
             }
         },
     };
@@ -58,8 +55,8 @@ impl MetaCmd<F> {
             "The state's env is set to the result.",
         ],
         example: &["!(def foo (lambda () 123))"],
-        run: |repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>| {
-            let (first, second) = repl.peek2(cmd, args)?;
+        run: |repl: &mut Repl<F>, args: &Ptr<F>| {
+            let (first, second) = repl.peek2(args)?;
             let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
             let l = repl.store.intern_lurk_symbol("let");
             let current_env = repl.store.intern_lurk_symbol("current-env");
@@ -88,8 +85,8 @@ impl MetaCmd<F> {
             "!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))",
             "(sum '(1 2 3))",
         ],
-        run: |repl, cmd, args| {
-            let (first, second) = repl.peek2(cmd, args)?;
+        run: |repl, args| {
+            let (first, second) = repl.peek2(args)?;
             let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
             let l = repl.store.intern_lurk_symbol("letrec");
             let current_env = repl.store.intern_lurk_symbol("current-env");
@@ -112,8 +109,8 @@ impl MetaCmd<F> {
         format: "!(assert <expr>)",
         description: &[],
         example: &["!(assert t)", "!(assert (eq 3 (+ 1 2)))"],
-        run: |repl, cmd, args| {
-            let first = repl.peek1(cmd, args)?;
+        run: |repl, args| {
+            let first = repl.peek1(args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             if first_io[0].is_nil() {
                 eprintln!(
@@ -134,8 +131,8 @@ impl MetaCmd<F> {
         format: "!(assert-eq <expr> <expr>)",
         description: &[],
         example: &["!(assert-eq 3 (+ 1 2))"],
-        run: |repl, cmd, args| {
-            let (first, second) = repl.peek2(cmd, args)?;
+        run: |repl, args| {
+            let (first, second) = repl.peek2(args)?;
             let (first_io, ..) = repl
                 .eval_expr(first)
                 .with_context(|| "evaluating first arg")?;
@@ -172,8 +169,8 @@ impl MetaCmd<F> {
         example: &[
             "!(assert-emitted '(1 2) (begin (emit 1) (emit 2)))"
         ],
-        run: |repl, cmd, args| {
-            let (first, second) = repl.peek2(cmd, args)?;
+        run: |repl, args| {
+            let (first, second) = repl.peek2(args)?;
             let (first_io, ..) = repl
                 .eval_expr(first)
                 .with_context(|| "evaluating first arg")?;
@@ -204,8 +201,8 @@ impl MetaCmd<F> {
         format: "!(assert-error <expr>)",
         description: &[],
         example: &["!(assert-error (1 1))"],
-        run: |repl, cmd, args| {
-            let first = repl.peek1(cmd, args)?;
+        run: |repl, args| {
+            let first = repl.peek1(args)?;
             let (first_io, ..) = repl.eval_expr_allowing_error_continuation(first)?;
             if first_io[2].tag() != &Tag::Cont(ContTag::Error) {
                 eprintln!(
@@ -232,8 +229,8 @@ impl MetaCmd<F> {
             "!(commit '(13 . 21))",
             "(let ((n (open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25))) (* (car n) (cdr n)))",
         ],
-        run: |repl, cmd, args| {
-            let first = repl.peek1(cmd, args)?;
+        run: |repl, args| {
+            let first = repl.peek1(args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             repl.hide(F::NON_HIDING_COMMITMENT_SECRET, first_io[0])
         }
@@ -251,8 +248,8 @@ impl MetaCmd<F> {
             "(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))",
             "(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)",
         ],
-        run: |repl, cmd, args| {
-            let (first, second) = repl.peek2(cmd, args)?;
+        run: |repl, args| {
+            let (first, second) = repl.peek2(args)?;
             let (first_io, ..) = repl
                 .eval_expr(first)
                 .with_context(|| "evaluating first arg")?;
@@ -281,8 +278,8 @@ impl MetaCmd<F> {
             "!(commit '(13 . 21))",
             "!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
         ],
-        run: |repl, cmd, args| {
-            let hash = repl.get_comm_hash(cmd, args)?;
+        run: |repl, args| {
+            let hash = repl.get_comm_hash(args)?;
             repl.fetch(&hash, false)
         },
     };
@@ -298,8 +295,8 @@ impl MetaCmd<F> {
             "!(commit '(13 . 21))",
             "!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
         ],
-        run: |repl, cmd, args| {
-            let hash = repl.get_comm_hash(cmd, args)?;
+        run: |repl, args| {
+            let hash = repl.get_comm_hash(args)?;
             repl.fetch(&hash, true)
         },
     };
@@ -312,7 +309,7 @@ impl<F: LurkField> MetaCmd<F> {
         format: "!(clear)",
         description: &[],
         example: &["!(def a 1)", "(current-env)", "!(clear)", "(current-env)"],
-        run: |repl, _cmd, _args| {
+        run: |repl, _args| {
             repl.env = repl.store.intern_nil();
             Ok(())
         },
@@ -326,8 +323,8 @@ impl MetaCmd<F> {
         format: "!(set-env <expr>)",
         description: &[],
         example: &["!(set-env '((a . 1) (b . 2)))", "a"],
-        run: |repl, cmd, args| {
-            let first = repl.peek1(cmd, args)?;
+        run: |repl, args| {
+            let first = repl.peek1(args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             repl.env = first_io[0];
             Ok(())
@@ -351,16 +348,16 @@ impl MetaCmd<F> {
             "!(verify \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
             "!(open 0x002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf)",
         ],
-        run: |repl, cmd, args| {
+        run: |repl, args| {
             if !args.is_nil() {
-                repl.eval_expr_and_memoize(repl.peek1(cmd, args)?)?;
+                repl.eval_expr_and_memoize(repl.peek1(args)?)?;
             }
             repl.prove_last_frames()
         }
     };
 }
 
-impl<F: CurveCycleEquipped + DeserializeOwned> MetaCmd<F>
+impl<F: CurveCycleEquipped + Serialize + DeserializeOwned> MetaCmd<F>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -375,8 +372,8 @@ where
             "!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")",
             "!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)",
         ],
-        run: |repl, cmd, args| {
-            let first = repl.peek1(cmd, args)?;
+        run: |repl, args| {
+            let first = repl.peek1(args)?;
             let proof_id = repl.get_string(&first)?;
             LurkProof::<_, _, MultiFrame<'_, _, Coproc<F>>>::verify_proof(
                 &proof_id,
@@ -392,7 +389,7 @@ impl<F: LurkField> MetaCmd<F> {
         format: "!(defpackage <string|symbol>)",
         description: &[],
         example: &["!(defpackage abc)"],
-        run: |repl, _cmd, args| {
+        run: |repl, args| {
             // TODO: handle args
             let (name, _args) = repl.store.car_cdr(args)?;
             let name = match name.tag() {
@@ -415,7 +412,7 @@ impl<F: LurkField> MetaCmd<F> {
         format: "!(import <string|package> ...)",
         description: &[],
         example: &[],
-        run: |repl, _cmd, args| {
+        run: |repl, args| {
             // TODO: handle pkg
             let (mut symbols, _pkg) = repl.store.car_cdr(args)?;
             if symbols.tag() == &Tag::Expr(ExprTag::Sym) {
@@ -454,8 +451,8 @@ impl<F: LurkField> MetaCmd<F> {
             "!(in-package .lurk.user)",
             "(.lurk.user.abc.two)",
         ],
-        run: |repl, cmd, args| {
-            let first = repl.peek1(cmd, args)?;
+        run: |repl, args| {
+            let first = repl.peek1(args)?;
             match first.tag() {
                 Tag::Expr(ExprTag::Str) => {
                     let name = repl.get_string(&first)?;
@@ -487,8 +484,8 @@ impl<F: LurkField> MetaCmd<F> {
             "Otherwise the full help for the command in the first argument is printed.",
         ],
         example: &["!(help)", "!(help verify)", "!(help \"load\")"],
-        run: |repl, cmd, args| {
-            let first = repl.peek1(cmd, args)?;
+        run: |repl, args| {
+            let first = repl.peek1(args)?;
             match first.tag() {
                 Tag::Expr(ExprTag::Str) => {
                     let name = repl.get_string(&first)?;
@@ -533,13 +530,13 @@ impl<F: LurkField> MetaCmd<F> {
 }
 
 impl MetaCmd<F> {
-    fn call(repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>) -> Result<()> {
+    fn call(repl: &mut Repl<F>, args: &Ptr<F>) -> Result<()> {
         let (hash_ptr, args) = repl.store.car_cdr(args)?;
         let hash_expr = match hash_ptr.tag() {
             Tag::Expr(ExprTag::Cons) => hash_ptr,
             _ => repl.store.list(vec![hash_ptr]),
         };
-        let hash = repl.get_comm_hash(cmd, &hash_expr)?;
+        let hash = repl.get_comm_hash(&hash_expr)?;
         if repl.store.open(hash).is_none() {
             repl.fetch(&hash, false)?;
         }
@@ -585,8 +582,8 @@ impl MetaCmd<F> {
                (add 0)))",
             "!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 1)",
         ],
-        run: |repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>| {
-            Self::call(repl, cmd, args)?;
+        run: |repl: &mut Repl<F>, args: &Ptr<F>| {
+            Self::call(repl, args)?;
             let ev = repl
                 .get_evaluation()
                 .as_ref()
@@ -609,8 +606,8 @@ impl MetaCmd<F> {
 }
 
 impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
-    fn inspect(repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>, full: bool) -> Result<()> {
-        let first = repl.peek1(cmd, args)?;
+    fn inspect(repl: &mut Repl<F>, args: &Ptr<F>, full: bool) -> Result<()> {
+        let first = repl.peek1(args)?;
         let proof_id = repl.get_string(&first)?;
         LurkProofMeta::<F>::inspect_proof(
             &proof_id,
@@ -628,8 +625,8 @@ impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
             "!(prove '(1 2 3))",
             "!(inspect \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
         ],
-        run: |repl, cmd, args| {
-            Self::inspect(repl, cmd, args, false)
+        run: |repl, args| {
+            Self::inspect(repl, args, false)
         }
     };
 }
@@ -644,8 +641,8 @@ impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
             "!(prove '(1 2 3))",
             "!(inspect-full \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
         ],
-        run: |repl, cmd, args| {
-            Self::inspect(repl, cmd, args, true)
+        run: |repl, args| {
+            Self::inspect(repl, args, true)
         }
     };
 }
@@ -678,6 +675,6 @@ impl MetaCmd<F> {
     ];
 
     pub(super) fn cmds() -> std::collections::HashMap<&'static str, MetaCmd<F>> {
-        std::collections::HashMap::from(Self::CMDS.map(|x| (x.name, x)))
+        HashMap::from(Self::CMDS.map(|x| (x.name, x)))
     }
 }

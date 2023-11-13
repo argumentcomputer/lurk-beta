@@ -13,7 +13,7 @@ use crate::{
 use super::{
     field_data::{dump, HasFieldModulus},
     paths::commitment_path,
-    zstore::{populate_z_store, ZStore},
+    zstore::ZStore,
 };
 
 /// Holds data for commitments.
@@ -37,7 +37,7 @@ impl<F: LurkField> Commitment<F> {
         let secret = secret.unwrap_or(F::NON_HIDING_COMMITMENT_SECRET);
         let (hash, z_payload) = store.hide_and_return_z_payload(secret, payload);
         let mut z_store = ZStore::<F>::default();
-        populate_z_store(&mut z_store, &payload, store, &mut HashMap::default());
+        z_store.populate_with(&payload, store, &mut HashMap::default());
         z_store.add_comm(hash, secret, z_payload);
         Self { hash, z_store }
     }
