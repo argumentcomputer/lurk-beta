@@ -244,7 +244,7 @@ pub(crate) mod test {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::circuit::gadgets::constraints::{alloc_equal, and, mul};
+    use crate::circuit::gadgets::constraints::{alloc_equal, mul};
     use crate::lem::Tag as LEMTag;
     use crate::tag::{ExprTag, Tag};
     use std::marker::PhantomData;
@@ -270,7 +270,7 @@ pub(crate) mod test {
 
             let a_is_num = alloc_equal(&mut cs.namespace(|| "fst is num"), a.tag(), num_tag)?;
             let b_is_num = alloc_equal(&mut cs.namespace(|| "snd is num"), b.tag(), num_tag)?;
-            let types_are_correct = and(
+            let types_are_correct = Boolean::and(
                 &mut cs.namespace(|| "types are correct"),
                 &a_is_num,
                 &b_is_num,

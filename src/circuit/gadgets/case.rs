@@ -180,20 +180,6 @@ fn selector_dot_product<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 /*
-Selects the clause whose key is equal to selected and returns its value,
-or if no key is selected, returns the default.
-*/
-pub(crate) fn case<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    selected: &AllocatedNum<F>,
-    clauses: &[CaseClause<'_, F>],
-    default: &AllocatedNum<F>,
-    g: &GlobalAllocations<F>,
-) -> Result<AllocatedNum<F>, SynthesisError> {
-    multi_case(cs, selected, &[clauses], &[default], g).map(|r| r[0].to_owned())
-}
-
-/*
 Selects the clauses whose key is equal to selected and returns
 a vector containing the corresponding values, or if no key is selected,
 returns the default.
@@ -383,13 +369,14 @@ mod tests {
         {
             let clauses = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
 
-            let result = case(
+            let result = multi_case(
                 &mut cs.namespace(|| "selected case"),
                 &selected,
-                &clauses,
-                &default,
+                &[&clauses],
+                &[&default],
                 &g,
             )
+            .map(|r| r[0].to_owned())
             .unwrap();
 
             assert_eq!(val0.get_value(), result.get_value());
@@ -402,13 +389,14 @@ mod tests {
             let default_chosen =
                 AllocatedNum::alloc(cs.namespace(|| "default chosen"), || Ok(Fr::from(999)))
                     .unwrap();
-            let result = case(
+            let result = multi_case(
                 &mut cs.namespace(|| "default case"),
                 &selected,
-                &clauses,
-                &default_chosen,
+                &[&clauses],
+                &[&default_chosen],
                 &g,
             )
+            .map(|r| r[0].to_owned())
             .unwrap();
 
             assert_eq!(default.get_value(), result.get_value());
@@ -726,13 +714,14 @@ mod tests {
         {
             let clauses = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
 
-            let result = case(
+            let result = multi_case(
                 &mut cs.namespace(|| "selected case"),
                 &selected,
-                &clauses,
-                &default,
+                &[&clauses],
+                &[&default],
                 &g,
             )
+            .map(|r| r[0].to_owned())
             .unwrap();
 
             assert_eq!(val0.get_value(), result.get_value());
@@ -744,13 +733,14 @@ mod tests {
                 CaseClause::new(y, &val1_blank),
             ];
 
-            let _result = case(
+            let _result = multi_case(
                 &mut cs_blank.namespace(|| "selected case"),
                 &selected,
-                &clauses_blank,
-                &default_blank,
+                &[&clauses_blank],
+                &[&default_blank],
                 &g_blank,
             )
+            .map(|r| r[0].to_owned())
             .unwrap();
 
             assert!(cs.is_satisfied());

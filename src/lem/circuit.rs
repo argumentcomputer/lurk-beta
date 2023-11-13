@@ -38,7 +38,7 @@ use std::{
 use crate::{
     circuit::gadgets::{
         constraints::{
-            alloc_equal, alloc_is_zero, and, div, enforce_product_and_sum,
+            alloc_equal, alloc_is_zero, div, enforce_product_and_sum,
             enforce_selector_with_premise, implies_equal, implies_equal_const, implies_pack,
             implies_u64, implies_unequal_const, mul, or, pick, sub,
         },
@@ -775,7 +775,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             Op::And(tgt, a, b) => {
                 let a = bound_allocations.get_bool(a)?;
                 let b = bound_allocations.get_bool(b)?;
-                let c = and(&mut cs.namespace(|| "and"), a, b)?;
+                let c = Boolean::and(&mut cs.namespace(|| "and"), a, b)?;
                 bound_allocations.insert_bool(tgt.clone(), c);
             }
             Op::Or(tgt, a, b) => {
@@ -897,8 +897,9 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     Boolean::xor(cs.namespace(|| "same_sign"), a_is_negative, b_is_negative)?.not();
 
                 // Finally, a < b iff (same_sign && diff < 0) || (!same_sign && a < 0)
-                let and1 = and(&mut cs.namespace(|| "and1"), &same_sign, diff_is_negative)?;
-                let and2 = and(
+                let and1 =
+                    Boolean::and(&mut cs.namespace(|| "and1"), &same_sign, diff_is_negative)?;
+                let and2 = Boolean::and(
                     &mut cs.namespace(|| "and2"),
                     &same_sign.not(),
                     a_is_negative,
@@ -1153,8 +1154,8 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         }
         Ctrl::If(b, true_block, false_block) => {
             let b = bound_allocations.get_bool(b)?;
-            let b_not_dummy = and(&mut cs.namespace(|| "b and not_dummy"), b, not_dummy)?;
-            let not_b_not_dummy = and(
+            let b_not_dummy = Boolean::and(&mut cs.namespace(|| "b and not_dummy"), b, not_dummy)?;
+            let not_b_not_dummy = Boolean::and(
                 &mut cs.namespace(|| "not_b and not_dummy"),
                 &b.not(),
                 not_dummy,

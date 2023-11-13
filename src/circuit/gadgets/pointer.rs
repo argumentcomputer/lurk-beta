@@ -346,7 +346,7 @@ impl<F: LurkField> AllocatedPtr<F> {
 
         let real_car = car.alloc_equal(&mut cs.namespace(|| "real_car"), allocated_car)?;
         let real_cdr = cdr.alloc_equal(&mut cs.namespace(|| "real_cdr"), allocated_cdr)?;
-        let cons_is_real = and!(cs, &real_car, &real_cdr)?;
+        let cons_is_real = Boolean::and(&mut cs, &real_car, &real_cdr)?;
 
         implies!(cs, not_dummy, &cons_is_real);
 
@@ -813,10 +813,10 @@ impl<F: LurkField> AllocatedContPtr<F> {
             )?;
 
             if let Some(a) = &acc {
-                and!(
+                Boolean::and(
                     &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
                     a,
-                    &component_is_real
+                    &component_is_real,
                 )?;
             } else {
                 acc = Some(component_is_real.clone());
@@ -861,10 +861,10 @@ impl<F: LurkField> AllocatedContPtr<F> {
             )?;
 
             if let Some(a) = &acc {
-                and!(
+                Boolean::and(
                     &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
                     a,
-                    &component_is_real
+                    &component_is_real,
                 )?;
             } else {
                 acc = Some(component_is_real.clone());

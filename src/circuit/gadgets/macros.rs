@@ -158,27 +158,6 @@ macro_rules! implies {
     }};
 }
 
-// Returns a Boolean which is true if all of its arguments are true.
-macro_rules! and {
-    ($cs:expr, $a:expr, $b:expr) => {
-        Boolean::and(
-            $cs.namespace(|| format!("{} and {}", stringify!($a), stringify!($b))),
-            $a,
-            $b,
-        )
-    };
-    ($cs:expr, $a:expr, $b:expr, $c:expr, $($x:expr),+) => {{
-        let and_tmp_cs_ =  &mut $cs.namespace(|| format!("and({})", stringify!([$a, $b, $c, $($x),*])));
-        and_v(and_tmp_cs_, &[$a, $b, $c, $($x),*])
-    }};
-    ($cs:ident, $a:expr, $($x:expr),+) => {{
-        let and_tmp_cs_ =  &mut $cs.namespace(|| format!("and({})", stringify!([$a, $($x),*])));
-        let and_tmp_ = and!(and_tmp_cs_, $($x),*)?;
-        and!(and_tmp_cs_, $a, &and_tmp_)
-    }};
-
-}
-
 macro_rules! tag_and_hash_equal {
     ($cs:ident, $a_tag:expr, $b_tag:expr, $a_hash:expr, $b_hash:expr) => {{
         let tags_equal = equal!($cs, &$a_tag, &$b_tag)?;

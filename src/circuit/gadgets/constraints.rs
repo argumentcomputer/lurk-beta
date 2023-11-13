@@ -178,15 +178,6 @@ pub(crate) fn implies_pack<F: LurkField, CS: ConstraintSystem<F>>(
     cs.enforce(|| "pack", diff, premise_lc, zero);
 }
 
-/// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
-pub(crate) fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: CS,
-    v: &[Boolean],
-    num: &AllocatedNum<F>,
-) {
-    implies_pack(cs, &Boolean::Constant(true), v, num)
-}
-
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
 ///
 /// a - b = difference
@@ -603,84 +594,6 @@ pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::Is(result))
 }
 
-/// Variadic or.
-pub(crate) fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
-    cs: CS,
-    v: &[&Boolean],
-) -> Result<Boolean, SynthesisError> {
-    assert!(
-        v.len() >= 4,
-        "with less than 4 elements, or_v is more expensive than repeated or"
-    );
-
-    or_v_unchecked_for_optimization(cs, v)
-}
-
-/// Unchecked variadic or.
-pub(crate) fn or_v_unchecked_for_optimization<CS: ConstraintSystem<F>, F: PrimeField>(
-    mut cs: CS,
-    v: &[&Boolean],
-) -> Result<Boolean, SynthesisError> {
-    // Count the number of true values in v.
-    let count_true = v.iter().fold(Num::zero(), |acc, b| {
-        acc.add_bool_with_coeff(CS::one(), b, F::ONE)
-    });
-
-    // If the number of true values is zero, then none of the values is true.
-    // Therefore, nor(v0, v1, ..., vn) is true.
-    let nor = alloc_num_is_zero(&mut cs.namespace(|| "nor"), &count_true)?;
-
-    Ok(nor.not())
-}
-
-/// Variadic and.
-pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
-    mut cs: CS,
-    v: &[&Boolean],
-) -> Result<Boolean, SynthesisError> {
-    assert!(
-        v.len() >= 4,
-        "with less than 4 elements, and_v is more expensive than repeated and"
-    );
-
-    // Count the number of false values in v.
-    let count_false = v.iter().fold(Num::zero(), |acc, b| {
-        acc.add_bool_with_coeff(CS::one(), &b.not(), F::ONE)
-    });
-
-    // If the number of false values is zero, then all of the values are true.
-    // Therefore, and(v0, v1, ..., vn) is true.
-    let and = alloc_num_is_zero(&mut cs.namespace(|| "nor_of_nots"), &count_false)?;
-
-    Ok(and)
-}
-
-/// This is a replication of Bellpepper's original `and`, but receives a mutable
-/// reference for the constraint system instead of a copy
-#[allow(dead_code)]
-pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
-    cs: &mut CS,
-    a: &Boolean,
-    b: &Boolean,
-) -> Result<Boolean, SynthesisError> {
-    match (a, b) {
-        // false AND x is always false
-        (Boolean::Constant(false), _) | (_, Boolean::Constant(false)) => {
-            Ok(Boolean::Constant(false))
-        }
-        // true AND x is always x
-        (Boolean::Constant(true), x) | (x, Boolean::Constant(true)) => Ok(x.clone()),
-        // a AND (NOT b)
-        (Boolean::Is(is), Boolean::Not(not)) | (Boolean::Not(not), Boolean::Is(is)) => {
-            Ok(Boolean::Is(AllocatedBit::and_not(cs, is, not)?))
-        }
-        // (NOT a) AND (NOT b) = a NOR b
-        (Boolean::Not(a), Boolean::Not(b)) => Ok(Boolean::Is(AllocatedBit::nor(cs, a, b)?)),
-        // a AND b
-        (Boolean::Is(a), Boolean::Is(b)) => Ok(Boolean::Is(AllocatedBit::and(cs, a, b)?)),
-    }
-}
-
 /// Takes a boolean premise and a function that produces a `LinearCombination` (with same specification as `enforce`).
 /// Enforces the constraint that if `premise` is true, then the resulting linear combination evaluates to one.
 pub(crate) fn enforce_implication_lc<
@@ -878,28 +791,6 @@ pub(crate) fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
         Boolean::Is(b) => b.clone(),
         Boolean::Not(_) => panic!("Expected a non-negated Boolean."),
     }
-}
-
-/// Allocate Boolean for predicate "num is negative".
-/// We have that a number is defined to be negative if the parity bit (the
-/// least significant bit) is odd after doubling, meaning that the field element
-/// (after doubling) is larger than the underlying prime p that defines the
-/// field, then a modular reduction must have been carried out, changing the parity that
-/// should be even (since we multiplied by 2) to odd. In other words, we define
-/// negative numbers to be those field elements that are larger than p/2.
-pub(crate) fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    num: &AllocatedNum<F>,
-) -> Result<Boolean, SynthesisError> {
-    let double_num = num.add(&mut cs.namespace(|| "double num"), num)?;
-    let double_num_bits = double_num
-        .to_bits_le_strict(&mut cs.namespace(|| "double num bits"))
-        .unwrap();
-
-    let lsb_2num = double_num_bits.get(0);
-    let num_is_negative = lsb_2num.unwrap();
-
-    Ok(num_is_negative.clone())
 }
 
 #[cfg(test)]
@@ -1179,42 +1070,6 @@ mod tests {
 
             // a must equal y only if y happens to equal x (very unlikely!), otherwise a must *not* equal y.
             assert_eq!(equal2.get_value().unwrap(), x == y);
-            assert!(cs.is_satisfied());
-        }
-
-        #[test]
-        // needs to return Result because the macros use ?.
-        fn test_and_or_v((x0, x1, x2, x3, x4) in any::<(bool, bool, bool, bool, bool)>()) {
-            let mut cs = TestConstraintSystem::<Fr>::new();
-
-            let a = Boolean::Constant(x0);
-            let b = Boolean::Constant(x1);
-            let c = Boolean::Constant(x2);
-            let d = Boolean::Constant(x3);
-            let e = Boolean::Constant(x4);
-
-            let and0 = and!(cs, &a, &b, &c).unwrap();
-            let and1 = and!(cs, &a, &b, &c, &d).unwrap();
-            let and2 = and!(cs, &a, &b, &c, &d, &e).unwrap();
-
-            let or0 = or!(cs, &a, &b, &c).unwrap();
-            let or1 = or!(cs, &a, &b, &c, &d).unwrap();
-            let or2 = or!(cs, &a, &b, &c, &d, &e).unwrap();
-
-            let expected_and0 = x0 && x1 && x2;
-            let expected_and1 = x0 && x1 && x2 && x3;
-            let expected_and2 = x0 && x1 && x2 && x3 && x4;
-
-            let expected_or0 = x0 || x1 || x2;
-            let expected_or1 = x0 || x1 || x2 || x3;
-            let expected_or2 = x0 || x1 || x2 || x3 || x4;
-
-            assert_eq!(expected_and0, and0.get_value().unwrap());
-            assert_eq!(expected_and1, and1.get_value().unwrap());
-            assert_eq!(expected_and2, and2.get_value().unwrap());
-            assert_eq!(expected_or0, or0.get_value().unwrap());
-            assert_eq!(expected_or1, or1.get_value().unwrap());
-            assert_eq!(expected_or2, or2.get_value().unwrap());
             assert!(cs.is_satisfied());
         }
 
