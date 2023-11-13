@@ -17,11 +17,9 @@ mod tests;
 
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
+use crate::eval::lang::Lang;
 use crate::eval::Meta;
-use crate::eval::{lang::Lang};
 use crate::field::LurkField;
-
-
 
 use ::nova::traits::circuit::StepCircuit;
 use bellpepper::util_cs::witness_cs::WitnessCS;

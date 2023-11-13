@@ -1849,11 +1849,9 @@ impl<F: LurkField> ZStore<F> {
 pub mod test {
     use super::*;
 
+    use crate::parser::position::Pos;
     use crate::state::{initial_lurk_state, State};
     use crate::writer::Write;
-    use crate::{
-        parser::position::Pos,
-    };
     use crate::{list, num, symbol};
 
     use ff::Field;

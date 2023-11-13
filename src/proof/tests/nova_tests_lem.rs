@@ -4,12 +4,13 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
     eval::lang::{Coproc, Lang},
+    field::LurkField,
     lem::{pointers::Ptr, store::Store, Tag},
     num::Num,
     proof::nova::C1LEM,
     state::user_sym,
     state::State,
-    tag::{ExprTag, Op, Op1, Op2}, field::LurkField,
+    tag::{ExprTag, Op, Op1, Op2},
 };
 
 use super::{nova_test_full_aux, nova_test_full_aux2, test_aux, DEFAULT_REDUCTION_COUNT};

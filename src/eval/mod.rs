@@ -1,16 +1,14 @@
 use crate::coprocessor::Coprocessor;
-use crate::error::ReductionError;
 use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::hash_witness::{ConsWitness, ContWitness};
 use crate::ptr::{ContPtr, Ptr};
-use crate::state::{State};
+use crate::state::State;
 use crate::store::Store;
 use crate::tag::ContTag;
 use crate::writer::Write;
 use crate::z_ptr::ZExprPtr;
 use crate::{lurk_sym_ptr, store};
-use lang::Lang;
 
 #[cfg(not(target_arch = "wasm32"))]
 use lurk_macros::serde_test;
@@ -21,8 +19,6 @@ use std::cmp::PartialEq;
 use std::marker::PhantomData;
 
 pub mod lang;
-
-mod reduction;
 
 #[derive(Clone, Debug, PartialEq, Copy, Eq)]
 pub struct IO<F: LurkField> {
@@ -75,20 +71,6 @@ pub struct Frame<T: Copy, W: Copy, F: LurkField, C> {
     pub witness: W,
     pub meta: Meta<F>,
     pub _p: PhantomData<C>,
-}
-
-impl<T: Copy, W: Copy, F: LurkField, C> Frame<T, W, F, C> {
-    #[inline]
-    fn new(input: T, output: T, i: usize, witness: W, meta: Meta<F>) -> Self {
-        Self {
-            input,
-            output,
-            i,
-            witness,
-            meta,
-            _p: Default::default(),
-        }
-    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -194,20 +176,6 @@ impl<F: LurkField> IO<F> {
         ])
     }
 }
-
-#[derive(Debug)]
-pub struct FrameIt<'a, W: Copy, F: LurkField, C: Coprocessor<F>> {
-    first: bool,
-    frame: Frame<IO<F>, W, F, C>,
-    store: &'a Store<F>,
-    lang: &'a Lang<F, C>,
-}
-
-// Wrapper struct to preserve errors that would otherwise be lost during iteration
-#[derive(Debug)]
-struct ResultFrame<'a, F: LurkField, C: Coprocessor<F>>(
-    Result<FrameIt<'a, Witness<F>, F, C>, ReductionError>,
-);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Witness<F: LurkField> {

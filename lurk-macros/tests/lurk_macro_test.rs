@@ -1,14 +1,8 @@
 #[cfg(test)]
 mod test {
-    use lurk_crate::{
-        eval::lang::{Coproc, Lang},
-        eval::{empty_sym_env, IO},
-        store::Store,
-    };
+    use lurk_crate::store::Store;
     use lurk_macros::{let_store, lurk};
     use pasta_curves::pallas::Scalar as Fr;
-
-    type TestLang = Lang<Fr, Coproc<Fr>>;
 
     #[test]
     fn test_let_store() {
@@ -50,5 +44,4 @@ mod test {
 
         assert_eq!(res2, res);
     }
-
 }

@@ -6,6 +6,7 @@ use pasta_curves::pallas::Scalar as Fr;
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
+    field::LurkField,
     lem::{
         eval::{evaluate_simple, make_eval_step_from_lang},
         pointers::Ptr,
@@ -13,7 +14,7 @@ use crate::{
         Tag,
     },
     state::State,
-    tag::Op, field::LurkField,
+    tag::Op,
 };
 
 fn test_aux<C: Coprocessor<Fr>>(
@@ -2793,10 +2794,8 @@ fn test_eval_non_symbol_binding_error() {
 
 #[test]
 fn test_dumb_lang() {
-    use crate::{
-        coprocessor::test::DumbCoprocessor, state::user_sym,
-    };
     use crate::{self as lurk};
+    use crate::{coprocessor::test::DumbCoprocessor, state::user_sym};
 
     #[derive(Clone, Debug, Coproc)]
     enum DumbCoproc<F: LurkField> {
