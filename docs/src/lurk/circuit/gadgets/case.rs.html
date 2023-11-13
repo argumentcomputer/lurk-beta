@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/case.rs`."><title>case.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (0f44eb32f 2023-11-09)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/case.rs`."><title>case.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (2b603f95a 2023-11-12)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -750,16 +750,6 @@
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::constraints::{alloc_is_zero, pick};
 <span class="kw">use </span><span class="kw">super</span>::data::GlobalAllocations;
 
@@ -939,20 +929,6 @@ Returns ∑ᵢ  selector[i] ⋅ value_vector[i].
     );
 
     <span class="prelude-val">Ok</span>(result)
-}
-
-<span class="comment">/*
-Selects the clause whose key is equal to selected and returns its value,
-or if no key is selected, returns the default.
-*/
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>case&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
-    cs: <span class="kw-2">&amp;mut </span>CS,
-    selected: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
-    clauses: <span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, F&gt;],
-    default: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
-    g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-    multi_case(cs, selected, <span class="kw-2">&amp;</span>[clauses], <span class="kw-2">&amp;</span>[default], g).map(|r| r[<span class="number">0</span>].to_owned())
 }
 
 <span class="comment">/*
@@ -1145,13 +1121,14 @@ returns the default.
         {
             <span class="kw">let </span>clauses = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(y, <span class="kw-2">&amp;</span>val1)];
 
-            <span class="kw">let </span>result = case(
+            <span class="kw">let </span>result = multi_case(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
                 <span class="kw-2">&amp;</span>selected,
-                <span class="kw-2">&amp;</span>clauses,
-                <span class="kw-2">&amp;</span>default,
+                <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>clauses],
+                <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>default],
                 <span class="kw-2">&amp;</span>g,
             )
+            .map(|r| r[<span class="number">0</span>].to_owned())
             .unwrap();
 
             <span class="macro">assert_eq!</span>(val0.get_value(), result.get_value());
@@ -1164,13 +1141,14 @@ returns the default.
             <span class="kw">let </span>default_chosen =
                 AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;default chosen&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">999</span>)))
                     .unwrap();
-            <span class="kw">let </span>result = case(
+            <span class="kw">let </span>result = multi_case(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;default case&quot;</span>),
                 <span class="kw-2">&amp;</span>selected,
-                <span class="kw-2">&amp;</span>clauses,
-                <span class="kw-2">&amp;</span>default_chosen,
+                <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>clauses],
+                <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>default_chosen],
                 <span class="kw-2">&amp;</span>g,
             )
+            .map(|r| r[<span class="number">0</span>].to_owned())
             .unwrap();
 
             <span class="macro">assert_eq!</span>(default.get_value(), result.get_value());
@@ -1488,13 +1466,14 @@ returns the default.
         {
             <span class="kw">let </span>clauses = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(y, <span class="kw-2">&amp;</span>val1)];
 
-            <span class="kw">let </span>result = case(
+            <span class="kw">let </span>result = multi_case(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
                 <span class="kw-2">&amp;</span>selected,
-                <span class="kw-2">&amp;</span>clauses,
-                <span class="kw-2">&amp;</span>default,
+                <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>clauses],
+                <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>default],
                 <span class="kw-2">&amp;</span>g,
             )
+            .map(|r| r[<span class="number">0</span>].to_owned())
             .unwrap();
 
             <span class="macro">assert_eq!</span>(val0.get_value(), result.get_value());
@@ -1506,13 +1485,14 @@ returns the default.
                 CaseClause::new(y, <span class="kw-2">&amp;</span>val1_blank),
             ];
 
-            <span class="kw">let </span>_result = case(
+            <span class="kw">let </span>_result = multi_case(
                 <span class="kw-2">&amp;mut </span>cs_blank.namespace(|| <span class="string">&quot;selected case&quot;</span>),
                 <span class="kw-2">&amp;</span>selected,
-                <span class="kw-2">&amp;</span>clauses_blank,
-                <span class="kw-2">&amp;</span>default_blank,
+                <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>clauses_blank],
+                <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>default_blank],
                 <span class="kw-2">&amp;</span>g_blank,
             )
+            .map(|r| r[<span class="number">0</span>].to_owned())
             .unwrap();
 
             <span class="macro">assert!</span>(cs.is_satisfied());

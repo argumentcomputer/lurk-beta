@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/constraints.rs`."><title>constraints.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (0f44eb32f 2023-11-09)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/constraints.rs`."><title>constraints.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (2b603f95a 2023-11-12)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1298,151 +1298,6 @@
 <a href="#1298" id="1298">1298</a>
 <a href="#1299" id="1299">1299</a>
 <a href="#1300" id="1300">1300</a>
-<a href="#1301" id="1301">1301</a>
-<a href="#1302" id="1302">1302</a>
-<a href="#1303" id="1303">1303</a>
-<a href="#1304" id="1304">1304</a>
-<a href="#1305" id="1305">1305</a>
-<a href="#1306" id="1306">1306</a>
-<a href="#1307" id="1307">1307</a>
-<a href="#1308" id="1308">1308</a>
-<a href="#1309" id="1309">1309</a>
-<a href="#1310" id="1310">1310</a>
-<a href="#1311" id="1311">1311</a>
-<a href="#1312" id="1312">1312</a>
-<a href="#1313" id="1313">1313</a>
-<a href="#1314" id="1314">1314</a>
-<a href="#1315" id="1315">1315</a>
-<a href="#1316" id="1316">1316</a>
-<a href="#1317" id="1317">1317</a>
-<a href="#1318" id="1318">1318</a>
-<a href="#1319" id="1319">1319</a>
-<a href="#1320" id="1320">1320</a>
-<a href="#1321" id="1321">1321</a>
-<a href="#1322" id="1322">1322</a>
-<a href="#1323" id="1323">1323</a>
-<a href="#1324" id="1324">1324</a>
-<a href="#1325" id="1325">1325</a>
-<a href="#1326" id="1326">1326</a>
-<a href="#1327" id="1327">1327</a>
-<a href="#1328" id="1328">1328</a>
-<a href="#1329" id="1329">1329</a>
-<a href="#1330" id="1330">1330</a>
-<a href="#1331" id="1331">1331</a>
-<a href="#1332" id="1332">1332</a>
-<a href="#1333" id="1333">1333</a>
-<a href="#1334" id="1334">1334</a>
-<a href="#1335" id="1335">1335</a>
-<a href="#1336" id="1336">1336</a>
-<a href="#1337" id="1337">1337</a>
-<a href="#1338" id="1338">1338</a>
-<a href="#1339" id="1339">1339</a>
-<a href="#1340" id="1340">1340</a>
-<a href="#1341" id="1341">1341</a>
-<a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
-<a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
-<a href="#1346" id="1346">1346</a>
-<a href="#1347" id="1347">1347</a>
-<a href="#1348" id="1348">1348</a>
-<a href="#1349" id="1349">1349</a>
-<a href="#1350" id="1350">1350</a>
-<a href="#1351" id="1351">1351</a>
-<a href="#1352" id="1352">1352</a>
-<a href="#1353" id="1353">1353</a>
-<a href="#1354" id="1354">1354</a>
-<a href="#1355" id="1355">1355</a>
-<a href="#1356" id="1356">1356</a>
-<a href="#1357" id="1357">1357</a>
-<a href="#1358" id="1358">1358</a>
-<a href="#1359" id="1359">1359</a>
-<a href="#1360" id="1360">1360</a>
-<a href="#1361" id="1361">1361</a>
-<a href="#1362" id="1362">1362</a>
-<a href="#1363" id="1363">1363</a>
-<a href="#1364" id="1364">1364</a>
-<a href="#1365" id="1365">1365</a>
-<a href="#1366" id="1366">1366</a>
-<a href="#1367" id="1367">1367</a>
-<a href="#1368" id="1368">1368</a>
-<a href="#1369" id="1369">1369</a>
-<a href="#1370" id="1370">1370</a>
-<a href="#1371" id="1371">1371</a>
-<a href="#1372" id="1372">1372</a>
-<a href="#1373" id="1373">1373</a>
-<a href="#1374" id="1374">1374</a>
-<a href="#1375" id="1375">1375</a>
-<a href="#1376" id="1376">1376</a>
-<a href="#1377" id="1377">1377</a>
-<a href="#1378" id="1378">1378</a>
-<a href="#1379" id="1379">1379</a>
-<a href="#1380" id="1380">1380</a>
-<a href="#1381" id="1381">1381</a>
-<a href="#1382" id="1382">1382</a>
-<a href="#1383" id="1383">1383</a>
-<a href="#1384" id="1384">1384</a>
-<a href="#1385" id="1385">1385</a>
-<a href="#1386" id="1386">1386</a>
-<a href="#1387" id="1387">1387</a>
-<a href="#1388" id="1388">1388</a>
-<a href="#1389" id="1389">1389</a>
-<a href="#1390" id="1390">1390</a>
-<a href="#1391" id="1391">1391</a>
-<a href="#1392" id="1392">1392</a>
-<a href="#1393" id="1393">1393</a>
-<a href="#1394" id="1394">1394</a>
-<a href="#1395" id="1395">1395</a>
-<a href="#1396" id="1396">1396</a>
-<a href="#1397" id="1397">1397</a>
-<a href="#1398" id="1398">1398</a>
-<a href="#1399" id="1399">1399</a>
-<a href="#1400" id="1400">1400</a>
-<a href="#1401" id="1401">1401</a>
-<a href="#1402" id="1402">1402</a>
-<a href="#1403" id="1403">1403</a>
-<a href="#1404" id="1404">1404</a>
-<a href="#1405" id="1405">1405</a>
-<a href="#1406" id="1406">1406</a>
-<a href="#1407" id="1407">1407</a>
-<a href="#1408" id="1408">1408</a>
-<a href="#1409" id="1409">1409</a>
-<a href="#1410" id="1410">1410</a>
-<a href="#1411" id="1411">1411</a>
-<a href="#1412" id="1412">1412</a>
-<a href="#1413" id="1413">1413</a>
-<a href="#1414" id="1414">1414</a>
-<a href="#1415" id="1415">1415</a>
-<a href="#1416" id="1416">1416</a>
-<a href="#1417" id="1417">1417</a>
-<a href="#1418" id="1418">1418</a>
-<a href="#1419" id="1419">1419</a>
-<a href="#1420" id="1420">1420</a>
-<a href="#1421" id="1421">1421</a>
-<a href="#1422" id="1422">1422</a>
-<a href="#1423" id="1423">1423</a>
-<a href="#1424" id="1424">1424</a>
-<a href="#1425" id="1425">1425</a>
-<a href="#1426" id="1426">1426</a>
-<a href="#1427" id="1427">1427</a>
-<a href="#1428" id="1428">1428</a>
-<a href="#1429" id="1429">1429</a>
-<a href="#1430" id="1430">1430</a>
-<a href="#1431" id="1431">1431</a>
-<a href="#1432" id="1432">1432</a>
-<a href="#1433" id="1433">1433</a>
-<a href="#1434" id="1434">1434</a>
-<a href="#1435" id="1435">1435</a>
-<a href="#1436" id="1436">1436</a>
-<a href="#1437" id="1437">1437</a>
-<a href="#1438" id="1438">1438</a>
-<a href="#1439" id="1439">1439</a>
-<a href="#1440" id="1440">1440</a>
-<a href="#1441" id="1441">1441</a>
-<a href="#1442" id="1442">1442</a>
-<a href="#1443" id="1443">1443</a>
-<a href="#1444" id="1444">1444</a>
-<a href="#1445" id="1445">1445</a>
 </pre></div><pre class="rust"><code><span class="comment">// Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 </span><span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span>bellpepper_core::LinearCombination;
@@ -1621,15 +1476,6 @@
     <span class="kw">let </span>zero = |lc| lc;
 
     cs.enforce(|| <span class="string">&quot;pack&quot;</span>, diff, premise_lc, zero);
-}
-
-<span class="doccomment">/// Enforce v is the bit decomposition of num, therefore we have that 0 &lt;= num &lt; 2ˆ(sizeof(v)).
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_pack&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
-    cs: CS,
-    v: <span class="kw-2">&amp;</span>[Boolean],
-    num: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
-) {
-    implies_pack(cs, <span class="kw-2">&amp;</span>Boolean::Constant(<span class="bool-val">true</span>), v, num)
 }
 
 <span class="doccomment">/// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
@@ -2048,84 +1894,6 @@
     </span><span class="prelude-val">Ok</span>(Boolean::Is(result))
 }
 
-<span class="doccomment">/// Variadic or.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>or_v&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
-    cs: CS,
-    v: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Boolean],
-) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-    <span class="macro">assert!</span>(
-        v.len() &gt;= <span class="number">4</span>,
-        <span class="string">&quot;with less than 4 elements, or_v is more expensive than repeated or&quot;
-    </span>);
-
-    or_v_unchecked_for_optimization(cs, v)
-}
-
-<span class="doccomment">/// Unchecked variadic or.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>or_v_unchecked_for_optimization&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
-    <span class="kw-2">mut </span>cs: CS,
-    v: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Boolean],
-) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-    <span class="comment">// Count the number of true values in v.
-    </span><span class="kw">let </span>count_true = v.iter().fold(Num::zero(), |acc, b| {
-        acc.add_bool_with_coeff(CS::one(), b, F::ONE)
-    });
-
-    <span class="comment">// If the number of true values is zero, then none of the values is true.
-    // Therefore, nor(v0, v1, ..., vn) is true.
-    </span><span class="kw">let </span>nor = alloc_num_is_zero(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;nor&quot;</span>), <span class="kw-2">&amp;</span>count_true)<span class="question-mark">?</span>;
-
-    <span class="prelude-val">Ok</span>(nor.not())
-}
-
-<span class="doccomment">/// Variadic and.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>and_v&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
-    <span class="kw-2">mut </span>cs: CS,
-    v: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Boolean],
-) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-    <span class="macro">assert!</span>(
-        v.len() &gt;= <span class="number">4</span>,
-        <span class="string">&quot;with less than 4 elements, and_v is more expensive than repeated and&quot;
-    </span>);
-
-    <span class="comment">// Count the number of false values in v.
-    </span><span class="kw">let </span>count_false = v.iter().fold(Num::zero(), |acc, b| {
-        acc.add_bool_with_coeff(CS::one(), <span class="kw-2">&amp;</span>b.not(), F::ONE)
-    });
-
-    <span class="comment">// If the number of false values is zero, then all of the values are true.
-    // Therefore, and(v0, v1, ..., vn) is true.
-    </span><span class="kw">let </span>and = alloc_num_is_zero(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;nor_of_nots&quot;</span>), <span class="kw-2">&amp;</span>count_false)<span class="question-mark">?</span>;
-
-    <span class="prelude-val">Ok</span>(and)
-}
-
-<span class="doccomment">/// This is a replication of Bellpepper&#39;s original `and`, but receives a mutable
-/// reference for the constraint system instead of a copy
-</span><span class="attr">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>and&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
-    cs: <span class="kw-2">&amp;mut </span>CS,
-    a: <span class="kw-2">&amp;</span>Boolean,
-    b: <span class="kw-2">&amp;</span>Boolean,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-    <span class="kw">match </span>(a, b) {
-        <span class="comment">// false AND x is always false
-        </span>(Boolean::Constant(<span class="bool-val">false</span>), <span class="kw">_</span>) | (<span class="kw">_</span>, Boolean::Constant(<span class="bool-val">false</span>)) =&gt; {
-            <span class="prelude-val">Ok</span>(Boolean::Constant(<span class="bool-val">false</span>))
-        }
-        <span class="comment">// true AND x is always x
-        </span>(Boolean::Constant(<span class="bool-val">true</span>), x) | (x, Boolean::Constant(<span class="bool-val">true</span>)) =&gt; <span class="prelude-val">Ok</span>(x.clone()),
-        <span class="comment">// a AND (NOT b)
-        </span>(Boolean::Is(is), Boolean::Not(not)) | (Boolean::Not(not), Boolean::Is(is)) =&gt; {
-            <span class="prelude-val">Ok</span>(Boolean::Is(AllocatedBit::and_not(cs, is, not)<span class="question-mark">?</span>))
-        }
-        <span class="comment">// (NOT a) AND (NOT b) = a NOR b
-        </span>(Boolean::Not(a), Boolean::Not(b)) =&gt; <span class="prelude-val">Ok</span>(Boolean::Is(AllocatedBit::nor(cs, a, b)<span class="question-mark">?</span>)),
-        <span class="comment">// a AND b
-        </span>(Boolean::Is(a), Boolean::Is(b)) =&gt; <span class="prelude-val">Ok</span>(Boolean::Is(AllocatedBit::and(cs, a, b)<span class="question-mark">?</span>)),
-    }
-}
-
 <span class="doccomment">/// Takes a boolean premise and a function that produces a `LinearCombination` (with same specification as `enforce`).
 /// Enforces the constraint that if `premise` is true, then the resulting linear combination evaluates to one.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_implication_lc&lt;
@@ -2323,28 +2091,6 @@
         Boolean::Is(b) =&gt; b.clone(),
         Boolean::Not(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected a non-negated Boolean.&quot;</span>),
     }
-}
-
-<span class="doccomment">/// Allocate Boolean for predicate &quot;num is negative&quot;.
-/// We have that a number is defined to be negative if the parity bit (the
-/// least significant bit) is odd after doubling, meaning that the field element
-/// (after doubling) is larger than the underlying prime p that defines the
-/// field, then a modular reduction must have been carried out, changing the parity that
-/// should be even (since we multiplied by 2) to odd. In other words, we define
-/// negative numbers to be those field elements that are larger than p/2.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate_is_negative&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
-    <span class="kw-2">mut </span>cs: CS,
-    num: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-    <span class="kw">let </span>double_num = num.add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;double num&quot;</span>), num)<span class="question-mark">?</span>;
-    <span class="kw">let </span>double_num_bits = double_num
-        .to_bits_le_strict(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;double num bits&quot;</span>))
-        .unwrap();
-
-    <span class="kw">let </span>lsb_2num = double_num_bits.get(<span class="number">0</span>);
-    <span class="kw">let </span>num_is_negative = lsb_2num.unwrap();
-
-    <span class="prelude-val">Ok</span>(num_is_negative.clone())
 }
 
 <span class="attr">#[cfg(test)]
@@ -2624,42 +2370,6 @@
 
             <span class="comment">// a must equal y only if y happens to equal x (very unlikely!), otherwise a must *not* equal y.
             </span><span class="macro">assert_eq!</span>(equal2.get_value().unwrap(), x == y);
-            <span class="macro">assert!</span>(cs.is_satisfied());
-        }
-
-        <span class="attr">#[test]
-        </span><span class="comment">// needs to return Result because the macros use ?.
-        </span><span class="kw">fn </span>test_and_or_v((x0, x1, x2, x3, x4) <span class="kw">in </span>any::&lt;(bool, bool, bool, bool, bool)&gt;()) {
-            <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-
-            <span class="kw">let </span>a = Boolean::Constant(x0);
-            <span class="kw">let </span>b = Boolean::Constant(x1);
-            <span class="kw">let </span>c = Boolean::Constant(x2);
-            <span class="kw">let </span>d = Boolean::Constant(x3);
-            <span class="kw">let </span>e = Boolean::Constant(x4);
-
-            <span class="kw">let </span>and0 = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b, <span class="kw-2">&amp;</span>c).unwrap();
-            <span class="kw">let </span>and1 = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b, <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>d).unwrap();
-            <span class="kw">let </span>and2 = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b, <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>d, <span class="kw-2">&amp;</span>e).unwrap();
-
-            <span class="kw">let </span>or0 = <span class="macro">or!</span>(cs, <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b, <span class="kw-2">&amp;</span>c).unwrap();
-            <span class="kw">let </span>or1 = <span class="macro">or!</span>(cs, <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b, <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>d).unwrap();
-            <span class="kw">let </span>or2 = <span class="macro">or!</span>(cs, <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b, <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>d, <span class="kw-2">&amp;</span>e).unwrap();
-
-            <span class="kw">let </span>expected_and0 = x0 &amp;&amp; x1 &amp;&amp; x2;
-            <span class="kw">let </span>expected_and1 = x0 &amp;&amp; x1 &amp;&amp; x2 &amp;&amp; x3;
-            <span class="kw">let </span>expected_and2 = x0 &amp;&amp; x1 &amp;&amp; x2 &amp;&amp; x3 &amp;&amp; x4;
-
-            <span class="kw">let </span>expected_or0 = x0 || x1 || x2;
-            <span class="kw">let </span>expected_or1 = x0 || x1 || x2 || x3;
-            <span class="kw">let </span>expected_or2 = x0 || x1 || x2 || x3 || x4;
-
-            <span class="macro">assert_eq!</span>(expected_and0, and0.get_value().unwrap());
-            <span class="macro">assert_eq!</span>(expected_and1, and1.get_value().unwrap());
-            <span class="macro">assert_eq!</span>(expected_and2, and2.get_value().unwrap());
-            <span class="macro">assert_eq!</span>(expected_or0, or0.get_value().unwrap());
-            <span class="macro">assert_eq!</span>(expected_or1, or1.get_value().unwrap());
-            <span class="macro">assert_eq!</span>(expected_or2, or2.get_value().unwrap());
             <span class="macro">assert!</span>(cs.is_satisfied());
         }
 
