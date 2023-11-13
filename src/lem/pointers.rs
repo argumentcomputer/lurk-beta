@@ -92,6 +92,14 @@ impl<F: LurkField> Ptr<F> {
         Self::zero(Tag::Expr(Nil))
     }
 
+    /// Creates an atom pointer from a `ZPtr`, with its tag and hash. Thus hashing
+    /// such pointer will result on the same original `ZPtr`
+    #[inline]
+    pub fn opaque(z_ptr: ZPtr<F>) -> Self {
+        let crate::z_data::z_ptr::ZPtr(t, h) = z_ptr;
+        Ptr::Atom(t, h)
+    }
+
     #[inline]
     pub fn cast(self, tag: Tag) -> Self {
         match self {

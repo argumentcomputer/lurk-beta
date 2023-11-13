@@ -741,6 +741,8 @@ impl<F: LurkField> Store<F> {
         self.hash_ptr_unsafe(ptr)
     }
 
+    /// Constructs a vector of scalars that correspond to tags and hashes computed
+    /// from a slice of `Ptr`s turned into `ZPtr`s
     pub fn to_scalar_vector(&self, ptrs: &[Ptr<F>]) -> Vec<F> {
         ptrs.iter()
             .fold(Vec::with_capacity(2 * ptrs.len()), |mut acc, ptr| {
@@ -1070,8 +1072,9 @@ mod tests {
 
     use crate::{
         field::LurkField,
+        lem::Tag,
         state::initial_lurk_state,
-        tag::{ExprTag, Tag},
+        tag::{ExprTag, Tag as TagTrait},
         Symbol,
     };
 
@@ -1139,6 +1142,67 @@ mod tests {
         assert_eq!(elts.len(), 2);
         assert_eq!((&elts[0], &elts[1]), (&a, &b));
         assert_eq!(non_nil, Some(c));
+    }
+
+    #[test]
+    fn test_basic_hashing() {
+        let store = Store::<Fr>::default();
+        let zero = Fr::zero();
+        let zero_tag = Tag::try_from(0).unwrap();
+        let foo = Ptr::Atom(zero_tag, zero);
+
+        let z_foo = store.hash_ptr(&foo);
+        assert_eq!(z_foo.tag(), &zero_tag);
+        assert_eq!(z_foo.value(), &zero);
+
+        let comm = store.hide(zero, foo);
+        assert_eq!(comm.tag(), &Tag::Expr(ExprTag::Comm));
+        assert_eq!(
+            comm.get_atom().unwrap(),
+            &store.poseidon_cache.hash3(&[zero; 3])
+        );
+
+        let ptr2 = store.intern_2_ptrs(zero_tag, foo, foo);
+        let z_ptr2 = store.hash_ptr(&ptr2);
+        assert_eq!(z_ptr2.tag(), &zero_tag);
+        assert_eq!(z_ptr2.value(), &store.poseidon_cache.hash4(&[zero; 4]));
+
+        let ptr3 = store.intern_3_ptrs(zero_tag, foo, foo, foo);
+        let z_ptr3 = store.hash_ptr(&ptr3);
+        assert_eq!(z_ptr3.tag(), &zero_tag);
+        assert_eq!(z_ptr3.value(), &store.poseidon_cache.hash6(&[zero; 6]));
+
+        let ptr4 = store.intern_4_ptrs(zero_tag, foo, foo, foo, foo);
+        let z_ptr4 = store.hash_ptr(&ptr4);
+        assert_eq!(z_ptr4.tag(), &zero_tag);
+        assert_eq!(z_ptr4.value(), &store.poseidon_cache.hash8(&[zero; 8]));
+    }
+
+    #[test]
+    fn test_display_opaque_knowledge() {
+        // bob creates a list
+        let store = Store::<Fr>::default();
+        let one = Ptr::num_u64(1);
+        let two = Ptr::num_u64(2);
+        let one_two = store.cons(one, two);
+        let hi = store.intern_string("hi");
+        let z1 = store.hash_ptr(&hi);
+        let z2 = store.hash_ptr(&one_two);
+        let list = store.list(vec![one_two, hi]);
+        let z_list = store.hash_ptr(&list);
+
+        // alice uses the hashed elements of the list to show that she
+        // can produce the same hash as the original z_list
+        let a1 = Ptr::opaque(z1);
+        let a2 = Ptr::opaque(z2);
+        let store = Store::<Fr>::default();
+        let list1 = store.list(vec![a1, a2]);
+        let list2 = store.list(vec![a2, a1]);
+        let z_list1 = store.hash_ptr(&list1);
+        let z_list2 = store.hash_ptr(&list2);
+
+        // one of those lists should match the original
+        assert!(z_list == z_list1 || z_list == z_list2);
     }
 
     #[test]
