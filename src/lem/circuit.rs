@@ -658,10 +658,10 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 };
                 let mut output_ptrs = Vec::with_capacity(out.len());
                 for (z_ptr, var) in output_z_ptrs.into_iter().zip(out.iter()) {
-                    let ptr =
-                        AllocatedPtr::alloc(&mut cs.namespace(|| format!("var: {var}")), || {
-                            Ok(z_ptr)
-                        })?;
+                    let ptr = AllocatedPtr::alloc_infallible(
+                        &mut cs.namespace(|| format!("var: {var}")),
+                        || z_ptr,
+                    );
                     bound_allocations.insert_ptr(var.clone(), ptr.clone());
                     output_ptrs.push(ptr);
                 }
@@ -1249,17 +1249,17 @@ impl Func {
         cs: &mut CS,
         store: &Store<F>,
         frame: &Frame<F>,
-    ) -> Result<Vec<AllocatedPtr<F>>> {
+    ) -> Vec<AllocatedPtr<F>> {
         assert_eq!(self.output_size, frame.output.len());
         let mut output = Vec::with_capacity(frame.output.len());
         for (i, ptr) in frame.output.iter().enumerate() {
             let zptr = store.hash_ptr(ptr);
-            output.push(AllocatedPtr::alloc(
+            output.push(AllocatedPtr::alloc_infallible(
                 &mut cs.namespace(|| format!("var: output[{}]", i)),
-                || Ok(zptr),
-            )?);
+                || zptr,
+            ));
         }
-        Ok(output)
+        output
     }
 
     /// Allocates an unconstrained pointer for each input of the frame
@@ -1269,15 +1269,16 @@ impl Func {
         store: &Store<F>,
         frame: &Frame<F>,
         bound_allocations: &mut BoundAllocations<F>,
-    ) -> Result<()> {
+    ) {
         for (i, ptr) in frame.input.iter().enumerate() {
             let param = &self.input_params[i];
             let zptr = store.hash_ptr(ptr);
-            let ptr =
-                AllocatedPtr::alloc(&mut cs.namespace(|| format!("var: {param}")), || Ok(zptr))?;
+            let ptr = AllocatedPtr::alloc_infallible(
+                &mut cs.namespace(|| format!("var: {param}")),
+                || zptr,
+            );
             bound_allocations.insert_ptr(param.clone(), ptr);
         }
-        Ok(())
     }
 
     pub fn alloc_globals<F: LurkField, CS: ConstraintSystem<F>>(
@@ -1303,7 +1304,7 @@ impl Func {
         slots_witness: Option<&[Arc<SlotWitness<F>>]>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         // Outputs are constrained by the return statement. All functions return
-        let preallocated_outputs = self.allocate_output(cs, store, frame)?;
+        let preallocated_outputs = self.allocate_output(cs, store, frame);
 
         if let Some(slots_witness) = slots_witness {
             assert!(cs.is_witness_generator());
@@ -1397,7 +1398,7 @@ impl Func {
     ) -> Result<()> {
         let bound_allocations = &mut BoundAllocations::new();
         let global_allocator = self.alloc_globals(cs, store)?;
-        self.allocate_input(cs, store, frame, bound_allocations)?;
+        self.allocate_input(cs, store, frame, bound_allocations);
         self.synthesize_frame(
             cs,
             store,

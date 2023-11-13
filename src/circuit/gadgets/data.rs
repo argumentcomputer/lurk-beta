@@ -501,9 +501,10 @@ impl<F: LurkField> Thunk<F> {
         mut cs: CS,
         store: &Store<F>,
     ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
-            Ok(ZExprPtr::from_parts(ExprTag::Nil, F::ZERO))
-        })?;
+        let value =
+            AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "Thunk component: value"), || {
+                ZExprPtr::from_parts(ExprTag::Nil, F::ZERO)
+            });
 
         let cont = AllocatedContPtr::alloc(
             &mut cs.namespace(|| "Thunk component: continuation"),
