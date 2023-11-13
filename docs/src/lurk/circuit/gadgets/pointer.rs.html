@@ -902,6 +902,26 @@
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
 <a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 
 <span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
@@ -988,6 +1008,26 @@
             tag: alloc_tag,
             hash: alloc_hash,
         })
+    }
+
+    <span class="kw">pub fn </span>alloc_infallible&lt;Fo, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(cs: <span class="kw-2">&amp;mut </span>CS, value: Fo) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>Fo: FnOnce() -&gt; ZPtr&lt;T, F&gt;,
+    {
+        <span class="kw">let </span><span class="kw-2">mut </span>hash = <span class="prelude-val">None</span>;
+        <span class="kw">let </span>alloc_tag = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), || {
+            <span class="kw">let </span>ptr = value();
+            hash = <span class="prelude-val">Some</span>(<span class="kw-2">*</span>ptr.value());
+            ptr.tag_field()
+        });
+
+        <span class="kw">let </span>alloc_hash =
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), || hash.unwrap());
+
+        AllocatedPtr {
+            tag: alloc_tag,
+            hash: alloc_hash,
+        }
     }
 
     <span class="kw">pub fn </span>alloc_tag&lt;CS: ConstraintSystem&lt;F&gt;&gt;(

@@ -538,6 +538,7 @@
 <a href="#538" id="538">538</a>
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>neptune::{
     circuit2::poseidon_hash_allocated <span class="kw">as </span>poseidon_hash,
@@ -1041,9 +1042,10 @@
         <span class="kw-2">mut </span>cs: CS,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedNum&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;), SynthesisError&gt; {
-        <span class="kw">let </span>value = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Thunk component: value&quot;</span>), || {
-            <span class="prelude-val">Ok</span>(ZExprPtr::from_parts(ExprTag::Nil, F::ZERO))
-        })<span class="question-mark">?</span>;
+        <span class="kw">let </span>value =
+            AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Thunk component: value&quot;</span>), || {
+                ZExprPtr::from_parts(ExprTag::Nil, F::ZERO)
+            });
 
         <span class="kw">let </span>cont = AllocatedContPtr::alloc(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Thunk component: continuation&quot;</span>),

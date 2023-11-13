@@ -1588,6 +1588,7 @@
 <a href="#1588" id="1588">1588</a>
 <a href="#1589" id="1589">1589</a>
 <a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -2248,10 +2249,10 @@
                 };
                 <span class="kw">let </span><span class="kw-2">mut </span>output_ptrs = Vec::with_capacity(out.len());
                 <span class="kw">for </span>(z_ptr, var) <span class="kw">in </span>output_z_ptrs.into_iter().zip(out.iter()) {
-                    <span class="kw">let </span>ptr =
-                        AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;var: {var}&quot;</span>)), || {
-                            <span class="prelude-val">Ok</span>(z_ptr)
-                        })<span class="question-mark">?</span>;
+                    <span class="kw">let </span>ptr = AllocatedPtr::alloc_infallible(
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;var: {var}&quot;</span>)),
+                        || z_ptr,
+                    );
                     bound_allocations.insert_ptr(var.clone(), ptr.clone());
                     output_ptrs.push(ptr);
                 }
@@ -2839,17 +2840,17 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;&gt; {
+    ) -&gt; Vec&lt;AllocatedPtr&lt;F&gt;&gt; {
         <span class="macro">assert_eq!</span>(<span class="self">self</span>.output_size, frame.output.len());
         <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::with_capacity(frame.output.len());
         <span class="kw">for </span>(i, ptr) <span class="kw">in </span>frame.output.iter().enumerate() {
             <span class="kw">let </span>zptr = store.hash_ptr(ptr);
-            output.push(AllocatedPtr::alloc(
+            output.push(AllocatedPtr::alloc_infallible(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;var: output[{}]&quot;</span>, i)),
-                || <span class="prelude-val">Ok</span>(zptr),
-            )<span class="question-mark">?</span>);
+                || zptr,
+            ));
         }
-        <span class="prelude-val">Ok</span>(output)
+        output
     }
 
     <span class="doccomment">/// Allocates an unconstrained pointer for each input of the frame
@@ -2859,15 +2860,16 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
         bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    ) {
         <span class="kw">for </span>(i, ptr) <span class="kw">in </span>frame.input.iter().enumerate() {
             <span class="kw">let </span>param = <span class="kw-2">&amp;</span><span class="self">self</span>.input_params[i];
             <span class="kw">let </span>zptr = store.hash_ptr(ptr);
-            <span class="kw">let </span>ptr =
-                AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;var: {param}&quot;</span>)), || <span class="prelude-val">Ok</span>(zptr))<span class="question-mark">?</span>;
+            <span class="kw">let </span>ptr = AllocatedPtr::alloc_infallible(
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;var: {param}&quot;</span>)),
+                || zptr,
+            );
             bound_allocations.insert_ptr(param.clone(), ptr);
         }
-        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">pub fn </span>alloc_globals&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -2893,7 +2895,7 @@
         slots_witness: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[Arc&lt;SlotWitness&lt;F&gt;&gt;]&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;&gt; {
         <span class="comment">// Outputs are constrained by the return statement. All functions return
-        </span><span class="kw">let </span>preallocated_outputs = <span class="self">self</span>.allocate_output(cs, store, frame)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>preallocated_outputs = <span class="self">self</span>.allocate_output(cs, store, frame);
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(slots_witness) = slots_witness {
             <span class="macro">assert!</span>(cs.is_witness_generator());
@@ -2987,7 +2989,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>bound_allocations = <span class="kw-2">&amp;mut </span>BoundAllocations::new();
         <span class="kw">let </span>global_allocator = <span class="self">self</span>.alloc_globals(cs, store)<span class="question-mark">?</span>;
-        <span class="self">self</span>.allocate_input(cs, store, frame, bound_allocations)<span class="question-mark">?</span>;
+        <span class="self">self</span>.allocate_input(cs, store, frame, bound_allocations);
         <span class="self">self</span>.synthesize_frame(
             cs,
             store,
