@@ -86,6 +86,26 @@ impl<F: LurkField> AllocatedPtr<F> {
         })
     }
 
+    pub fn alloc_infallible<Fo, CS: ConstraintSystem<F>, T: Tag>(cs: &mut CS, value: Fo) -> Self
+    where
+        Fo: FnOnce() -> ZPtr<T, F>,
+    {
+        let mut hash = None;
+        let alloc_tag = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "tag"), || {
+            let ptr = value();
+            hash = Some(*ptr.value());
+            ptr.tag_field()
+        });
+
+        let alloc_hash =
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "hash"), || hash.unwrap());
+
+        AllocatedPtr {
+            tag: alloc_tag,
+            hash: alloc_hash,
+        }
+    }
+
     pub fn alloc_tag<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         tag: F,
