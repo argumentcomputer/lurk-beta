@@ -1152,10 +1152,8 @@ mod tests {
         let mut test_lc_arb_num = LinearCombination::zero();
 
         // Allocate a few numbers. Here TWO_INV + TWO_INV = ONE
-        let anum1 =
-            AllocatedNum::alloc(cs.namespace(|| "num1"), || Ok(Fr::TWO_INV)).expect("alloc failed");
-        let anum2 =
-            AllocatedNum::alloc(cs.namespace(|| "num2"), || Ok(Fr::TWO_INV)).expect("alloc failed");
+        let anum1 = AllocatedNum::alloc_infallible(cs.namespace(|| "num1"), || Fr::TWO_INV);
+        let anum2 = AllocatedNum::alloc_infallible(cs.namespace(|| "num2"), || Fr::TWO_INV);
 
         // Add them to the lc
         test_lc_arb_num = test_lc_arb_num + (Fr::ONE, anum1.get_variable());
@@ -1251,8 +1249,7 @@ mod tests {
         let mut test_lc_arb_num = LinearCombination::zero();
 
         // Allocate a number that is zero, but not a Boolean.
-        let anum1 =
-            AllocatedNum::alloc(cs.namespace(|| "num1"), || Ok(Fr::ZERO)).expect("alloc failed");
+        let anum1 = AllocatedNum::alloc_infallible(cs.namespace(|| "num1"), || Fr::ZERO);
 
         // Add it to the lc
         test_lc_arb_num = test_lc_arb_num + (Fr::ONE, anum1.get_variable());
