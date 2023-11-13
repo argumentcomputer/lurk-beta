@@ -142,7 +142,7 @@ jobs:
         id: check-regression
         run: echo "regress_count=$(grep -c 'Regressed' ${{ github.sha }}.json)" | tee -a $GITHUB_OUTPUT
       # Fail job if regression found
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@v7
         if: ${{ steps.check-regression.outputs.regress_count > 0 }}
         with:
           script: |
