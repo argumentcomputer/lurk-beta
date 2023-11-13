@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"lurk":[["impl ValueEnum for <a class=\"enum\" href=\"lurk/cli/backend/enum.Backend.html\" title=\"enum lurk::cli::backend::Backend\">Backend</a>"],["impl ValueEnum for <a class=\"enum\" href=\"lurk/field/enum.LanguageField.html\" title=\"enum lurk::field::LanguageField\">LanguageField</a>"]]
+"lurk":[["impl ValueEnum for <a class=\"enum\" href=\"lurk/field/enum.LanguageField.html\" title=\"enum lurk::field::LanguageField\">LanguageField</a>"],["impl ValueEnum for <a class=\"enum\" href=\"lurk/cli/backend/enum.Backend.html\" title=\"enum lurk::cli::backend::Backend\">Backend</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
