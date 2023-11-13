@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (2b603f95a 2023-11-12)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (2b603f95a 2023-11-12)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -559,25 +559,9 @@
 <a href="#559" id="559">559</a>
 <a href="#560" id="560">560</a>
 <a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
-<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
 <span class="kw">use </span>rustyline::{
     error::ReadlineError,
@@ -590,7 +574,6 @@
 <span class="kw">use </span>tracing::info;
 
 <span class="kw">use crate</span>::{
-    cli::paths::proof_path,
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
@@ -617,8 +600,8 @@
     commitment::Commitment,
     field_data::load,
     lurk_proof::{LurkProof, LurkProofMeta},
-    paths::commitment_path,
-    zstore::{populate_store, populate_z_store, ZStore},
+    paths::{commitment_path, repl_history},
+    zstore::ZDag,
 };
 
 <span class="kw">use </span>meta_cmd::MetaCmd;
@@ -681,41 +664,41 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.evaluation
     }
 
-    <span class="kw">fn </span>peek1(<span class="kw-2">&amp;</span><span class="self">self</span>, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
+    <span class="kw">fn </span>peek1(<span class="kw-2">&amp;</span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
         <span class="kw">let </span>(first, rest) = <span class="self">self</span>.store.car_cdr(args)<span class="question-mark">?</span>;
         <span class="kw">if </span>!rest.is_nil() {
-            <span class="macro">bail!</span>(<span class="string">&quot;`{cmd}` accepts at most one argument&quot;</span>)
+            <span class="macro">bail!</span>(<span class="string">&quot;At most one argument is accepted&quot;</span>)
         }
         <span class="prelude-val">Ok</span>(first)
     }
 
-    <span class="kw">fn </span>peek2(<span class="kw-2">&amp;</span><span class="self">self</span>, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt; {
+    <span class="kw">fn </span>peek2(<span class="kw-2">&amp;</span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt; {
         <span class="kw">let </span>(first, rest) = <span class="self">self</span>.store.car_cdr(args)<span class="question-mark">?</span>;
         <span class="kw">let </span>(second, rest) = <span class="self">self</span>.store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
         <span class="kw">if </span>!rest.is_nil() {
-            <span class="macro">bail!</span>(<span class="string">&quot;`{cmd}` accepts at most two arguments&quot;</span>)
+            <span class="macro">bail!</span>(<span class="string">&quot;At most two arguments are accepted&quot;</span>)
         }
         <span class="prelude-val">Ok</span>((first, second))
     }
 
-    <span class="kw">fn </span>get_string(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
-        <span class="kw">match </span><span class="self">self</span>.store.fetch_string(ptr) {
-            <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>get_string(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
+        <span class="self">self</span>.store.fetch_string(ptr).ok_or_else(|| {
+            <span class="macro">anyhow!</span>(
                 <span class="string">&quot;Expected string. Got {}&quot;</span>,
                 ptr.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
-            ),
-            <span class="prelude-val">Some</span>(string) =&gt; <span class="prelude-val">Ok</span>(string),
-        }
+            )
+        })
     }
 
-    <span class="kw">fn </span>get_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Symbol&gt; {
-        <span class="kw">match </span><span class="self">self</span>.store.fetch_symbol(ptr) {
-            <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>get_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Symbol&gt; {
+        <span class="self">self</span>.store.fetch_symbol(ptr).ok_or_else(|| {
+            <span class="macro">anyhow!</span>(
                 <span class="string">&quot;Expected symbol. Got {}&quot;</span>,
                 ptr.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
-            ),
-            <span class="prelude-val">Some</span>(symbol) =&gt; <span class="prelude-val">Ok</span>(symbol),
-        }
+            )
+        })
     }
 }
 
@@ -799,17 +782,14 @@
                     <span class="comment">// saving to avoid clones
                     </span><span class="kw">let </span>input = <span class="kw-2">&amp;</span>frames[<span class="number">0</span>].input;
                     <span class="kw">let </span>output = <span class="kw-2">&amp;</span>frames[n_frames - <span class="number">1</span>].output;
-                    <span class="kw">let </span><span class="kw-2">mut </span>z_store = ZStore::&lt;F&gt;::default();
+                    <span class="kw">let </span><span class="kw-2">mut </span>z_dag = ZDag::&lt;F&gt;::default();
                     <span class="kw">let </span><span class="kw-2">mut </span>cache = HashMap::default();
-                    <span class="kw">let </span>expr = populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>input[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                    <span class="kw">let </span>env = populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>input[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                    <span class="kw">let </span>cont = populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>input[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                    <span class="kw">let </span>expr_out =
-                        populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>output[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                    <span class="kw">let </span>env_out =
-                        populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>output[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                    <span class="kw">let </span>cont_out =
-                        populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>output[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+                    <span class="kw">let </span>expr = z_dag.populate_with(<span class="kw-2">&amp;</span>input[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+                    <span class="kw">let </span>env = z_dag.populate_with(<span class="kw-2">&amp;</span>input[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+                    <span class="kw">let </span>cont = z_dag.populate_with(<span class="kw-2">&amp;</span>input[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+                    <span class="kw">let </span>expr_out = z_dag.populate_with(<span class="kw-2">&amp;</span>output[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+                    <span class="kw">let </span>env_out = z_dag.populate_with(<span class="kw-2">&amp;</span>output[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+                    <span class="kw">let </span>cont_out = z_dag.populate_with(<span class="kw-2">&amp;</span>output[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
 
                     <span class="kw">let </span>claim = <span class="self">Self</span>::proof_claim(
                         <span class="kw-2">&amp;</span><span class="self">self</span>.store,
@@ -821,20 +801,24 @@
                     <span class="kw">let </span>claim_comm = Commitment::new(<span class="prelude-val">None</span>, claim, <span class="kw-2">&amp;</span><span class="self">self</span>.store);
                     <span class="kw">let </span>claim_hash = <span class="kw-2">&amp;</span>claim_comm.hash.hex_digits();
                     <span class="kw">let </span>proof_key = <span class="kw-2">&amp;</span><span class="self">Self</span>::proof_key(<span class="kw-2">&amp;</span><span class="self">self</span>.backend, <span class="kw-2">&amp;</span><span class="self">self</span>.rc, claim_hash);
-                    <span class="kw">let </span>proof_path = proof_path(proof_key);
 
-                    <span class="kw">if </span>proof_path.exists() {
+                    <span class="kw">let </span>lurk_proof_meta = LurkProofMeta {
+                        iterations: <span class="kw-2">*</span>iterations,
+                        expr_io: (expr, expr_out),
+                        env_io: <span class="prelude-val">Some</span>((env, env_out)),
+                        cont_io: (cont, cont_out),
+                        z_dag,
+                    };
+
+                    <span class="kw">if </span>LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">&#39;_</span>, <span class="kw">_</span>, Coproc&lt;F&gt;&gt;&gt;::is_cached(proof_key) {
                         <span class="macro">info!</span>(<span class="string">&quot;Proof already cached&quot;</span>);
-                        <span class="comment">// TODO: make sure that the proof file is not corrupted
-                    </span>} <span class="kw">else </span>{
-                        <span class="macro">info!</span>(<span class="string">&quot;Proof not cached&quot;</span>);
-
-                        <span class="macro">info!</span>(<span class="string">&quot;Loading public parameters&quot;</span>);
+                    } <span class="kw">else </span>{
+                        <span class="macro">info!</span>(<span class="string">&quot;Proof not cached. Loading public parameters&quot;</span>);
                         <span class="kw">let </span>instance =
                             Instance::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone(), <span class="bool-val">true</span>, Kind::NovaPublicParams);
                         <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
 
-                        <span class="kw">let </span>prover = NovaProver::&lt;F, Coproc&lt;F&gt;, MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, Coproc&lt;F&gt;&gt;&gt;::new(
+                        <span class="kw">let </span>prover = NovaProver::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, Coproc&lt;F&gt;&gt;&gt;::new(
                             <span class="self">self</span>.rc,
                             (<span class="kw-2">*</span><span class="self">self</span>.lang).clone(),
                         );
@@ -856,21 +840,10 @@
                             lang: (<span class="kw-2">*</span><span class="self">self</span>.lang).clone(),
                         };
 
-                        <span class="kw">let </span>lurk_proof_meta = LurkProofMeta {
-                            iterations: <span class="kw-2">*</span>iterations,
-                            expr,
-                            env,
-                            cont,
-                            expr_out,
-                            env_out,
-                            cont_out,
-                            z_store,
-                        };
-
                         lurk_proof.persist(proof_key)<span class="question-mark">?</span>;
-                        lurk_proof_meta.persist(proof_key)<span class="question-mark">?</span>;
-                        claim_comm.persist()<span class="question-mark">?</span>;
                     }
+                    lurk_proof_meta.persist(proof_key)<span class="question-mark">?</span>;
+                    claim_comm.persist()<span class="question-mark">?</span>;
                     <span class="macro">println!</span>(<span class="string">&quot;Claim hash: 0x{claim_hash}&quot;</span>);
                     <span class="macro">println!</span>(<span class="string">&quot;Proof key: \&quot;{proof_key}\&quot;&quot;</span>);
                     <span class="prelude-val">Ok</span>(())
@@ -889,15 +862,13 @@
 
     <span class="kw">fn </span>fetch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>F, print_data: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>commitment: Commitment&lt;F&gt; = load(<span class="kw-2">&amp;</span>commitment_path(<span class="kw-2">&amp;</span>hash.hex_digits()))<span class="question-mark">?</span>;
-        <span class="kw">let </span>comm_hash = commitment.hash;
-        <span class="kw">if </span><span class="kw-2">&amp;</span>comm_hash != hash {
+        <span class="kw">if </span><span class="kw-2">&amp;</span>commitment.hash != hash {
             <span class="macro">bail!</span>(<span class="string">&quot;Hash mismatch. Corrupted commitment file.&quot;</span>)
         } <span class="kw">else </span>{
             <span class="kw">let </span>(secret, z_payload) = commitment.open()<span class="question-mark">?</span>;
-            <span class="kw">let </span>payload = populate_store(
-                <span class="kw-2">&amp;</span><span class="self">self</span>.store,
+            <span class="kw">let </span>payload = commitment.z_store.populate_store(
                 z_payload,
-                <span class="kw-2">&amp;</span>commitment.z_store,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.store,
                 <span class="kw-2">&amp;mut </span>Default::default(),
             )<span class="question-mark">?</span>;
             <span class="self">self</span>.store.hide(<span class="kw-2">*</span>secret, payload);
@@ -953,10 +924,7 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.store,
             <span class="self">self</span>.limit,
         )<span class="question-mark">?</span>;
-        <span class="kw">if </span><span class="macro">matches!</span>(
-            ptrs[<span class="number">2</span>].tag(),
-            Tag::Cont(ContTag::Terminal) | Tag::Cont(ContTag::Error)
-        ) {
+        <span class="kw">if </span><span class="macro">matches!</span>(ptrs[<span class="number">2</span>].tag(), Tag::Cont(ContTag::Terminal | ContTag::Error)) {
             <span class="prelude-val">Ok</span>((ptrs, iterations, emitted))
         } <span class="kw">else </span>{
             <span class="macro">bail!</span>(
@@ -974,8 +942,8 @@
         <span class="prelude-val">Ok</span>((output, iterations))
     }
 
-    <span class="kw">fn </span>get_comm_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;F&gt; {
-        <span class="kw">let </span>first = <span class="self">self</span>.peek1(cmd, args)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>get_comm_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;F&gt; {
+        <span class="kw">let </span>first = <span class="self">self</span>.peek1(args)<span class="question-mark">?</span>;
         <span class="kw">let </span>num = <span class="self">self</span>.store.intern_lurk_symbol(<span class="string">&quot;num&quot;</span>);
         <span class="kw">let </span>expr = <span class="self">self</span>.store.list(<span class="macro">vec!</span>[num, first]);
         <span class="kw">let </span>(expr_io, ..) = <span class="self">self
@@ -1011,7 +979,7 @@
             <span class="prelude-val">Some</span>(symbol) =&gt; {
                 <span class="kw">let </span>cmdstr = symbol.name()<span class="question-mark">?</span>;
                 <span class="kw">match </span><span class="self">self</span>.meta.get(cmdstr) {
-                    <span class="prelude-val">Some</span>(cmd) =&gt; <span class="kw">match </span>(cmd.run)(<span class="self">self</span>, cmdstr, <span class="kw-2">&amp;</span>cdr) {
+                    <span class="prelude-val">Some</span>(cmd) =&gt; <span class="kw">match </span>(cmd.run)(<span class="self">self</span>, <span class="kw-2">&amp;</span>cdr) {
                         <span class="prelude-val">Ok</span>(()) =&gt; (),
                         <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;Meta command failed with {}&quot;</span>, e),
                     },
@@ -1103,7 +1071,7 @@
             brackets: MatchingBracketValidator::new(),
         }));
 
-        <span class="kw">let </span>history_path = <span class="kw-2">&amp;</span><span class="kw">crate</span>::cli::paths::repl_history();
+        <span class="kw">let </span>history_path = <span class="kw-2">&amp;</span>repl_history();
 
         <span class="kw">if </span>history_path.exists() {
             editor.load_history(history_path)<span class="question-mark">?</span>;

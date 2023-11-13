@@ -678,15 +678,11 @@
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
 <a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>camino::Utf8Path;
 <span class="kw">use </span>nova::traits::Group;
-<span class="kw">use </span>serde::de::DeserializeOwned;
-<span class="kw">use </span>std::process;
+<span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
+<span class="kw">use </span>std::{collections::HashMap, process};
 
 <span class="kw">use crate</span>::{
     cli::lurk_proof::{LurkProof, LurkProofMeta},
@@ -706,7 +702,7 @@
     format: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
     description: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
     example: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
-    <span class="kw">pub</span>(<span class="kw">super</span>) run: <span class="kw">fn</span>(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) run: <span class="kw">fn</span>(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;,
 }
 
 <span class="kw">type </span>F = pasta_curves::pallas::Scalar; <span class="comment">// TODO: generalize this
@@ -718,14 +714,12 @@
         format: <span class="string">&quot;!(load &lt;string&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(load \&quot;my_file.lurk\&quot;)&quot;</span>],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
-            <span class="kw">match </span>repl.store.fetch_string(<span class="kw-2">&amp;</span>first) {
-                <span class="prelude-val">Some</span>(path) =&gt; {
-                    <span class="kw">let </span>joined = repl.pwd_path.join(Utf8Path::new(<span class="kw-2">&amp;</span>path));
-                    repl.load_file(<span class="kw-2">&amp;</span>joined, <span class="bool-val">false</span>)
-                }
-                <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Argument of `load` must be a string.&quot;</span>),
+        run: |repl, args| {
+            <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(path) = repl.store.fetch_string(<span class="kw-2">&amp;</span>first) {
+                repl.load_file(<span class="kw-2">&amp;</span>repl.pwd_path.join(path), <span class="bool-val">false</span>)
+            } <span class="kw">else </span>{
+                <span class="macro">bail!</span>(<span class="string">&quot;Argument of `load` must be a string.&quot;</span>)
             }
         },
     };
@@ -741,8 +735,8 @@
             <span class="string">&quot;The state&#39;s env is set to the result.&quot;</span>,
         ],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(def foo (lambda () 123))&quot;</span>],
-        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| {
-            <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
+        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| {
+            <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>new_name = first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow());
             <span class="kw">let </span>l = repl.store.intern_lurk_symbol(<span class="string">&quot;let&quot;</span>);
             <span class="kw">let </span>current_env = repl.store.intern_lurk_symbol(<span class="string">&quot;current-env&quot;</span>);
@@ -771,8 +765,8 @@
             <span class="string">&quot;!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))&quot;</span>,
             <span class="string">&quot;(sum &#39;(1 2 3))&quot;</span>,
         ],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>new_name = first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow());
             <span class="kw">let </span>l = repl.store.intern_lurk_symbol(<span class="string">&quot;letrec&quot;</span>);
             <span class="kw">let </span>current_env = repl.store.intern_lurk_symbol(<span class="string">&quot;current-env&quot;</span>);
@@ -795,8 +789,8 @@
         format: <span class="string">&quot;!(assert &lt;expr&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(assert t)&quot;</span>, <span class="string">&quot;!(assert (eq 3 (+ 1 2)))&quot;</span>],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
             <span class="kw">if </span>first_io[<span class="number">0</span>].is_nil() {
                 <span class="macro">eprintln!</span>(
@@ -817,8 +811,8 @@
         format: <span class="string">&quot;!(assert-eq &lt;expr&gt; &lt;expr&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(assert-eq 3 (+ 1 2))&quot;</span>],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
                 .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)<span class="question-mark">?</span>;
@@ -855,8 +849,8 @@
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(assert-emitted &#39;(1 2) (begin (emit 1) (emit 2)))&quot;
         </span>],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
                 .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)<span class="question-mark">?</span>;
@@ -887,8 +881,8 @@
         format: <span class="string">&quot;!(assert-error &lt;expr&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(assert-error (1 1))&quot;</span>],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr_allowing_error_continuation(first)<span class="question-mark">?</span>;
             <span class="kw">if </span>first_io[<span class="number">2</span>].tag() != <span class="kw-2">&amp;</span>Tag::Cont(ContTag::Error) {
                 <span class="macro">eprintln!</span>(
@@ -915,8 +909,8 @@
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
             <span class="string">&quot;(let ((n (open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25))) (* (car n) (cdr n)))&quot;</span>,
         ],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
             repl.hide(F::NON_HIDING_COMMITMENT_SECRET, first_io[<span class="number">0</span>])
         }
@@ -934,8 +928,8 @@
             <span class="string">&quot;(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))&quot;</span>,
             <span class="string">&quot;(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)&quot;</span>,
         ],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
                 .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)<span class="question-mark">?</span>;
@@ -964,8 +958,8 @@
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
             <span class="string">&quot;!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
         ],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>hash = repl.get_comm_hash(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>hash = repl.get_comm_hash(args)<span class="question-mark">?</span>;
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)
         },
     };
@@ -981,8 +975,8 @@
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
             <span class="string">&quot;!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
         ],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>hash = repl.get_comm_hash(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>hash = repl.get_comm_hash(args)<span class="question-mark">?</span>;
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">true</span>)
         },
     };
@@ -995,7 +989,7 @@
         format: <span class="string">&quot;!(clear)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(def a 1)&quot;</span>, <span class="string">&quot;(current-env)&quot;</span>, <span class="string">&quot;!(clear)&quot;</span>, <span class="string">&quot;(current-env)&quot;</span>],
-        run: |repl, _cmd, _args| {
+        run: |repl, _args| {
             repl.env = repl.store.intern_nil();
             <span class="prelude-val">Ok</span>(())
         },
@@ -1009,8 +1003,8 @@
         format: <span class="string">&quot;!(set-env &lt;expr&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(set-env &#39;((a . 1) (b . 2)))&quot;</span>, <span class="string">&quot;a&quot;</span>],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
             repl.env = first_io[<span class="number">0</span>];
             <span class="prelude-val">Ok</span>(())
@@ -1034,16 +1028,16 @@
             <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
             <span class="string">&quot;!(open 0x002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf)&quot;</span>,
         ],
-        run: |repl, cmd, args| {
+        run: |repl, args| {
             <span class="kw">if </span>!args.is_nil() {
-                repl.eval_expr_and_memoize(repl.peek1(cmd, args)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+                repl.eval_expr_and_memoize(repl.peek1(args)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
             }
             repl.prove_last_frames()
         }
     };
 }
 
-<span class="kw">impl</span>&lt;F: CurveCycleEquipped + DeserializeOwned&gt; MetaCmd&lt;F&gt;
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped + Serialize + DeserializeOwned&gt; MetaCmd&lt;F&gt;
 <span class="kw">where
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
@@ -1058,8 +1052,8 @@
             <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\&quot;)&quot;</span>,
             <span class="string">&quot;!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)&quot;</span>,
         ],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>proof_id = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
             LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">&#39;_</span>, <span class="kw">_</span>, Coproc&lt;F&gt;&gt;&gt;::verify_proof(
                 <span class="kw-2">&amp;</span>proof_id,
@@ -1075,7 +1069,7 @@
         format: <span class="string">&quot;!(defpackage &lt;string|symbol&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(defpackage abc)&quot;</span>],
-        run: |repl, _cmd, args| {
+        run: |repl, args| {
             <span class="comment">// TODO: handle args
             </span><span class="kw">let </span>(name, _args) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>name = <span class="kw">match </span>name.tag() {
@@ -1098,7 +1092,7 @@
         format: <span class="string">&quot;!(import &lt;string|package&gt; ...)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[],
-        run: |repl, _cmd, args| {
+        run: |repl, args| {
             <span class="comment">// TODO: handle pkg
             </span><span class="kw">let </span>(<span class="kw-2">mut </span>symbols, _pkg) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
             <span class="kw">if </span>symbols.tag() == <span class="kw-2">&amp;</span>Tag::Expr(ExprTag::Sym) {
@@ -1137,8 +1131,8 @@
             <span class="string">&quot;!(in-package .lurk.user)&quot;</span>,
             <span class="string">&quot;(.lurk.user.abc.two)&quot;</span>,
         ],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">match </span>first.tag() {
                 Tag::Expr(ExprTag::Str) =&gt; {
                     <span class="kw">let </span>name = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
@@ -1170,8 +1164,8 @@
             <span class="string">&quot;Otherwise the full help for the command in the first argument is printed.&quot;</span>,
         ],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(help)&quot;</span>, <span class="string">&quot;!(help verify)&quot;</span>, <span class="string">&quot;!(help \&quot;load\&quot;)&quot;</span>],
-        run: |repl, cmd, args| {
-            <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+        run: |repl, args| {
+            <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">match </span>first.tag() {
                 Tag::Expr(ExprTag::Str) =&gt; {
                     <span class="kw">let </span>name = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
@@ -1216,13 +1210,13 @@
 }
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
-    <span class="kw">fn </span>call(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">fn </span>call(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(hash_ptr, args) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
         <span class="kw">let </span>hash_expr = <span class="kw">match </span>hash_ptr.tag() {
             Tag::Expr(ExprTag::Cons) =&gt; hash_ptr,
             <span class="kw">_ </span>=&gt; repl.store.list(<span class="macro">vec!</span>[hash_ptr]),
         };
-        <span class="kw">let </span>hash = repl.get_comm_hash(cmd, <span class="kw-2">&amp;</span>hash_expr)<span class="question-mark">?</span>;
+        <span class="kw">let </span>hash = repl.get_comm_hash(<span class="kw-2">&amp;</span>hash_expr)<span class="question-mark">?</span>;
         <span class="kw">if </span>repl.store.open(hash).is_none() {
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
         }
@@ -1268,8 +1262,8 @@
                (add 0)))&quot;</span>,
             <span class="string">&quot;!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 1)&quot;</span>,
         ],
-        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| {
-            <span class="self">Self</span>::call(repl, cmd, args)<span class="question-mark">?</span>;
+        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| {
+            <span class="self">Self</span>::call(repl, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>ev = repl
                 .get_evaluation()
                 .as_ref()
@@ -1292,8 +1286,8 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField + DeserializeOwned&gt; MetaCmd&lt;F&gt; {
-    <span class="kw">fn </span>inspect(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, full: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>inspect(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, full: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
         <span class="kw">let </span>proof_id = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
         LurkProofMeta::&lt;F&gt;::inspect_proof(
             <span class="kw-2">&amp;</span>proof_id,
@@ -1311,8 +1305,8 @@
             <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
             <span class="string">&quot;!(inspect \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
         ],
-        run: |repl, cmd, args| {
-            <span class="self">Self</span>::inspect(repl, cmd, args, <span class="bool-val">false</span>)
+        run: |repl, args| {
+            <span class="self">Self</span>::inspect(repl, args, <span class="bool-val">false</span>)
         }
     };
 }
@@ -1327,8 +1321,8 @@
             <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
             <span class="string">&quot;!(inspect-full \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
         ],
-        run: |repl, cmd, args| {
-            <span class="self">Self</span>::inspect(repl, cmd, args, <span class="bool-val">true</span>)
+        run: |repl, args| {
+            <span class="self">Self</span>::inspect(repl, args, <span class="bool-val">true</span>)
         }
     };
 }
@@ -1361,7 +1355,7 @@
     ];
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>cmds() -&gt; std::collections::HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, MetaCmd&lt;F&gt;&gt; {
-        std::collections::HashMap::from(<span class="self">Self</span>::CMDS.map(|x| (x.name, x)))
+        HashMap::from(<span class="self">Self</span>::CMDS.map(|x| (x.name, x)))
     }
 }
 </code></pre></div></section></main></body></html>

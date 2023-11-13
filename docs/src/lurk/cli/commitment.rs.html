@@ -72,7 +72,7 @@
 <span class="kw">use super</span>::{
     field_data::{dump, HasFieldModulus},
     paths::commitment_path,
-    zstore::{populate_z_store, ZStore},
+    zstore::ZStore,
 };
 
 <span class="doccomment">/// Holds data for commitments.
@@ -96,7 +96,7 @@
         <span class="kw">let </span>secret = secret.unwrap_or(F::NON_HIDING_COMMITMENT_SECRET);
         <span class="kw">let </span>(hash, z_payload) = store.hide_and_return_z_payload(secret, payload);
         <span class="kw">let </span><span class="kw-2">mut </span>z_store = ZStore::&lt;F&gt;::default();
-        populate_z_store(<span class="kw-2">&amp;mut </span>z_store, <span class="kw-2">&amp;</span>payload, store, <span class="kw-2">&amp;mut </span>HashMap::default());
+        z_store.populate_with(<span class="kw-2">&amp;</span>payload, store, <span class="kw-2">&amp;mut </span>HashMap::default());
         z_store.add_comm(hash, secret, z_payload);
         <span class="self">Self </span>{ hash, z_store }
     }
