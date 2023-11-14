@@ -98,29 +98,44 @@ impl<F: LurkField> GlobalAllocator<F> {
     }
 
     #[inline]
-    pub fn get_const(&self, f: F) -> Result<&AllocatedNum<F>> {
-        self.0
-            .get(&FWrap(f))
-            .ok_or_else(|| anyhow!("Global allocation not found for {}", f.hex_digits()))
+    pub fn new_const_from_tag<CS: ConstraintSystem<F>, T: Tag>(&mut self, cs: &mut CS, tag: &T) {
+        self.new_const(cs, tag.to_field());
     }
 
     #[inline]
-    fn get_const_cloned(&self, f: F) -> Result<AllocatedNum<F>> {
+    pub fn new_consts_from_z_ptr<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, z_ptr: &ZPtr<F>) {
+        self.new_const_from_tag(cs, z_ptr.tag());
+        self.new_const(cs, *z_ptr.value());
+    }
+
+    #[inline]
+    pub fn get_const(&self, f: F) -> Result<&AllocatedNum<F>, SynthesisError> {
+        self.0
+            .get(&FWrap(f))
+            .ok_or_else(|| SynthesisError::AssignmentMissing)
+    }
+
+    #[inline]
+    pub fn get_const_cloned(&self, f: F) -> Result<AllocatedNum<F>, SynthesisError> {
         self.get_const(f).cloned()
     }
 
     #[inline]
-    pub fn get_tag<T: Tag>(&self, tag: &T) -> Result<&AllocatedNum<F>> {
+    pub fn get_tag<T: Tag>(&self, tag: &T) -> Result<&AllocatedNum<F>, SynthesisError> {
         self.get_const(tag.to_field())
     }
 
     #[inline]
-    pub fn get_tag_cloned<T: Tag>(&self, tag: &T) -> Result<AllocatedNum<F>> {
+    pub fn get_tag_cloned<T: Tag>(&self, tag: &T) -> Result<AllocatedNum<F>, SynthesisError> {
         self.get_tag(tag).cloned()
     }
 
     #[inline]
-    pub fn get_allocated_ptr<T: Tag>(&self, tag: &T, hash: F) -> Result<AllocatedPtr<F>> {
+    pub fn get_allocated_ptr<T: Tag>(
+        &self,
+        tag: &T,
+        hash: F,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
         Ok(AllocatedPtr::from_parts(
             self.get_tag_cloned(tag)?,
             self.get_const_cloned(hash)?,
@@ -131,7 +146,7 @@ impl<F: LurkField> GlobalAllocator<F> {
         &self,
         ptr: &Ptr<F>,
         store: &Store<F>,
-    ) -> Result<AllocatedPtr<F>> {
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
         let crate::z_ptr::ZPtr(tag, hash) = store.hash_ptr(ptr);
         self.get_allocated_ptr(&tag, hash)
     }
@@ -386,32 +401,31 @@ impl Block {
                 | Op::Cons3(_, tag, _)
                 | Op::Cons4(_, tag, _)
                 | Op::Cast(_, tag, _) => {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                 }
                 Op::Lit(_, lit) => {
                     let lit_ptr = lit.to_ptr(store);
                     let lit_z_ptr = store.hash_ptr(&lit_ptr);
-                    g.new_const(cs, lit_z_ptr.tag_field());
-                    g.new_const(cs, *lit_z_ptr.value());
+                    g.new_consts_from_z_ptr(cs, &lit_z_ptr);
                 }
                 Op::Zero(_, tag) => {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, F::ZERO);
                 }
                 Op::Hash3Zeros(_, tag) => {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, store.hash3zeros);
                 }
                 Op::Hash4Zeros(_, tag) => {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, store.hash4zeros);
                 }
                 Op::Hash6Zeros(_, tag) => {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, store.hash6zeros);
                 }
                 Op::Hash8Zeros(_, tag) => {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, store.hash8zeros);
                 }
                 Op::Not(..)
@@ -423,15 +437,15 @@ impl Block {
                 | Op::Lt(..)
                 | Op::Trunc(..)
                 | Op::DivRem64(..) => {
-                    g.new_const(cs, Num.to_field());
+                    g.new_const_from_tag(cs, &Num);
                 }
                 Op::Div(..) => {
-                    g.new_const(cs, Num.to_field());
+                    g.new_const_from_tag(cs, &Num);
                     g.new_const(cs, F::ONE);
                 }
                 Op::Hide(..) | Op::Open(..) => {
-                    g.new_const(cs, Num.to_field());
-                    g.new_const(cs, Comm.to_field());
+                    g.new_const_from_tag(cs, &Num);
+                    g.new_const_from_tag(cs, &Comm);
                 }
                 _ => (),
             }
@@ -450,7 +464,7 @@ impl Block {
                 }
             }
             Ctrl::MatchSymbol(_, cases, def) => {
-                g.new_const(cs, Sym.to_field());
+                g.new_const_from_tag(cs, &Sym);
                 for block in cases.values() {
                     block.alloc_globals(cs, store, g)?;
                 }
