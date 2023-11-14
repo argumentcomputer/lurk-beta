@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Meta","Status"],"fn":["empty_sym_env","eval_to_ptr"],"mod":["lang"],"struct":["Evaluator","Frame","FrameIt","IO","Witness"],"trait":["Evaluable"]};
+window.SIDEBAR_ITEMS = {"enum":["Meta","Status"],"fn":["empty_sym_env"],"mod":["lang"],"struct":["Frame","IO","Witness"]};
