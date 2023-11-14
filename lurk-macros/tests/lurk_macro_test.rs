@@ -1,14 +1,8 @@
 #[cfg(test)]
 mod test {
-    use lurk_crate::{
-        eval::lang::{Coproc, Lang},
-        eval::{empty_sym_env, Evaluator, IO},
-        store::Store,
-    };
+    use lurk_crate::store::Store;
     use lurk_macros::{let_store, lurk};
     use pasta_curves::pallas::Scalar as Fr;
-
-    type TestLang = Lang<Fr, Coproc<Fr>>;
 
     #[test]
     fn test_let_store() {
@@ -49,64 +43,5 @@ mod test {
         let res2 = s_.read("(letrec ((a 1)) a)").unwrap();
 
         assert_eq!(res2, res);
-    }
-
-    #[test]
-    fn outer_evaluate_recursion1() {
-        // This test is an example of simple usage. Compare to the commented-out original source for this test.
-
-        // let mut s = Store::<Fr>::default();
-        let_store!();
-        let limit = 200;
-
-        let expr = lurk!((letrec ((exp (lambda (base)
-                                         (lambda (exponent)
-                                          (if (= 0 exponent)
-                                           1
-                                           (* base ((exp base) (- exponent 1))))))))
-                          ((exp 5) 3)))
-        .unwrap();
-
-        let lang: TestLang = Lang::new();
-
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-            _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(s_), s_, limit, &lang)
-            .eval()
-            .unwrap();
-
-        assert_eq!(91, iterations);
-        assert_eq!(s_.num(125), result_expr);
-    }
-
-    #[test]
-    fn outer_evaluate_lambda() {
-        let_store!();
-
-        let limit = 20;
-        let val = s_.num(123);
-        let expr = lurk!(((lambda (x) x) 123)).unwrap();
-        let lang: TestLang = Lang::new();
-
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-            _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(s_), s_, limit, &lang)
-            .eval()
-            .unwrap();
-
-        assert_eq!(4, iterations);
-        assert_eq!(val, result_expr);
     }
 }

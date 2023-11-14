@@ -1,16 +1,14 @@
 use crate::coprocessor::Coprocessor;
-use crate::error::ReductionError;
 use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::hash_witness::{ConsWitness, ContWitness};
 use crate::ptr::{ContPtr, Ptr};
-use crate::state::{initial_lurk_state, State};
+use crate::state::State;
 use crate::store::Store;
 use crate::tag::ContTag;
 use crate::writer::Write;
 use crate::z_ptr::ZExprPtr;
 use crate::{lurk_sym_ptr, store};
-use lang::Lang;
 
 #[cfg(not(target_arch = "wasm32"))]
 use lurk_macros::serde_test;
@@ -18,16 +16,9 @@ use lurk_macros::serde_test;
 use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
-use std::iter::{Iterator, Take};
 use std::marker::PhantomData;
-use tracing::info;
 
 pub mod lang;
-
-mod reduction;
-
-#[cfg(test)]
-pub(crate) mod tests;
 
 #[derive(Clone, Debug, PartialEq, Copy, Eq)]
 pub struct IO<F: LurkField> {
@@ -80,20 +71,6 @@ pub struct Frame<T: Copy, W: Copy, F: LurkField, C> {
     pub witness: W,
     pub meta: Meta<F>,
     pub _p: PhantomData<C>,
-}
-
-impl<T: Copy, W: Copy, F: LurkField, C> Frame<T, W, F, C> {
-    #[inline]
-    fn new(input: T, output: T, i: usize, witness: W, meta: Meta<F>) -> Self {
-        Self {
-            input,
-            output,
-            i,
-            witness,
-            meta,
-            _p: Default::default(),
-        }
-    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -159,88 +136,6 @@ impl<F: LurkField, W: Copy, C: Coprocessor<F>> Frame<IO<F>, W, F, C> {
 
         sequential && io_match
     }
-
-    pub fn is_complete(&self) -> bool {
-        self.input == self.output
-            && <IO<F> as Evaluable<F, Witness<F>, C>>::is_complete(&self.output)
-    }
-
-    pub fn log(&self, store: &Store<F>) {
-        // This frame's output is the input for the next frame.
-        // Report that index. Otherwise we can't report the initial input.
-        <IO<F> as Evaluable<F, Witness<F>, C>>::log(&self.output, store, self.i + 1);
-    }
-
-    pub fn significant_frame_count(frames: &[Frame<IO<F>, W, F, C>]) -> usize {
-        frames
-            .iter()
-            .rev()
-            .skip_while(|frame| frame.is_complete())
-            .count()
-    }
-}
-
-pub trait Evaluable<F: LurkField, W, C: Coprocessor<F>> {
-    fn reduce(
-        &self,
-        store: &Store<F>,
-        lang: &Lang<F, C>,
-    ) -> Result<(Self, W, Meta<F>), ReductionError>
-    where
-        Self: Sized;
-
-    fn status(&self) -> Status;
-    fn is_complete(&self) -> bool;
-    fn is_terminal(&self) -> bool;
-    fn is_error(&self) -> bool;
-
-    fn log(&self, store: &Store<F>, i: usize);
-}
-
-impl<F: LurkField, C: Coprocessor<F>> Evaluable<F, Witness<F>, C> for IO<F> {
-    fn reduce(
-        &self,
-        store: &Store<F>,
-        lang: &Lang<F, C>,
-    ) -> Result<(Self, Witness<F>, Meta<F>), ReductionError> {
-        let (expr, env, cont, witness, meta) =
-            reduction::reduce(self.expr, self.env, self.cont, store, lang)?;
-        Ok((Self { expr, env, cont }, witness, meta))
-    }
-
-    fn status(&self) -> Status {
-        Status::from(self.cont)
-    }
-
-    fn is_complete(&self) -> bool {
-        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_complete()
-    }
-
-    fn is_terminal(&self) -> bool {
-        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_terminal()
-    }
-
-    fn is_error(&self) -> bool {
-        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_error()
-    }
-
-    fn log(&self, store: &Store<F>, i: usize) {
-        info!(
-            "Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}{}",
-            i,
-            self.expr.fmt_to_string(store, initial_lurk_state()),
-            self.env.fmt_to_string(store, initial_lurk_state()),
-            self.cont.fmt_to_string(store, initial_lurk_state()),
-            if let Some(emitted) = self.maybe_emitted_expression(store) {
-                format!(
-                    "\n\tOutput: {}",
-                    emitted.fmt_to_string(store, initial_lurk_state())
-                )
-            } else {
-                "".to_string()
-            }
-        );
-    }
 }
 
 impl<F: LurkField> IO<F> {
@@ -282,124 +177,6 @@ impl<F: LurkField> IO<F> {
     }
 }
 
-impl<F: LurkField, T: Evaluable<F, Witness<F>, C> + Copy, C: Coprocessor<F>>
-    Frame<T, Witness<F>, F, C>
-{
-    pub(crate) fn next(&self, store: &Store<F>, lang: &Lang<F, C>) -> Result<Self, ReductionError> {
-        let input = self.output;
-        let (output, witness, meta) = input.reduce(store, lang)?;
-
-        // FIXME: Why isn't this method found?
-        // self.log(store);
-        self.output.log(store, self.i + 1);
-        Ok(Self {
-            input,
-            output,
-            i: self.i + 1,
-            witness,
-            meta,
-            _p: Default::default(),
-        })
-    }
-}
-
-impl<F: LurkField, T: Evaluable<F, Witness<F>, C> + Copy, C: Coprocessor<F> + Clone>
-    Frame<T, Witness<F>, F, C>
-{
-    fn from_initial_input(
-        input: T,
-        store: &Store<F>,
-        lang: &Lang<F, C>,
-    ) -> Result<Self, ReductionError> {
-        input.log(store, 0);
-        let (output, witness, meta) = input.reduce(store, lang)?;
-        Ok(Self {
-            input,
-            output,
-            i: 0,
-            witness,
-            meta,
-            _p: Default::default(),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct FrameIt<'a, W: Copy, F: LurkField, C: Coprocessor<F>> {
-    first: bool,
-    frame: Frame<IO<F>, W, F, C>,
-    store: &'a Store<F>,
-    lang: &'a Lang<F, C>,
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> FrameIt<'a, Witness<F>, F, C> {
-    fn new(
-        initial_input: IO<F>,
-        store: &'a Store<F>,
-        lang: &'a Lang<F, C>,
-    ) -> Result<Self, ReductionError> {
-        let frame = Frame::from_initial_input(initial_input, store, lang)?;
-        Ok(Self {
-            first: true,
-            frame,
-            store,
-            lang,
-        })
-    }
-}
-
-// Wrapper struct to preserve errors that would otherwise be lost during iteration
-#[derive(Debug)]
-struct ResultFrame<'a, F: LurkField, C: Coprocessor<F>>(
-    Result<FrameIt<'a, Witness<F>, F, C>, ReductionError>,
-);
-
-impl<'a, F: LurkField, C: Coprocessor<F>> Iterator for ResultFrame<'a, F, C> {
-    type Item = Result<Frame<IO<F>, Witness<F>, F, C>, ReductionError>;
-    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        let frame_it = match &mut self.0 {
-            Ok(f) => f,
-            Err(e) => return Some(Err(e.clone())),
-        };
-        // skip first iteration, as one evaluation happens on construction
-        if frame_it.first {
-            frame_it.first = false;
-            return Some(Ok(frame_it.frame.clone()));
-        }
-
-        if frame_it.frame.is_complete() {
-            return None;
-        }
-
-        frame_it.frame = match frame_it.frame.next(frame_it.store, frame_it.lang) {
-            Ok(f) => f,
-            Err(e) => return Some(Err(e)),
-        };
-
-        Some(Ok(frame_it.frame.clone()))
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> Iterator for FrameIt<'a, Witness<F>, F, C> {
-    type Item = Frame<IO<F>, Witness<F>, F, C>;
-    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        // skip first iteration, as one evaluation happens on construction
-        if self.first {
-            self.first = false;
-            return Some(self.frame.clone());
-        }
-
-        if self.frame.is_complete() {
-            return None;
-        }
-
-        // TODO: Error info lost here
-        self.frame = self.frame.next(self.store, self.lang).ok()?;
-
-        Some(self.frame.clone())
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Witness<F: LurkField> {
     pub(crate) prethunk_output_expr: Ptr<F>,
@@ -412,139 +189,7 @@ pub struct Witness<F: LurkField> {
     pub(crate) conts: ContWitness<F>,
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> Evaluator<'a, F, C>
-where
-    IO<F>: Copy,
-{
-    #[inline]
-    pub fn new(
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &'a Store<F>,
-        limit: usize,
-        lang: &'a Lang<F, C>,
-    ) -> Self {
-        Evaluator {
-            expr,
-            env,
-            store,
-            limit,
-            lang,
-        }
-    }
-
-    pub fn eval(&mut self) -> Result<(IO<F>, usize, Vec<Ptr<F>>), ReductionError> {
-        let mut io = self.initial();
-        Evaluable::<F, Witness<F>, C>::log(&io, self.store, 0);
-        let mut iterations = 0;
-        let mut emitted_vec = vec![];
-        for _ in 0..self.limit {
-            if Evaluable::<F, Witness<F>, C>::is_complete(&io) {
-                break;
-            }
-            (io, _, _) = io.reduce(self.store, self.lang)?;
-            if let Some(emitted) = io.maybe_emitted_expression(self.store) {
-                emitted_vec.push(emitted);
-            }
-            iterations += 1;
-            Evaluable::<F, Witness<F>, C>::log(&io, self.store, iterations);
-        }
-        Ok((io, iterations, emitted_vec))
-    }
-
-    #[inline]
-    pub fn initial(&mut self) -> IO<F> {
-        IO {
-            expr: self.expr,
-            env: self.env,
-            cont: self.store.intern_cont_outermost(),
-        }
-    }
-
-    pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F, C>>, ReductionError> {
-        let initial_input = self.initial();
-
-        Ok(FrameIt::new(initial_input, self.store, self.lang)?.take(self.limit))
-    }
-
-    /// Wraps frames in Result type in order to fail gracefully.
-    ///
-    /// Note: the output will have an identity frame at the end if there's still
-    /// room, that is, if `self.limit` hasn't been reached. This is useful for
-    /// proving when padding the last frame is necessary.
-    pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>, F, C>>, ReductionError> {
-        let mut input = self.initial();
-        Evaluable::<F, Witness<F>, C>::log(&input, self.store, 0);
-        let mut frames = vec![];
-        for i in 0..self.limit {
-            let (output, witness, meta) = input.reduce(self.store, self.lang)?;
-            let frame = Frame::new(input, output, i, witness, meta);
-            let is_complete = frame.is_complete();
-            frames.push(frame);
-            if is_complete {
-                break;
-            }
-            // logging after `break` to ignore the identity frame
-            Evaluable::<F, Witness<F>, C>::log(&output, self.store, i + 1);
-            input = output;
-        }
-        Ok(frames)
-    }
-
-    #[tracing::instrument(skip_all, name = "Evaluator::generate_frames")]
-    pub fn generate_frames<Fp: Fn(usize) -> bool>(
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &'a Store<F>,
-        limit: usize,
-        needs_frame_padding: Fp,
-        lang: &'a Lang<F, C>,
-    ) -> Result<Vec<Frame<IO<F>, Witness<F>, F, C>>, ReductionError> {
-        let mut evaluator = Self::new(expr, env, store, limit, lang);
-
-        let mut frames = evaluator.get_frames()?;
-        assert!(!frames.is_empty());
-
-        // TODO: We previously had an optimization here. If the limit was not reached, the final frame should be an
-        // identity reduction suitable for padding. If it's not needed for that purpose, we can pop it from frames. In
-        // the worst case, this could save creating one multi-frame filled only with this identity padding.
-
-        if !frames.is_empty() {
-            let padding_frame = frames[frames.len() - 1].clone();
-            while needs_frame_padding(frames.len()) {
-                frames.push(padding_frame.clone());
-            }
-        }
-
-        Ok(frames)
-    }
-}
-
 #[inline]
 pub fn empty_sym_env<F: LurkField>(store: &Store<F>) -> Ptr<F> {
     lurk_sym_ptr!(store, nil)
-}
-
-// Convenience functions, mostly for use in tests.
-
-pub fn eval_to_ptr<F: LurkField, C: Coprocessor<F>>(
-    s: &Store<F>,
-    src: &str,
-) -> Result<Ptr<F>, ReductionError> {
-    let expr = s.read(src).unwrap();
-    let limit = 1000000;
-    let lang = Lang::<F, C>::new();
-    Ok(Evaluator::new(expr, empty_sym_env(s), s, limit, &lang)
-        .eval()?
-        .0
-        .expr)
-}
-
-#[derive(Debug)]
-pub struct Evaluator<'a, F: LurkField, C: Coprocessor<F>> {
-    expr: Ptr<F>,
-    env: Ptr<F>,
-    store: &'a Store<F>,
-    limit: usize,
-    lang: &'a Lang<F, C>,
 }
