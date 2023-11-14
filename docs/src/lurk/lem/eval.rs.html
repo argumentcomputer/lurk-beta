@@ -2102,7 +2102,7 @@
         <span class="kw-2">&amp;</span>lang
             .coprocessors()
             .iter()
-            .map(|(s, (c, <span class="kw">_</span>))| (s, c.arity()))
+            .map(|(s, c)| (s, c.arity()))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
         ivc,
     )
@@ -2296,7 +2296,7 @@
 ) -&gt; std::sync::Arc&lt;[Func]&gt; {
     lang.coprocessors()
         .iter()
-        .map(|(name, (c, <span class="kw">_</span>))| run_cproc(name.clone(), c.arity()))
+        .map(|(name, c)| run_cproc(name.clone(), c.arity()))
         .collect()
 }
 

@@ -170,41 +170,6 @@
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="comment">// # Usage of circom coprocessors.
 //
 // See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
@@ -217,22 +182,15 @@
 
     <span class="kw">use </span>ansi_term::Colour::Red;
     <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
-    <span class="kw">use </span>bellpepper::gadgets::boolean::Boolean;
     <span class="kw">use </span>bellpepper_core::{ConstraintSystem, SynthesisError};
     <span class="kw">use </span>circom_scotia::r1cs::CircomConfig;
 
     <span class="kw">use crate</span>::{
-        circuit::gadgets::{
-            circom::CircomGadget,
-            data::GlobalAllocations,
-            pointer::{AllocatedContPtr, AllocatedPtr},
-        },
+        circuit::gadgets::{circom::CircomGadget, pointer::AllocatedPtr},
         cli::paths::circom_dir,
         coprocessor::{CoCircuit, Coprocessor},
         field::LurkField,
         lem::{pointers::Ptr, store::Store},
-        ptr::Ptr <span class="kw">as </span>AlphaPtr,
-        store::Store <span class="kw">as </span>AlphaStore,
     };
 
     <span class="kw">fn </span>print_error(name: <span class="kw-2">&amp;</span>str, available: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -317,30 +275,6 @@ Then run `lurk coprocessor --name {name} &lt;{}_FOLDER&gt;` to instantiate a new
             <span class="number">0
         </span>}
 
-        <span class="kw">fn </span>synthesize_alpha&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
-            <span class="kw-2">&amp;</span><span class="self">self</span>,
-            cs: <span class="kw-2">&amp;mut </span>CS,
-            g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
-            _store: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;,
-            input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
-            input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-            input_cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
-            _not_dummy: <span class="kw-2">&amp;</span>Boolean,
-        ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;), SynthesisError&gt;
-        {
-            <span class="kw">let </span>input = <span class="self">self</span>.gadget.clone().into_circom_input(input_exprs);
-            <span class="kw">let </span>witness =
-                circom_scotia::calculate_witness(<span class="kw-2">&amp;</span><span class="self">self</span>.config, input, <span class="bool-val">true</span>).map_err(|e| {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;{:?}&quot;</span>, e);
-                    SynthesisError::Unsatisfiable
-                })<span class="question-mark">?</span>;
-            <span class="kw">let </span>output = circom_scotia::synthesize(cs, <span class="self">self</span>.config.r1cs.clone(), <span class="prelude-val">Some</span>(witness))<span class="question-mark">?</span>;
-
-            <span class="kw">let </span>res = AllocatedPtr::from_parts(g.num_tag.clone(), output);
-
-            <span class="prelude-val">Ok</span>((res, input_env.clone(), input_cont.clone()))
-        }
-
         <span class="kw">fn </span>synthesize_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             cs: <span class="kw-2">&amp;mut </span>CS,
@@ -370,10 +304,6 @@ Then run `lurk coprocessor --name {name} &lt;{}_FOLDER&gt;` to instantiate a new
         </span><span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
             <span class="number">0
         </span>}
-
-        <span class="kw">fn </span>simple_evaluate_alpha(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>AlphaStore&lt;F&gt;, args: <span class="kw-2">&amp;</span>[AlphaPtr&lt;F&gt;]) -&gt; AlphaPtr&lt;F&gt; {
-            <span class="self">self</span>.gadget.simple_evaluate_alpha(s, args)
-        }
 
         <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
             <span class="self">self</span>.gadget.evaluate_simple(s, args)
