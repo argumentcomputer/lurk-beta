@@ -19,7 +19,7 @@ use tracing::info;
 use crate::{
     coprocessor::Coprocessor,
     error::ProofError,
-    eval::{lang::Lang, Meta},
+    eval::lang::Lang,
     field::LurkField,
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, G1, G2},
@@ -90,7 +90,7 @@ where
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    let non_uniform_circuit = M::blank(folding_config, Meta::Lurk, 0);
+    let non_uniform_circuit = M::blank(folding_config, 0);
     // TODO: use `&*SS::commitment_key_floor()`, where `SS<G>: RelaxedR1CSSNARKTrait<G>`` when https://github.com/lurk-lab/arecibo/issues/27 closes
     let pp = SuperNovaPublicParams::<F, M>::new(
         &non_uniform_circuit,
@@ -365,7 +365,7 @@ where
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, 2));
-    let circuit = M::blank(folding_config, Meta::Lurk, 0);
+    let circuit = M::blank(folding_config, 0);
     let num_circuits = circuit.num_circuits();
     let circuit = circuit.primary_circuit(circuit_index);
     F::from(rc as u64) * supernova::circuit_digest::<F::G1, F::G2, _>(&circuit, num_circuits)

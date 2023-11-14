@@ -26,7 +26,7 @@ use crate::{
     config::lurk_config,
     coprocessor::Coprocessor,
     error::ProofError,
-    eval::{lang::Lang, Meta},
+    eval::lang::Lang,
     field::LurkField,
     proof::{supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Prover},
 };
@@ -183,7 +183,7 @@ pub fn circuit_cache_key<
     lang: Arc<Lang<F, C>>,
 ) -> F {
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, 2));
-    let circuit = M::blank(folding_config, Meta::Lurk, 0);
+    let circuit = M::blank(folding_config, 0);
     F::from(rc as u64) * nova::circuit_digest::<F::G1, F::G2, _>(&circuit)
 }
 
@@ -222,10 +222,7 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrame
     lang: Arc<Lang<F, C>>,
 ) -> (M, C2<F>) {
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
-    (
-        M::blank(folding_config, Meta::Lurk, 0),
-        TrivialCircuit::default(),
-    )
+    (M::blank(folding_config, 0), TrivialCircuit::default())
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.

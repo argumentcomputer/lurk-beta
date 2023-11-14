@@ -13,7 +13,7 @@ use crate::{
     config::lurk_config,
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
-    eval::{lang::Lang, Meta},
+    eval::lang::Lang,
     field::{LanguageField, LurkField},
     proof::{
         nova::{CurveCycleEquipped, G1, G2},
@@ -468,7 +468,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         }
     }
 
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, _meta: Meta<F>, pc: usize) -> Self {
+    fn blank(folding_config: Arc<FoldingConfig<F, C>>, pc: usize) -> Self {
         let (lurk_step, cprocs, rc) = match &*folding_config {
             FoldingConfig::IVC(lang, rc) => {
                 (Arc::new(make_eval_step_from_lang(lang, true)), None, *rc)
@@ -633,7 +633,6 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         circuit_frame: Option<Self::CircuitFrame>,
         store: &'a Self::Store,
         folding_config: Arc<FoldingConfig<F, C>>,
-        _meta: Meta<F>,
     ) -> Self {
         let (lurk_step, cprocs) = match &*folding_config {
             FoldingConfig::IVC(lang, _) => (Arc::new(make_eval_step_from_lang(lang, true)), None),
@@ -918,11 +917,7 @@ where
         if circuit_index == 0 {
             self.clone()
         } else {
-            Self::blank(
-                self.folding_config.clone(),
-                Default::default(),
-                circuit_index,
-            )
+            Self::blank(self.folding_config.clone(), circuit_index)
         }
     }
 
