@@ -694,8 +694,8 @@
 {
     <span class="kw">let </span>(circuit_primary, circuit_secondary) = circuits(num_iters_per_step, lang);
 
-    <span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G1&lt;F&gt;&gt;&gt;::commitment_key_floor();
-    <span class="kw">let </span>commitment_size_hint2 = &lt;SS2&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G2&lt;F&gt;&gt;&gt;::commitment_key_floor();
+    <span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G1&lt;F&gt;&gt;&gt;::ck_floor();
+    <span class="kw">let </span>commitment_size_hint2 = &lt;SS2&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G2&lt;F&gt;&gt;&gt;::ck_floor();
 
     <span class="kw">let </span>pp = nova::PublicParams::new(
         <span class="kw-2">&amp;</span>circuit_primary,

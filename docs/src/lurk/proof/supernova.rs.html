@@ -413,7 +413,7 @@
     },
     traits::{
         circuit_supernova::{StepCircuit <span class="kw">as </span>SuperStepCircuit, TrivialSecondaryCircuit},
-        snark::default_commitment_key_hint,
+        snark::default_ck_hint,
         Group,
     },
 };
@@ -499,8 +499,8 @@
     <span class="comment">// TODO: use `&amp;*SS::commitment_key_floor()`, where `SS&lt;G&gt;: RelaxedR1CSSNARKTrait&lt;G&gt;`` when https://github.com/lurk-lab/arecibo/issues/27 closes
     </span><span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F, M&gt;::new(
         <span class="kw-2">&amp;</span>non_uniform_circuit,
-        <span class="kw-2">&amp;*</span>default_commitment_key_hint(),
-        <span class="kw-2">&amp;*</span>default_commitment_key_hint(),
+        <span class="kw-2">&amp;*</span>default_ck_hint(),
+        <span class="kw-2">&amp;*</span>default_ck_hint(),
     );
     PublicParams { pp }
 }
