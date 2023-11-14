@@ -8,7 +8,7 @@ use nova::{
     },
     traits::{
         circuit_supernova::{StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit},
-        snark::default_commitment_key_hint,
+        snark::default_ck_hint,
         Group,
     },
 };
@@ -94,8 +94,8 @@ where
     // TODO: use `&*SS::commitment_key_floor()`, where `SS<G>: RelaxedR1CSSNARKTrait<G>`` when https://github.com/lurk-lab/arecibo/issues/27 closes
     let pp = SuperNovaPublicParams::<F, M>::new(
         &non_uniform_circuit,
-        &*default_commitment_key_hint(),
-        &*default_commitment_key_hint(),
+        &*default_ck_hint(),
+        &*default_ck_hint(),
     );
     PublicParams { pp }
 }
