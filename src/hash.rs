@@ -2,7 +2,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use crate::field::{FWrap, LurkField};
-use elsa::{sync::FrozenMap, sync_index_map::FrozenIndexMap};
+use elsa::{sync::index_map::FrozenIndexMap, sync::FrozenMap};
 
 use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::{poseidon::PoseidonConstants, Poseidon};
