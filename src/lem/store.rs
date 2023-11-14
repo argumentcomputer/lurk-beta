@@ -22,7 +22,6 @@ use crate::{
         Tail, Terminal, Unop,
     },
     tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
-    uint::UInt,
 };
 
 use super::pointers::{Ptr, ZPtr};
@@ -62,6 +61,7 @@ pub struct Store<F: LurkField> {
 
     dehydrated: ArcSwap<FrozenVec<Box<Ptr<F>>>>,
     z_cache: FrozenMap<Ptr<F>, Box<ZPtr<F>>>,
+    inverse_z_cache: FrozenMap<ZPtr<F>, Box<Ptr<F>>>,
 
     comms: FrozenMap<FWrap<F>, Box<(F, Ptr<F>)>>, // hash -> (secret, src)
 
@@ -91,6 +91,7 @@ impl<F: LurkField> Default for Store<F> {
             inverse_poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             z_cache: Default::default(),
+            inverse_z_cache: Default::default(),
             comms: Default::default(),
             hash3zeros,
             hash4zeros,
@@ -118,6 +119,7 @@ impl<F: LurkField> Store<F> {
     pub fn intern_2_ptrs_hydrated(&self, tag: Tag, a: Ptr<F>, b: Ptr<F>, z: ZPtr<F>) -> Ptr<F> {
         let ptr = Ptr::Tuple2(tag, self.tuple2.insert_probe(Box::new((a, b))).0);
         self.z_cache.insert(ptr, Box::new(z));
+        self.inverse_z_cache.insert(z, Box::new(ptr));
         ptr
     }
 
@@ -145,6 +147,7 @@ impl<F: LurkField> Store<F> {
     ) -> Ptr<F> {
         let ptr = Ptr::Tuple3(tag, self.tuple3.insert_probe(Box::new((a, b, c))).0);
         self.z_cache.insert(ptr, Box::new(z));
+        self.inverse_z_cache.insert(z, Box::new(ptr));
         ptr
     }
 
@@ -173,6 +176,7 @@ impl<F: LurkField> Store<F> {
     ) -> Ptr<F> {
         let ptr = Ptr::Tuple4(tag, self.tuple4.insert_probe(Box::new((a, b, c, d))).0);
         self.z_cache.insert(ptr, Box::new(z));
+        self.inverse_z_cache.insert(z, Box::new(ptr));
         ptr
     }
 
@@ -224,7 +228,7 @@ impl<F: LurkField> Store<F> {
                         let (car, cdr) = self.fetch_2_ptrs(idx)?;
                         match car {
                             Ptr::Atom(Tag::Expr(Char), c) => {
-                                string.push(c.to_char().expect("char pointers are well formed"));
+                                string.push(c.to_char().expect("malformed char pointer"));
                                 ptr = *cdr
                             }
                             _ => return None,
@@ -261,7 +265,8 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn fetch_symbol_path(&self, mut idx: usize) -> Option<Vec<String>> {
+    /// Fetches a symbol path whose interning returned the provided `idx`
+    fn fetch_symbol_path(&self, mut idx: usize) -> Option<Vec<String>> {
         let mut path = vec![];
         loop {
             let (car, cdr) = self.fetch_2_ptrs(idx)?;
@@ -497,27 +502,22 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_syntax(&self, syn: Syntax<F>) -> Ptr<F> {
         match syn {
-            Syntax::Num(_, x) => Ptr::Atom(Tag::Expr(Num), x.into_scalar()),
-            Syntax::UInt(_, UInt::U64(x)) => Ptr::Atom(Tag::Expr(U64), x.into()),
-            Syntax::Char(_, x) => Ptr::Atom(Tag::Expr(Char), (x as u64).into()),
-            Syntax::Symbol(_, symbol) => self.intern_symbol(&symbol),
+            Syntax::Num(_, x) => Ptr::num(x.into_scalar()),
+            Syntax::UInt(_, x) => Ptr::u64(x.into()),
+            Syntax::Char(_, x) => Ptr::char(x),
+            Syntax::Symbol(_, x) => self.intern_symbol(&x),
             Syntax::String(_, x) => self.intern_string(&x),
-            Syntax::Quote(pos, x) => {
-                let xs = vec![Syntax::Symbol(pos, lurk_sym("quote").into()), *x];
-                self.intern_syntax(Syntax::List(pos, xs))
+            Syntax::Quote(_, x) => self.list(vec![
+                self.intern_symbol(&lurk_sym("quote")),
+                self.intern_syntax(*x),
+            ]),
+            Syntax::List(_, xs) => {
+                self.list(xs.into_iter().map(|x| self.intern_syntax(x)).collect())
             }
-            Syntax::List(_, xs) => xs.into_iter().rev().fold(self.intern_nil(), |acc, x| {
-                let car = self.intern_syntax(x);
-                self.intern_2_ptrs(Tag::Expr(Cons), car, acc)
-            }),
-            Syntax::Improper(_, xs, end) => {
-                xs.into_iter()
-                    .rev()
-                    .fold(self.intern_syntax(*end), |acc, x| {
-                        let car = self.intern_syntax(x);
-                        self.intern_2_ptrs(Tag::Expr(Cons), car, acc)
-                    })
-            }
+            Syntax::Improper(_, xs, y) => self.improper_list(
+                xs.into_iter().map(|x| self.intern_syntax(x)).collect(),
+                self.intern_syntax(*y),
+            ),
         }
     }
 
@@ -601,6 +601,7 @@ impl<F: LurkField> Store<F> {
                         ]),
                     );
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
+                    self.inverse_z_cache.insert(z_ptr, Box::new(*ptr));
                     z_ptr
                 }
             }
@@ -624,6 +625,7 @@ impl<F: LurkField> Store<F> {
                         ]),
                     );
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
+                    self.inverse_z_cache.insert(z_ptr, Box::new(*ptr));
                     z_ptr
                 }
             }
@@ -650,6 +652,7 @@ impl<F: LurkField> Store<F> {
                         ]),
                     );
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
+                    self.inverse_z_cache.insert(z_ptr, Box::new(*ptr));
                     z_ptr
                 }
             }
@@ -758,57 +761,20 @@ impl<F: LurkField> Store<F> {
     pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
         self.hash_ptr(a) == self.hash_ptr(b)
     }
+
+    /// Attempts to recover the `Ptr` that corresponds to `z_ptr` from
+    /// `inverse_z_cache`. If the mapping is not there, returns an atom pointer
+    /// with the same tag and value
+    #[inline]
+    pub fn to_ptr(&self, z_ptr: &ZPtr<F>) -> Ptr<F> {
+        self.inverse_z_cache
+            .get(z_ptr)
+            .cloned()
+            .unwrap_or_else(|| Ptr::opaque(*z_ptr))
+    }
 }
 
 impl<F: LurkField> Ptr<F> {
-    pub fn dbg_display(&self, store: &Store<F>) -> String {
-        if let Some(s) = store.fetch_string(self) {
-            return format!("\"{s}\"");
-        }
-        if let Some(s) = store.fetch_symbol(self) {
-            return format!("{s}");
-        }
-        match self {
-            Ptr::Atom(tag, f) => {
-                if let Some(x) = f.to_u64() {
-                    format!("{tag}{x}")
-                } else {
-                    format!("{tag}{f:?}")
-                }
-            }
-            Ptr::Tuple2(tag, x) => {
-                let (p1, p2) = store.fetch_2_ptrs(*x).unwrap();
-                format!(
-                    "({} {} {})",
-                    tag,
-                    p1.dbg_display(store),
-                    p2.dbg_display(store)
-                )
-            }
-            Ptr::Tuple3(tag, x) => {
-                let (p1, p2, p3) = store.fetch_3_ptrs(*x).unwrap();
-                format!(
-                    "({} {} {} {})",
-                    tag,
-                    p1.dbg_display(store),
-                    p2.dbg_display(store),
-                    p3.dbg_display(store)
-                )
-            }
-            Ptr::Tuple4(tag, x) => {
-                let (p1, p2, p3, p4) = store.fetch_4_ptrs(*x).unwrap();
-                format!(
-                    "({} {} {} {} {})",
-                    tag,
-                    p1.dbg_display(store),
-                    p2.dbg_display(store),
-                    p3.dbg_display(store),
-                    p4.dbg_display(store)
-                )
-            }
-        }
-    }
-
     pub fn fmt_to_string(&self, store: &Store<F>, state: &State) -> String {
         match self.tag() {
             Tag::Expr(t) => match t {

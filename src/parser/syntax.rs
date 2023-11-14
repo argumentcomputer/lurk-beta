@@ -433,12 +433,7 @@ pub mod tests {
     {
         match (expected, p.parse(Span::<'a>::new(i))) {
             (Some(expected), Ok((_, x))) if x == expected => true,
-            (Some(_) | None, Ok(..)) | (Some(..), Err(_)) => {
-                // println!("input: {:?}", i);
-                // println!("expected parse error");
-                // println!("detected: {:?}", x);
-                false
-            }
+            (Some(_) | None, Ok(..)) | (Some(..), Err(_)) => false,
             (None, Err(_e)) => true,
         }
     }
@@ -831,6 +826,7 @@ pub mod tests {
         assert!(test(parse_num(), "0d0", Some(num!(0))));
         assert!(test(parse_num(), "0x0", Some(num!(0))));
         assert!(test(parse_num(), "0xf", Some(num!(15))));
+        assert!(test(parse_num(), "0xF", Some(num!(15))));
         assert!(test(parse_num(), "0x0f", Some(num!(15))));
         assert!(test(
             parse_num(),

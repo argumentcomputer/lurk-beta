@@ -187,13 +187,9 @@ pub(crate) mod test {
             input_env: &AllocatedPtr<F>,
             input_cont: &AllocatedPtr<F>,
         ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
-            let num_tag = g
-                .get_tag(&ExprTag::Num)
-                .expect("Num tag should have been allocated");
+            let num_tag = g.get_tag(&ExprTag::Num)?;
 
-            let cont_err = g
-                .get_allocated_ptr_from_ptr(&s.cont_error(), s)
-                .expect("Error pointer should have been allocated");
+            let cont_err = g.get_allocated_ptr_from_ptr(&s.cont_error(), s)?;
 
             let (expr, env, cont) =
                 self.synthesize_aux(cs, input_exprs, input_env, input_cont, num_tag, &cont_err)?;
@@ -262,12 +258,8 @@ pub(crate) mod test {
             env: &AllocatedPtr<F>,
             _cont: &AllocatedPtr<F>,
         ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
-            let nil = g
-                .get_allocated_ptr_from_ptr(&s.intern_nil(), s)
-                .expect("nil pointer not allocated");
-            let term = g
-                .get_allocated_ptr_from_ptr(&s.cont_terminal(), s)
-                .expect("terminal pointer not allocated");
+            let nil = g.get_allocated_ptr_from_ptr(&s.intern_nil(), s)?;
+            let term = g.get_allocated_ptr_from_ptr(&s.cont_terminal(), s)?;
             Ok(vec![nil, env.clone(), term])
         }
     }
