@@ -10,22 +10,15 @@ pub mod non_wasm {
 
     use ansi_term::Colour::Red;
     use anyhow::{bail, Result};
-    use bellpepper::gadgets::boolean::Boolean;
     use bellpepper_core::{ConstraintSystem, SynthesisError};
     use circom_scotia::r1cs::CircomConfig;
 
     use crate::{
-        circuit::gadgets::{
-            circom::CircomGadget,
-            data::GlobalAllocations,
-            pointer::{AllocatedContPtr, AllocatedPtr},
-        },
+        circuit::gadgets::{circom::CircomGadget, pointer::AllocatedPtr},
         cli::paths::circom_dir,
         coprocessor::{CoCircuit, Coprocessor},
         field::LurkField,
         lem::{pointers::Ptr, store::Store},
-        ptr::Ptr as AlphaPtr,
-        store::Store as AlphaStore,
     };
 
     fn print_error(name: &str, available: &[String]) -> Result<()> {
@@ -110,30 +103,6 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
             0
         }
 
-        fn synthesize_alpha<CS: ConstraintSystem<F>>(
-            &self,
-            cs: &mut CS,
-            g: &GlobalAllocations<F>,
-            _store: &AlphaStore<F>,
-            input_exprs: &[AllocatedPtr<F>],
-            input_env: &AllocatedPtr<F>,
-            input_cont: &AllocatedContPtr<F>,
-            _not_dummy: &Boolean,
-        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
-        {
-            let input = self.gadget.clone().into_circom_input(input_exprs);
-            let witness =
-                circom_scotia::calculate_witness(&self.config, input, true).map_err(|e| {
-                    eprintln!("{:?}", e);
-                    SynthesisError::Unsatisfiable
-                })?;
-            let output = circom_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
-
-            let res = AllocatedPtr::from_parts(g.num_tag.clone(), output);
-
-            Ok((res, input_env.clone(), input_cont.clone()))
-        }
-
         fn synthesize_simple<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
@@ -162,10 +131,6 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
         /// TODO: Generalize
         fn eval_arity(&self) -> usize {
             0
-        }
-
-        fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
-            self.gadget.simple_evaluate_alpha(s, args)
         }
 
         fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {

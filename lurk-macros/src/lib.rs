@@ -33,15 +33,12 @@ pub fn derive_enum_coproc(input: TokenStream) -> TokenStream {
 
 fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
     let eval_arity_arms = eval_arity_match_arms(name, variants);
-    let evaluate_alpha_arms = evaluate_alpha_match_arms(name, variants);
-    let simple_evaluate_alpha_arms = simple_evaluate_alpha_match_arms(name, variants);
     let evaluate_internal_arms = evaluate_internal_match_arms(name, variants);
     let evaluate_arms = evaluate_match_arms(name, variants);
     let evaluate_simple_arms = evaluate_simple_match_arms(name, variants);
     let has_circuit_arms = has_circuit_match_arms(name, variants);
 
     let arity_arms = arity_match_arms(name, variants);
-    let synthesize_alpha_arms = synthesize_alpha_match_arms(name, variants);
     let synthesize_internal_arms = synthesize_internal_match_arms(name, variants);
     let synthesize_arms = synthesize_match_arms(name, variants);
     let synthesize_simple_arms = synthesize_simple_match_arms(name, variants);
@@ -53,18 +50,6 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
             fn eval_arity(&self) -> usize {
                 match self {
                     #eval_arity_arms
-                }
-            }
-
-            fn evaluate_alpha(&self, s: &lurk::store::Store<F>, args: lurk::ptr::Ptr<F>, env: lurk::ptr::Ptr<F>, cont: lurk::ptr::ContPtr<F>) -> lurk::eval::IO<F> {
-                match self {
-                    #evaluate_alpha_arms
-                }
-            }
-
-            fn simple_evaluate_alpha(&self, s: &lurk::store::Store<F>, args: &[lurk::ptr::Ptr<F>]) -> lurk::ptr::Ptr<F> {
-                match self {
-                    #simple_evaluate_alpha_arms
                 }
             }
 
@@ -97,21 +82,6 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
             fn arity(&self) -> usize {
                 match self {
                     #arity_arms
-                }
-            }
-
-            fn synthesize_alpha<CS: bellpepper_core::ConstraintSystem<F>>(
-                &self,
-                cs: &mut CS,
-                g: &lurk::circuit::gadgets::data::GlobalAllocations<F>,
-                store: &lurk::store::Store<F>,
-                input_exprs: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
-                input_env: &lurk::circuit::gadgets::pointer::AllocatedPtr<F>,
-                input_cont: &lurk::circuit::gadgets::pointer::AllocatedContPtr<F>,
-                not_dummy: &bellpepper::gadgets::boolean::Boolean,
-            ) -> Result<(lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedContPtr<F>), bellpepper_core::SynthesisError> {
-                match self {
-                    #synthesize_alpha_arms
                 }
             }
 
@@ -174,30 +144,6 @@ fn eval_arity_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::Toke
     match_arms
 }
 
-fn evaluate_alpha_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
-    let mut match_arms = quote! {};
-    for variant in variants.variants.iter() {
-        let variant_ident = &variant.ident;
-
-        match_arms.extend(quote! {
-            #name::#variant_ident(coprocessor) => coprocessor.evaluate_alpha(s, args, env, cont),
-        });
-    }
-    match_arms
-}
-
-fn simple_evaluate_alpha_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
-    let mut match_arms = quote! {};
-    for variant in variants.variants.iter() {
-        let variant_ident = &variant.ident;
-
-        match_arms.extend(quote! {
-            #name::#variant_ident(coprocessor) => coprocessor.simple_evaluate_alpha(s, args),
-        });
-    }
-    match_arms
-}
-
 fn evaluate_internal_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
     let mut match_arms = quote! {};
     for variant in variants.variants.iter() {
@@ -253,18 +199,6 @@ fn arity_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStre
 
         match_arms.extend(quote! {
             #name::#variant_ident(cocircuit) => cocircuit.arity(),
-        });
-    }
-    match_arms
-}
-
-fn synthesize_alpha_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
-    let mut match_arms = quote! {};
-    for variant in variants.variants.iter() {
-        let variant_ident = &variant.ident;
-
-        match_arms.extend(quote! {
-            #name::#variant_ident(cocircuit) => cocircuit.synthesize_alpha(cs, g, store, input_exprs, input_env, input_cont, not_dummy),
         });
     }
     match_arms

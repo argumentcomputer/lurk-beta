@@ -1,19 +1,12 @@
-use std::fmt::Debug;
-
 use bellpepper::gadgets::boolean::Boolean;
 use bellpepper_core::{ConstraintSystem, SynthesisError};
+use std::fmt::Debug;
 
-use crate::circuit::circuit_frame::{car_cdr, destructure_list};
-use crate::circuit::gadgets::constraints::{alloc_equal_const, enforce_equal_const};
-use crate::circuit::gadgets::data::GlobalAllocations;
-use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
-use crate::eval::IO;
-use crate::field::LurkField;
-use crate::lem::{circuit::GlobalAllocator, pointers::Ptr, store::Store};
-use crate::ptr::{ContPtr, Ptr as AlphaPtr};
-use crate::store::Store as AlphaStore;
-use crate::tag::Tag;
-use crate::z_data::z_ptr::ZExprPtr;
+use crate::{
+    circuit::gadgets::pointer::AllocatedPtr,
+    field::LurkField,
+    lem::{circuit::GlobalAllocator, pointers::Ptr, store::Store},
+};
 
 pub mod circom;
 pub mod gadgets;
@@ -36,121 +29,12 @@ pub mod trie;
 pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> {
     fn eval_arity(&self) -> usize;
 
-    fn evaluate_alpha(
-        &self,
-        s: &AlphaStore<F>,
-        args: AlphaPtr<F>,
-        env: AlphaPtr<F>,
-        cont: ContPtr<F>,
-    ) -> IO<F> {
-        let Some(argv) = s.fetch_list(&args) else {
-            return IO {
-                expr: args,
-                env,
-                cont: s.intern_cont_error(),
-            };
-        };
-
-        if argv.len() != self.eval_arity() {
-            return IO {
-                expr: args,
-                env,
-                cont: s.intern_cont_error(),
-            };
-        };
-
-        let result = self.simple_evaluate_alpha(s, &argv);
-
-        IO {
-            expr: result,
-            env,
-            cont,
-        }
-    }
-
-    /// As with all evaluation, the value returned from `simple_evaluate_alpha` must be fully evaluated.
-    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F>;
-
     /// Returns true if this Coprocessor actually implements a circuit.
     fn has_circuit(&self) -> bool {
         false
     }
 
-    fn synthesize_step_circuit<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &AlphaStore<F>,
-        g: &GlobalAllocations<F>,
-        coprocessor_zptr: &ZExprPtr<F>,
-        input_expr: &AllocatedPtr<F>,
-        input_env: &AllocatedPtr<F>,
-        input_cont: &AllocatedContPtr<F>,
-        not_dummy: &Boolean,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        // TODO: This code is almost identical to that in circuit_frame.rs (the arg destructuring is factored out and shared there).
-        // Refactor to share.
-        let arity = self.arity();
-
-        // If `input_expr` is not a cons, the circuit will not be satisified, per `car_cdr`'s contract.
-        // That is also the desired behavior for the coprocessor circuit's validation, so this is fine.
-        let (head, rest) = car_cdr(
-            &mut cs.namespace(|| "coprocessor_input car_cdr"),
-            g,
-            input_expr,
-            store,
-            &Boolean::Constant(true),
-        )?;
-
-        {
-            // The NIVC coprocessor contract requires that a proof (of any kind, including error) will be generated only if
-            // the control expression can be correctly handled by the coprocessor. This means each circuit must validate its
-            // input to ensure it matches the coprocessor.
-            enforce_equal_const(
-                cs,
-                || "coprocessor head tag matches",
-                coprocessor_zptr.tag().to_field(),
-                head.tag(),
-            );
-            enforce_equal_const(
-                cs,
-                || "coprocessor head val matches",
-                *coprocessor_zptr.value(),
-                head.hash(),
-            );
-        }
-
-        let (inputs, actual_length) = destructure_list(
-            &mut cs.namespace(|| "coprocessor form"),
-            store,
-            g,
-            arity,
-            &rest,
-        )?;
-
-        let arity_is_correct = alloc_equal_const(
-            &mut cs.namespace(|| "arity_is_correct"),
-            &actual_length,
-            F::from(arity as u64),
-        )?;
-
-        let (result_expr, result_env, result_cont) =
-            self.synthesize_alpha(cs, g, store, &inputs, input_env, input_cont, not_dummy)?;
-
-        let quoted_expr = AllocatedPtr::construct_list(
-            &mut cs.namespace(|| "quote coprocessor result"),
-            g,
-            store,
-            &[&g.quote_ptr, &result_expr],
-        )?;
-
-        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
-
-        let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &input_env)?;
-        let new_cont = pick_cont_ptr!(cs, &arity_is_correct, &result_cont, &g.error_ptr_cont)?;
-
-        Ok((new_expr, new_env, new_cont))
-    }
-
+    /// Function for internal plumbing. Reimplementing is not recommended
     fn evaluate_internal(&self, s: &Store<F>, ptrs: &[Ptr<F>]) -> Vec<Ptr<F>> {
         let arity = self.arity();
         let args = &ptrs[0..arity];
@@ -163,10 +47,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         vec![self.evaluate_simple(s, args), *env, *cont]
     }
 
-    // TODO: this default implementation should disappear once we make the switch to LEM
-    fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
-        unimplemented!()
-    }
+    fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F>;
 }
 
 /// `CoCircuit` is a trait that represents a generalized interface for coprocessors.
@@ -180,20 +61,7 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         todo!()
     }
 
-    fn synthesize_alpha<CS: ConstraintSystem<F>>(
-        &self,
-        _cs: &mut CS,
-        _g: &GlobalAllocations<F>,
-        _store: &AlphaStore<F>,
-        _input_exprs: &[AllocatedPtr<F>],
-        _input_env: &AllocatedPtr<F>,
-        _input_cont: &AllocatedContPtr<F>,
-        _not_dummy: &Boolean,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        // A `synthesize` implementation needs to be provided by implementers of `CoCircuit`.
-        unimplemented!()
-    }
-
+    /// Function for internal plumbing. Reimplementing is not recommended
     fn synthesize_internal<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -309,31 +177,6 @@ pub(crate) mod test {
             2
         }
 
-        fn synthesize_alpha<CS: ConstraintSystem<F>>(
-            &self,
-            cs: &mut CS,
-            g: &GlobalAllocations<F>,
-            _store: &AlphaStore<F>,
-            input_exprs: &[AllocatedPtr<F>],
-            input_env: &AllocatedPtr<F>,
-            input_cont: &AllocatedContPtr<F>,
-            _not_dummy: &Boolean,
-        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
-        {
-            let input_ptr: AllocatedPtr<F> = (input_cont.clone()).into();
-
-            let (expr, env, cont) = self.synthesize_aux(
-                cs,
-                input_exprs,
-                input_env,
-                &input_ptr,
-                &g.num_tag,
-                &g.error_ptr,
-            )?;
-
-            Ok((expr, env, cont.into()))
-        }
-
         fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
@@ -365,66 +208,6 @@ pub(crate) mod test {
             2
         }
 
-        /// It squares the first arg and adds it to the second.
-        fn evaluate_alpha(
-            &self,
-            s: &AlphaStore<F>,
-            args: AlphaPtr<F>,
-            env: AlphaPtr<F>,
-            cont: ContPtr<F>,
-        ) -> IO<F> {
-            let Some(argv) = s.fetch_list(&args) else {
-                return IO {
-                    expr: args,
-                    env,
-                    cont: s.intern_cont_error(),
-                };
-            };
-
-            if argv.len() != self.eval_arity() {
-                return IO {
-                    expr: args,
-                    env,
-                    cont: s.intern_cont_error(),
-                };
-            };
-
-            let a = argv[0];
-            let b = argv[1];
-
-            if a.tag != ExprTag::Num {
-                return IO {
-                    expr: a,
-                    env,
-                    cont: s.intern_cont_error(),
-                };
-            };
-
-            if b.tag != ExprTag::Num {
-                return IO {
-                    expr: b,
-                    env,
-                    cont: s.intern_cont_error(),
-                };
-            }
-
-            let a_num = s.fetch_num(&a).unwrap();
-            let b_num = s.fetch_num(&b).unwrap();
-            let mut result = *a_num;
-            result *= *a_num;
-            result += *b_num;
-
-            IO {
-                expr: s.intern_num(result),
-                env,
-                cont,
-            }
-        }
-
-        fn simple_evaluate_alpha(&self, _s: &AlphaStore<F>, _args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
-            unreachable!()
-        }
-
         fn has_circuit(&self) -> bool {
             true
         }
@@ -443,6 +226,10 @@ pub(crate) mod test {
                 return vec![args[1], *env, s.cont_error()];
             };
             vec![Ptr::num((*a * *a) + *b), *env, *cont]
+        }
+
+        fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+            unreachable!()
         }
     }
 
@@ -463,20 +250,6 @@ pub(crate) mod test {
     impl<F: LurkField> CoCircuit<F> for Terminator<F> {
         fn arity(&self) -> usize {
             0
-        }
-
-        fn synthesize_alpha<CS: ConstraintSystem<F>>(
-            &self,
-            _cs: &mut CS,
-            g: &GlobalAllocations<F>,
-            _store: &AlphaStore<F>,
-            _input_exprs: &[AllocatedPtr<F>],
-            input_env: &AllocatedPtr<F>,
-            _input_cont: &AllocatedContPtr<F>,
-            _not_dummy: &Boolean,
-        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
-        {
-            Ok((g.nil_ptr.clone(), input_env.clone(), g.terminal_ptr.clone()))
         }
 
         fn synthesize<CS: ConstraintSystem<F>>(
@@ -504,24 +277,6 @@ pub(crate) mod test {
             0
         }
 
-        fn evaluate_alpha(
-            &self,
-            s: &AlphaStore<F>,
-            args: AlphaPtr<F>,
-            env: AlphaPtr<F>,
-            _cont: ContPtr<F>,
-        ) -> IO<F> {
-            IO {
-                expr: args,
-                env,
-                cont: s.get_cont_terminal(),
-            }
-        }
-
-        fn simple_evaluate_alpha(&self, _s: &AlphaStore<F>, _args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
-            unreachable!()
-        }
-
         fn evaluate(
             &self,
             s: &Store<F>,
@@ -530,6 +285,10 @@ pub(crate) mod test {
             _cont: &Ptr<F>,
         ) -> Vec<Ptr<F>> {
             vec![s.intern_nil(), *env, s.cont_terminal()]
+        }
+
+        fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+            unreachable!()
         }
 
         fn has_circuit(&self) -> bool {

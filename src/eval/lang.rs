@@ -1,19 +1,15 @@
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::marker::PhantomData;
-
 use indexmap::IndexMap;
 use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
+use std::{fmt::Debug, marker::PhantomData};
 
-use crate::coprocessor::{CoCircuit, Coprocessor};
-use crate::field::LurkField;
-use crate::lem::store::Store;
-use crate::symbol::Symbol;
-use crate::z_ptr::ZExprPtr;
-use crate::{ptr::Ptr as AlphaPtr, store::Store as AlphaStore};
-
-use crate::{self as lurk, lurk_sym_ptr};
+use crate::{
+    self as lurk,
+    coprocessor::{CoCircuit, Coprocessor},
+    field::LurkField,
+    lem::{pointers::Ptr, store::Store},
+    symbol::Symbol,
+};
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///
@@ -35,9 +31,8 @@ impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
 
     /// And does nothing but return nil. It should probably never be used and can perhaps be eliminated,
     /// but for now it exists as an exemplar demonstrating the intended shape of enums like the default, `Coproc`.
-    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
-        assert!(args.is_empty());
-        lurk_sym_ptr!(s, nil)
+    fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+        s.intern_nil()
     }
 }
 
@@ -80,35 +75,23 @@ pub enum Coproc<F: LurkField> {
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct Lang<F: LurkField, C: Coprocessor<F>> {
     /// An IndexMap that stores coprocessors with their associated `Sym` keys.
-    coprocessors: IndexMap<Symbol, (C, ZExprPtr<F>)>,
-    index: HashMap<ZExprPtr<F>, usize>,
+    coprocessors: IndexMap<Symbol, C>,
+    _p: PhantomData<F>,
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     #[inline]
     pub fn new() -> Self {
         Self {
-            coprocessors: Default::default(),
-            index: Default::default(),
+            coprocessors: IndexMap::default(),
+            _p: PhantomData,
         }
     }
 
-    pub fn new_with_bindings_alpha<B: Into<Binding<F, C>>>(
-        s: &AlphaStore<F>,
-        bindings: Vec<B>,
-    ) -> Self {
+    pub fn new_with_bindings<B: Into<Binding<F, C>>>(bindings: Vec<B>) -> Self {
         let mut new = Self::new();
         for b in bindings {
-            new.add_binding_alpha(b.into(), s);
-        }
-
-        new
-    }
-
-    pub fn new_with_bindings<B: Into<Binding<F, C>>>(s: &Store<F>, bindings: Vec<B>) -> Self {
-        let mut new = Self::new();
-        for b in bindings {
-            new.add_binding(b.into(), s);
+            new.add_binding(b.into());
         }
 
         new
@@ -127,68 +110,24 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         key
     }
 
-    pub fn add_coprocessor_alpha<T: Into<C>, S: Into<Symbol>>(
-        &mut self,
-        name: S,
-        cproc: T,
-        store: &AlphaStore<F>,
-    ) {
+    pub fn add_coprocessor<T: Into<C>, S: Into<Symbol>>(&mut self, name: S, cproc: T) {
         let name = name.into();
-        let ptr = store.intern_symbol(&name);
-        let z_ptr = store.hash_expr(&ptr).unwrap();
-
-        self.coprocessors.insert(name, (cproc.into(), z_ptr));
-        self.index.insert(z_ptr, self.index.len());
+        self.coprocessors.insert(name, cproc.into());
     }
 
-    pub fn add_coprocessor<T: Into<C>, S: Into<Symbol>>(
-        &mut self,
-        name: S,
-        cproc: T,
-        store: &Store<F>,
-    ) {
-        let name = name.into();
-
-        // TODO: this `z_ptr` is not really needed by LEM
-        let ptr = store.intern_symbol(&name);
-        let z_ptr = store.hash_ptr(&ptr);
-        let z_ptr = ZExprPtr::from_parts(lurk::tag::ExprTag::Sym, *z_ptr.value());
-
-        self.coprocessors.insert(name, (cproc.into(), z_ptr));
-    }
-
-    pub fn add_binding_alpha<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &AlphaStore<F>) {
+    pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B) {
         let Binding { name, coproc, _p } = binding.into();
-        self.add_coprocessor_alpha(name, coproc, store);
-    }
-
-    pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &Store<F>) {
-        let Binding { name, coproc, _p } = binding.into();
-        self.add_coprocessor(name, coproc, store);
+        self.add_coprocessor(name, coproc);
     }
 
     #[inline]
-    pub fn coprocessors(&self) -> &IndexMap<Symbol, (C, ZExprPtr<F>)> {
+    pub fn coprocessors(&self) -> &IndexMap<Symbol, C> {
         &self.coprocessors
-    }
-
-    pub fn max_coprocessor_arity(&self) -> usize {
-        self.coprocessors
-            .values()
-            .map(|(c, _)| c.arity())
-            .max()
-            .unwrap_or(0)
-    }
-
-    pub fn lookup(&self, s: &AlphaStore<F>, name: AlphaPtr<F>) -> Option<&(C, ZExprPtr<F>)> {
-        let maybe_sym = s.fetch_maybe_sym(&name);
-
-        maybe_sym.and_then(|sym| self.coprocessors.get(&sym))
     }
 
     #[inline]
     pub fn lookup_by_sym(&self, sym: &Symbol) -> Option<&C> {
-        self.coprocessors.get(sym).map(|(c, _)| c)
+        self.coprocessors.get(sym)
     }
 
     #[inline]
@@ -204,11 +143,6 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     #[inline]
     pub fn coprocessor_count(&self) -> usize {
         self.coprocessors.len()
-    }
-
-    #[inline]
-    pub fn get_index(&self, z_ptr: &ZExprPtr<F>) -> Option<usize> {
-        self.index.get(z_ptr).copied()
     }
 
     #[inline]
@@ -256,10 +190,9 @@ pub(crate) mod test {
 
     #[test]
     fn dummy_lang() {
-        let store = &mut AlphaStore::<Fr>::default();
-        let _lang = Lang::<Fr, Coproc<Fr>>::new_with_bindings_alpha(
-            store,
-            vec![(sym!("coproc", "dummy"), DummyCoprocessor::new().into())],
-        );
+        let _lang = Lang::<Fr, Coproc<Fr>>::new_with_bindings(vec![(
+            sym!("coproc", "dummy"),
+            DummyCoprocessor::new().into(),
+        )]);
     }
 }

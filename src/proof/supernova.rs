@@ -322,17 +322,6 @@ impl<F: LurkField, C: Coprocessor<F>> FoldingConfig<F, C> {
         Self::NIVC(lang, reduction_count)
     }
 
-    /// Return the circuit index assigned in this `FoldingConfig` to circuits tagged with this `meta`.
-    pub fn circuit_index(&self, meta: &Meta<F>) -> usize {
-        match self {
-            Self::IVC(_, _) => 0,
-            Self::NIVC(lang, _) => match meta {
-                Meta::Lurk => 0,
-                Meta::Coprocessor(z_ptr) => lang.get_index(z_ptr).unwrap() + 1,
-            },
-        }
-    }
-
     /// Return the total number of NIVC circuits potentially required when folding programs described by this `FoldingConfig`.
     pub fn num_circuits(&self) -> usize {
         match self {
