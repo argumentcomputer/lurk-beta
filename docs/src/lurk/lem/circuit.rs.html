@@ -1589,6 +1589,20 @@
 <a href="#1589" id="1589">1589</a>
 <a href="#1590" id="1590">1590</a>
 <a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -1689,29 +1703,44 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>get_const(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;&gt; {
-        <span class="self">self</span>.<span class="number">0
-            </span>.get(<span class="kw-2">&amp;</span>FWrap(f))
-            .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;Global allocation not found for {}&quot;</span>, f.hex_digits()))
+    </span><span class="kw">pub fn </span>new_const_from_tag&lt;CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, tag: <span class="kw-2">&amp;</span>T) {
+        <span class="self">self</span>.new_const(cs, tag.to_field());
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>get_const_cloned(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;&gt; {
+    </span><span class="kw">pub fn </span>new_consts_from_z_ptr&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;) {
+        <span class="self">self</span>.new_const_from_tag(cs, z_ptr.tag());
+        <span class="self">self</span>.new_const(cs, <span class="kw-2">*</span>z_ptr.value());
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>get_const(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;, SynthesisError&gt; {
+        <span class="self">self</span>.<span class="number">0
+            </span>.get(<span class="kw-2">&amp;</span>FWrap(f))
+            .ok_or_else(|| SynthesisError::AssignmentMissing)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>get_const_cloned(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
         <span class="self">self</span>.get_const(f).cloned()
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>get_tag&lt;T: Tag&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span>T) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;&gt; {
+    </span><span class="kw">pub fn </span>get_tag&lt;T: Tag&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span>T) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;, SynthesisError&gt; {
         <span class="self">self</span>.get_const(tag.to_field())
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>get_tag_cloned&lt;T: Tag&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span>T) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;&gt; {
+    </span><span class="kw">pub fn </span>get_tag_cloned&lt;T: Tag&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span>T) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
         <span class="self">self</span>.get_tag(tag).cloned()
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>get_allocated_ptr&lt;T: Tag&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span>T, hash: F) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;&gt; {
+    </span><span class="kw">pub fn </span>get_allocated_ptr&lt;T: Tag&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        tag: <span class="kw-2">&amp;</span>T,
+        hash: F,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
         <span class="prelude-val">Ok</span>(AllocatedPtr::from_parts(
             <span class="self">self</span>.get_tag_cloned(tag)<span class="question-mark">?</span>,
             <span class="self">self</span>.get_const_cloned(hash)<span class="question-mark">?</span>,
@@ -1722,7 +1751,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span><span class="kw">crate</span>::z_ptr::ZPtr(tag, hash) = store.hash_ptr(ptr);
         <span class="self">self</span>.get_allocated_ptr(<span class="kw-2">&amp;</span>tag, hash)
     }
@@ -1977,32 +2006,31 @@
                 | Op::Cons3(<span class="kw">_</span>, tag, <span class="kw">_</span>)
                 | Op::Cons4(<span class="kw">_</span>, tag, <span class="kw">_</span>)
                 | Op::Cast(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                 }
                 Op::Lit(<span class="kw">_</span>, lit) =&gt; {
                     <span class="kw">let </span>lit_ptr = lit.to_ptr(store);
                     <span class="kw">let </span>lit_z_ptr = store.hash_ptr(<span class="kw-2">&amp;</span>lit_ptr);
-                    g.new_const(cs, lit_z_ptr.tag_field());
-                    g.new_const(cs, <span class="kw-2">*</span>lit_z_ptr.value());
+                    g.new_consts_from_z_ptr(cs, <span class="kw-2">&amp;</span>lit_z_ptr);
                 }
                 Op::Zero(<span class="kw">_</span>, tag) =&gt; {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, F::ZERO);
                 }
                 Op::Hash3Zeros(<span class="kw">_</span>, tag) =&gt; {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, store.hash3zeros);
                 }
                 Op::Hash4Zeros(<span class="kw">_</span>, tag) =&gt; {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, store.hash4zeros);
                 }
                 Op::Hash6Zeros(<span class="kw">_</span>, tag) =&gt; {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, store.hash6zeros);
                 }
                 Op::Hash8Zeros(<span class="kw">_</span>, tag) =&gt; {
-                    g.new_const(cs, tag.to_field());
+                    g.new_const_from_tag(cs, tag);
                     g.new_const(cs, store.hash8zeros);
                 }
                 Op::Not(..)
@@ -2014,15 +2042,15 @@
                 | Op::Lt(..)
                 | Op::Trunc(..)
                 | Op::DivRem64(..) =&gt; {
-                    g.new_const(cs, Num.to_field());
+                    g.new_const_from_tag(cs, <span class="kw-2">&amp;</span>Num);
                 }
                 Op::Div(..) =&gt; {
-                    g.new_const(cs, Num.to_field());
+                    g.new_const_from_tag(cs, <span class="kw-2">&amp;</span>Num);
                     g.new_const(cs, F::ONE);
                 }
                 Op::Hide(..) | Op::Open(..) =&gt; {
-                    g.new_const(cs, Num.to_field());
-                    g.new_const(cs, Comm.to_field());
+                    g.new_const_from_tag(cs, <span class="kw-2">&amp;</span>Num);
+                    g.new_const_from_tag(cs, <span class="kw-2">&amp;</span>Comm);
                 }
                 <span class="kw">_ </span>=&gt; (),
             }
@@ -2041,7 +2069,7 @@
                 }
             }
             Ctrl::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; {
-                g.new_const(cs, Sym.to_field());
+                g.new_const_from_tag(cs, <span class="kw-2">&amp;</span>Sym);
                 <span class="kw">for </span>block <span class="kw">in </span>cases.values() {
                     block.alloc_globals(cs, store, g)<span class="question-mark">?</span>;
                 }

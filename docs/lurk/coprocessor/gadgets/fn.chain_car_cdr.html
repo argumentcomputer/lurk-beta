@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Chains `car_cdr` calls `n` times, returning the accumulated `car`s, the final `cdr` and the (explored) actual length (`&lt;= n`) of the cons-like `data`. For example, calling `chain_car_cdr` on “ab” with `n = 4` should return the full actual length `2` of such string. But if `n` is set to `1`, it will return `1` as the (explored) length."><title>chain_car_cdr in lurk::coprocessor::gadgets - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (ba7c7a301 2023-11-13)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-f06f02fd918e3bb3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../lurk/index.html">lurk</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In lurk::coprocessor::gadgets</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../../index.html">lurk</a>::<wbr><a href="../index.html">coprocessor</a>::<wbr><a href="index.html">gadgets</a>::<wbr><a class="fn" href="#">chain_car_cdr</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/lurk/coprocessor/gadgets.rs.html#472-500">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub fn chain_car_cdr&lt;F: <a class="trait" href="../../field/trait.LurkField.html" title="trait lurk::field::LurkField">LurkField</a>, CS: ConstraintSystem&lt;F&gt;&gt;(
+    cs: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;mut CS</a>,
+    g: &amp;<a class="struct" href="../../lem/circuit/struct.GlobalAllocator.html" title="struct lurk::lem::circuit::GlobalAllocator">GlobalAllocator</a>&lt;F&gt;,
+    store: &amp;<a class="struct" href="../../lem/store/struct.Store.html" title="struct lurk::lem::store::Store">Store</a>&lt;F&gt;,
+    not_dummy: &amp;Boolean,
+    data: &amp;<a class="struct" href="../../circuit/gadgets/pointer/struct.AllocatedPtr.html" title="struct lurk::circuit::gadgets::pointer::AllocatedPtr">AllocatedPtr</a>&lt;F&gt;,
+    n: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../circuit/gadgets/pointer/struct.AllocatedPtr.html" title="struct lurk::circuit::gadgets::pointer::AllocatedPtr">AllocatedPtr</a>&lt;F&gt;&gt;, <a class="struct" href="../../circuit/gadgets/pointer/struct.AllocatedPtr.html" title="struct lurk::circuit::gadgets::pointer::AllocatedPtr">AllocatedPtr</a>&lt;F&gt;, AllocatedNum&lt;F&gt;), SynthesisError&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Chains <code>car_cdr</code> calls <code>n</code> times, returning the accumulated <code>car</code>s, the final
+<code>cdr</code> and the (explored) actual length (<code>&lt;= n</code>) of the cons-like <code>data</code>. For
+example, calling <code>chain_car_cdr</code> on “ab” with <code>n = 4</code> should return the full
+actual length <code>2</code> of such string. But if <code>n</code> is set to <code>1</code>, it will return
+<code>1</code> as the (explored) length.</p>
+<p>It can be used to deconstruct cons-lists into their elements or strings into
+their characters.</p>
+<h2 id="panics"><a href="#panics">Panics</a></h2>
+<p>Panics if any of the reached elements can’t be deconstructed with <code>car_cdr</code></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+<span class="kw">use </span>lurk::{
+    coprocessor::gadgets::{a_ptr_as_z_ptr, chain_car_cdr},
+};
+
+<span class="kw">let </span>store = Store::&lt;Fq&gt;::default();
+<span class="kw">let </span>nil = store.intern_nil();
+<span class="kw">let </span>z_nil = store.hash_ptr(<span class="kw-2">&amp;</span>nil);
+<span class="kw">let </span>empty_str = store.intern_string(<span class="string">&quot;&quot;</span>);
+<span class="kw">let </span>z_empty_str = store.hash_ptr(<span class="kw-2">&amp;</span>empty_str);
+<span class="kw">let </span>not_dummy = Boolean::Constant(<span class="bool-val">true</span>);
+
+<span class="kw">let </span>ab = store.intern_string(<span class="string">&quot;ab&quot;</span>);
+<span class="kw">let </span>z_ab = store.hash_ptr(<span class="kw-2">&amp;</span>ab);
+<span class="kw">let </span>a = Ptr::char(<span class="string">&#39;a&#39;</span>);
+<span class="kw">let </span>b = Ptr::char(<span class="string">&#39;b&#39;</span>);
+<span class="kw">let </span>z_a = store.hash_ptr(<span class="kw-2">&amp;</span>a);
+<span class="kw">let </span>z_b = store.hash_ptr(<span class="kw-2">&amp;</span>b);
+<span class="kw">let </span>a_ab = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;ab&quot;</span>), || z_ab);
+<span class="kw">let </span>(cars, cdr, length) = chain_car_cdr(
+    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;chain_car_cdr on ab&quot;</span>),
+    <span class="kw-2">&amp;</span>g,
+    <span class="kw-2">&amp;</span>store,
+    <span class="kw-2">&amp;</span>not_dummy,
+    <span class="kw-2">&amp;</span>a_ab,
+    <span class="number">4</span>,
+)
+.unwrap();
+<span class="macro">assert_eq!</span>(cars.len(), <span class="number">4</span>);
+<span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>cars[<span class="number">0</span>]), <span class="prelude-val">Some</span>(z_a));
+<span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>cars[<span class="number">1</span>]), <span class="prelude-val">Some</span>(z_b));
+<span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>cars[<span class="number">2</span>]), <span class="prelude-val">Some</span>(z_nil));
+<span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>cars[<span class="number">3</span>]), <span class="prelude-val">Some</span>(z_nil));
+<span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>cdr), <span class="prelude-val">Some</span>(z_empty_str));
+<span class="macro">assert_eq!</span>(length.get_value(), <span class="prelude-val">Some</span>(Fq::from_u64(<span class="number">2</span>)));</code></pre></div>
+</div></details></section></div></main></body></html>

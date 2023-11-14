@@ -296,14 +296,6 @@
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper::gadgets::boolean::Boolean;
 <span class="kw">use </span>bellpepper_core::{ConstraintSystem, SynthesisError};
 <span class="kw">use </span>std::fmt::Debug;
@@ -493,13 +485,9 @@
             input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
             input_cont: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;, SynthesisError&gt; {
-            <span class="kw">let </span>num_tag = g
-                .get_tag(<span class="kw-2">&amp;</span>ExprTag::Num)
-                .expect(<span class="string">&quot;Num tag should have been allocated&quot;</span>);
+            <span class="kw">let </span>num_tag = g.get_tag(<span class="kw-2">&amp;</span>ExprTag::Num)<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>cont_err = g
-                .get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>s.cont_error(), s)
-                .expect(<span class="string">&quot;Error pointer should have been allocated&quot;</span>);
+            <span class="kw">let </span>cont_err = g.get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>s.cont_error(), s)<span class="question-mark">?</span>;
 
             <span class="kw">let </span>(expr, env, cont) =
                 <span class="self">self</span>.synthesize_aux(cs, input_exprs, input_env, input_cont, num_tag, <span class="kw-2">&amp;</span>cont_err)<span class="question-mark">?</span>;
@@ -568,12 +556,8 @@
             env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
             _cont: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;, SynthesisError&gt; {
-            <span class="kw">let </span>nil = g
-                .get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>s.intern_nil(), s)
-                .expect(<span class="string">&quot;nil pointer not allocated&quot;</span>);
-            <span class="kw">let </span>term = g
-                .get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>s.cont_terminal(), s)
-                .expect(<span class="string">&quot;terminal pointer not allocated&quot;</span>);
+            <span class="kw">let </span>nil = g.get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>s.intern_nil(), s)<span class="question-mark">?</span>;
+            <span class="kw">let </span>term = g.get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>s.cont_terminal(), s)<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[nil, env.clone(), term])
         }
     }

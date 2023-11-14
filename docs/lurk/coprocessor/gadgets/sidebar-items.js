@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["construct_cons","construct_list","construct_tuple2","construct_tuple3","construct_tuple4"]};
+window.SIDEBAR_ITEMS = {"fn":["a_ptr_as_z_ptr","car_cdr","chain_car_cdr","construct_cons","construct_list","construct_tuple2","construct_tuple3","construct_tuple4","deconstruct_tuple2","deconstruct_tuple3","deconstruct_tuple4"]};
