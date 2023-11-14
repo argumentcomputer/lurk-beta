@@ -112,11 +112,6 @@ fn build_frames<
         }
         pc = get_pc(&expr, store, lang);
     }
-    // TODO: remove this after #729 is merged
-    if iterations < limit {
-        let frame = lurk_step.call_simple(&input, store, lang, pc)?;
-        frames.push(frame);
-    }
     Ok((frames, iterations))
 }
 
