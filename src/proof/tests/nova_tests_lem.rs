@@ -3254,7 +3254,7 @@ fn test_dumb_lang() {
     let name = user_sym("cproc-dumb");
     let dumb = DumbCoprocessor::new();
 
-    lang.add_coprocessor(name, dumb, s);
+    lang.add_coprocessor(name, dumb);
 
     // 9^2 + 8 = 89
     let expr = "(cproc-dumb 9 8)";
@@ -3376,7 +3376,7 @@ fn test_terminator_lang() {
     let name = user_sym("terminate");
 
     let s = &Store::default();
-    lang.add_coprocessor(name, dumb, s);
+    lang.add_coprocessor(name, dumb);
 
     let expr = "(terminate)";
 
@@ -3397,13 +3397,13 @@ fn test_terminator_lang() {
 
 #[test]
 fn test_trie_lang() {
-    use crate::coprocessor::trie::{install_lem, TrieCoproc};
+    use crate::coprocessor::trie::{install, TrieCoproc};
 
     let s = &Store::<Fr>::default();
     let state = State::init_lurk_state().rccell();
     let mut lang = Lang::<Fr, TrieCoproc<Fr>>::new();
 
-    install_lem(s, &state, &mut lang);
+    install(&state, &mut lang);
 
     let lang = Arc::new(lang);
 

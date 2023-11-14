@@ -106,7 +106,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
-    lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity), store);
+    lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_lang(&lang, true);
@@ -189,7 +189,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
-    lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity), store);
+    lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_lang(&lang, true);
@@ -274,7 +274,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
-    lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity), store);
+    lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_lang(&lang, false);

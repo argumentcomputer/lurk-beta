@@ -7,15 +7,9 @@ use std::marker::PhantomData;
 
 use crate::{
     self as lurk,
-    circuit::gadgets::{
-        data::GlobalAllocations,
-        pointer::{AllocatedContPtr, AllocatedPtr},
-    },
+    circuit::gadgets::pointer::AllocatedPtr,
     field::LurkField,
     lem::{pointers::Ptr, store::Store},
-    num::Num,
-    ptr::Ptr as AlphaPtr,
-    store::Store as AlphaStore,
     tag::{ExprTag, Tag},
     z_ptr::ZPtr,
 };
@@ -94,23 +88,6 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         self.n
     }
 
-    fn synthesize_alpha<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        _g: &GlobalAllocations<F>,
-        _store: &AlphaStore<F>,
-        input_exprs: &[AllocatedPtr<F>],
-        input_env: &AllocatedPtr<F>,
-        input_cont: &AllocatedContPtr<F>,
-        _not_dummy: &Boolean,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        Ok((
-            synthesize_sha256(cs, input_exprs)?,
-            input_env.clone(),
-            input_cont.clone(),
-        ))
-    }
-
     #[inline]
     fn synthesize_simple<CS: ConstraintSystem<F>>(
         &self,
@@ -127,15 +104,6 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
 impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     fn eval_arity(&self) -> usize {
         self.n
-    }
-
-    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
-        let z_ptrs = args
-            .iter()
-            .map(|ptr| s.hash_expr(ptr).unwrap())
-            .collect::<Vec<_>>();
-        let result = Num::from_scalar(compute_sha256(self.n, &z_ptrs));
-        s.intern_num(result)
     }
 
     fn has_circuit(&self) -> bool {

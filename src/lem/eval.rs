@@ -256,7 +256,7 @@ pub fn make_eval_step_from_lang<F: LurkField, C: Coprocessor<F>>(
         &lang
             .coprocessors()
             .iter()
-            .map(|(s, (c, _))| (s, c.arity()))
+            .map(|(s, c)| (s, c.arity()))
             .collect::<Vec<_>>(),
         ivc,
     )
@@ -450,7 +450,7 @@ pub fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
 ) -> std::sync::Arc<[Func]> {
     lang.coprocessors()
         .iter()
-        .map(|(name, (c, _))| run_cproc(name.clone(), c.arity()))
+        .map(|(name, c)| run_cproc(name.clone(), c.arity()))
         .collect()
 }
 

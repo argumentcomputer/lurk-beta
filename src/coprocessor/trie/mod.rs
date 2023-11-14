@@ -29,17 +29,13 @@ use crate::state::State;
 use crate::{self as lurk, Symbol};
 
 use crate::circuit::gadgets::constraints::{enforce_equal, implies_equal, select};
-use crate::circuit::gadgets::data::GlobalAllocations;
-use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
+use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::eval::lang::Lang;
 use crate::field::{FWrap, LurkField};
 use crate::hash::{HashArity, HashConstants, InversePoseidonCache, PoseidonCache};
 use crate::lem::{pointers::Ptr, store::Store};
-use crate::num::Num;
-use crate::ptr::Ptr as AlphaPtr;
-use crate::store::Store as AlphaStore;
-use crate::tag::{ExprTag, Tag};
+use crate::tag::ExprTag;
 
 #[derive(Debug)]
 pub enum Error<F> {
@@ -71,17 +67,9 @@ impl<F: LurkField> Coprocessor<F> for NewCoprocessor<F> {
         0
     }
 
-    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, _args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
-        let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
-
-        let root = trie.root;
-
-        // TODO: Use a custom type.
-        s.intern_num(Num::Scalar(root))
-    }
-
     fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
         let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
+        // TODO: Use a custom type.
         Ptr::num(trie.root)
     }
 
@@ -97,30 +85,6 @@ impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
 
     // This is so small, it would make sense to include in the Lurk reduction.
     // TODO: Allow `FoldingConfig` to specify whethere a given Coprocessor should have its own circuit or not.
-    fn synthesize_alpha<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        _g: &GlobalAllocations<F>,
-        store: &AlphaStore<F>,
-        _input_exprs: &[AllocatedPtr<F>],
-        input_env: &AllocatedPtr<F>,
-        input_cont: &AllocatedContPtr<F>,
-        _not_dummy: &Boolean,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let trie: StandardTrie<'_, F> =
-            Trie::new(&store.poseidon_cache, &store.inverse_poseidon_cache);
-
-        // TODO: Use a custom type.
-        let root = store.intern_num(Num::Scalar(trie.root));
-        let root_zptr = store.hash_expr(&root).unwrap();
-
-        Ok((
-            AllocatedPtr::alloc_constant(cs, root_zptr)?,
-            input_env.clone(),
-            input_cont.clone(),
-        ))
-    }
-
     fn synthesize_simple<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -147,21 +111,6 @@ pub struct LookupCoprocessor<F: LurkField> {
 impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
     fn eval_arity(&self) -> usize {
         2
-    }
-
-    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
-        let root_ptr = args[0];
-        let key_ptr = args[1];
-
-        // TODO: Check tags.
-        let root_scalar = *s.hash_expr(&root_ptr).unwrap().value();
-        let key_scalar = *s.hash_expr(&key_ptr).unwrap().value();
-        let trie: StandardTrie<'_, F> =
-            Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
-
-        let found = trie.lookup_aux(key_scalar).unwrap();
-
-        s.intern_maybe_opaque_comm(found)
     }
 
     fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
@@ -229,37 +178,6 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
         2
     }
 
-    fn synthesize_alpha<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        _g: &GlobalAllocations<F>,
-        s: &AlphaStore<F>,
-        args: &[AllocatedPtr<F>],
-        input_env: &AllocatedPtr<F>,
-        input_cont: &AllocatedContPtr<F>,
-        not_dummy: &Boolean,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let root_ptr = &args[0];
-        let key_ptr = &args[1];
-
-        let result_commitment_val = synthesize_lookup_aux(
-            cs,
-            root_ptr,
-            key_ptr,
-            not_dummy,
-            &s.poseidon_cache,
-            &s.inverse_poseidon_cache,
-        )?;
-
-        let result_commitment = AllocatedPtr::alloc_tag(
-            &mut cs.namespace(|| "result_commitment"),
-            ExprTag::Comm.to_field(),
-            result_commitment_val,
-        )?;
-
-        Ok((result_commitment, input_env.clone(), input_cont.clone()))
-    }
-
     fn synthesize_simple<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -299,21 +217,6 @@ pub struct InsertCoprocessor<F: LurkField> {
 impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
     fn eval_arity(&self) -> usize {
         3
-    }
-
-    fn simple_evaluate_alpha(&self, s: &AlphaStore<F>, args: &[AlphaPtr<F>]) -> AlphaPtr<F> {
-        let root_ptr = args[0];
-        let key_ptr = args[1];
-        let val_ptr = args[2];
-        let root_scalar = *s.hash_expr(&root_ptr).unwrap().value();
-        let key_scalar = *s.hash_expr(&key_ptr).unwrap().value();
-        let val_scalar = *s.hash_expr(&val_ptr).unwrap().value();
-        let mut trie: StandardTrie<'_, F> =
-            Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
-        trie.insert(key_scalar, val_scalar).unwrap();
-
-        let new_root = trie.root;
-        s.intern_num(Num::Scalar(new_root))
     }
 
     fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
@@ -386,42 +289,6 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
         3
     }
 
-    fn synthesize_alpha<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        _g: &GlobalAllocations<F>,
-        s: &AlphaStore<F>,
-        args: &[AllocatedPtr<F>],
-        input_env: &AllocatedPtr<F>,
-        input_cont: &AllocatedContPtr<F>,
-        not_dummy: &Boolean,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let root_ptr = &args[0];
-        let key_ptr = &args[1];
-        let val_ptr = &args[2];
-
-        assert_eq!(self.arity(), args.len());
-
-        let new_root_val = synthesize_insert_aux(
-            cs,
-            root_ptr,
-            key_ptr,
-            val_ptr,
-            not_dummy,
-            &s.poseidon_cache,
-            &s.inverse_poseidon_cache,
-        )?;
-
-        let new_allocated_trie = AllocatedPtr::alloc_tag(
-            &mut cs.namespace(|| "new_commitment"),
-            // TODO: Use a custom type
-            ExprTag::Num.to_field(),
-            new_root_val,
-        )?;
-
-        Ok((new_allocated_trie, input_env.clone(), input_cont.clone()))
-    }
-
     fn synthesize_simple<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -453,39 +320,10 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
 
 /// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 // TODO: define standard patterns for such modularity.
-pub fn install<F: LurkField>(
-    s: &AlphaStore<F>,
-    state: &Rc<RefCell<State>>,
-    lang: &mut Lang<F, TrieCoproc<F>>,
-) {
-    lang.add_binding_alpha((".lurk.trie.new", NewCoprocessor::default().into()), s);
-    lang.add_binding_alpha(
-        (".lurk.trie.lookup", LookupCoprocessor::default().into()),
-        s,
-    );
-    lang.add_binding_alpha(
-        (".lurk.trie.insert", InsertCoprocessor::default().into()),
-        s,
-    );
-
-    let name: Symbol = ".lurk.trie".into();
-    let mut package = Package::new(name.into());
-    ["new", "lookup", "insert"].into_iter().for_each(|name| {
-        package.intern(name);
-    });
-    state.borrow_mut().add_package(package);
-}
-
-/// Add the `Trie`-associated functions to a `Lang` with standard bindings.
-// TODO: define standard patterns for such modularity.
-pub fn install_lem<F: LurkField>(
-    s: &Store<F>,
-    state: &Rc<RefCell<State>>,
-    lang: &mut Lang<F, TrieCoproc<F>>,
-) {
-    lang.add_coprocessor(".lurk.trie.new", NewCoprocessor::default(), s);
-    lang.add_coprocessor(".lurk.trie.lookup", LookupCoprocessor::default(), s);
-    lang.add_coprocessor(".lurk.trie.insert", InsertCoprocessor::default(), s);
+pub fn install<F: LurkField>(state: &Rc<RefCell<State>>, lang: &mut Lang<F, TrieCoproc<F>>) {
+    lang.add_coprocessor(".lurk.trie.new", NewCoprocessor::default());
+    lang.add_coprocessor(".lurk.trie.lookup", LookupCoprocessor::default());
+    lang.add_coprocessor(".lurk.trie.insert", InsertCoprocessor::default());
 
     let trie_package_name: Symbol = ".lurk.trie".into();
     let mut package = Package::new(trie_package_name.into());
