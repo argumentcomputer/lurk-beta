@@ -1,10 +1,8 @@
-use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
     eval::lang::{Coproc, Lang},
-    field::LurkField,
     lem::{pointers::Ptr, store::Store, Tag},
     num::Num,
     proof::nova::C1LEM,
@@ -3250,16 +3248,9 @@ fn test_prove_head_with_sym_mimicking_value() {
 fn test_dumb_lang() {
     use crate::coprocessor::test::DumbCoprocessor;
 
-    use crate::{self as lurk};
-
-    #[derive(Clone, Debug, Coproc)]
-    enum DumbCoproc<F: LurkField> {
-        DC(DumbCoprocessor<F>),
-    }
-
     let s = &Store::<Fr>::default();
 
-    let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
+    let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
     let name = user_sym("cproc-dumb");
     let dumb = DumbCoprocessor::new();
 
@@ -3294,7 +3285,7 @@ fn test_dumb_lang() {
     let terminal = s.cont_terminal();
     let lang = Arc::new(lang);
 
-    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
         s,
         expr,
         Some(res),
@@ -3304,7 +3295,7 @@ fn test_dumb_lang() {
         3,
         &Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
         s,
         expr2,
         Some(res),
@@ -3314,7 +3305,7 @@ fn test_dumb_lang() {
         6,
         &Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
         s,
         expr3,
         Some(res),
@@ -3324,7 +3315,7 @@ fn test_dumb_lang() {
         9,
         &Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
         s,
         expr4,
         Some(error4),
@@ -3334,7 +3325,7 @@ fn test_dumb_lang() {
         4,
         &Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
         s,
         expr5,
         Some(error5),
@@ -3344,7 +3335,7 @@ fn test_dumb_lang() {
         2,
         &Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
         s,
         expr6,
         Some(error6),
@@ -3354,7 +3345,7 @@ fn test_dumb_lang() {
         3,
         &Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
         s,
         expr6_,
         Some(error6),
@@ -3364,7 +3355,7 @@ fn test_dumb_lang() {
         3,
         &Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
         s,
         expr7,
         Some(error7),

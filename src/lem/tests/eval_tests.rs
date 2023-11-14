@@ -1,12 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
-
-use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
-    field::LurkField,
     lem::{
         eval::{evaluate_simple, make_eval_step_from_lang},
         pointers::Ptr,
@@ -2794,15 +2791,9 @@ fn test_eval_non_symbol_binding_error() {
 
 #[test]
 fn test_dumb_lang() {
-    use crate::{self as lurk};
     use crate::{coprocessor::test::DumbCoprocessor, state::user_sym};
 
-    #[derive(Clone, Debug, Coproc)]
-    enum DumbCoproc<F: LurkField> {
-        DC(DumbCoprocessor<F>),
-    }
-
-    let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
+    let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
     let dumb = DumbCoprocessor::new();
     let name = user_sym("cproc-dumb");
 
