@@ -6,7 +6,7 @@
 //! relating this field to the expresions of the language.
 use clap::ValueEnum;
 use ff::{PrimeField, PrimeFieldBits};
-use nova::provider::bn256_grumpkin::bn256;
+use nova::provider::bn256_grumpkin::{bn256, grumpkin};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::hash::Hash;
@@ -270,6 +270,10 @@ impl LurkField for pasta_curves::vesta::Scalar {
 
 impl LurkField for bn256::Scalar {
     const FIELD: LanguageField = LanguageField::BN256;
+}
+
+impl LurkField for grumpkin::Scalar {
+    const FIELD: LanguageField = LanguageField::Grumpkin;
 }
 
 // The impl LurkField for grumpkin::Scalar is technically possible, but voluntarily omitted to avoid confusion.
