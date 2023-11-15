@@ -965,6 +965,7 @@ mod tests {
                 let mut w = WitnessCS::<F>::new();
                 let computed_size = compute_witness_size::<F>(&slot_type, &store);
                 allocate_slot(&mut w, &None, 0, slot_type, &store).unwrap();
+                assert_eq!(w.input_assignment(), &[F::ONE]);
                 assert_eq!(w.aux_assignment().len(), computed_size);
             });
         }
