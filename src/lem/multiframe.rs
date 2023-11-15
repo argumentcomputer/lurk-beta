@@ -14,7 +14,7 @@ use crate::{
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
     eval::{lang::Lang, Meta},
-    field::LurkField,
+    field::{LanguageField, LurkField},
     proof::{
         nova::{CurveCycleEquipped, G1, G2},
         supernova::{FoldingConfig, C2},
@@ -140,6 +140,30 @@ fn assert_eq_ptrs_aptrs<F: LurkField>(
     Ok(())
 }
 
+// Hardcoded slot witness sizes, empirically collected
+const BIT_DECOMP_PALLAS_WITNESS_SIZE: usize = 298;
+const BIT_DECOMP_VESTA_WITNESS_SIZE: usize = 301;
+const BIT_DECOMP_BN256_WITNESS_SIZE: usize = 354;
+const BIT_DECOMP_GRUMPKIN_WITNESS_SIZE: usize = 364;
+
+/// Computes the witness size for a `SlotType`. Note that the witness size for
+/// bit decomposition depends on the field we're in.
+#[inline]
+fn compute_witness_size<F: LurkField>(slot_type: &SlotType, store: &Store<F>) -> usize {
+    match slot_type {
+        SlotType::Hash4 => store.hash4_cost() + 4, // 4 preimg elts
+        SlotType::Hash6 => store.hash6_cost() + 6, // 6 preimg elts
+        SlotType::Hash8 => store.hash8_cost() + 8, // 8 preimg elts
+        SlotType::Commitment => store.hash3_cost() + 3, // 3 preimg elts
+        SlotType::BitDecomp => match F::FIELD {
+            LanguageField::Pallas => BIT_DECOMP_PALLAS_WITNESS_SIZE,
+            LanguageField::Vesta => BIT_DECOMP_VESTA_WITNESS_SIZE,
+            LanguageField::BN256 => BIT_DECOMP_BN256_WITNESS_SIZE,
+            LanguageField::Grumpkin => BIT_DECOMP_GRUMPKIN_WITNESS_SIZE,
+        },
+    }
+}
+
 /// Generates the witnesses for all slots in `frames`. Since many slots are fed
 /// with dummy data, we cache their (dummy) witnesses for extra speed
 fn generate_slots_witnesses<F: LurkField>(
@@ -160,11 +184,25 @@ fn generate_slots_witnesses<F: LurkField>(
         .into_iter()
         .for_each(|(sd_vec, st)| sd_vec.iter().for_each(|sd| slots_data.push((sd, st))));
     });
+    // precompute these values
+    let hash4_witness_size = compute_witness_size(&SlotType::Hash4, store);
+    let hash6_witness_size = compute_witness_size(&SlotType::Hash6, store);
+    let hash8_witness_size = compute_witness_size(&SlotType::Hash8, store);
+    let commitment_witness_size = compute_witness_size(&SlotType::Commitment, store);
+    let bit_decomp_witness_size = compute_witness_size(&SlotType::BitDecomp, store);
+    // fast getter for the precomputed values
+    let get_witness_size = |slot_type| match slot_type {
+        SlotType::Hash4 => hash4_witness_size,
+        SlotType::Hash6 => hash6_witness_size,
+        SlotType::Hash8 => hash8_witness_size,
+        SlotType::Commitment => commitment_witness_size,
+        SlotType::BitDecomp => bit_decomp_witness_size,
+    };
     // cache dummy slots witnesses with `Arc` for speedy clones
     let dummy_witnesses_cache: FrozenMap<_, Box<Arc<SlotWitness<F>>>> = FrozenMap::default();
     let gen_slot_witness = |(slot_idx, (slot_data, slot_type))| {
         let mk_witness = || {
-            let mut witness = WitnessCS::new();
+            let mut witness = WitnessCS::with_capacity(1, get_witness_size(slot_type));
             let allocations = allocate_slot(&mut witness, slot_data, slot_idx, slot_type, store)
                 .expect("slot allocations failed");
             Arc::new(SlotWitness {
@@ -896,7 +934,8 @@ where
 #[cfg(test)]
 mod tests {
     use bellpepper_core::test_cs::TestConstraintSystem;
-    use pasta_curves::Fq;
+    use nova::provider::bn256_grumpkin::{bn256::Scalar as Bn, grumpkin::Scalar as Gr};
+    use pasta_curves::{Fp, Fq};
 
     use crate::{
         eval::lang::Coproc,
@@ -907,6 +946,36 @@ mod tests {
     };
 
     use super::*;
+
+    /// Asserts that the computed witness sizes are correct across all slot types
+    /// and fields used in Lurk
+    #[test]
+    fn test_get_witness_size() {
+        fn assert_sizes<F: LurkField>() {
+            [
+                SlotType::Hash4,
+                SlotType::Hash6,
+                SlotType::Hash8,
+                SlotType::Commitment,
+                SlotType::BitDecomp,
+            ]
+            .into_par_iter()
+            .for_each(|slot_type| {
+                let store = Store::<F>::default();
+                let mut w = WitnessCS::<F>::new();
+                let computed_size = compute_witness_size::<F>(&slot_type, &store);
+                allocate_slot(&mut w, &None, 0, slot_type, &store).unwrap();
+                assert_eq!(w.aux_assignment().len(), computed_size);
+            });
+        }
+        (0..3).into_par_iter().for_each(|i| match i {
+            0 => assert_sizes::<Fp>(),
+            1 => assert_sizes::<Fq>(),
+            2 => assert_sizes::<Gr>(),
+            3 => assert_sizes::<Bn>(),
+            _ => unreachable!(),
+        });
+    }
 
     #[test]
     fn test_sequential_and_parallel_witnesses_equivalences() {

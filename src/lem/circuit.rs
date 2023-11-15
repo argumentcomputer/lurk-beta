@@ -1594,10 +1594,10 @@ impl Func {
         };
 
         // fixed cost for each slot
-        let slot_constraints = 289 * self.slots_count.hash4
-            + 337 * self.slots_count.hash6
-            + 388 * self.slots_count.hash8
-            + 265 * self.slots_count.commitment
+        let slot_constraints = store.hash4_cost() * self.slots_count.hash4
+            + store.hash6_cost() * self.slots_count.hash6
+            + store.hash8_cost() * self.slots_count.hash8
+            + store.hash3_cost() * self.slots_count.commitment
             + bit_decomp_cost * self.slots_count.bit_decomp;
         let num_constraints = recurse(&self.body, globals, store, false);
         slot_constraints + num_constraints + globals.len()

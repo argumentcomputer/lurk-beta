@@ -1,10 +1,12 @@
 use anyhow::{bail, Result};
 use arc_swap::ArcSwap;
+use bellpepper::util_cs::witness_cs::SizedWitness;
 use elsa::{
     sync::{FrozenMap, FrozenVec},
     sync_index_set::FrozenIndexSet,
 };
 use indexmap::IndexSet;
+use neptune::Poseidon;
 use nom::{sequence::preceded, Parser};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -102,6 +104,30 @@ impl<F: LurkField> Default for Store<F> {
 }
 
 impl<F: LurkField> Store<F> {
+    /// Cost of poseidon hash with arity 3, including the input
+    #[inline]
+    pub fn hash3_cost(&self) -> usize {
+        Poseidon::new(self.poseidon_cache.constants.c3()).num_aux() + 1
+    }
+
+    /// Cost of poseidon hash with arity 4, including the input
+    #[inline]
+    pub fn hash4_cost(&self) -> usize {
+        Poseidon::new(self.poseidon_cache.constants.c4()).num_aux() + 1
+    }
+
+    /// Cost of poseidon hash with arity 6, including the input
+    #[inline]
+    pub fn hash6_cost(&self) -> usize {
+        Poseidon::new(self.poseidon_cache.constants.c6()).num_aux() + 1
+    }
+
+    /// Cost of poseidon hash with arity 8, including the input
+    #[inline]
+    pub fn hash8_cost(&self) -> usize {
+        Poseidon::new(self.poseidon_cache.constants.c8()).num_aux() + 1
+    }
+
     /// Creates a `Ptr` that's a parent of two children
     pub fn intern_2_ptrs(&self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
         let (idx, inserted) = self.tuple2.insert_probe(Box::new((a, b)));
