@@ -1061,13 +1061,16 @@ impl<F: LurkField> Ptr<F> {
 mod tests {
     use ff::Field;
     use pasta_curves::pallas::Scalar as Fr;
+    use proptest::prelude::*;
 
     use crate::{
         field::LurkField,
         lem::Tag,
-        state::initial_lurk_state,
+        parser::position::Pos,
+        state::{initial_lurk_state, lurk_sym},
+        syntax::Syntax,
         tag::{ExprTag, Tag as TagTrait},
-        Symbol,
+        Num, Symbol,
     };
 
     use super::{Ptr, Store};
@@ -1260,5 +1263,52 @@ mod tests {
 
         let foo_bar_hash = s.hash_ptr(&foo_bar_ptr).1;
         assert_eq!(foo_bar_hash, foo_bar_hash_manual);
+    }
+
+    // helper function to test syntax interning roundtrip
+    fn fetch_syntax(ptr: Ptr<Fr>, store: &Store<Fr>) -> Syntax<Fr> {
+        match ptr {
+            Ptr::Atom(Tag::Expr(ExprTag::Num), f) => Syntax::Num(Pos::No, Num::Scalar(f)),
+            Ptr::Atom(Tag::Expr(ExprTag::Char), f) => Syntax::Char(Pos::No, f.to_char().unwrap()),
+            Ptr::Atom(Tag::Expr(ExprTag::U64), f) => {
+                Syntax::UInt(Pos::No, crate::UInt::U64(f.to_u64_unchecked()))
+            }
+            Ptr::Atom(Tag::Expr(ExprTag::Sym), _)
+            | Ptr::Atom(Tag::Expr(ExprTag::Key), _)
+            | Ptr::Tuple2(Tag::Expr(ExprTag::Sym), _)
+            | Ptr::Tuple2(Tag::Expr(ExprTag::Key), _) => {
+                Syntax::Symbol(Pos::No, store.fetch_symbol(&ptr).unwrap().into())
+            }
+            Ptr::Atom(Tag::Expr(ExprTag::Str), _) | Ptr::Tuple2(Tag::Expr(ExprTag::Str), _) => {
+                Syntax::String(Pos::No, store.fetch_string(&ptr).unwrap())
+            }
+            Ptr::Tuple2(Tag::Expr(ExprTag::Cons), _) => {
+                let (elts, last) = store.fetch_list(&ptr).unwrap();
+                let elts = elts
+                    .into_iter()
+                    .map(|e| fetch_syntax(e, store))
+                    .collect::<Vec<_>>();
+                if let Some(last) = last {
+                    Syntax::Improper(Pos::No, elts, fetch_syntax(last, store).into())
+                } else {
+                    Syntax::List(Pos::No, elts)
+                }
+            }
+            Ptr::Tuple2(Tag::Expr(ExprTag::Nil), _) => {
+                Syntax::Symbol(Pos::No, lurk_sym("nil").into())
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn syntax_roundtrip(x in any::<Syntax<Fr>>()) {
+            let store = Store::<Fr>::default();
+            let ptr1 = store.intern_syntax(x);
+            let y = fetch_syntax(ptr1, &store);
+            let ptr2 = store.intern_syntax(y);
+            assert_eq!(ptr1, ptr2);
+        }
     }
 }

@@ -153,7 +153,7 @@ impl<F: LurkField> ZDag<F> {
     }
 
     /// Populates a `ZDag` with data from self
-    pub(crate) fn populate_z_dag(
+    fn populate_z_dag(
         &self,
         z_ptr: &ZPtr<F>,
         z_dag: &mut ZDag<F>,
@@ -256,5 +256,107 @@ impl<F: LurkField> ZStore<F> {
         cache: &mut HashMap<ZPtr<F>, Ptr<F>>,
     ) -> Result<Ptr<F>> {
         self.z_dag.populate_store(z_ptr, store, cache)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pasta_curves::Fp;
+    use rand::{rngs::StdRng, Rng};
+    use rand_core::SeedableRng;
+    use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+    use std::collections::HashMap;
+
+    use crate::{
+        field::LurkField,
+        lem::{pointers::Ptr, store::Store, Tag},
+        tag::{ContTag, ExprTag, Op1, Op2},
+    };
+
+    use super::{ZDag, ZStore};
+
+    /// helper function that interns random data into a store
+    fn rng_interner(rng: &mut StdRng, max_depth: usize, store: &Store<Fp>) -> Ptr<Fp> {
+        let rnd = rng.gen::<u64>();
+        let tag = match rnd % 4 {
+            0 => Tag::Expr(ExprTag::try_from((rnd % 11) as u16).unwrap()),
+            1 => Tag::Cont(ContTag::try_from((rnd % 17) as u16 + 4096).unwrap()),
+            2 => Tag::Op1(Op1::try_from((rnd % 12) as u16 + 8192).unwrap()),
+            3 => Tag::Op2(Op2::try_from((rnd % 16) as u16 + 12288).unwrap()),
+            _ => unreachable!(),
+        };
+        if max_depth == 0 {
+            Ptr::Atom(tag, Fp::from_u64(rnd))
+        } else {
+            match rnd % 4 {
+                0 => Ptr::Atom(tag, Fp::from_u64(rnd)),
+                1 => store.intern_2_ptrs(
+                    tag,
+                    rng_interner(rng, max_depth - 1, store),
+                    rng_interner(rng, max_depth - 1, store),
+                ),
+                2 => store.intern_3_ptrs(
+                    tag,
+                    rng_interner(rng, max_depth - 1, store),
+                    rng_interner(rng, max_depth - 1, store),
+                    rng_interner(rng, max_depth - 1, store),
+                ),
+                3 => store.intern_4_ptrs(
+                    tag,
+                    rng_interner(rng, max_depth - 1, store),
+                    rng_interner(rng, max_depth - 1, store),
+                    rng_interner(rng, max_depth - 1, store),
+                    rng_interner(rng, max_depth - 1, store),
+                ),
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_z_store_roundtrip() {
+        const NUM_TESTS: u64 = 192;
+        const MAX_DEPTH: usize = 10;
+
+        (0..NUM_TESTS).into_par_iter().for_each(|seed| {
+            let mut rng = StdRng::seed_from_u64(seed);
+            let store1 = Store::default();
+            let ptr1 = rng_interner(&mut rng, MAX_DEPTH, &store1);
+
+            let mut z_store = ZStore::default();
+            let mut cache_into = HashMap::default();
+            let z_ptr = z_store.populate_with(&ptr1, &store1, &mut cache_into);
+
+            let mut cache_from = HashMap::default();
+            let store2 = Store::default();
+            let ptr2 = z_store
+                .populate_store(&z_ptr, &store2, &mut cache_from)
+                .unwrap();
+
+            assert_eq!(store1.hash_ptr(&ptr1), store2.hash_ptr(&ptr2))
+        });
+    }
+
+    #[test]
+    fn test_filtered_dag() {
+        let store = Store::<Fp>::default();
+        let one = Ptr::num_u64(1);
+        let two = Ptr::num_u64(2);
+        let thr = Ptr::num_u64(3);
+        let one_two = store.cons(one, two);
+        let two_thr = store.cons(two, thr);
+        let mut z_dag = ZDag::default();
+        let mut cache = HashMap::default();
+        z_dag.populate_with(&one_two, &store, &mut cache);
+        z_dag.populate_with(&two_thr, &store, &mut cache);
+
+        let z_one_two = store.hash_ptr(&one_two);
+        let z_two_thr = store.hash_ptr(&two_thr);
+        let z_dag_new = z_dag.filtered(&[&z_one_two]).unwrap();
+
+        // data for `z_two_thr` exists in `z_dag`
+        assert!(z_dag.get_type(&z_two_thr).is_some());
+        // but not in `z_dag_new`
+        assert!(z_dag_new.get_type(&z_two_thr).is_none());
     }
 }
