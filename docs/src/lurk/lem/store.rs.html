@@ -1236,13 +1236,41 @@
 <a href="#1236" id="1236">1236</a>
 <a href="#1237" id="1237">1237</a>
 <a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
+<a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
+<a href="#1245" id="1245">1245</a>
+<a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
+<span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
 <span class="kw">use </span>elsa::{
     sync::index_set::FrozenIndexSet,
     sync::{FrozenMap, FrozenVec},
 };
 <span class="kw">use </span>indexmap::IndexSet;
+<span class="kw">use </span>neptune::Poseidon;
 <span class="kw">use </span>nom::{sequence::preceded, Parser};
 <span class="kw">use </span>rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 <span class="kw">use </span>std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -1340,6 +1368,30 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Store&lt;F&gt; {
+    <span class="doccomment">/// Cost of poseidon hash with arity 3, including the input
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>hash3_cost(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        Poseidon::new(<span class="self">self</span>.poseidon_cache.constants.c3()).num_aux() + <span class="number">1
+    </span>}
+
+    <span class="doccomment">/// Cost of poseidon hash with arity 4, including the input
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>hash4_cost(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        Poseidon::new(<span class="self">self</span>.poseidon_cache.constants.c4()).num_aux() + <span class="number">1
+    </span>}
+
+    <span class="doccomment">/// Cost of poseidon hash with arity 6, including the input
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>hash6_cost(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        Poseidon::new(<span class="self">self</span>.poseidon_cache.constants.c6()).num_aux() + <span class="number">1
+    </span>}
+
+    <span class="doccomment">/// Cost of poseidon hash with arity 8, including the input
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>hash8_cost(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        Poseidon::new(<span class="self">self</span>.poseidon_cache.constants.c8()).num_aux() + <span class="number">1
+    </span>}
+
     <span class="doccomment">/// Creates a `Ptr` that&#39;s a parent of two children
     </span><span class="kw">pub fn </span>intern_2_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr&lt;F&gt;, b: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
         <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.tuple2.insert_probe(Box::new((a, b)));

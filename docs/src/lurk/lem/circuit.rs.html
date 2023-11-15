@@ -3199,10 +3199,10 @@
         };
 
         <span class="comment">// fixed cost for each slot
-        </span><span class="kw">let </span>slot_constraints = <span class="number">289 </span>* <span class="self">self</span>.slots_count.hash4
-            + <span class="number">337 </span>* <span class="self">self</span>.slots_count.hash6
-            + <span class="number">388 </span>* <span class="self">self</span>.slots_count.hash8
-            + <span class="number">265 </span>* <span class="self">self</span>.slots_count.commitment
+        </span><span class="kw">let </span>slot_constraints = store.hash4_cost() * <span class="self">self</span>.slots_count.hash4
+            + store.hash6_cost() * <span class="self">self</span>.slots_count.hash6
+            + store.hash8_cost() * <span class="self">self</span>.slots_count.hash8
+            + store.hash3_cost() * <span class="self">self</span>.slots_count.commitment
             + bit_decomp_cost * <span class="self">self</span>.slots_count.bit_decomp;
         <span class="kw">let </span>num_constraints = recurse(<span class="kw-2">&amp;</span><span class="self">self</span>.body, globals, store, <span class="bool-val">false</span>);
         slot_constraints + num_constraints + globals.len()

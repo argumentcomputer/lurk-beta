@@ -1045,6 +1045,75 @@
 <a href="#1045" id="1045">1045</a>
 <a href="#1046" id="1046">1046</a>
 <a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -1061,7 +1130,7 @@
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
     eval::{lang::Lang, Meta},
-    field::LurkField,
+    field::{LanguageField, LurkField},
     proof::{
         nova::{CurveCycleEquipped, G1, G2},
         supernova::{FoldingConfig, C2},
@@ -1187,6 +1256,30 @@
     <span class="prelude-val">Ok</span>(())
 }
 
+<span class="comment">// Hardcoded slot witness sizes, empirically collected
+</span><span class="kw">const </span>BIT_DECOMP_PALLAS_WITNESS_SIZE: usize = <span class="number">298</span>;
+<span class="kw">const </span>BIT_DECOMP_VESTA_WITNESS_SIZE: usize = <span class="number">301</span>;
+<span class="kw">const </span>BIT_DECOMP_BN256_WITNESS_SIZE: usize = <span class="number">354</span>;
+<span class="kw">const </span>BIT_DECOMP_GRUMPKIN_WITNESS_SIZE: usize = <span class="number">364</span>;
+
+<span class="doccomment">/// Computes the witness size for a `SlotType`. Note that the witness size for
+/// bit decomposition depends on the field we&#39;re in.
+</span><span class="attr">#[inline]
+</span><span class="kw">fn </span>compute_witness_size&lt;F: LurkField&gt;(slot_type: <span class="kw-2">&amp;</span>SlotType, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; usize {
+    <span class="kw">match </span>slot_type {
+        SlotType::Hash4 =&gt; store.hash4_cost() + <span class="number">4</span>, <span class="comment">// 4 preimg elts
+        </span>SlotType::Hash6 =&gt; store.hash6_cost() + <span class="number">6</span>, <span class="comment">// 6 preimg elts
+        </span>SlotType::Hash8 =&gt; store.hash8_cost() + <span class="number">8</span>, <span class="comment">// 8 preimg elts
+        </span>SlotType::Commitment =&gt; store.hash3_cost() + <span class="number">3</span>, <span class="comment">// 3 preimg elts
+        </span>SlotType::BitDecomp =&gt; <span class="kw">match </span>F::FIELD {
+            LanguageField::Pallas =&gt; BIT_DECOMP_PALLAS_WITNESS_SIZE,
+            LanguageField::Vesta =&gt; BIT_DECOMP_VESTA_WITNESS_SIZE,
+            LanguageField::BN256 =&gt; BIT_DECOMP_BN256_WITNESS_SIZE,
+            LanguageField::Grumpkin =&gt; BIT_DECOMP_GRUMPKIN_WITNESS_SIZE,
+        },
+    }
+}
+
 <span class="doccomment">/// Generates the witnesses for all slots in `frames`. Since many slots are fed
 /// with dummy data, we cache their (dummy) witnesses for extra speed
 </span><span class="kw">fn </span>generate_slots_witnesses&lt;F: LurkField&gt;(
@@ -1207,11 +1300,25 @@
         .into_iter()
         .for_each(|(sd_vec, st)| sd_vec.iter().for_each(|sd| slots_data.push((sd, st))));
     });
+    <span class="comment">// precompute these values
+    </span><span class="kw">let </span>hash4_witness_size = compute_witness_size(<span class="kw-2">&amp;</span>SlotType::Hash4, store);
+    <span class="kw">let </span>hash6_witness_size = compute_witness_size(<span class="kw-2">&amp;</span>SlotType::Hash6, store);
+    <span class="kw">let </span>hash8_witness_size = compute_witness_size(<span class="kw-2">&amp;</span>SlotType::Hash8, store);
+    <span class="kw">let </span>commitment_witness_size = compute_witness_size(<span class="kw-2">&amp;</span>SlotType::Commitment, store);
+    <span class="kw">let </span>bit_decomp_witness_size = compute_witness_size(<span class="kw-2">&amp;</span>SlotType::BitDecomp, store);
+    <span class="comment">// fast getter for the precomputed values
+    </span><span class="kw">let </span>get_witness_size = |slot_type| <span class="kw">match </span>slot_type {
+        SlotType::Hash4 =&gt; hash4_witness_size,
+        SlotType::Hash6 =&gt; hash6_witness_size,
+        SlotType::Hash8 =&gt; hash8_witness_size,
+        SlotType::Commitment =&gt; commitment_witness_size,
+        SlotType::BitDecomp =&gt; bit_decomp_witness_size,
+    };
     <span class="comment">// cache dummy slots witnesses with `Arc` for speedy clones
     </span><span class="kw">let </span>dummy_witnesses_cache: FrozenMap&lt;<span class="kw">_</span>, Box&lt;Arc&lt;SlotWitness&lt;F&gt;&gt;&gt;&gt; = FrozenMap::default();
     <span class="kw">let </span>gen_slot_witness = |(slot_idx, (slot_data, slot_type))| {
         <span class="kw">let </span>mk_witness = || {
-            <span class="kw">let </span><span class="kw-2">mut </span>witness = WitnessCS::new();
+            <span class="kw">let </span><span class="kw-2">mut </span>witness = WitnessCS::with_capacity(<span class="number">1</span>, get_witness_size(slot_type));
             <span class="kw">let </span>allocations = allocate_slot(<span class="kw-2">&amp;mut </span>witness, slot_data, slot_idx, slot_type, store)
                 .expect(<span class="string">&quot;slot allocations failed&quot;</span>);
             Arc::new(SlotWitness {
@@ -1943,7 +2050,8 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
-    <span class="kw">use </span>pasta_curves::Fq;
+    <span class="kw">use </span>nova::provider::bn256_grumpkin::{bn256::Scalar <span class="kw">as </span>Bn, grumpkin::Scalar <span class="kw">as </span>Gr};
+    <span class="kw">use </span>pasta_curves::{Fp, Fq};
 
     <span class="kw">use crate</span>::{
         eval::lang::Coproc,
@@ -1954,6 +2062,36 @@
     };
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="doccomment">/// Asserts that the computed witness sizes are correct across all slot types
+    /// and fields used in Lurk
+    </span><span class="attr">#[test]
+    </span><span class="kw">fn </span>test_get_witness_size() {
+        <span class="kw">fn </span>assert_sizes&lt;F: LurkField&gt;() {
+            [
+                SlotType::Hash4,
+                SlotType::Hash6,
+                SlotType::Hash8,
+                SlotType::Commitment,
+                SlotType::BitDecomp,
+            ]
+            .into_par_iter()
+            .for_each(|slot_type| {
+                <span class="kw">let </span>store = Store::&lt;F&gt;::default();
+                <span class="kw">let </span><span class="kw-2">mut </span>w = WitnessCS::&lt;F&gt;::new();
+                <span class="kw">let </span>computed_size = compute_witness_size::&lt;F&gt;(<span class="kw-2">&amp;</span>slot_type, <span class="kw-2">&amp;</span>store);
+                allocate_slot(<span class="kw-2">&amp;mut </span>w, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>, <span class="number">0</span>, slot_type, <span class="kw-2">&amp;</span>store).unwrap();
+                <span class="macro">assert_eq!</span>(w.aux_assignment().len(), computed_size);
+            });
+        }
+        (<span class="number">0</span>..<span class="number">3</span>).into_par_iter().for_each(|i| <span class="kw">match </span>i {
+            <span class="number">0 </span>=&gt; assert_sizes::&lt;Fp&gt;(),
+            <span class="number">1 </span>=&gt; assert_sizes::&lt;Fq&gt;(),
+            <span class="number">2 </span>=&gt; assert_sizes::&lt;Gr&gt;(),
+            <span class="number">3 </span>=&gt; assert_sizes::&lt;Bn&gt;(),
+            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+        });
+    }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_sequential_and_parallel_witnesses_equivalences() {

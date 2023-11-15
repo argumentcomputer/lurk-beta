@@ -461,6 +461,10 @@
 <a href="#461" id="461">461</a>
 <a href="#462" id="462">462</a>
 <a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 </span><span class="doccomment">//! The finite field used in the language.
 //!
@@ -469,7 +473,7 @@
 //! relating this field to the expresions of the language.
 </span><span class="kw">use </span>clap::ValueEnum;
 <span class="kw">use </span>ff::{PrimeField, PrimeFieldBits};
-<span class="kw">use </span>nova::provider::bn256_grumpkin::bn256;
+<span class="kw">use </span>nova::provider::bn256_grumpkin::{bn256, grumpkin};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::hash::Hash;
@@ -733,6 +737,10 @@
 
 <span class="kw">impl </span>LurkField <span class="kw">for </span>bn256::Scalar {
     <span class="kw">const </span>FIELD: LanguageField = LanguageField::BN256;
+}
+
+<span class="kw">impl </span>LurkField <span class="kw">for </span>grumpkin::Scalar {
+    <span class="kw">const </span>FIELD: LanguageField = LanguageField::Grumpkin;
 }
 
 <span class="comment">// The impl LurkField for grumpkin::Scalar is technically possible, but voluntarily omitted to avoid confusion.
