@@ -1,8 +1,8 @@
 use anyhow::{bail, Result};
 use arc_swap::ArcSwap;
 use elsa::{
+    sync::index_set::FrozenIndexSet,
     sync::{FrozenMap, FrozenVec},
-    sync_index_set::FrozenIndexSet,
 };
 use indexmap::IndexSet;
 use nom::{sequence::preceded, Parser};

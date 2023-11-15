@@ -1,6 +1,6 @@
 use arc_swap::ArcSwap;
+use elsa::sync::index_set::FrozenIndexSet;
 use elsa::sync::{FrozenMap, FrozenVec};
-use elsa::sync_index_set::FrozenIndexSet;
 use once_cell::sync::OnceCell;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fmt;
