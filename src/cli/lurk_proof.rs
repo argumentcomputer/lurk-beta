@@ -47,21 +47,6 @@ impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
     }
 }
 
-impl<
-        'a,
-        F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'a + Serialize + DeserializeOwned,
-        M: MultiFrameTrait<'a, F, C>,
-    > HasFieldModulus for LurkProof<'a, F, C, M>
-where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
-    fn field_modulus() -> String {
-        F::MODULUS.to_owned()
-    }
-}
-
 impl<F: LurkField> LurkProofMeta<F> {
     fn without_envs(self) -> Result<Self> {
         if self.env_io.is_none() {
@@ -99,7 +84,7 @@ impl<F: LurkField + DeserializeOwned> LurkProofMeta<F> {
         store_state: Option<(&Store<F>, &State)>,
         full: bool,
     ) -> Result<()> {
-        let Ok(proof_meta) = load::<LurkProofMeta<F>>(&proof_meta_path(proof_key)) else {
+        let Ok(proof_meta) = load::<Self>(&proof_meta_path(proof_key)) else {
             bail!("Missing or corrupted proof meta file. Prove again to regenerate.")
         };
         let do_inspect = |store: &Store<F>, state: &State| {
@@ -187,6 +172,74 @@ pub(crate) enum LurkProof<
 
 impl<
         'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a + Serialize + DeserializeOwned,
+        M: MultiFrameTrait<'a, F, C>,
+    > HasFieldModulus for LurkProof<'a, F, C, M>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    fn field_modulus() -> String {
+        F::MODULUS.to_owned()
+    }
+}
+
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + Serialize + DeserializeOwned,
+        M: MultiFrameTrait<'a, F, C>,
+    > LurkProof<'a, F, C, M>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    #[inline]
+    fn public_io(&self) -> (&[F], &[F]) {
+        match self {
+            Self::Nova {
+                proof: _,
+                public_inputs,
+                public_outputs,
+                ..
+            } => (public_inputs, public_outputs),
+        }
+    }
+
+    fn matches_meta(&self, meta: &LurkProofMeta<F>) -> bool {
+        let (public_input, public_output) = self.public_io();
+        let matches_exprs = {
+            let (expr, expr_out) = &meta.expr_io;
+            public_input[0] == expr.tag_field()
+                && &public_input[1] == expr.value()
+                && public_output[0] == expr_out.tag_field()
+                && &public_output[1] == expr_out.value()
+        };
+        let matches_envs = {
+            if let Some((env, env_out)) = &meta.env_io {
+                public_input[2] == env.tag_field()
+                    && &public_input[3] == env.value()
+                    && public_output[2] == env_out.tag_field()
+                    && &public_output[3] == env_out.value()
+            } else {
+                // no data to trigger inconsistency
+                true
+            }
+        };
+        let matches_conts = {
+            let (cont, cont_out) = &meta.cont_io;
+            public_input[4] == cont.tag_field()
+                && &public_input[5] == cont.value()
+                && public_output[4] == cont_out.tag_field()
+                && &public_output[5] == cont_out.value()
+        };
+        matches_exprs && matches_envs && matches_conts
+    }
+}
+
+impl<
+        'a,
         F: CurveCycleEquipped + Serialize,
         C: Coprocessor<F> + Serialize + DeserializeOwned,
         M: MultiFrameTrait<'a, F, C>,
@@ -202,7 +255,7 @@ where
 }
 
 impl<
-        F: CurveCycleEquipped + Serialize + DeserializeOwned,
+        F: CurveCycleEquipped + DeserializeOwned,
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
         M: MultiFrameTrait<'static, F, C>
             + SuperStepCircuit<F>
@@ -214,7 +267,7 @@ where
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
-        let lurk_proof: LurkProof<'_, F, C, M> = load(&proof_path(proof_key))?;
+        let lurk_proof = load::<Self>(&proof_path(proof_key))?;
         if lurk_proof.verify()? {
             println!("✓ Proof \"{proof_key}\" verified");
         } else {
@@ -223,9 +276,9 @@ where
         Ok(())
     }
 
+    #[inline]
     pub(crate) fn is_cached(proof_key: &str) -> bool {
-        let lurk_proof: Result<LurkProof<'_, F, C, M>> = load(&proof_path(proof_key));
-        lurk_proof.is_ok()
+        load::<Self>(&proof_path(proof_key)).is_ok()
     }
 
     fn verify(&self) -> Result<bool> {
@@ -317,15 +370,17 @@ where
     }
 
     pub(crate) fn unpack(path: &Utf8PathBuf) -> Result<()> {
-        let packed_proof: PackedLurkProof<'_, F, C, M> = load(path)?;
-        let PackedLurkProof { proof, meta, key } = packed_proof;
+        let PackedLurkProof { proof, meta, key } = load::<Self>(path)?;
         if !proof.verify()? {
             bail!("Proof verification failed")
         }
-        proof.persist(&key)?;
         if let Some(meta) = meta {
+            if !proof.matches_meta(&meta) {
+                bail!("Meta data is incompatible with the proof")
+            }
             meta.persist(&key)?;
         }
+        proof.persist(&key)?;
         println!("Proof {key} unpacked");
         Ok(())
     }
