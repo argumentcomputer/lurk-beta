@@ -1262,6 +1262,56 @@
 <a href="#1262" id="1262">1262</a>
 <a href="#1263" id="1263">1263</a>
 <a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -2325,13 +2375,16 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>ff::Field;
     <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
+    <span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 
     <span class="kw">use crate</span>::{
         field::LurkField,
         lem::Tag,
-        state::initial_lurk_state,
+        parser::position::Pos,
+        state::{initial_lurk_state, lurk_sym},
+        syntax::Syntax,
         tag::{ExprTag, Tag <span class="kw">as </span>TagTrait},
-        Symbol,
+        Num, Symbol,
     };
 
     <span class="kw">use super</span>::{Ptr, Store};
@@ -2524,6 +2577,53 @@
 
         <span class="kw">let </span>foo_bar_hash = s.hash_ptr(<span class="kw-2">&amp;</span>foo_bar_ptr).<span class="number">1</span>;
         <span class="macro">assert_eq!</span>(foo_bar_hash, foo_bar_hash_manual);
+    }
+
+    <span class="comment">// helper function to test syntax interning roundtrip
+    </span><span class="kw">fn </span>fetch_syntax(ptr: Ptr&lt;Fr&gt;, store: <span class="kw-2">&amp;</span>Store&lt;Fr&gt;) -&gt; Syntax&lt;Fr&gt; {
+        <span class="kw">match </span>ptr {
+            Ptr::Atom(Tag::Expr(ExprTag::Num), f) =&gt; Syntax::Num(Pos::No, Num::Scalar(f)),
+            Ptr::Atom(Tag::Expr(ExprTag::Char), f) =&gt; Syntax::Char(Pos::No, f.to_char().unwrap()),
+            Ptr::Atom(Tag::Expr(ExprTag::U64), f) =&gt; {
+                Syntax::UInt(Pos::No, <span class="kw">crate</span>::UInt::U64(f.to_u64_unchecked()))
+            }
+            Ptr::Atom(Tag::Expr(ExprTag::Sym), <span class="kw">_</span>)
+            | Ptr::Atom(Tag::Expr(ExprTag::Key), <span class="kw">_</span>)
+            | Ptr::Tuple2(Tag::Expr(ExprTag::Sym), <span class="kw">_</span>)
+            | Ptr::Tuple2(Tag::Expr(ExprTag::Key), <span class="kw">_</span>) =&gt; {
+                Syntax::Symbol(Pos::No, store.fetch_symbol(<span class="kw-2">&amp;</span>ptr).unwrap().into())
+            }
+            Ptr::Atom(Tag::Expr(ExprTag::Str), <span class="kw">_</span>) | Ptr::Tuple2(Tag::Expr(ExprTag::Str), <span class="kw">_</span>) =&gt; {
+                Syntax::String(Pos::No, store.fetch_string(<span class="kw-2">&amp;</span>ptr).unwrap())
+            }
+            Ptr::Tuple2(Tag::Expr(ExprTag::Cons), <span class="kw">_</span>) =&gt; {
+                <span class="kw">let </span>(elts, last) = store.fetch_list(<span class="kw-2">&amp;</span>ptr).unwrap();
+                <span class="kw">let </span>elts = elts
+                    .into_iter()
+                    .map(|e| fetch_syntax(e, store))
+                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(last) = last {
+                    Syntax::Improper(Pos::No, elts, fetch_syntax(last, store).into())
+                } <span class="kw">else </span>{
+                    Syntax::List(Pos::No, elts)
+                }
+            }
+            Ptr::Tuple2(Tag::Expr(ExprTag::Nil), <span class="kw">_</span>) =&gt; {
+                Syntax::Symbol(Pos::No, lurk_sym(<span class="string">&quot;nil&quot;</span>).into())
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+        }
+    }
+
+    <span class="macro">proptest! </span>{
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>syntax_roundtrip(x <span class="kw">in </span>any::&lt;Syntax&lt;Fr&gt;&gt;()) {
+            <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
+            <span class="kw">let </span>ptr1 = store.intern_syntax(x);
+            <span class="kw">let </span>y = fetch_syntax(ptr1, <span class="kw-2">&amp;</span>store);
+            <span class="kw">let </span>ptr2 = store.intern_syntax(y);
+            <span class="macro">assert_eq!</span>(ptr1, ptr2);
+        }
     }
 }
 </code></pre></div></section></main></body></html>
