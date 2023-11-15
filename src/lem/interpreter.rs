@@ -434,6 +434,7 @@ impl Block {
                     bindings.insert_ptr(tgt_secret.clone(), Ptr::Atom(Tag::Expr(Num), *secret));
                     hints.commitment.push(Some(SlotData::FPtr(*secret, *ptr)))
                 }
+                Op::Unit(f) => f(),
             }
         }
         match &self.ctrl {

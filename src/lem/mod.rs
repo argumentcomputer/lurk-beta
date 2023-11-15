@@ -296,6 +296,7 @@ pub enum Op {
     /// `Open(s, p, h)` binds `s` and `p` to the secret and payload (respectively)
     /// of the commitment that resulted on (num or comm) `h`
     Open(Var, Var, Var),
+    Unit(fn()),
 }
 
 impl Func {
@@ -451,6 +452,7 @@ impl Func {
                         is_unique(tgt_secret, map);
                         is_unique(tgt_ptr, map);
                     }
+                    Op::Unit(_) => (),
                 }
             }
             match &block.ctrl {
@@ -735,6 +737,9 @@ impl Block {
                     let sec = insert_one(map, uniq, &sec);
                     let pay = insert_one(map, uniq, &pay);
                     ops.push(Op::Open(sec, pay, comm_or_num))
+                }
+                Op::Unit(x) => {
+                    ops.push(Op::Unit(x));
                 }
             }
         }
