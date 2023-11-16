@@ -244,7 +244,6 @@
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 
 </span><span class="doccomment">//! This module offers a connection the the backend proving engine of Lurk.
@@ -451,7 +450,6 @@
 
     <span class="doccomment">/// Returns the expected total number of iterations for the prover given raw iterations.
     </span><span class="kw">fn </span>expected_total_iterations(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_iterations: usize) -&gt; usize {
-        <span class="kw">let </span>raw_iterations = raw_iterations + <span class="number">1</span>;
         <span class="kw">let </span>cfc = <span class="self">self</span>.reduction_count();
         <span class="kw">let </span>full_multiframe_count = raw_iterations / cfc;
         <span class="kw">let </span>unfull_multiframe_frame_count = raw_iterations % cfc;

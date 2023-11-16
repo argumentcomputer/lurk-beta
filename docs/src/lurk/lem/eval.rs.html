@@ -1839,11 +1839,6 @@
 <a href="#1839" id="1839">1839</a>
 <a href="#1840" id="1840">1840</a>
 <a href="#1841" id="1841">1841</a>
-<a href="#1842" id="1842">1842</a>
-<a href="#1843" id="1843">1843</a>
-<a href="#1844" id="1844">1844</a>
-<a href="#1845" id="1845">1845</a>
-<a href="#1846" id="1846">1846</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -1957,11 +1952,6 @@
             <span class="kw">break</span>;
         }
         pc = get_pc(<span class="kw-2">&amp;</span>expr, store, lang);
-    }
-    <span class="comment">// TODO: remove this after #729 is merged
-    </span><span class="kw">if </span>iterations &lt; limit {
-        <span class="kw">let </span>frame = lurk_step.call_simple(<span class="kw-2">&amp;</span>input, store, lang, pc)<span class="question-mark">?</span>;
-        frames.push(frame);
     }
     <span class="prelude-val">Ok</span>((frames, iterations))
 }
