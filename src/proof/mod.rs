@@ -204,7 +204,6 @@ pub trait Prover<'a, F: LurkField, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a
 
     /// Returns the expected total number of iterations for the prover given raw iterations.
     fn expected_total_iterations(&self, raw_iterations: usize) -> usize {
-        let raw_iterations = raw_iterations + 1;
         let cfc = self.reduction_count();
         let full_multiframe_count = raw_iterations / cfc;
         let unfull_multiframe_frame_count = raw_iterations % cfc;
