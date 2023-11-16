@@ -12,7 +12,7 @@ pub mod eval;
 mod expr;
 pub mod field;
 mod hash;
-pub mod hash_witness;
+mod hash_witness;
 pub mod lem;
 mod num;
 mod package;
