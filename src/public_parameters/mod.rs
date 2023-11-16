@@ -79,6 +79,42 @@ where
     }
 }
 
+pub fn public_params_no_arc<'a, F, C, M>(
+    instance: &Instance<'a, F, C, M>,
+) -> Result<PublicParams<F, M>, Error>
+where
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    let default =
+        |instance: &Instance<'a, F, C, M>| nova::public_params(instance.rc, instance.lang());
+    let disk_cache = DiskCache::<F, C, M>::new(public_params_dir()).unwrap();
+
+    let mut bytes = vec![];
+    let pp = disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
+        if let Some((pp, remaining)) = unsafe { decode::<PublicParams<F, M>>(&mut bytes) } {
+            assert!(remaining.is_empty());
+            eprintln!("Using disk-cached public params for {}", instance.key());
+            Ok(pp)
+        } else {
+            Err(Error::CacheError("failed to decode bytes".into()))
+        }
+    });
+
+    match pp {
+        Ok(pp) => Ok(pp.clone()),
+        Err(e) => {
+            eprintln!("{e}");
+            let pp = default(instance);
+            disk_cache.write_abomonated(instance, &pp)?;
+            Ok(pp)
+        }
+    }
+}
+
 pub fn supernova_circuit_params<
     'a,
     F: CurveCycleEquipped,

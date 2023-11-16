@@ -16,7 +16,7 @@ use lurk::{
     proof::Prover,
     public_parameters::{
         instance::{Instance, Kind},
-        public_params,
+        public_params_no_arc,
     },
     state::State,
 };
@@ -118,7 +118,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_params_no_arc::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     // Track the number of `Lurk frames / sec`
     let rc = prove_params.reduction_count as u64;
@@ -164,7 +164,7 @@ fn fibonacci_benchmark(c: &mut Criterion) {
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
     let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
-    let batch_sizes = [100, 200];
+    let batch_sizes = [224, 449];
 
     let state = State::init_lurk_state().rccell();
 
