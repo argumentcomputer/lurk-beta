@@ -286,7 +286,7 @@ pub(crate) fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
     }
 }
 
-pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     val: F,
 ) -> AllocatedNum<F> {
