@@ -23,7 +23,7 @@ pub mod public_parameters;
 pub mod state;
 pub mod store;
 mod symbol;
-pub mod syntax;
+mod syntax;
 mod syntax_macros;
 pub mod tag;
 pub mod uint;
