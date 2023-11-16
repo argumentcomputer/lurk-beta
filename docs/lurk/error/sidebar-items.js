@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["LurkError","ProofError","ReductionError"]};
+window.SIDEBAR_ITEMS = {"enum":["ProofError","ReductionError"]};

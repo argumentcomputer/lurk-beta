@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AllocatedContPtr","AllocatedPtr"],"trait":["AsAllocatedHashComponents"]};
+window.SIDEBAR_ITEMS = {"struct":["AllocatedContPtr","AllocatedPtr"]};
