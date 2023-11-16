@@ -75,7 +75,7 @@ impl Settings {
         Config::builder()
             // Default settings if unspecified in the config file
             .set_default(public_params, public_params_default_dir().to_string())?
-            .set_default("perf", "fully-sequential".to_string())?
+            .set_default("perf", "max-parallel-simple".to_string())?
             .add_source(File::with_name(config_file.as_str()).required(false))
             // Then override with any `LURK` environment variables
             .add_source(Environment::with_prefix("LURK"))
@@ -197,10 +197,10 @@ pub struct WitnessGeneration {
 /// The level of parallelism used when synthesizing the Lurk circuit
 #[derive(Default, Debug, PartialEq, Eq)]
 pub enum Flow {
-    /// Runs without parallelism (default)
-    #[default]
+    /// Runs without parallelism
     Sequential,
-    /// Try to be smart about thread management based on # of cpus
+    /// Try to be smart about thread management based on # of cpus (default)
+    #[default]
     Parallel,
     /// How many threads to use? (Advisory, might be ignored.)
     ParallelN(usize),
@@ -222,8 +222,8 @@ impl Flow {
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum CannedConfig {
-    #[default]
     FullySequential,
+    #[default]
     MaxParallelSimple,
     ParallelStepsOnly,
     ParallelSynthesis,
@@ -257,14 +257,14 @@ mod tests {
         let tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
         let config_dir = tmp_dir.join("lurk.toml");
         let public_params_dir = tmp_dir.join("public_params").into_string();
-        let perf_config = PerfConfig::from(CannedConfig::MaxParallelSimple);
+        let perf_config = PerfConfig::from(CannedConfig::FullySequential);
 
         let mut config_file = File::create(config_dir.clone()).unwrap();
         config_file
             .write_all(format!("public_params_dir = \"{public_params_dir}\"\n").as_bytes())
             .unwrap();
         config_file
-            .write_all("perf = \"max-parallel-simple\"\n".as_bytes())
+            .write_all("perf = \"fully-sequential\"\n".as_bytes())
             .unwrap();
 
         let config = Settings::from_config(&config_dir, None).unwrap();
