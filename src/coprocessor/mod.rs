@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub mod circom;
-pub mod gadgets;
+pub(crate) mod gadgets;
 pub mod sha256;
 pub mod trie;
 

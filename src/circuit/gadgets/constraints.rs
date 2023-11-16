@@ -404,6 +404,7 @@ pub(crate) fn pick_const<F: PrimeField, CS: ConstraintSystem<F>>(
 }
 
 /// Convert from Boolean to AllocatedNum.
+#[allow(dead_code)]
 pub(crate) fn boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     bit: &Boolean,

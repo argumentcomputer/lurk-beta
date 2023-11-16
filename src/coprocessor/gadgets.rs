@@ -18,7 +18,8 @@ use crate::{
 };
 
 /// Constructs an `AllocatedPtr` compound by two others
-pub fn construct_tuple2<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
+#[allow(dead_code)]
+pub(crate) fn construct_tuple2<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
     cs: CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
@@ -43,7 +44,8 @@ pub fn construct_tuple2<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 }
 
 /// Constructs an `AllocatedPtr` compound by three others
-pub fn construct_tuple3<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
+#[allow(dead_code)]
+pub(crate) fn construct_tuple3<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
     cs: CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
@@ -71,7 +73,8 @@ pub fn construct_tuple3<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 }
 
 /// Constructs an `AllocatedPtr` compound by four others
-pub fn construct_tuple4<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
+#[allow(dead_code)]
+pub(crate) fn construct_tuple4<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
     cs: CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
@@ -102,8 +105,9 @@ pub fn construct_tuple4<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 }
 
 /// Constructs a `Cons` pointer
+#[allow(dead_code)]
 #[inline]
-pub fn construct_cons<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn construct_cons<F: LurkField, CS: ConstraintSystem<F>>(
     cs: CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
@@ -115,7 +119,8 @@ pub fn construct_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
 /// Constructs a cons-list with the provided `elts`. The terminating value defaults
 /// to `nil` when `last` is `None`
-pub fn construct_list<F: LurkField, CS: ConstraintSystem<F>>(
+#[allow(dead_code)]
+pub(crate) fn construct_list<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
@@ -136,6 +141,7 @@ pub fn construct_list<F: LurkField, CS: ConstraintSystem<F>>(
 
 /// Retrieves the `Ptr` that corresponds to `a_ptr` by using the `Store` as the
 /// hint provider
+#[allow(dead_code)]
 fn get_ptr<F: LurkField>(
     a_ptr: &AllocatedPtr<F>,
     store: &Store<F>,
@@ -160,7 +166,8 @@ fn get_ptr<F: LurkField>(
 ///
 /// # Panics
 /// Panics if the store can't deconstruct the tuple pointer
-pub fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
+#[allow(dead_code)]
+pub(crate) fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     store: &Store<F>,
     not_dummy: &Boolean,
@@ -202,7 +209,8 @@ pub fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
 ///
 /// # Panics
 /// Panics if the store can't deconstruct the tuple pointer
-pub fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
+#[allow(dead_code)]
+pub(crate) fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     store: &Store<F>,
     not_dummy: &Boolean,
@@ -247,7 +255,8 @@ pub fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
 ///
 /// # Panics
 /// Panics if the store can't deconstruct the tuple pointer
-pub fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
+#[allow(dead_code)]
+pub(crate) fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     store: &Store<F>,
     not_dummy: &Boolean,
@@ -308,7 +317,8 @@ pub fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
 ///
 /// # Panics
 /// Panics if the store can't deconstruct `data` with `car_cdr`
-pub fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
+#[allow(dead_code)]
+pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
@@ -469,7 +479,8 @@ pub fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 /// assert_eq!(a_ptr_as_z_ptr(&cdr), Some(z_empty_str));
 /// assert_eq!(length.get_value(), Some(Fq::from_u64(2)));
 /// ```
-pub fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
+#[allow(dead_code)]
+pub(crate) fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
@@ -501,7 +512,7 @@ pub fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 
 #[inline]
 #[allow(dead_code)]
-pub fn a_ptr_as_z_ptr<T: Tag, F: LurkField>(
+pub(crate) fn a_ptr_as_z_ptr<T: Tag, F: LurkField>(
     a: &AllocatedPtr<F>,
 ) -> Option<crate::z_ptr::ZPtr<T, F>> {
     a.tag()
