@@ -52,9 +52,8 @@ where
     ) -> Result<PublicParams<F, M>, Error> {
         let file = instance.open(&self.dir)?;
         let reader = BufReader::new(file);
-        bincode::deserialize_from(reader).map_err(|e| {
-            Error::CacheError(format!("Public param cache deserialization error: {}", e))
-        })
+        bincode::deserialize_from(reader)
+            .map_err(|e| Error::Cache(format!("Public param cache deserialization error: {}", e)))
     }
 
     pub(crate) fn read_bytes(
@@ -75,9 +74,8 @@ where
     ) -> Result<(), Error> {
         let file = instance.create(&self.dir)?;
         let writer = BufWriter::new(&file);
-        bincode::serialize_into(writer, &data).map_err(|e| {
-            Error::CacheError(format!("Public param cache serialization error: {}", e))
-        })
+        bincode::serialize_into(writer, &data)
+            .map_err(|e| Error::Cache(format!("Public param cache serialization error: {}", e)))
     }
 
     pub(crate) fn write_abomonated<V: Abomonation>(

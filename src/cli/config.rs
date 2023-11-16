@@ -13,7 +13,7 @@ use super::backend::Backend;
 use super::paths::{circom_default_dir, commits_default_dir, proofs_default_dir};
 
 /// Global config varable for `CliSettings`
-pub static CLI_CONFIG: OnceCell<CliSettings> = OnceCell::new();
+pub(crate) static CLI_CONFIG: OnceCell<CliSettings> = OnceCell::new();
 
 /// Gets the `CLI_CONFIG` settings. If uninitialized, sets the global variable
 /// in the following order (greatest to least precedence):
@@ -27,7 +27,7 @@ pub static CLI_CONFIG: OnceCell<CliSettings> = OnceCell::new();
 ///   ```
 ///   Other file formats are supported by the `config` crate, but only TOML is tested
 /// - Default values, e.g. `$HOME/.lurk/proofs`
-pub fn cli_config(
+pub(crate) fn cli_config(
     config_file: Option<&Utf8PathBuf>,
     settings: Option<&HashMap<&str, String>>,
 ) -> &'static CliSettings {
@@ -44,27 +44,27 @@ pub fn cli_config(
 // It's good practice to avoid duplication of shared settings like `public_params_dir`
 // in downstream configs like these to prevent conflicts.
 #[derive(Debug, Deserialize)]
-pub struct CliSettings {
+pub(crate) struct CliSettings {
     /// Cache directory for proofs
-    pub proofs_dir: Utf8PathBuf,
+    pub(crate) proofs_dir: Utf8PathBuf,
     /// Cache directory for commitments
-    pub commits_dir: Utf8PathBuf,
+    pub(crate) commits_dir: Utf8PathBuf,
     /// Cache directory for Circom files
-    pub circom_dir: Utf8PathBuf,
+    pub(crate) circom_dir: Utf8PathBuf,
     /// Proof generation and verification system
-    pub backend: Backend,
+    pub(crate) backend: Backend,
     /// Finite field used for evaluation and proving
-    pub field: LanguageField,
+    pub(crate) field: LanguageField,
     /// Reduction count, which is the number of circuit reductions per step
-    pub rc: usize,
+    pub(crate) rc: usize,
     /// Iteration limit for the program, which is arbitrary to user preferences
     /// Used mainly as a safety check, similar to default stack size
-    pub limit: usize,
+    pub(crate) limit: usize,
 }
 
 impl CliSettings {
     /// Loads config settings from a file or env var, or CLI arg if applicable
-    pub fn from_config(
+    pub(crate) fn from_config(
         config_file: &Utf8PathBuf,
         cli_settings: Option<&HashMap<&str, String>>,
     ) -> Result<Self, ConfigError> {

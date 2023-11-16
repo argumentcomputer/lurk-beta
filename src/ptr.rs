@@ -72,8 +72,8 @@ impl<F: LurkField, T: Tag> Hash for GPtr<F, T> {
     }
 }
 
-pub type Ptr<F> = GPtr<F, ExprTag>;
-pub type ContPtr<F> = GPtr<F, ContTag>;
+pub(crate) type Ptr<F> = GPtr<F, ExprTag>;
+pub(crate) type ContPtr<F> = GPtr<F, ContTag>;
 
 impl<F: LurkField, T: Tag> GPtr<F, T> {
     /// check if a Ptr is an opaque pointer
@@ -184,7 +184,7 @@ impl<F: LurkField> ContPtr<F> {
     }
 }
 
-pub trait TypePredicates {
+pub(crate) trait TypePredicates {
     fn is_fun(&self) -> bool;
     fn is_self_evaluating(&self) -> bool;
     fn is_potentially(&self, tag: ExprTag) -> bool;

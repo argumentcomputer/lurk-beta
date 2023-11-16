@@ -70,7 +70,7 @@ impl<F: LurkField> Evaluation<F> {
 }
 
 #[allow(dead_code)]
-pub struct Repl<F: LurkField> {
+pub(crate) struct Repl<F: LurkField> {
     store: Store<F>,
     state: Rc<RefCell<State>>,
     env: Ptr<F>,
@@ -144,7 +144,7 @@ impl<F: LurkField> Repl<F> {
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
 
 impl Repl<F> {
-    pub fn new(store: Store<F>, rc: usize, limit: usize, backend: Backend) -> Repl<F> {
+    pub(crate) fn new(store: Store<F>, rc: usize, limit: usize, backend: Backend) -> Repl<F> {
         let limit = pad(limit, rc);
         info!(
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
@@ -394,7 +394,7 @@ impl Repl<F> {
         Ok(hash)
     }
 
-    pub fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
+    pub(crate) fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         let (output, iterations) = self.eval_expr_and_memoize(expr_ptr)?;
         let iterations_display = Self::pretty_iterations_display(iterations);
         match output[2].tag() {
@@ -472,7 +472,7 @@ impl Repl<F> {
         Ok(new_input)
     }
 
-    pub fn load_file(&mut self, file_path: &Utf8Path, demo: bool) -> Result<()> {
+    pub(crate) fn load_file(&mut self, file_path: &Utf8Path, demo: bool) -> Result<()> {
         let input = read_to_string(file_path)?;
         if demo {
             println!("Loading {file_path} in demo mode");

@@ -1,11 +1,11 @@
-pub mod backend;
+mod backend;
 mod circom;
 mod commitment;
-pub mod config;
+mod config;
 mod field_data;
 mod lurk_proof;
 pub mod paths;
-pub mod repl;
+mod repl;
 mod zstore;
 
 use anyhow::{bail, Context, Result};

@@ -234,7 +234,7 @@ impl From<Op1> for u64 {
     }
 }
 
-pub trait Op
+pub(crate) trait Op
 where
     Self: 'static,
 {
@@ -474,7 +474,7 @@ impl fmt::Display for Op2 {
 }
 
 #[cfg(test)]
-pub mod tests {
+pub(crate) mod tests {
 
     use super::*;
     use proptest::prelude::*;

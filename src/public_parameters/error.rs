@@ -5,9 +5,9 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("IO error: {0}")]
-    IOError(#[from] io::Error),
+    IO(#[from] io::Error),
     #[error("Cache error: {0}")]
-    CacheError(String),
+    Cache(String),
     #[error("JSON error: {0}")]
-    JsonError(#[from] serde_json::Error),
+    Json(#[from] serde_json::Error),
 }

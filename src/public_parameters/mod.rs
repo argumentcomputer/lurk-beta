@@ -8,7 +8,7 @@ use crate::proof::nova::{CurveCycleEquipped, G1, G2};
 use crate::proof::MultiFrameTrait;
 
 pub mod disk_cache;
-pub mod error;
+mod error;
 pub mod instance;
 mod mem_cache;
 
@@ -64,7 +64,7 @@ where
             eprintln!("Using disk-cached public params for {}", instance.key());
             Ok(pp)
         } else {
-            Err(Error::CacheError("failed to decode bytes".into()))
+            Err(Error::Cache("failed to decode bytes".into()))
         }
     });
 
@@ -100,7 +100,7 @@ where
             eprintln!("Using disk-cached public params for {}", instance.key());
             Ok(pp.clone())
         } else {
-            Err(Error::CacheError("failed to decode bytes".into()))
+            Err(Error::Cache("failed to decode bytes".into()))
         }
     })
 }
@@ -127,7 +127,7 @@ where
             assert!(remaining.is_empty());
             Ok(aux_params.clone())
         } else {
-            Err(Error::CacheError("failed to decode bytes".into()))
+            Err(Error::Cache("failed to decode bytes".into()))
         }
     })
 }

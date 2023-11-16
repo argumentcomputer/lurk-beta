@@ -61,7 +61,7 @@
 
 pub mod circuit;
 pub mod eval;
-pub mod interpreter;
+pub(crate) mod interpreter;
 mod macros;
 pub mod multiframe;
 mod path;

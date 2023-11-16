@@ -6,7 +6,7 @@ use std::{
 
 use crate::Symbol;
 
-pub type SymbolRef = Arc<Symbol>;
+pub(crate) type SymbolRef = Arc<Symbol>;
 
 #[derive(Debug)]
 pub struct Package {
