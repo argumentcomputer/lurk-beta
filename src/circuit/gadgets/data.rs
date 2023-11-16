@@ -5,8 +5,6 @@ use neptune::{
     poseidon::{Arity, PoseidonConstants},
 };
 
-use super::pointer::AsAllocatedHashComponents;
-use crate::expr::Thunk;
 use crate::field::LurkField;
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
@@ -350,31 +348,5 @@ impl Op2 {
             &mut cs.namespace(|| format!("{self:?} tag")),
             self.to_field(),
         )
-    }
-}
-
-impl<F: LurkField> Thunk<F> {
-
-    pub fn hash_components<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-        value: &AllocatedPtr<F>,
-        cont: &AllocatedContPtr<F>,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
-        let vs = value.as_allocated_hash_components();
-        let conts = cont.as_allocated_hash_components();
-        // This is a 'binary' hash but has arity 4 because of tag and hash components for each item.
-        let hash = hash_poseidon(
-            cs.namespace(|| "Thunk Continuation"),
-            vec![
-                vs[0].clone(),
-                vs[1].clone(),
-                conts[0].clone(),
-                conts[1].clone(),
-            ],
-            store.poseidon_constants().c4(),
-        )?;
-
-        Ok(hash)
     }
 }

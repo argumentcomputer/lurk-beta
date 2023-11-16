@@ -509,7 +509,6 @@ impl<F: LurkField> AllocatedContPtr<F> {
         store.z_cont_ptr_from_parts(tag, value).ok()
     }
 
-
     /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
     pub fn pick<CS>(
         mut cs: CS,
@@ -546,53 +545,5 @@ impl<F: LurkField> AllocatedContPtr<F> {
         hash.inputize(cs.namespace(|| "continuation hash input"))?;
 
         Ok(AllocatedContPtr { tag, hash })
-    }
-
-    pub fn construct<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-        cont_tag: &AllocatedNum<F>,
-        components: &[&dyn AsAllocatedHashComponents<F>; 4],
-    ) -> Result<Self, SynthesisError> {
-        let components = components
-            .iter()
-            .flat_map(|c| c.as_allocated_hash_components())
-            .cloned()
-            .collect();
-
-        let hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            components,
-            store.poseidon_constants().c8(),
-        )?;
-
-        let cont = AllocatedContPtr {
-            tag: cont_tag.clone(),
-            hash,
-        };
-        Ok(cont)
-    }
-
-}
-
-pub trait AsAllocatedHashComponents<F: LurkField> {
-    fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2];
-}
-
-impl<F: LurkField> AsAllocatedHashComponents<F> for AllocatedPtr<F> {
-    fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2] {
-        [&self.tag, &self.hash]
-    }
-}
-
-impl<F: LurkField> AsAllocatedHashComponents<F> for AllocatedContPtr<F> {
-    fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2] {
-        [&self.tag, &self.hash]
-    }
-}
-
-impl<F: LurkField> AsAllocatedHashComponents<F> for [&AllocatedNum<F>; 2] {
-    fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2] {
-        [self[0], self[1]]
     }
 }

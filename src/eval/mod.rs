@@ -1,5 +1,6 @@
 use crate::field::LurkField;
 use crate::hash_witness::{ConsWitness, ContWitness};
+use crate::lurk_sym_ptr;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
 use crate::z_ptr::ZExprPtr;
