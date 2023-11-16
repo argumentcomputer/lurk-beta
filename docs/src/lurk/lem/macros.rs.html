@@ -848,6 +848,19 @@
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
 <a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
 </pre></div><pre class="rust"><code><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>var {
     (<span class="macro-nonterminal">$variable</span>:ident) =&gt; {
@@ -1058,6 +1071,9 @@
             <span class="kw">let </span>func = Box::new(<span class="macro-nonterminal">$func</span>.clone());
             <span class="macro-nonterminal">$crate::lem::Op::Call</span>(out, func, inp)
         }
+    };
+    ( unit(<span class="macro-nonterminal">$f</span>:expr) ) =&gt; {
+        <span class="macro-nonterminal">$crate::lem::Op::Unit</span>(<span class="macro-nonterminal">$f</span>)
     }
 }
 
@@ -1437,6 +1453,16 @@
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
                 <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$sec</span>, <span class="macro-nonterminal">$src</span>) = open(<span class="macro-nonterminal">$hash</span>) )
+            },
+            $(<span class="macro-nonterminal">$tail</span>)*
+        )
+    };
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, unit(<span class="macro-nonterminal">$f</span>:expr) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::block! </span>(
+            @<span class="macro-nonterminal">seq
+            </span>{
+                $(<span class="macro-nonterminal">$limbs</span>)*
+                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="macro-nonterminal">unit</span>(<span class="macro-nonterminal">$f</span>))
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )

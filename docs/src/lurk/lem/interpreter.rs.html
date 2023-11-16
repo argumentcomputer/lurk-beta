@@ -581,6 +581,7 @@
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>std::collections::VecDeque;
 
@@ -1017,6 +1018,7 @@
                     bindings.insert_ptr(tgt_secret.clone(), Ptr::Atom(Tag::Expr(Num), <span class="kw-2">*</span>secret));
                     hints.commitment.push(<span class="prelude-val">Some</span>(SlotData::FPtr(<span class="kw-2">*</span>secret, <span class="kw-2">*</span>ptr)))
                 }
+                Op::Unit(f) =&gt; f(),
             }
         }
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.ctrl {

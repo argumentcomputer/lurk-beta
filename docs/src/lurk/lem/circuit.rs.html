@@ -2589,7 +2589,7 @@
                 bound_allocations.insert_ptr(tgt[<span class="number">0</span>].clone(), div_ptr);
                 bound_allocations.insert_ptr(tgt[<span class="number">1</span>].clone(), rem_ptr);
             }
-            Op::Emit(<span class="kw">_</span>) =&gt; (),
+            Op::Emit(<span class="kw">_</span>) | Op::Unit(<span class="kw">_</span>) =&gt; (),
             Op::Hide(tgt, sec, pay) =&gt; {
                 <span class="kw">let </span>sec = bound_allocations.get_ptr(sec)<span class="question-mark">?</span>;
                 <span class="kw">let </span>pay = bound_allocations.get_ptr(pay)<span class="question-mark">?</span>;
@@ -3106,7 +3106,7 @@
                         <span class="comment">// three implies_u64, one sub and one linear
                         </span>num_constraints += <span class="number">197</span>;
                     }
-                    Op::Not(..) | Op::Emit(<span class="kw">_</span>) | Op::Cproc(..) | Op::Copy(..) =&gt; (),
+                    Op::Not(..) | Op::Emit(<span class="kw">_</span>) | Op::Cproc(..) | Op::Copy(..) | Op::Unit(<span class="kw">_</span>) =&gt; (),
                     Op::Cons2(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
                         <span class="comment">// tag for the image
                         </span>globals.insert(FWrap(tag.to_field()));
