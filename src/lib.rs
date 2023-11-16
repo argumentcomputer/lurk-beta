@@ -22,7 +22,7 @@ mod ptr;
 pub mod public_parameters;
 pub mod state;
 pub mod store;
-pub mod symbol;
+mod symbol;
 pub mod syntax;
 mod syntax_macros;
 pub mod tag;
