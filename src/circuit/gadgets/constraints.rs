@@ -649,6 +649,7 @@ pub(crate) fn enforce_selector_with_premise<F: PrimeField, CS: ConstraintSystem<
 }
 
 /// Enforce `premise` implies `implication`.
+#[allow(dead_code)]
 pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     premise: &Boolean,
