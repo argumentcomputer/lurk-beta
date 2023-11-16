@@ -11,7 +11,7 @@ use crate::symbol::Symbol;
 use crate::z_expr::ZExpr;
 use std::io;
 
-pub trait Write<F: LurkField> {
+pub(crate) trait Write<F: LurkField> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, state: &State, w: &mut W) -> io::Result<()>;
     fn fmt_to_string(&self, store: &Store<F>, state: &State) -> String {
         let mut out = Vec::new();
@@ -353,7 +353,7 @@ impl<F: LurkField> Write<F> for Continuation<F> {
 }
 
 #[cfg(test)]
-pub mod test {
+pub(crate) mod test {
     use crate::state::initial_lurk_state;
 
     use super::*;

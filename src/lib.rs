@@ -27,7 +27,7 @@ mod syntax;
 mod syntax_macros;
 mod tag;
 mod uint;
-pub mod writer;
+mod writer;
 pub mod z_data;
 pub use num::Num;
 pub use symbol::Symbol;
