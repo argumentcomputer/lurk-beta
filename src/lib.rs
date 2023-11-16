@@ -18,7 +18,7 @@ mod num;
 mod package;
 pub mod parser;
 pub mod proof;
-pub mod ptr;
+mod ptr;
 pub mod public_parameters;
 pub mod state;
 pub mod store;
