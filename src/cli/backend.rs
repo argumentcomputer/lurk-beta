@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::field::LanguageField;
 
 #[derive(Clone, Default, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
-pub enum Backend {
+pub(crate) enum Backend {
     #[default]
     Nova,
 }
