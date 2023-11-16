@@ -8,7 +8,7 @@ use crate::proof::nova::{CurveCycleEquipped, G1, G2};
 use crate::proof::MultiFrameTrait;
 
 pub mod disk_cache;
-pub mod error;
+mod error;
 pub mod instance;
 mod mem_cache;
 
