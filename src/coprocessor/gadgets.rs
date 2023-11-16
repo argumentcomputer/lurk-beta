@@ -480,7 +480,7 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 /// assert_eq!(length.get_value(), Some(Fq::from_u64(2)));
 /// ```
 #[allow(dead_code)]
-pub(crate) fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
@@ -511,8 +511,7 @@ pub(crate) fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 #[inline]
-#[allow(dead_code)]
-pub(crate) fn a_ptr_as_z_ptr<T: Tag, F: LurkField>(
+pub fn a_ptr_as_z_ptr<T: Tag, F: LurkField>(
     a: &AllocatedPtr<F>,
 ) -> Option<crate::z_ptr::ZPtr<T, F>> {
     a.tag()
