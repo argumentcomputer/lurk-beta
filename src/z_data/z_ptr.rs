@@ -15,7 +15,6 @@ use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::field::FWrap;
 use crate::field::LurkField;
-use crate::hash::IntoHashComponents;
 use crate::store::{self, Store};
 use crate::tag::{ContTag, ExprTag, Tag};
 
@@ -139,12 +138,6 @@ impl<F: LurkField> ZExprPtr<F> {
             .hash_expr(&ptr)
             .ok_or(store::Error("Invalid ptr".into()))?;
         Ok(zptr)
-    }
-}
-
-impl<E: Tag, F: LurkField> IntoHashComponents<F> for ZPtr<E, F> {
-    fn into_hash_components(self) -> [F; 2] {
-        [self.0.to_field::<F>(), self.1]
     }
 }
 
