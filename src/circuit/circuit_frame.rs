@@ -1,6 +1,3 @@
-use std::fmt::Debug;
-use std::marker::PhantomData;
-
 use bellpepper::util_cs::Comparable;
 use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 
@@ -11,31 +8,8 @@ use crate::{
 
 use super::gadgets::constraints::{self, alloc_equal, enforce_implication};
 use crate::circuit::circuit_frame::constraints::boolean_to_num;
-use crate::coprocessor::Coprocessor;
-use crate::eval::{Witness, IO};
 use crate::lurk_sym_ptr;
 use crate::store::Store;
-
-#[derive(Clone, Copy, Debug)]
-pub struct CircuitFrame<'a, F: LurkField, C: Coprocessor<F>> {
-    pub store: Option<&'a Store<F>>,
-    pub input: Option<IO<F>>,
-    pub output: Option<IO<F>>,
-    pub witness: Option<Witness<F>>,
-    _p: PhantomData<C>,
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
-    pub fn blank() -> Self {
-        Self {
-            store: None,
-            input: None,
-            output: None,
-            witness: None,
-            _p: Default::default(),
-        }
-    }
-}
 
 pub fn destructure_list<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,

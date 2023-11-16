@@ -5,14 +5,9 @@ use neptune::{
     poseidon::{Arity, PoseidonConstants},
 };
 
-use super::pointer::AsAllocatedHashComponents;
-use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
-use crate::hash::IntoHashComponents;
-use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
-use crate::z_ptr::{ZContPtr, ZExprPtr};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
@@ -291,98 +286,6 @@ pub(crate) fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
     }
 }
 
-impl<F: LurkField> Ptr<F> {
-    pub fn allocate_maybe_fun_unconstrained<CS: ConstraintSystem<F>>(
-        cs: CS,
-        store: &Store<F>,
-        maybe_fun: Option<&Ptr<F>>,
-    ) -> Result<
-        (
-            AllocatedNum<F>,
-            AllocatedPtr<F>,
-            AllocatedPtr<F>,
-            AllocatedPtr<F>,
-        ),
-        SynthesisError,
-    > {
-        match maybe_fun.map(|ptr| (ptr, ptr.tag)) {
-            Some((ptr, ExprTag::Fun)) => match store.fetch(ptr).expect("missing fun") {
-                Expression::Fun(arg, body, closed_env) => {
-                    let arg = store.hash_expr(&arg).expect("missing arg");
-                    let body = store.hash_expr(&body).expect("missing body");
-                    let closed_env = store.hash_expr(&closed_env).expect("missing closed env");
-                    Self::allocate_fun(cs, store, arg, body, closed_env)
-                }
-                _ => unreachable!(),
-            },
-            _ => Self::allocate_dummy_fun(cs, store),
-        }
-    }
-
-    fn allocate_fun<CS: ConstraintSystem<F>, T: IntoHashComponents<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-        arg: T,
-        body: T,
-        closed_env: T,
-    ) -> Result<
-        (
-            AllocatedNum<F>,
-            AllocatedPtr<F>,
-            AllocatedPtr<F>,
-            AllocatedPtr<F>,
-        ),
-        SynthesisError,
-    > {
-        let arg_t =
-            AllocatedPtr::alloc_hash_components(&mut cs.namespace(|| "allocate arg tag"), arg)?;
-        let body_t =
-            AllocatedPtr::alloc_hash_components(&mut cs.namespace(|| "allocate body tag"), body)?;
-        let closed_env_t = AllocatedPtr::alloc_hash_components(
-            &mut cs.namespace(|| "allocate closed_env tag"),
-            closed_env,
-        )?;
-
-        let preimage = vec![
-            arg_t.tag().clone(),
-            arg_t.hash().clone(),
-            body_t.tag().clone(),
-            body_t.hash().clone(),
-            closed_env_t.tag().clone(),
-            closed_env_t.hash().clone(),
-        ];
-
-        let hash = hash_poseidon(
-            cs.namespace(|| "Fun hash"),
-            preimage,
-            store.poseidon_constants().c6(),
-        )?;
-
-        Ok((hash, arg_t, body_t, closed_env_t))
-    }
-
-    fn allocate_dummy_fun<CS: ConstraintSystem<F>>(
-        cs: CS,
-        store: &Store<F>,
-    ) -> Result<
-        (
-            AllocatedNum<F>,
-            AllocatedPtr<F>,
-            AllocatedPtr<F>,
-            AllocatedPtr<F>,
-        ),
-        SynthesisError,
-    > {
-        Self::allocate_fun(
-            cs,
-            store,
-            [F::ZERO, F::ZERO],
-            [F::ZERO, F::ZERO],
-            [F::ZERO, F::ZERO],
-        )
-    }
-}
-
 pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     val: F,
@@ -445,97 +348,5 @@ impl Op2 {
             &mut cs.namespace(|| format!("{self:?} tag")),
             self.to_field(),
         )
-    }
-}
-
-impl<F: LurkField> Thunk<F> {
-    pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<F>>(
-        cs: CS,
-        thunk: Option<&Thunk<F>>,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        if let Some(thunk) = thunk {
-            thunk.allocate_components(cs, store)
-        } else {
-            Thunk::allocate_dummy_components(cs, store)
-        }
-    }
-
-    // First component is the hash, which is wrong.
-    pub fn allocate_components<CS: ConstraintSystem<F>>(
-        &self,
-        mut cs: CS,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let component_frs = store.get_hash_components_thunk(self);
-
-        let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
-            component_frs
-                .as_ref()
-                .and_then(|frs| {
-                    let opt_tag = ExprTag::from_field(&frs[0]);
-                    opt_tag.map(|tag| ZExprPtr::from_parts(tag, frs[1]))
-                })
-                .ok_or(SynthesisError::AssignmentMissing)
-        })?;
-
-        let cont = AllocatedContPtr::alloc(
-            &mut cs.namespace(|| "Thunk component: continuation"),
-            || {
-                component_frs
-                    .as_ref()
-                    .and_then(|frs| {
-                        let opt_tag = ContTag::from_field(&frs[2]);
-                        opt_tag.map(|tag| ZContPtr::from_parts(tag, frs[3]))
-                    })
-                    .ok_or(SynthesisError::AssignmentMissing)
-            },
-        )?;
-
-        let hash = Self::hash_components(cs.namespace(|| "Thunk"), store, &value, &cont)?;
-
-        Ok((hash, value, cont))
-    }
-
-    pub fn allocate_dummy_components<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let value =
-            AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "Thunk component: value"), || {
-                ZExprPtr::from_parts(ExprTag::Nil, F::ZERO)
-            });
-
-        let cont = AllocatedContPtr::alloc(
-            &mut cs.namespace(|| "Thunk component: continuation"),
-            || Ok(ZContPtr::from_parts(ContTag::Dummy, F::ZERO)),
-        )?;
-
-        let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), store, &value, &cont)?;
-
-        Ok((dummy_hash, value, cont))
-    }
-
-    pub fn hash_components<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-        value: &AllocatedPtr<F>,
-        cont: &AllocatedContPtr<F>,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
-        let vs = value.as_allocated_hash_components();
-        let conts = cont.as_allocated_hash_components();
-        // This is a 'binary' hash but has arity 4 because of tag and hash components for each item.
-        let hash = hash_poseidon(
-            cs.namespace(|| "Thunk Continuation"),
-            vec![
-                vs[0].clone(),
-                vs[1].clone(),
-                conts[0].clone(),
-                conts[1].clone(),
-            ],
-            store.poseidon_constants().c4(),
-        )?;
-
-        Ok(hash)
     }
 }

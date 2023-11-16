@@ -5,25 +5,16 @@ use ff::PrimeField;
 
 use crate::{
     cont::Continuation,
-    expr::{Expression, Thunk},
     field::LurkField,
-    hash::IntoHashComponents,
-    hash_witness::{ConsName, ContName},
     ptr::{ContPtr, Ptr},
-    state::initial_lurk_state,
     store::Store,
     tag::{ExprTag, Tag},
-    writer::Write,
     z_ptr::{ZContPtr, ZExprPtr, ZPtr},
 };
 
 use super::{
-    constraints::{
-        alloc_equal, alloc_equal_const, boolean_to_num, enforce_equal, enforce_implication,
-        implies_equal, pick, pick_const,
-    },
+    constraints::{alloc_equal, alloc_equal_const, enforce_equal, implies_equal, pick, pick_const},
     data::{allocate_constant, hash_poseidon, GlobalAllocations},
-    hashes::{AllocatedConsWitness, AllocatedContWitness},
 };
 
 /// Allocated version of `Ptr`.
@@ -206,14 +197,6 @@ impl<F: LurkField> AllocatedPtr<F> {
         alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.tag, tag)
     }
 
-    pub fn alloc_hash_equal<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        tag: F,
-    ) -> Result<Boolean, SynthesisError> {
-        alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.hash, tag)
-    }
-
     /// Enforce equality of two allocated pointers given an implication premise
     pub fn implies_ptr_equal<CS: ConstraintSystem<F>>(
         &self,
@@ -283,46 +266,6 @@ impl<F: LurkField> AllocatedPtr<F> {
         store.z_expr_ptr_from_parts(tag, value).ok()
     }
 
-    pub fn fetch_and_write_str(&self, store: &Store<F>) -> String {
-        self.ptr(store).map_or_else(
-            || "<PTR MISSING>".to_string(),
-            |a| a.fmt_to_string(store, initial_lurk_state()),
-        )
-    }
-
-    pub fn allocate_thunk_components_unconstrained<CS: ConstraintSystem<F>>(
-        &self,
-        cs: CS,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let maybe_thunk = if let Some(ptr) = self.z_ptr(store) {
-            if let Some(Expression::Thunk(thunk)) = store
-                .fetch_z_expr_ptr(&ptr)
-                .and_then(|ptr| store.fetch(&ptr))
-            {
-                Some(thunk)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        Thunk::allocate_maybe_dummy_components(cs, maybe_thunk.as_ref(), store)
-    }
-
-    pub fn alloc_hash_components<CS: ConstraintSystem<F>, T: IntoHashComponents<F>>(
-        cs: &mut CS,
-        t: T,
-    ) -> Result<Self, SynthesisError> {
-        let [tag, hash] = t.into_hash_components();
-
-        let tag = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "tag"), || tag);
-        let hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "hash"), || hash);
-
-        Ok(Self { tag, hash })
-    }
-
     pub fn construct_cons<CS: ConstraintSystem<F>>(
         mut cs: CS,
         g: &GlobalAllocations<F>,
@@ -350,114 +293,6 @@ impl<F: LurkField> AllocatedPtr<F> {
         })
     }
 
-    pub fn construct_cons_named<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        g: &GlobalAllocations<F>,
-        car: &AllocatedPtr<F>,
-        cdr: &AllocatedPtr<F>,
-        name: ConsName,
-        allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
-        not_dummy: &Boolean,
-    ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
-
-        let (allocated_car, allocated_cdr, allocated_digest) =
-            allocated_cons_witness.get_cons(name, expect_dummy);
-
-        let real_car = car.alloc_equal(&mut cs.namespace(|| "real_car"), allocated_car)?;
-        let real_cdr = cdr.alloc_equal(&mut cs.namespace(|| "real_cdr"), allocated_cdr)?;
-        let cons_is_real = Boolean::and(&mut cs, &real_car, &real_cdr)?;
-
-        implies!(cs, not_dummy, &cons_is_real);
-
-        if not_dummy.get_value().unwrap_or(false) && !cons_is_real.get_value().unwrap_or(true) {
-            tracing::debug!("{:?}", name);
-            panic!("uh oh!");
-        }
-
-        Ok(AllocatedPtr {
-            tag: g.cons_tag.clone(),
-            hash: allocated_digest.clone(),
-        })
-    }
-
-    pub fn construct_commitment<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        g: &GlobalAllocations<F>,
-        store: &Store<F>,
-        secret: &AllocatedNum<F>,
-        expr: &AllocatedPtr<F>,
-    ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        let preimage = vec![secret.clone(), expr.tag().clone(), expr.hash().clone()];
-
-        let hash = hash_poseidon(
-            cs.namespace(|| "Commitment hash"),
-            preimage,
-            store.poseidon_constants().c3(),
-        )?;
-
-        Ok(AllocatedPtr {
-            tag: g.comm_tag.clone(),
-            hash,
-        })
-    }
-
-    pub fn construct_strcons<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        g: &GlobalAllocations<F>,
-        store: &Store<F>,
-        car: &AllocatedPtr<F>,
-        cdr: &AllocatedPtr<F>,
-    ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        // This is actually binary_hash, considering creating that helper for use elsewhere.
-        let preimage = vec![
-            car.tag().clone(),
-            car.hash().clone(),
-            cdr.tag().clone(),
-            cdr.hash().clone(),
-        ];
-
-        let hash = hash_poseidon(
-            cs.namespace(|| "StrCons hash"),
-            preimage,
-            store.poseidon_constants().c4(),
-        )?;
-
-        Ok(AllocatedPtr {
-            tag: g.str_tag.clone(),
-            hash,
-        })
-    }
-
-    pub fn construct_fun<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        g: &GlobalAllocations<F>,
-        store: &Store<F>,
-        arg: &AllocatedPtr<F>,
-        body: &AllocatedPtr<F>,
-        closed_env: &AllocatedPtr<F>,
-    ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        let preimage = vec![
-            arg.tag().clone(),
-            arg.hash().clone(),
-            body.tag().clone(),
-            body.hash().clone(),
-            closed_env.tag().clone(),
-            closed_env.hash().clone(),
-        ];
-
-        let hash = hash_poseidon(
-            cs.namespace(|| "Fun hash"),
-            preimage,
-            store.poseidon_constants().c6(),
-        )?;
-
-        Ok(AllocatedPtr {
-            tag: g.fun_tag.clone(),
-            hash,
-        })
-    }
-
     pub fn construct_list<CS: ConstraintSystem<F>>(
         mut cs: CS,
         g: &GlobalAllocations<F>,
@@ -470,21 +305,6 @@ impl<F: LurkField> AllocatedPtr<F> {
 
         let tail = Self::construct_list(&mut cs.namespace(|| "Cons tail"), g, store, &elts[1..])?;
         Self::construct_cons(&mut cs.namespace(|| "Cons"), g, store, elts[0], &tail)
-    }
-
-    pub fn construct_thunk<CS: ConstraintSystem<F>>(
-        cs: CS,
-        g: &GlobalAllocations<F>,
-        store: &Store<F>,
-        val: &AllocatedPtr<F>,
-        cont: &AllocatedContPtr<F>,
-    ) -> Result<Self, SynthesisError> {
-        let thunk_hash = Thunk::hash_components(cs, store, val, cont)?;
-
-        Ok(AllocatedPtr {
-            tag: g.thunk_tag.clone(),
-            hash: thunk_hash,
-        })
     }
 
     /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
@@ -521,28 +341,6 @@ impl<F: LurkField> AllocatedPtr<F> {
         let hash = pick_const(cs.namespace(|| "hash"), condition, *a.value(), *b.value())?;
 
         Ok(AllocatedPtr { tag, hash })
-    }
-
-    /// Takes a boolean and returns an allocated pointer corresponding to the Boolean's value.
-    pub fn as_lurk_boolean<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-        boolean: &Boolean,
-    ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        let c = store.expect_constants();
-        AllocatedPtr::pick_const(
-            cs.namespace(|| "allocated lurk bool"),
-            boolean,
-            &c.t.z_ptr(),
-            &c.nil.z_ptr(),
-        )
-    }
-
-    pub fn by_index(n: usize, ptr_vec: &[AllocatedNum<F>]) -> Self {
-        AllocatedPtr {
-            tag: ptr_vec[n * 2].clone(),
-            hash: ptr_vec[1 + n * 2].clone(),
-        }
     }
 
     pub fn bind_input<CS: ConstraintSystem<F>>(
@@ -651,23 +449,6 @@ impl<F: LurkField> AllocatedContPtr<F> {
         &self.hash
     }
 
-    pub fn alloc_cont_ptr<'a, Fo, CS>(
-        cs: &mut CS,
-        store: &Store<F>,
-        value: Fo,
-    ) -> Result<Self, SynthesisError>
-    where
-        CS: ConstraintSystem<F>,
-        Fo: FnOnce() -> Result<&'a ContPtr<F>, SynthesisError>,
-    {
-        AllocatedContPtr::alloc(cs, || {
-            let ptr = value()?;
-            store
-                .hash_cont(ptr)
-                .ok_or(SynthesisError::AssignmentMissing)
-        })
-    }
-
     pub fn alloc_constant_cont_ptr<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         store: &Store<F>,
@@ -728,13 +509,6 @@ impl<F: LurkField> AllocatedContPtr<F> {
         store.z_cont_ptr_from_parts(tag, value).ok()
     }
 
-    pub fn fetch_and_write_cont_str(&self, store: &Store<F>) -> String {
-        self.get_cont_ptr(store).map_or_else(
-            || "no cont ptr".to_string(),
-            |a| a.fmt_to_string(store, initial_lurk_state()),
-        )
-    }
-
     /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
     pub fn pick<CS>(
         mut cs: CS,
@@ -771,154 +545,5 @@ impl<F: LurkField> AllocatedContPtr<F> {
         hash.inputize(cs.namespace(|| "continuation hash input"))?;
 
         Ok(AllocatedContPtr { tag, hash })
-    }
-
-    pub fn by_index(n: usize, ptr_vec: &[AllocatedNum<F>]) -> Self {
-        AllocatedContPtr {
-            tag: ptr_vec[n * 2].clone(),
-            hash: ptr_vec[1 + n * 2].clone(),
-        }
-    }
-
-    pub fn construct<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-        cont_tag: &AllocatedNum<F>,
-        components: &[&dyn AsAllocatedHashComponents<F>; 4],
-    ) -> Result<Self, SynthesisError> {
-        let components = components
-            .iter()
-            .flat_map(|c| c.as_allocated_hash_components())
-            .cloned()
-            .collect();
-
-        let hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            components,
-            store.poseidon_constants().c8(),
-        )?;
-
-        let cont = AllocatedContPtr {
-            tag: cont_tag.clone(),
-            hash,
-        };
-        Ok(cont)
-    }
-
-    pub fn construct_named<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        name: ContName,
-        cont_tag: &AllocatedNum<F>,
-        components: &[&dyn AsAllocatedHashComponents<F>; 4],
-        allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
-        not_dummy: &Boolean,
-    ) -> Result<Self, SynthesisError> {
-        let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
-
-        let (found_components, hash) = allocated_cont_witness.get_components(name, expect_dummy);
-
-        let supplied_components: Vec<AllocatedNum<F>> = components
-            .iter()
-            .flat_map(|c| c.as_allocated_hash_components())
-            .cloned()
-            .collect();
-
-        let mut acc = None;
-
-        for (i, (c1, c2)) in found_components.iter().zip(supplied_components).enumerate() {
-            let component_is_real = equal!(
-                &mut cs.namespace(|| format!("component {i} matches")),
-                c1,
-                &c2
-            )?;
-
-            if let Some(a) = &acc {
-                Boolean::and(
-                    &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
-                    a,
-                    &component_is_real,
-                )?;
-            } else {
-                acc = Some(component_is_real.clone());
-            }
-        }
-
-        enforce_implication(
-            &mut cs.namespace(|| format!("not_dummy implies real cont {:?}", &name)),
-            not_dummy,
-            &acc.expect("acc was never initialized"),
-        );
-
-        let cont = AllocatedContPtr {
-            tag: cont_tag.clone(),
-            hash,
-        };
-        Ok(cont)
-    }
-
-    pub fn construct_named_and_not_dummy<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        name: ContName,
-        cont_tag: &AllocatedNum<F>,
-        components: &[&dyn AsAllocatedHashComponents<F>; 4],
-        allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
-    ) -> Result<(Self, AllocatedNum<F>), SynthesisError> {
-        let (found_components, hash) = allocated_cont_witness.get_components_unconstrained(name);
-
-        let supplied_components: Vec<AllocatedNum<F>> = components
-            .iter()
-            .flat_map(|c| c.as_allocated_hash_components())
-            .cloned()
-            .collect();
-
-        let mut acc = None;
-
-        for (i, (c1, c2)) in found_components.iter().zip(supplied_components).enumerate() {
-            let component_is_real = equal!(
-                &mut cs.namespace(|| format!("component {i} matches")),
-                c1,
-                &c2
-            )?;
-
-            if let Some(a) = &acc {
-                Boolean::and(
-                    &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
-                    a,
-                    &component_is_real,
-                )?;
-            } else {
-                acc = Some(component_is_real.clone());
-            }
-        }
-
-        let not_dummy = boolean_num!(cs, &acc.expect("acc was never initialized"))?;
-
-        let cont = AllocatedContPtr {
-            tag: cont_tag.clone(),
-            hash,
-        };
-        Ok((cont, not_dummy))
-    }
-}
-
-pub trait AsAllocatedHashComponents<F: LurkField> {
-    fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2];
-}
-
-impl<F: LurkField> AsAllocatedHashComponents<F> for AllocatedPtr<F> {
-    fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2] {
-        [&self.tag, &self.hash]
-    }
-}
-
-impl<F: LurkField> AsAllocatedHashComponents<F> for AllocatedContPtr<F> {
-    fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2] {
-        [&self.tag, &self.hash]
-    }
-}
-
-impl<F: LurkField> AsAllocatedHashComponents<F> for [&AllocatedNum<F>; 2] {
-    fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2] {
-        [self[0], self[1]]
     }
 }
