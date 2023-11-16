@@ -22,7 +22,7 @@ use nom::multi::count;
 use nom::Finish;
 use nom::IResult;
 
-pub mod serde;
+mod serde;
 pub mod z_cont;
 pub mod z_expr;
 pub mod z_ptr;
