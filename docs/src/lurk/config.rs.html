@@ -398,7 +398,7 @@
         </span>Config::builder()
             <span class="comment">// Default settings if unspecified in the config file
             </span>.set_default(public_params, public_params_default_dir().to_string())<span class="question-mark">?
-            </span>.set_default(<span class="string">&quot;perf&quot;</span>, <span class="string">&quot;fully-sequential&quot;</span>.to_string())<span class="question-mark">?
+            </span>.set_default(<span class="string">&quot;perf&quot;</span>, <span class="string">&quot;max-parallel-simple&quot;</span>.to_string())<span class="question-mark">?
             </span>.add_source(File::with_name(config_file.as_str()).required(<span class="bool-val">false</span>))
             <span class="comment">// Then override with any `LURK` environment variables
             </span>.add_source(Environment::with_prefix(<span class="string">&quot;LURK&quot;</span>))
@@ -520,10 +520,10 @@
 <span class="doccomment">/// The level of parallelism used when synthesizing the Lurk circuit
 </span><span class="attr">#[derive(Default, Debug, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>Flow {
-    <span class="doccomment">/// Runs without parallelism (default)
-    </span><span class="attr">#[default]
+    <span class="doccomment">/// Runs without parallelism
     </span>Sequential,
-    <span class="doccomment">/// Try to be smart about thread management based on # of cpus
+    <span class="doccomment">/// Try to be smart about thread management based on # of cpus (default)
+    </span><span class="attr">#[default]
     </span>Parallel,
     <span class="doccomment">/// How many threads to use? (Advisory, might be ignored.)
     </span>ParallelN(usize),
@@ -545,9 +545,9 @@
 </span><span class="attr">#[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;kebab-case&quot;</span>)]
 </span><span class="kw">enum </span>CannedConfig {
+    FullySequential,
     <span class="attr">#[default]
-    </span>FullySequential,
-    MaxParallelSimple,
+    </span>MaxParallelSimple,
     ParallelStepsOnly,
     ParallelSynthesis,
 }
@@ -580,14 +580,14 @@
         <span class="kw">let </span>tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
         <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">&quot;lurk.toml&quot;</span>);
         <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">&quot;public_params&quot;</span>).into_string();
-        <span class="kw">let </span>perf_config = PerfConfig::from(CannedConfig::MaxParallelSimple);
+        <span class="kw">let </span>perf_config = PerfConfig::from(CannedConfig::FullySequential);
 
         <span class="kw">let </span><span class="kw-2">mut </span>config_file = File::create(config_dir.clone()).unwrap();
         config_file
             .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir}\&quot;\n&quot;</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="string">&quot;perf = \&quot;max-parallel-simple\&quot;\n&quot;</span>.as_bytes())
+            .write_all(<span class="string">&quot;perf = \&quot;fully-sequential\&quot;\n&quot;</span>.as_bytes())
             .unwrap();
 
         <span class="kw">let </span>config = Settings::from_config(<span class="kw-2">&amp;</span>config_dir, <span class="prelude-val">None</span>).unwrap();
