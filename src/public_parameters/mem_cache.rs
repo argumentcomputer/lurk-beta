@@ -67,7 +67,7 @@ impl PublicParamMemCache {
                     assert!(rest.is_empty());
                     Ok(Arc::new(pp.clone())) // this clone is VERY expensive
                 }
-                Err(Error::IOError(e)) => {
+                Err(Error::IO(e)) => {
                     warn!("{e}");
                     info!("Generating fresh public parameters");
                     let pp = default(instance);
@@ -77,7 +77,7 @@ impl PublicParamMemCache {
                         .tap_ok(|_| {
                             info!("writing public params to disk-cache: {}", instance.key())
                         })
-                        .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                        .map_err(|e| Error::Cache(format!("Disk write error: {e}")))?;
                     Ok(pp)
                 }
                 _ => unreachable!(),
@@ -92,7 +92,7 @@ impl PublicParamMemCache {
                 disk_cache
                     .write(instance, &*pp)
                     .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
-                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                    .map_err(|e| Error::Cache(format!("Disk write error: {e}")))?;
                 Ok(pp)
             }
         }
