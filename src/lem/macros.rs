@@ -208,6 +208,9 @@ macro_rules! op {
             let func = Box::new($func.clone());
             $crate::lem::Op::Call(out, func, inp)
         }
+    };
+    ( unit($f:expr) ) => {
+        $crate::lem::Op::Unit($f)
     }
 }
 
@@ -587,6 +590,16 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let ($sec, $src) = open($hash) )
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, unit($f:expr) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(unit($f))
             },
             $($tail)*
         )
