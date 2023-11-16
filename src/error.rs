@@ -1,5 +1,3 @@
-use crate::eval::IO;
-use crate::field::LurkField;
 use crate::hash_witness::ConsName;
 use crate::store;
 
@@ -31,10 +29,4 @@ pub enum ReductionError {
     Misc(String),
     #[error("Lookup error: {0}")]
     Store(#[from] store::Error),
-}
-
-#[derive(Error, Debug, Clone)]
-pub enum LurkError<F: LurkField> {
-    #[error("Explicit Lurk error; IO: {0}")]
-    IO(IO<F>),
 }
