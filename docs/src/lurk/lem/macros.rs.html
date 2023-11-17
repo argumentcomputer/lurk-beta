@@ -848,19 +848,6 @@
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
 <a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
-<a href="#857" id="857">857</a>
-<a href="#858" id="858">858</a>
-<a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
 </pre></div><pre class="rust"><code><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>var {
     (<span class="macro-nonterminal">$variable</span>:ident) =&gt; {
@@ -1555,47 +1542,33 @@
         lem::{Block, Ctrl, Op, Tag, Var},
         state::lurk_sym,
         tag::ExprTag::{Char, Num, Str},
-        Symbol,
     };
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>mptr(name: <span class="kw-2">&amp;</span>str) -&gt; Var {
-        Var(name.into())
-    }
-
-    <span class="attr">#[inline]
-    </span><span class="kw">fn </span>match_tag(i: Var, cases: Vec&lt;(Tag, Block)&gt;) -&gt; Ctrl {
-        Ctrl::MatchTag(i, indexmap::IndexMap::from_iter(cases), <span class="prelude-val">None</span>)
-    }
-
-    <span class="attr">#[inline]
-    </span><span class="kw">fn </span>match_symbol(i: Var, cases: Vec&lt;(Symbol, Block)&gt;, def: Block) -&gt; Ctrl {
-        Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), <span class="prelude-val">Some</span>(Box::new(def)))
+    </span><span class="kw">fn </span>var(name: <span class="kw-2">&amp;</span>str) -&gt; Var {
+        Var::new(name)
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_macros() {
         <span class="kw">let </span>lemops = [
-            Op::Zero(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
-            Op::Cons2(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Char), [mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>)]),
+            Op::Zero(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
+            Op::Cons2(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Char), [var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>)]),
             Op::Cons3(
-                mptr(<span class="string">&quot;foo&quot;</span>),
+                var(<span class="string">&quot;foo&quot;</span>),
                 Tag::Expr(Char),
-                [mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>)],
+                [var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>)],
             ),
             Op::Cons4(
-                mptr(<span class="string">&quot;foo&quot;</span>),
+                var(<span class="string">&quot;foo&quot;</span>),
                 Tag::Expr(Char),
-                [mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>), mptr(<span class="string">&quot;baxx&quot;</span>)],
+                [var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>), var(<span class="string">&quot;baxx&quot;</span>)],
             ),
-            Op::Decons2([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>)], mptr(<span class="string">&quot;aaa&quot;</span>)),
-            Op::Decons3([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>), mptr(<span class="string">&quot;moo&quot;</span>)], mptr(<span class="string">&quot;aaa&quot;</span>)),
-            Op::Decons4(
-                [mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>), mptr(<span class="string">&quot;moo&quot;</span>), mptr(<span class="string">&quot;noo&quot;</span>)],
-                mptr(<span class="string">&quot;aaa&quot;</span>),
-            ),
-            Op::Hide(mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>)),
-            Op::Open(mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>)),
+            Op::Decons2([var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>)], var(<span class="string">&quot;aaa&quot;</span>)),
+            Op::Decons3([var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>), var(<span class="string">&quot;moo&quot;</span>)], var(<span class="string">&quot;aaa&quot;</span>)),
+            Op::Decons4([var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>), var(<span class="string">&quot;moo&quot;</span>), var(<span class="string">&quot;noo&quot;</span>)], var(<span class="string">&quot;aaa&quot;</span>)),
+            Op::Hide(var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>)),
+            Op::Open(var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>)),
         ];
         <span class="kw">let </span>lemops_macro = <span class="macro">vec!</span>[
             <span class="macro">op!</span>(<span class="kw">let </span>foo: Expr::Num),
@@ -1613,7 +1586,7 @@
             <span class="macro">assert!</span>(lemops[i] == lemops_macro[i]);
         }
 
-        <span class="kw">let </span>ret = Ctrl::Return(<span class="macro">vec!</span>[mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>)]);
+        <span class="kw">let </span>ret = Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>)]);
         <span class="kw">let </span>block = Block {
             ops: lemops_macro,
             ctrl: ret,
@@ -1648,34 +1621,35 @@
             }
         });
         <span class="macro">assert!</span>(
-            foo == match_tag(
-                mptr(<span class="string">&quot;www&quot;</span>),
+            foo == Ctrl::match_tag(
+                var(<span class="string">&quot;www&quot;</span>),
                 <span class="macro">vec!</span>[
                     (
                         Tag::Expr(Num),
                         Block {
                             ops: <span class="macro">vec!</span>[],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>)]),
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>)]),
                         }
                     ),
                     (
                         Tag::Expr(Str),
                         Block {
-                            ops: <span class="macro">vec!</span>[Op::Zero(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num))],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>)]),
+                            ops: <span class="macro">vec!</span>[Op::Zero(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num))],
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>)]),
                         }
                     ),
                     (
                         Tag::Expr(Char),
                         Block {
                             ops: <span class="macro">vec!</span>[
-                                Op::Zero(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
-                                Op::Zero(mptr(<span class="string">&quot;goo&quot;</span>), Tag::Expr(Char))
+                                Op::Zero(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
+                                Op::Zero(var(<span class="string">&quot;goo&quot;</span>), Tag::Expr(Char))
                             ],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>)]),
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>)]),
                         }
                     )
-                ]
+                ],
+                <span class="prelude-val">None</span>,
             )
         );
 
@@ -1695,31 +1669,31 @@
         );
 
         <span class="macro">assert!</span>(
-            moo == match_symbol(
-                mptr(<span class="string">&quot;www&quot;</span>),
+            moo == Ctrl::match_symbol(
+                var(<span class="string">&quot;www&quot;</span>),
                 <span class="macro">vec!</span>[
                     (
                         lurk_sym(<span class="string">&quot;nil&quot;</span>),
                         Block {
                             ops: <span class="macro">vec!</span>[],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>)]),
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>)]),
                         }
                     ),
                     (
                         lurk_sym(<span class="string">&quot;cons&quot;</span>),
                         Block {
                             ops: <span class="macro">vec!</span>[
-                                Op::Zero(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
-                                Op::Zero(mptr(<span class="string">&quot;goo&quot;</span>), Tag::Expr(Char))
+                                Op::Zero(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
+                                Op::Zero(var(<span class="string">&quot;goo&quot;</span>), Tag::Expr(Char))
                             ],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>)]),
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>)]),
                         }
                     )
                 ],
-                Block {
-                    ops: <span class="macro">vec!</span>[Op::Zero(mptr(<span class="string">&quot;xoo&quot;</span>), Tag::Expr(Str))],
-                    ctrl: Ctrl::Return(<span class="macro">vec!</span>[mptr(<span class="string">&quot;xoo&quot;</span>), mptr(<span class="string">&quot;xoo&quot;</span>), mptr(<span class="string">&quot;xoo&quot;</span>)]),
-                }
+                <span class="prelude-val">Some</span>(Block {
+                    ops: <span class="macro">vec!</span>[Op::Zero(var(<span class="string">&quot;xoo&quot;</span>), Tag::Expr(Str))],
+                    ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;xoo&quot;</span>), var(<span class="string">&quot;xoo&quot;</span>), var(<span class="string">&quot;xoo&quot;</span>)]),
+                })
             )
         );
     }

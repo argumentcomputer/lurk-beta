@@ -793,6 +793,27 @@
 <a href="#793" id="793">793</a>
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Lurk Evaluation Model (LEM)
 //!
 //! LEM is a simple, first order, referentially transparent language, designed to
@@ -995,6 +1016,16 @@
     </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>AString {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
     </span>}
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>new(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(name.into())
+    }
+
+    <span class="kw">fn </span>make_unique(<span class="kw-2">&amp;</span><span class="self">self</span>, uniq: <span class="kw-2">&amp;mut </span>usize) -&gt; Var {
+        <span class="kw-2">*</span>uniq += <span class="number">1</span>;
+        Var(<span class="macro">format!</span>(<span class="string">&quot;{}#{}&quot;</span>, <span class="self">self</span>.name(), uniq).into())
+    }
 }
 
 <span class="doccomment">/// A block is a sequence of operations followed by a control. Each block
@@ -1575,17 +1606,28 @@
         };
         <span class="prelude-val">Ok</span>(Block { ops, ctrl })
     }
+
+    <span class="doccomment">/// Creates a `Block` with an empty vector of `Op`s
+    </span><span class="attr">#[inline]
+    </span><span class="kw">fn </span>ctrl(ctrl: Ctrl) -&gt; Block {
+        Block { ops: <span class="macro">vec!</span>[], ctrl }
+    }
 }
 
-<span class="kw">impl </span>Var {
+<span class="kw">impl </span>Ctrl {
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>new(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(name.into())
+    </span><span class="kw">fn </span>if_(v: Var, true_block: Block, false_block: Block) -&gt; Ctrl {
+        Ctrl::If(v, true_block.into(), false_block.into())
     }
 
-    <span class="kw">fn </span>make_unique(<span class="kw-2">&amp;</span><span class="self">self</span>, uniq: <span class="kw-2">&amp;mut </span>usize) -&gt; Var {
-        <span class="kw-2">*</span>uniq += <span class="number">1</span>;
-        Var(<span class="macro">format!</span>(<span class="string">&quot;{}#{}&quot;</span>, <span class="self">self</span>.name(), uniq).into())
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>match_tag(v: Var, cases: Vec&lt;(Tag, Block)&gt;, def: <span class="prelude-ty">Option</span>&lt;Block&gt;) -&gt; Ctrl {
+        Ctrl::MatchTag(v, IndexMap::from_iter(cases), def.map(|b| b.into()))
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>match_symbol(v: Var, cases: Vec&lt;(Symbol, Block)&gt;, def: <span class="prelude-ty">Option</span>&lt;Block&gt;) -&gt; Ctrl {
+        Ctrl::MatchSymbol(v, IndexMap::from_iter(cases), def.map(|b| b.into()))
     }
 }
 </code></pre></div></section></main></body></html>

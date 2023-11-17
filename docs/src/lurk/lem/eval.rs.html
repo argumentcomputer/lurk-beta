@@ -1806,39 +1806,6 @@
 <a href="#1806" id="1806">1806</a>
 <a href="#1807" id="1807">1807</a>
 <a href="#1808" id="1808">1808</a>
-<a href="#1809" id="1809">1809</a>
-<a href="#1810" id="1810">1810</a>
-<a href="#1811" id="1811">1811</a>
-<a href="#1812" id="1812">1812</a>
-<a href="#1813" id="1813">1813</a>
-<a href="#1814" id="1814">1814</a>
-<a href="#1815" id="1815">1815</a>
-<a href="#1816" id="1816">1816</a>
-<a href="#1817" id="1817">1817</a>
-<a href="#1818" id="1818">1818</a>
-<a href="#1819" id="1819">1819</a>
-<a href="#1820" id="1820">1820</a>
-<a href="#1821" id="1821">1821</a>
-<a href="#1822" id="1822">1822</a>
-<a href="#1823" id="1823">1823</a>
-<a href="#1824" id="1824">1824</a>
-<a href="#1825" id="1825">1825</a>
-<a href="#1826" id="1826">1826</a>
-<a href="#1827" id="1827">1827</a>
-<a href="#1828" id="1828">1828</a>
-<a href="#1829" id="1829">1829</a>
-<a href="#1830" id="1830">1830</a>
-<a href="#1831" id="1831">1831</a>
-<a href="#1832" id="1832">1832</a>
-<a href="#1833" id="1833">1833</a>
-<a href="#1834" id="1834">1834</a>
-<a href="#1835" id="1835">1835</a>
-<a href="#1836" id="1836">1836</a>
-<a href="#1837" id="1837">1837</a>
-<a href="#1838" id="1838">1838</a>
-<a href="#1839" id="1839">1839</a>
-<a href="#1840" id="1840">1840</a>
-<a href="#1841" id="1841">1841</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2196,14 +2163,8 @@
     <span class="kw">let </span>cproc_name = Var::new(<span class="string">&quot;cproc_name&quot;</span>);
     <span class="kw">let </span>cproc_out = <span class="macro">vec!</span>[expr.clone(), env.clone(), cont.clone()];
     <span class="kw">let </span>func_out = <span class="macro">vec!</span>[expr, env.clone(), cont.clone()];
-    <span class="kw">let </span>err_block = Block {
-        ops: <span class="macro">vec!</span>[],
-        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(evaluated_args_cp, env, err)),
-    };
-    <span class="kw">let </span>def_block = Block {
-        ops: <span class="macro">vec!</span>[],
-        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(cproc, env, cont)),
-    };
+    <span class="kw">let </span>err_block = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(evaluated_args_cp, env, err)));
+    <span class="kw">let </span>def_block = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(cproc, env, cont)));
     <span class="kw">let </span><span class="kw-2">mut </span>cproc_inp = (<span class="number">0</span>..arity)
         .map(|i| Var(<span class="macro">format!</span>(<span class="string">&quot;x{i}&quot;</span>).into()))
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -2222,17 +2183,14 @@
             ),
             Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
         ];
-        block = <span class="kw">if </span>i == <span class="number">0 </span>{
-            Block {
-                ops,
-                ctrl: Ctrl::If(is_nil.clone(), Box::new(block), Box::new(err_block.clone())),
-            }
-        } <span class="kw">else </span>{
-            Block {
-                ops,
-                ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
-            }
-        }
+        block = Block {
+            ops,
+            ctrl: <span class="kw">if </span>i == <span class="number">0 </span>{
+                Ctrl::if_(is_nil.clone(), block, err_block.clone())
+            } <span class="kw">else </span>{
+                Ctrl::if_(is_nil.clone(), err_block.clone(), block)
+            },
+        };
     }
     <span class="kw">if </span>arity &gt; <span class="number">0 </span>{
         <span class="kw">let </span>ops = <span class="macro">vec!</span>[
@@ -2241,29 +2199,25 @@
         ];
         block = Block {
             ops,
-            ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+            ctrl: Ctrl::if_(is_nil.clone(), err_block.clone(), block),
         }
     }
 
     <span class="comment">// MatchSymbol
-    </span><span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::with_capacity(<span class="number">1</span>);
-    match_symbol_map.insert(cproc_sym, block);
-    block = Block {
+    </span>block = Block {
         ops: <span class="macro">vec!</span>[Op::Decons2(
             [cproc_name.clone(), evaluated_args],
             cproc.clone(),
         )],
-        ctrl: Ctrl::MatchSymbol(
+        ctrl: Ctrl::match_symbol(
             cproc_name,
-            match_symbol_map,
-            <span class="prelude-val">Some</span>(Box::new(def_block.clone())),
+            <span class="macro">vec!</span>[(cproc_sym, block)],
+            <span class="prelude-val">Some</span>(def_block.clone()),
         ),
     };
 
     <span class="comment">// MatchTag
-    </span><span class="kw">let </span><span class="kw-2">mut </span>match_tag_map = IndexMap::with_capacity(<span class="number">1</span>);
-    match_tag_map.insert(Tag::Expr(Cproc), block);
-    block = Block {
+    </span>block = Block {
         ops: <span class="kw">if </span>arity == <span class="number">0 </span>{
             <span class="macro">vec!</span>[]
         } <span class="kw">else </span>{
@@ -2273,7 +2227,11 @@
                 <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
             ]
         },
-        ctrl: Ctrl::MatchTag(cproc.clone(), match_tag_map, <span class="prelude-val">Some</span>(Box::new(def_block))),
+        ctrl: Ctrl::match_tag(
+            cproc.clone(),
+            <span class="macro">vec!</span>[(Tag::Expr(Cproc), block)],
+            <span class="prelude-val">Some</span>(def_block),
+        ),
     };
     <span class="kw">let </span>func_inp = <span class="macro">vec!</span>[cproc, env, cont];
     Func::new(<span class="string">&quot;run_cproc&quot;</span>.into(), func_inp, <span class="number">3</span>, block).unwrap()
@@ -2323,21 +2281,12 @@
             <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
             <span class="macro">op!</span>(<span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>)),
         ];
-        <span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::with_capacity(cprocs.len());
-        <span class="kw">for </span>(cproc, <span class="kw">_</span>) <span class="kw">in </span>cprocs {
-            match_symbol_map.insert(
-                (<span class="kw-2">*</span>cproc).clone(),
-                Block {
-                    ops: <span class="macro">vec!</span>[],
-                    ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(t)),
-                },
-            );
-        }
-        <span class="kw">let </span>def = <span class="prelude-val">Some</span>(Box::new(Block {
-            ops: <span class="macro">vec!</span>[],
-            ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(nil)),
-        }));
-        <span class="kw">let </span>ctrl = Ctrl::MatchSymbol(head.clone(), match_symbol_map, def);
+        <span class="kw">let </span>match_symbol_cases = cprocs
+            .iter()
+            .map(|(cproc, <span class="kw">_</span>)| ((<span class="kw-2">*</span>cproc).clone(), Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(t)))))
+            .collect();
+        <span class="kw">let </span>def = <span class="prelude-val">Some</span>(Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(nil))));
+        <span class="kw">let </span>ctrl = Ctrl::match_symbol(head.clone(), match_symbol_cases, def);
         Func::new(<span class="string">&quot;is_cproc&quot;</span>.into(), <span class="macro">vec!</span>[head], <span class="number">1</span>, Block { ops, ctrl }).unwrap()
     }
 }
@@ -2412,28 +2361,16 @@
     <span class="kw">let </span>is_nil = Var::new(<span class="string">&quot;is_nil&quot;</span>);
     <span class="kw">let </span>cproc_out = <span class="macro">vec!</span>[expr.clone(), env.clone(), cont.clone()];
     <span class="kw">let </span>func_out = <span class="macro">vec!</span>[expr, env.clone(), cont.clone(), Var::new(<span class="string">&quot;makethunk&quot;</span>)];
-    <span class="kw">let </span>err_block = Block {
-        ops: <span class="macro">vec!</span>[],
-        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(evaluated_args_cp, env, err, errctrl)),
-    };
-    <span class="kw">let </span>err_block_from_cproc = Block {
-        ops: <span class="macro">vec!</span>[],
-        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(expr, env, err, errctrl)),
-    };
-    <span class="kw">let </span>ret_block_from_cproc = Block {
-        ops: <span class="macro">vec!</span>[],
-        ctrl: <span class="macro">ctrl!</span>(<span class="kw">return </span>(expr, env, cont, ret)),
-    };
-    <span class="kw">let </span><span class="kw-2">mut </span>check_cproc_error_map = IndexMap::with_capacity(<span class="number">2</span>);
-    check_cproc_error_map.insert(Tag::Cont(Error), err_block_from_cproc);
-    check_cproc_error_map.insert(Tag::Cont(Terminal), ret_block_from_cproc);
-    <span class="kw">let </span>check_cproc_error_ctrl = Ctrl::MatchTag(
+    <span class="kw">let </span>err_block = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(evaluated_args_cp, env, err, errctrl)));
+    <span class="kw">let </span>err_block_from_cproc = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(expr, env, err, errctrl)));
+    <span class="kw">let </span>ret_block_from_cproc = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(expr, env, cont, ret)));
+    <span class="kw">let </span>check_cproc_error_ctrl = Ctrl::match_tag(
         cont.clone(),
-        check_cproc_error_map,
-        <span class="prelude-val">Some</span>(Box::new(Block {
-            ops: <span class="macro">vec!</span>[],
-            ctrl: Ctrl::Return(func_out),
-        })),
+        <span class="macro">vec!</span>[
+            (Tag::Cont(Error), err_block_from_cproc),
+            (Tag::Cont(Terminal), ret_block_from_cproc),
+        ],
+        <span class="prelude-val">Some</span>(Block::ctrl(Ctrl::Return(func_out))),
     );
     <span class="kw">let </span><span class="kw-2">mut </span>match_symbol_map = IndexMap::with_capacity(cprocs.len());
     <span class="kw">for </span>(cproc, arity) <span class="kw">in </span>cprocs {
@@ -2461,17 +2398,14 @@
                 ),
                 Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
             ];
-            block = <span class="kw">if </span>i == <span class="number">0 </span>{
-                Block {
-                    ops,
-                    ctrl: Ctrl::If(is_nil.clone(), Box::new(block), Box::new(err_block.clone())),
-                }
-            } <span class="kw">else </span>{
-                Block {
-                    ops,
-                    ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
-                }
-            }
+            block = Block {
+                ops,
+                ctrl: <span class="kw">if </span>i == <span class="number">0 </span>{
+                    Ctrl::if_(is_nil.clone(), block, err_block.clone())
+                } <span class="kw">else </span>{
+                    Ctrl::if_(is_nil.clone(), err_block.clone(), block)
+                },
+            };
         }
         <span class="kw">if </span>arity &gt; <span class="number">0 </span>{
             <span class="kw">let </span>ops = <span class="macro">vec!</span>[
@@ -2480,7 +2414,7 @@
             ];
             block = Block {
                 ops,
-                ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+                ctrl: Ctrl::if_(is_nil.clone(), err_block.clone(), block),
             }
         }
         match_symbol_map.insert(cproc.clone(), block);
