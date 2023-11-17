@@ -12,7 +12,6 @@ pub mod eval;
 mod expr;
 pub mod field;
 mod hash;
-mod hash_witness;
 pub mod lem;
 mod num;
 mod package;
