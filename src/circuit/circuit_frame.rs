@@ -1,119 +1,6 @@
 use bellpepper::util_cs::Comparable;
-use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 
-use crate::{
-    circuit::gadgets::{data::GlobalAllocations, pointer::AllocatedPtr},
-    field::LurkField,
-};
-
-use super::gadgets::constraints::{self, alloc_equal, enforce_implication};
-use crate::circuit::circuit_frame::constraints::boolean_to_num;
-use crate::lurk_sym_ptr;
-use crate::store::Store;
-
-pub fn destructure_list<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    store: &Store<F>,
-    g: &GlobalAllocations<F>,
-    n: usize,
-    list: &AllocatedPtr<F>,
-) -> Result<(Vec<AllocatedPtr<F>>, AllocatedNum<F>), SynthesisError> {
-    let mut elements = Vec::with_capacity(n);
-
-    let actual_length = destructure_list_aux(cs, store, g, n, list, &mut elements, &g.false_num)?;
-
-    Ok((elements, actual_length))
-}
-
-fn destructure_list_aux<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    store: &Store<F>,
-    g: &GlobalAllocations<F>,
-    n: usize,
-    list: &AllocatedPtr<F>,
-    elements: &mut Vec<AllocatedPtr<F>>,
-    length_so_far: &AllocatedNum<F>,
-) -> Result<AllocatedNum<F>, SynthesisError> {
-    let is_cons = alloc_equal(&mut cs.namespace(|| "is_cons"), list.tag(), &g.cons_tag)?;
-    let increment = boolean_to_num(&mut cs.namespace(|| "increment"), &is_cons)?;
-
-    let new_length_so_far =
-        increment.add(&mut cs.namespace(|| "new_length_so_far"), length_so_far)?;
-
-    if n == 0 {
-        return Ok(new_length_so_far.clone());
-    };
-
-    let (element, tail) = car_cdr(
-        &mut cs.namespace(|| format!("element-{}", n)),
-        g,
-        list,
-        store,
-        &is_cons,
-    )?;
-
-    elements.push(element);
-
-    destructure_list_aux(
-        &mut cs.namespace(|| format!("tail-{}", n)),
-        store,
-        g,
-        n - 1,
-        &tail,
-        elements,
-        &new_length_so_far,
-    )
-}
-
-/// Returns allocated car and cdr of `maybe_cons` if `not_dummy`.  If `maybe_cons` is not a cons and `not_dummy` is true, the circuit will not be satisfied.
-pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    maybe_cons: &AllocatedPtr<F>,
-    store: &Store<F>,
-    not_dummy: &Boolean,
-) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-    let (car, cdr) = if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
-        if not_dummy.get_value().expect("not_dummy is missing") {
-            store
-                .car_cdr(ptr)
-                .map_err(|_| SynthesisError::AssignmentMissing)?
-        } else {
-            let nil_ptr = lurk_sym_ptr!(store, nil);
-            (nil_ptr, nil_ptr)
-        }
-    } else {
-        let nil_ptr = lurk_sym_ptr!(store, nil);
-        (nil_ptr, nil_ptr)
-    };
-
-    let allocated_car = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "car"), store, || Ok(&car))?;
-    let allocated_cdr = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "cdr"), store, || Ok(&cdr))?;
-
-    let constructed_cons = AllocatedPtr::construct_cons(
-        &mut cs.namespace(|| "cons"),
-        g,
-        store,
-        &allocated_car,
-        &allocated_cdr,
-    )?;
-
-    let real_cons = alloc_equal(
-        &mut cs.namespace(|| "cons is real"),
-        maybe_cons.hash(),
-        constructed_cons.hash(),
-    )?;
-
-    // If `maybe_cons` is not a cons, then it is dummy. No check is necessary.
-    // Otherwise, we must enforce equality of hashes.
-    enforce_implication(
-        &mut cs.namespace(|| "is cons implies real cons"),
-        not_dummy,
-        &real_cons,
-    );
-
-    Ok((allocated_car, allocated_cdr))
-}
+use crate::field::LurkField;
 
 /// Prints out the full CS for debugging purposes
 #[allow(dead_code)]
@@ -143,9 +30,12 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuit::circuit_frame::constraints::popcount_equal;
     use crate::circuit::gadgets::constraints::implies_pack;
+    use crate::circuit::gadgets::constraints::popcount_equal;
+    use bellpepper_core::boolean::Boolean;
+    use bellpepper_core::num::AllocatedNum;
     use bellpepper_core::test_cs::TestConstraintSystem;
+    use bellpepper_core::ConstraintSystem;
 
     use pasta_curves::pallas::Scalar as Fr;
 

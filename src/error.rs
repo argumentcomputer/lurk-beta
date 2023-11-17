@@ -1,4 +1,3 @@
-use crate::hash_witness::ConsName;
 use crate::store;
 
 use bellpepper_core::SynthesisError;
@@ -23,8 +22,6 @@ impl From<store::Error> for ProofError {
 
 #[derive(Error, Debug, Clone)]
 pub enum ReductionError {
-    #[error("car_cdr of named cons {0:?} requires a cons or nil.")]
-    CarCdrType(ConsName),
     #[error("Miscellaneous error: {0}")]
     Misc(String),
     #[error("Lookup error: {0}")]

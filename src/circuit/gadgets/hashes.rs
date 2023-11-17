@@ -7,7 +7,9 @@ use neptune::circuit2_witness::poseidon_hash_allocated_witness;
 
 use crate::field::{FWrap, LurkField};
 use crate::hash::HashConst;
-use crate::hash_witness::{Digest, WitnessBlock};
+
+pub(crate) type WitnessBlock<F> = Vec<F>;
+pub(crate) type Digest<F> = F;
 
 type HashCircuitWitnessCache<F> = HashMap<Vec<FWrap<F>>, (Vec<F>, F)>;
 
