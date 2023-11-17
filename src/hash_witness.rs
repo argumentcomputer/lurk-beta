@@ -1,54 +1,16 @@
 use std::fmt::Debug;
-use std::marker::PhantomData;
 
 use crate::cont::Continuation;
 use crate::field::LurkField;
 
 use crate::ptr::{ContPtr, Ptr};
-use crate::z_ptr::ZExprPtr;
 
 pub(crate) const MAX_CONSES_PER_REDUCTION: usize = 11;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Stub<T>(PhantomData<T>);
-
-pub(crate) trait CAddr<F: LurkField> {
-    fn preimage(&self) -> Preimage<F>;
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Cons<F: LurkField> {
     pub(crate) car: Ptr<F>,
     pub(crate) cdr: Ptr<F>,
     pub(crate) cons: Ptr<F>,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct ScalarCons<F: LurkField> {
-    pub(crate) car: ZExprPtr<F>,
-    pub(crate) cdr: ZExprPtr<F>,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct ScalarCont<F: LurkField> {
-    pub(crate) components: [F; 8],
-}
-
-impl<F: LurkField> CAddr<F> for ScalarCons<F> {
-    fn preimage(&self) -> Preimage<F> {
-        vec![
-            self.car.tag_field(),
-            *self.car.value(),
-            self.cdr.tag_field(),
-            *self.cdr.value(),
-        ]
-    }
-}
-
-impl<F: LurkField> CAddr<F> for ScalarCont<F> {
-    fn preimage(&self) -> Preimage<F> {
-        self.components.to_vec()
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -134,12 +96,5 @@ impl HashName for ConsName {
     }
 }
 
-pub(crate) type Preimage<F> = Vec<F>;
 pub(crate) type WitnessBlock<F> = Vec<F>;
 pub(crate) type Digest<F> = F;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct HashWitness<Name: HashName, T, const L: usize, F: LurkField> {
-    pub(crate) slots: [(Name, Stub<T>); L],
-    _f: PhantomData<F>,
-}
