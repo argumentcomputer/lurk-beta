@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["circuit_frame","gadgets"]};
+window.SIDEBAR_ITEMS = {"mod":["gadgets"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Meta"],"fn":["empty_sym_env"],"mod":["lang"],"struct":["Frame","Witness"]};
+window.SIDEBAR_ITEMS = {"enum":["Meta"],"fn":["empty_sym_env"],"mod":["lang"],"struct":["Frame"]};
