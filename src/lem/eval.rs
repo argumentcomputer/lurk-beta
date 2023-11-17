@@ -1778,31 +1778,27 @@ mod tests {
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     use pasta_curves::pallas::Scalar as Fr;
 
-    const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 9118;
-    const NUM_CONSTRAINTS: usize = 11064;
-    const NUM_SLOTS: SlotsCounter = SlotsCounter {
-        hash4: 14,
-        hash6: 3,
-        hash8: 4,
-        commitment: 1,
-        bit_decomp: 3,
-    };
-
     #[test]
-    fn test_values() {
+    fn test_counts() {
         let store = Store::default();
         let func = eval_step();
         let frame = Frame::<Fr>::blank(func, 0);
         let mut cs = TestConstraintSystem::<Fr>::new();
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);
-        assert_eq!(func.slots_count, NUM_SLOTS);
-        assert_eq!(cs.num_inputs(), NUM_INPUTS);
         assert_eq!(
-            (cs.aux().len(), cs.num_constraints()),
-            (NUM_AUX, NUM_CONSTRAINTS)
+            func.slots_count,
+            SlotsCounter {
+                hash4: 14,
+                hash6: 3,
+                hash8: 4,
+                commitment: 1,
+                bit_decomp: 3,
+            }
         );
-        assert_eq!(func.num_constraints(&store), NUM_CONSTRAINTS);
+        assert_eq!(cs.num_inputs(), 1);
+        assert_eq!(cs.aux().len(), 9118);
+        assert_eq!(cs.num_constraints(), 11064);
+        assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
