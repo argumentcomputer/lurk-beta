@@ -8,7 +8,6 @@ use crate::ptr::{ContPtr, Ptr};
 use crate::z_ptr::ZExprPtr;
 
 pub(crate) const MAX_CONSES_PER_REDUCTION: usize = 11;
-pub(crate) const MAX_CONTS_PER_REDUCTION: usize = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Stub<T>(PhantomData<T>);
@@ -135,21 +134,6 @@ impl HashName for ConsName {
     }
 }
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Default)]
-pub(crate) enum ContName {
-    #[default]
-    NeverUsed,
-}
-
-impl HashName for ContName {
-    fn index(&self) -> usize {
-        #[allow(clippy::match_same_arms)]
-        match self {
-            Self::NeverUsed => MAX_CONTS_PER_REDUCTION + 1,
-        }
-    }
-}
-
 pub(crate) type Preimage<F> = Vec<F>;
 pub(crate) type WitnessBlock<F> = Vec<F>;
 pub(crate) type Digest<F> = F;
@@ -159,6 +143,3 @@ pub(crate) struct HashWitness<Name: HashName, T, const L: usize, F: LurkField> {
     pub(crate) slots: [(Name, Stub<T>); L],
     _f: PhantomData<F>,
 }
-
-pub(crate) type ConsWitness<F> = HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F>;
-pub(crate) type ContWitness<F> = HashWitness<ContName, Cont<F>, MAX_CONTS_PER_REDUCTION, F>;

@@ -1,7 +1,6 @@
 use crate::field::LurkField;
-use crate::hash_witness::{ConsWitness, ContWitness};
 use crate::lurk_sym_ptr;
-use crate::ptr::{ContPtr, Ptr};
+use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::z_ptr::ZExprPtr;
 
@@ -31,18 +30,6 @@ pub struct Frame<T: Copy, W: Copy, F: LurkField, C> {
     pub witness: W,
     pub meta: Meta<F>,
     pub _p: PhantomData<C>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Witness<F: LurkField> {
-    pub(crate) prethunk_output_expr: Ptr<F>,
-    pub(crate) prethunk_output_env: Ptr<F>,
-    pub(crate) prethunk_output_cont: ContPtr<F>,
-
-    pub(crate) closure_to_extend: Option<Ptr<F>>,
-    pub(crate) apply_continuation_cont: Option<ContPtr<F>>,
-    pub(crate) conses: ConsWitness<F>,
-    pub(crate) conts: ContWitness<F>,
 }
 
 #[inline]
