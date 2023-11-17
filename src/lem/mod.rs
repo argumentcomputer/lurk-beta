@@ -200,6 +200,16 @@ impl Var {
     pub fn name(&self) -> &AString {
         &self.0
     }
+
+    #[inline]
+    pub fn new(name: &str) -> Self {
+        Self(name.into())
+    }
+
+    fn make_unique(&self, uniq: &mut usize) -> Var {
+        *uniq += 1;
+        Var(format!("{}#{}", self.name(), uniq).into())
+    }
 }
 
 /// A block is a sequence of operations followed by a control. Each block
@@ -780,16 +790,27 @@ impl Block {
         };
         Ok(Block { ops, ctrl })
     }
+
+    /// Creates a `Block` with an empty vector of `Op`s
+    #[inline]
+    fn ctrl(ctrl: Ctrl) -> Block {
+        Block { ops: vec![], ctrl }
+    }
 }
 
-impl Var {
+impl Ctrl {
     #[inline]
-    pub fn new(name: &str) -> Self {
-        Self(name.into())
+    fn if_(v: Var, true_block: Block, false_block: Block) -> Ctrl {
+        Ctrl::If(v, true_block.into(), false_block.into())
     }
 
-    fn make_unique(&self, uniq: &mut usize) -> Var {
-        *uniq += 1;
-        Var(format!("{}#{}", self.name(), uniq).into())
+    #[inline]
+    fn match_tag(v: Var, cases: Vec<(Tag, Block)>, def: Option<Block>) -> Ctrl {
+        Ctrl::MatchTag(v, IndexMap::from_iter(cases), def.map(|b| b.into()))
+    }
+
+    #[inline]
+    fn match_symbol(v: Var, cases: Vec<(Symbol, Block)>, def: Option<Block>) -> Ctrl {
+        Ctrl::MatchSymbol(v, IndexMap::from_iter(cases), def.map(|b| b.into()))
     }
 }

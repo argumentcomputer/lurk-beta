@@ -692,47 +692,33 @@ mod tests {
         lem::{Block, Ctrl, Op, Tag, Var},
         state::lurk_sym,
         tag::ExprTag::{Char, Num, Str},
-        Symbol,
     };
 
     #[inline]
-    fn mptr(name: &str) -> Var {
-        Var(name.into())
-    }
-
-    #[inline]
-    fn match_tag(i: Var, cases: Vec<(Tag, Block)>) -> Ctrl {
-        Ctrl::MatchTag(i, indexmap::IndexMap::from_iter(cases), None)
-    }
-
-    #[inline]
-    fn match_symbol(i: Var, cases: Vec<(Symbol, Block)>, def: Block) -> Ctrl {
-        Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
+    fn var(name: &str) -> Var {
+        Var::new(name)
     }
 
     #[test]
     fn test_macros() {
         let lemops = [
-            Op::Zero(mptr("foo"), Tag::Expr(Num)),
-            Op::Cons2(mptr("foo"), Tag::Expr(Char), [mptr("bar"), mptr("baz")]),
+            Op::Zero(var("foo"), Tag::Expr(Num)),
+            Op::Cons2(var("foo"), Tag::Expr(Char), [var("bar"), var("baz")]),
             Op::Cons3(
-                mptr("foo"),
+                var("foo"),
                 Tag::Expr(Char),
-                [mptr("bar"), mptr("baz"), mptr("bazz")],
+                [var("bar"), var("baz"), var("bazz")],
             ),
             Op::Cons4(
-                mptr("foo"),
+                var("foo"),
                 Tag::Expr(Char),
-                [mptr("bar"), mptr("baz"), mptr("bazz"), mptr("baxx")],
+                [var("bar"), var("baz"), var("bazz"), var("baxx")],
             ),
-            Op::Decons2([mptr("foo"), mptr("goo")], mptr("aaa")),
-            Op::Decons3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
-            Op::Decons4(
-                [mptr("foo"), mptr("goo"), mptr("moo"), mptr("noo")],
-                mptr("aaa"),
-            ),
-            Op::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
-            Op::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
+            Op::Decons2([var("foo"), var("goo")], var("aaa")),
+            Op::Decons3([var("foo"), var("goo"), var("moo")], var("aaa")),
+            Op::Decons4([var("foo"), var("goo"), var("moo"), var("noo")], var("aaa")),
+            Op::Hide(var("bar"), var("baz"), var("bazz")),
+            Op::Open(var("bar"), var("baz"), var("bazz")),
         ];
         let lemops_macro = vec![
             op!(let foo: Expr::Num),
@@ -750,7 +736,7 @@ mod tests {
             assert!(lemops[i] == lemops_macro[i]);
         }
 
-        let ret = Ctrl::Return(vec![mptr("bar"), mptr("baz"), mptr("bazz")]);
+        let ret = Ctrl::Return(vec![var("bar"), var("baz"), var("bazz")]);
         let block = Block {
             ops: lemops_macro,
             ctrl: ret,
@@ -785,34 +771,35 @@ mod tests {
             }
         });
         assert!(
-            foo == match_tag(
-                mptr("www"),
+            foo == Ctrl::match_tag(
+                var("www"),
                 vec![
                     (
                         Tag::Expr(Num),
                         Block {
                             ops: vec![],
-                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
+                            ctrl: Ctrl::Return(vec![var("foo"), var("foo"), var("foo")]),
                         }
                     ),
                     (
                         Tag::Expr(Str),
                         Block {
-                            ops: vec![Op::Zero(mptr("foo"), Tag::Expr(Num))],
-                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
+                            ops: vec![Op::Zero(var("foo"), Tag::Expr(Num))],
+                            ctrl: Ctrl::Return(vec![var("foo"), var("foo"), var("foo")]),
                         }
                     ),
                     (
                         Tag::Expr(Char),
                         Block {
                             ops: vec![
-                                Op::Zero(mptr("foo"), Tag::Expr(Num)),
-                                Op::Zero(mptr("goo"), Tag::Expr(Char))
+                                Op::Zero(var("foo"), Tag::Expr(Num)),
+                                Op::Zero(var("goo"), Tag::Expr(Char))
                             ],
-                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("goo"), mptr("goo")]),
+                            ctrl: Ctrl::Return(vec![var("foo"), var("goo"), var("goo")]),
                         }
                     )
-                ]
+                ],
+                None,
             )
         );
 
@@ -832,31 +819,31 @@ mod tests {
         );
 
         assert!(
-            moo == match_symbol(
-                mptr("www"),
+            moo == Ctrl::match_symbol(
+                var("www"),
                 vec![
                     (
                         lurk_sym("nil"),
                         Block {
                             ops: vec![],
-                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
+                            ctrl: Ctrl::Return(vec![var("foo"), var("foo"), var("foo")]),
                         }
                     ),
                     (
                         lurk_sym("cons"),
                         Block {
                             ops: vec![
-                                Op::Zero(mptr("foo"), Tag::Expr(Num)),
-                                Op::Zero(mptr("goo"), Tag::Expr(Char))
+                                Op::Zero(var("foo"), Tag::Expr(Num)),
+                                Op::Zero(var("goo"), Tag::Expr(Char))
                             ],
-                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("goo"), mptr("goo")]),
+                            ctrl: Ctrl::Return(vec![var("foo"), var("goo"), var("goo")]),
                         }
                     )
                 ],
-                Block {
-                    ops: vec![Op::Zero(mptr("xoo"), Tag::Expr(Str))],
-                    ctrl: Ctrl::Return(vec![mptr("xoo"), mptr("xoo"), mptr("xoo")]),
-                }
+                Some(Block {
+                    ops: vec![Op::Zero(var("xoo"), Tag::Expr(Str))],
+                    ctrl: Ctrl::Return(vec![var("xoo"), var("xoo"), var("xoo")]),
+                })
             )
         );
     }
