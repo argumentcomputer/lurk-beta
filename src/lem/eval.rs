@@ -355,14 +355,8 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     let cproc_name = Var::new("cproc_name");
     let cproc_out = vec![expr.clone(), env.clone(), cont.clone()];
     let func_out = vec![expr, env.clone(), cont.clone()];
-    let err_block = Block {
-        ops: vec![],
-        ctrl: ctrl!(return (evaluated_args_cp, env, err)),
-    };
-    let def_block = Block {
-        ops: vec![],
-        ctrl: ctrl!(return (cproc, env, cont)),
-    };
+    let err_block = Block::ctrl(ctrl!(return (evaluated_args_cp, env, err)));
+    let def_block = Block::ctrl(ctrl!(return (cproc, env, cont)));
     let mut cproc_inp = (0..arity)
         .map(|i| Var(format!("x{i}").into()))
         .collect::<Vec<_>>();
@@ -381,17 +375,14 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
             ),
             Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
         ];
-        block = if i == 0 {
-            Block {
-                ops,
-                ctrl: Ctrl::If(is_nil.clone(), Box::new(block), Box::new(err_block.clone())),
-            }
-        } else {
-            Block {
-                ops,
-                ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
-            }
-        }
+        block = Block {
+            ops,
+            ctrl: if i == 0 {
+                Ctrl::if_(is_nil.clone(), block, err_block.clone())
+            } else {
+                Ctrl::if_(is_nil.clone(), err_block.clone(), block)
+            },
+        };
     }
     if arity > 0 {
         let ops = vec![
@@ -400,28 +391,24 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
         ];
         block = Block {
             ops,
-            ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+            ctrl: Ctrl::if_(is_nil.clone(), err_block.clone(), block),
         }
     }
 
     // MatchSymbol
-    let mut match_symbol_map = IndexMap::with_capacity(1);
-    match_symbol_map.insert(cproc_sym, block);
     block = Block {
         ops: vec![Op::Decons2(
             [cproc_name.clone(), evaluated_args],
             cproc.clone(),
         )],
-        ctrl: Ctrl::MatchSymbol(
+        ctrl: Ctrl::match_symbol(
             cproc_name,
-            match_symbol_map,
-            Some(Box::new(def_block.clone())),
+            vec![(cproc_sym, block)],
+            Some(def_block.clone()),
         ),
     };
 
     // MatchTag
-    let mut match_tag_map = IndexMap::with_capacity(1);
-    match_tag_map.insert(Tag::Expr(Cproc), block);
     block = Block {
         ops: if arity == 0 {
             vec![]
@@ -432,7 +419,11 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
                 op!(let nil = cast(nil, Expr::Nil)),
             ]
         },
-        ctrl: Ctrl::MatchTag(cproc.clone(), match_tag_map, Some(Box::new(def_block))),
+        ctrl: Ctrl::match_tag(
+            cproc.clone(),
+            vec![(Tag::Expr(Cproc), block)],
+            Some(def_block),
+        ),
     };
     let func_inp = vec![cproc, env, cont];
     Func::new("run_cproc".into(), func_inp, 3, block).unwrap()
@@ -482,21 +473,12 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
             op!(let nil = cast(nil, Expr::Nil)),
             op!(let t = Symbol("t")),
         ];
-        let mut match_symbol_map = IndexMap::with_capacity(cprocs.len());
-        for (cproc, _) in cprocs {
-            match_symbol_map.insert(
-                (*cproc).clone(),
-                Block {
-                    ops: vec![],
-                    ctrl: ctrl!(return (t)),
-                },
-            );
-        }
-        let def = Some(Box::new(Block {
-            ops: vec![],
-            ctrl: ctrl!(return (nil)),
-        }));
-        let ctrl = Ctrl::MatchSymbol(head.clone(), match_symbol_map, def);
+        let match_symbol_cases = cprocs
+            .iter()
+            .map(|(cproc, _)| ((*cproc).clone(), Block::ctrl(ctrl!(return (t)))))
+            .collect();
+        let def = Some(Block::ctrl(ctrl!(return (nil))));
+        let ctrl = Ctrl::match_symbol(head.clone(), match_symbol_cases, def);
         Func::new("is_cproc".into(), vec![head], 1, Block { ops, ctrl }).unwrap()
     }
 }
@@ -571,28 +553,16 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
     let is_nil = Var::new("is_nil");
     let cproc_out = vec![expr.clone(), env.clone(), cont.clone()];
     let func_out = vec![expr, env.clone(), cont.clone(), Var::new("makethunk")];
-    let err_block = Block {
-        ops: vec![],
-        ctrl: ctrl!(return (evaluated_args_cp, env, err, errctrl)),
-    };
-    let err_block_from_cproc = Block {
-        ops: vec![],
-        ctrl: ctrl!(return (expr, env, err, errctrl)),
-    };
-    let ret_block_from_cproc = Block {
-        ops: vec![],
-        ctrl: ctrl!(return (expr, env, cont, ret)),
-    };
-    let mut check_cproc_error_map = IndexMap::with_capacity(2);
-    check_cproc_error_map.insert(Tag::Cont(Error), err_block_from_cproc);
-    check_cproc_error_map.insert(Tag::Cont(Terminal), ret_block_from_cproc);
-    let check_cproc_error_ctrl = Ctrl::MatchTag(
+    let err_block = Block::ctrl(ctrl!(return (evaluated_args_cp, env, err, errctrl)));
+    let err_block_from_cproc = Block::ctrl(ctrl!(return (expr, env, err, errctrl)));
+    let ret_block_from_cproc = Block::ctrl(ctrl!(return (expr, env, cont, ret)));
+    let check_cproc_error_ctrl = Ctrl::match_tag(
         cont.clone(),
-        check_cproc_error_map,
-        Some(Box::new(Block {
-            ops: vec![],
-            ctrl: Ctrl::Return(func_out),
-        })),
+        vec![
+            (Tag::Cont(Error), err_block_from_cproc),
+            (Tag::Cont(Terminal), ret_block_from_cproc),
+        ],
+        Some(Block::ctrl(Ctrl::Return(func_out))),
     );
     let mut match_symbol_map = IndexMap::with_capacity(cprocs.len());
     for (cproc, arity) in cprocs {
@@ -620,17 +590,14 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
                 ),
                 Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
             ];
-            block = if i == 0 {
-                Block {
-                    ops,
-                    ctrl: Ctrl::If(is_nil.clone(), Box::new(block), Box::new(err_block.clone())),
-                }
-            } else {
-                Block {
-                    ops,
-                    ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
-                }
-            }
+            block = Block {
+                ops,
+                ctrl: if i == 0 {
+                    Ctrl::if_(is_nil.clone(), block, err_block.clone())
+                } else {
+                    Ctrl::if_(is_nil.clone(), err_block.clone(), block)
+                },
+            };
         }
         if arity > 0 {
             let ops = vec![
@@ -639,7 +606,7 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
             ];
             block = Block {
                 ops,
-                ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+                ctrl: Ctrl::if_(is_nil.clone(), err_block.clone(), block),
             }
         }
         match_symbol_map.insert(cproc.clone(), block);
