@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["HashArity","HashConst"],"struct":["HashConstants","InversePoseidonCache","PoseidonCache"]};

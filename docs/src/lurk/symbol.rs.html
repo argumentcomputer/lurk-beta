@@ -444,10 +444,10 @@
 <span class="doccomment">/// Module for symbol type, Sym.
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="kw">pub const </span>KEYWORD_MARKER: char = <span class="string">&#39;:&#39;</span>;
-<span class="kw">pub const </span>SYM_SEPARATOR: char = <span class="string">&#39;.&#39;</span>;
-<span class="kw">pub const </span>SYM_MARKER: char = <span class="string">&#39;.&#39;</span>;
-<span class="kw">pub const </span>ESCAPE_CHARS: <span class="kw-2">&amp;</span>str = <span class="string">&quot;|(){}[],.:&#39;\\\&quot;&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>KEYWORD_MARKER: char = <span class="string">&#39;:&#39;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SYM_SEPARATOR: char = <span class="string">&#39;.&#39;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SYM_MARKER: char = <span class="string">&#39;.&#39;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>ESCAPE_CHARS: <span class="kw-2">&amp;</span>str = <span class="string">&quot;|(){}[],.:&#39;\\\&quot;&quot;</span>;
 
 <span class="attr">#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
@@ -744,7 +744,7 @@
 }
 
 <span class="attr">#[cfg(test)]
-</span><span class="kw">pub mod </span>test {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>test {
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 

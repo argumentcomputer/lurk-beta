@@ -1295,6 +1295,7 @@
 <a href="#1295" id="1295">1295</a>
 <a href="#1296" id="1296">1296</a>
 <a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
 </pre></div><pre class="rust"><code><span class="comment">// Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 </span><span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span>bellpepper_core::LinearCombination;
@@ -1701,6 +1702,7 @@
 }
 
 <span class="doccomment">/// Convert from Boolean to AllocatedNum.
+</span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>boolean_to_num&lt;F: PrimeField, CS: ConstraintSystem&lt;F&gt;&gt;(
     <span class="kw-2">mut </span>cs: CS,
     bit: <span class="kw-2">&amp;</span>Boolean,

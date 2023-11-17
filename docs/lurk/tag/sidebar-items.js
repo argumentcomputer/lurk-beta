@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ContTag","ExprTag","Op1","Op2"],"trait":["Op","Tag"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["RawPtr"],"struct":["GPtr"],"trait":["TypePredicates"],"type":["ContPtr","Ptr"]};

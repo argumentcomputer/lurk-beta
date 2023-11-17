@@ -48,7 +48,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::field::LanguageField;
 
 <span class="attr">#[derive(Clone, Default, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
-</span><span class="kw">pub enum </span>Backend {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Backend {
     <span class="attr">#[default]
     </span>Nova,
 }

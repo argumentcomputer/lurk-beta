@@ -194,7 +194,7 @@
 <span class="kw">use </span><span class="kw">super</span>::paths::{circom_default_dir, commits_default_dir, proofs_default_dir};
 
 <span class="doccomment">/// Global config varable for `CliSettings`
-</span><span class="kw">pub static </span>CLI_CONFIG: OnceCell&lt;CliSettings&gt; = OnceCell::new();
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>CLI_CONFIG: OnceCell&lt;CliSettings&gt; = OnceCell::new();
 
 <span class="doccomment">/// Gets the `CLI_CONFIG` settings. If uninitialized, sets the global variable
 /// in the following order (greatest to least precedence):
@@ -208,7 +208,7 @@
 ///   ```
 ///   Other file formats are supported by the `config` crate, but only TOML is tested
 /// - Default values, e.g. `$HOME/.lurk/proofs`
-</span><span class="kw">pub fn </span>cli_config(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cli_config(
     config_file: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Utf8PathBuf&gt;,
     settings: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span>str, String&gt;&gt;,
 ) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>CliSettings {
@@ -225,27 +225,27 @@
 // It&#39;s good practice to avoid duplication of shared settings like `public_params_dir`
 // in downstream configs like these to prevent conflicts.
 </span><span class="attr">#[derive(Debug, Deserialize)]
-</span><span class="kw">pub struct </span>CliSettings {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CliSettings {
     <span class="doccomment">/// Cache directory for proofs
-    </span><span class="kw">pub </span>proofs_dir: Utf8PathBuf,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) proofs_dir: Utf8PathBuf,
     <span class="doccomment">/// Cache directory for commitments
-    </span><span class="kw">pub </span>commits_dir: Utf8PathBuf,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) commits_dir: Utf8PathBuf,
     <span class="doccomment">/// Cache directory for Circom files
-    </span><span class="kw">pub </span>circom_dir: Utf8PathBuf,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) circom_dir: Utf8PathBuf,
     <span class="doccomment">/// Proof generation and verification system
-    </span><span class="kw">pub </span>backend: Backend,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) backend: Backend,
     <span class="doccomment">/// Finite field used for evaluation and proving
-    </span><span class="kw">pub </span>field: LanguageField,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) field: LanguageField,
     <span class="doccomment">/// Reduction count, which is the number of circuit reductions per step
-    </span><span class="kw">pub </span>rc: usize,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) rc: usize,
     <span class="doccomment">/// Iteration limit for the program, which is arbitrary to user preferences
     /// Used mainly as a safety check, similar to default stack size
-    </span><span class="kw">pub </span>limit: usize,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) limit: usize,
 }
 
 <span class="kw">impl </span>CliSettings {
     <span class="doccomment">/// Loads config settings from a file or env var, or CLI arg if applicable
-    </span><span class="kw">pub fn </span>from_config(
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_config(
         config_file: <span class="kw-2">&amp;</span>Utf8PathBuf,
         cli_settings: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span>str, String&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ConfigError&gt; {

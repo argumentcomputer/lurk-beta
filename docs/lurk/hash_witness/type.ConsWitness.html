@@ -5,29 +5,29 @@
     &amp;mut self,
     name: <a class="enum" href="enum.ConsName.html" title="enum lurk::hash_witness::ConsName">ConsName</a>,
     store: &amp;<a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,
-    cons: &amp;<a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;
-) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.75/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;(<a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;, <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;), <a class="enum" href="../error/enum.ReductionError.html" title="enum lurk::error::ReductionError">ReductionError</a>&gt;</h4></section><section id="method.cons_named" class="method"><a class="src rightside" href="../../src/lurk/hash_witness.rs.html#467-475">source</a><h4 class="code-header">pub fn <a href="#method.cons_named" class="fn">cons_named</a>(
+    cons: &amp;GPtr&lt;F, ExprTag&gt;
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.75/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;(GPtr&lt;F, ExprTag&gt;, GPtr&lt;F, ExprTag&gt;), <a class="enum" href="../error/enum.ReductionError.html" title="enum lurk::error::ReductionError">ReductionError</a>&gt;</h4></section><section id="method.cons_named" class="method"><a class="src rightside" href="../../src/lurk/hash_witness.rs.html#467-475">source</a><h4 class="code-header">pub fn <a href="#method.cons_named" class="fn">cons_named</a>(
     &amp;mut self,
     name: <a class="enum" href="enum.ConsName.html" title="enum lurk::hash_witness::ConsName">ConsName</a>,
     store: &amp;<a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,
-    car: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;,
-    cdr: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;
-) -&gt; <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;</h4></section><section id="method.strcons_named" class="method"><a class="src rightside" href="../../src/lurk/hash_witness.rs.html#477-485">source</a><h4 class="code-header">pub fn <a href="#method.strcons_named" class="fn">strcons_named</a>(
+    car: GPtr&lt;F, ExprTag&gt;,
+    cdr: GPtr&lt;F, ExprTag&gt;
+) -&gt; GPtr&lt;F, ExprTag&gt;</h4></section><section id="method.strcons_named" class="method"><a class="src rightside" href="../../src/lurk/hash_witness.rs.html#477-485">source</a><h4 class="code-header">pub fn <a href="#method.strcons_named" class="fn">strcons_named</a>(
     &amp;mut self,
     name: <a class="enum" href="enum.ConsName.html" title="enum lurk::hash_witness::ConsName">ConsName</a>,
     store: &amp;<a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,
-    car: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;,
-    cdr: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;
-) -&gt; <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;</h4></section><section id="method.car_cdr_mut_named" class="method"><a class="src rightside" href="../../src/lurk/hash_witness.rs.html#487-494">source</a><h4 class="code-header">pub fn <a href="#method.car_cdr_mut_named" class="fn">car_cdr_mut_named</a>(
+    car: GPtr&lt;F, ExprTag&gt;,
+    cdr: GPtr&lt;F, ExprTag&gt;
+) -&gt; GPtr&lt;F, ExprTag&gt;</h4></section><section id="method.car_cdr_mut_named" class="method"><a class="src rightside" href="../../src/lurk/hash_witness.rs.html#487-494">source</a><h4 class="code-header">pub fn <a href="#method.car_cdr_mut_named" class="fn">car_cdr_mut_named</a>(
     &amp;mut self,
     name: <a class="enum" href="enum.ConsName.html" title="enum lurk::hash_witness::ConsName">ConsName</a>,
     store: &amp;<a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,
-    cons: &amp;<a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;
-) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.75/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;(<a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;, <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;), <a class="struct" href="../store/struct.Error.html" title="struct lurk::store::Error">Error</a>&gt;</h4></section><section id="method.extend_named" class="method"><a class="src rightside" href="../../src/lurk/hash_witness.rs.html#496-507">source</a><h4 class="code-header">pub fn <a href="#method.extend_named" class="fn">extend_named</a>(
+    cons: &amp;GPtr&lt;F, ExprTag&gt;
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.75/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;(GPtr&lt;F, ExprTag&gt;, GPtr&lt;F, ExprTag&gt;), <a class="struct" href="../store/struct.Error.html" title="struct lurk::store::Error">Error</a>&gt;</h4></section><section id="method.extend_named" class="method"><a class="src rightside" href="../../src/lurk/hash_witness.rs.html#496-507">source</a><h4 class="code-header">pub fn <a href="#method.extend_named" class="fn">extend_named</a>(
     &amp;mut self,
     name: <a class="enum" href="enum.ConsName.html" title="enum lurk::hash_witness::ConsName">ConsName</a>,
-    env: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;,
-    var: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;,
-    val: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;,
+    env: GPtr&lt;F, ExprTag&gt;,
+    var: GPtr&lt;F, ExprTag&gt;,
+    val: GPtr&lt;F, ExprTag&gt;,
     store: &amp;<a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;
-) -&gt; <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;</h4></section></div></details></div><script src="../../type.impl/lurk/hash_witness/struct.HashWitness.js" data-self-path="lurk::hash_witness::ConsWitness" async></script></section></div></main></body></html>
+) -&gt; GPtr&lt;F, ExprTag&gt;</h4></section></div></details></div><script src="../../type.impl/lurk/hash_witness/struct.HashWitness.js" data-self-path="lurk::hash_witness::ConsWitness" async></script></section></div></main></body></html>

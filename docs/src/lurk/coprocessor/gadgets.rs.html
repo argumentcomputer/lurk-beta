@@ -810,6 +810,16 @@
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
 <a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper gadgets for synthesis
 
 </span><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
@@ -830,7 +840,8 @@
 };
 
 <span class="doccomment">/// Constructs an `AllocatedPtr` compound by two others
-</span><span class="kw">pub fn </span>construct_tuple2&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_tuple2&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
     cs: CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -855,7 +866,8 @@
 }
 
 <span class="doccomment">/// Constructs an `AllocatedPtr` compound by three others
-</span><span class="kw">pub fn </span>construct_tuple3&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_tuple3&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
     cs: CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -883,7 +895,8 @@
 }
 
 <span class="doccomment">/// Constructs an `AllocatedPtr` compound by four others
-</span><span class="kw">pub fn </span>construct_tuple4&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_tuple4&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
     cs: CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -914,8 +927,9 @@
 }
 
 <span class="doccomment">/// Constructs a `Cons` pointer
-</span><span class="attr">#[inline]
-</span><span class="kw">pub fn </span>construct_cons&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="attr">#[allow(dead_code)]
+#[inline]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_cons&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -927,7 +941,8 @@
 
 <span class="doccomment">/// Constructs a cons-list with the provided `elts`. The terminating value defaults
 /// to `nil` when `last` is `None`
-</span><span class="kw">pub fn </span>construct_list&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_list&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -948,6 +963,7 @@
 
 <span class="doccomment">/// Retrieves the `Ptr` that corresponds to `a_ptr` by using the `Store` as the
 /// hint provider
+</span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">fn </span>get_ptr&lt;F: LurkField&gt;(
     a_ptr: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -972,7 +988,8 @@
 ///
 /// # Panics
 /// Panics if the store can&#39;t deconstruct the tuple pointer
-</span><span class="kw">pub fn </span>deconstruct_tuple2&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>deconstruct_tuple2&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
@@ -1014,7 +1031,8 @@
 ///
 /// # Panics
 /// Panics if the store can&#39;t deconstruct the tuple pointer
-</span><span class="kw">pub fn </span>deconstruct_tuple3&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>deconstruct_tuple3&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
@@ -1059,7 +1077,8 @@
 ///
 /// # Panics
 /// Panics if the store can&#39;t deconstruct the tuple pointer
-</span><span class="kw">pub fn </span>deconstruct_tuple4&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>deconstruct_tuple4&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
@@ -1120,7 +1139,8 @@
 ///
 /// # Panics
 /// Panics if the store can&#39;t deconstruct `data` with `car_cdr`
-</span><span class="kw">pub fn </span>car_cdr&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>car_cdr&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -1281,6 +1301,7 @@
 /// assert_eq!(a_ptr_as_z_ptr(&amp;cdr), Some(z_empty_str));
 /// assert_eq!(length.get_value(), Some(Fq::from_u64(2)));
 /// ```
+</span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub fn </span>chain_car_cdr&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
@@ -1312,7 +1333,6 @@
 }
 
 <span class="attr">#[inline]
-#[allow(dead_code)]
 </span><span class="kw">pub fn </span>a_ptr_as_z_ptr&lt;T: Tag, F: LurkField&gt;(
     a: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::z_ptr::ZPtr&lt;T, F&gt;&gt; {

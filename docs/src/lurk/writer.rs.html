@@ -416,7 +416,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::z_expr::ZExpr;
 <span class="kw">use </span>std::io;
 
-<span class="kw">pub trait </span>Write&lt;F: LurkField&gt; {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>Write&lt;F: LurkField&gt; {
     <span class="kw">fn </span>fmt&lt;W: io::Write&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State, w: <span class="kw-2">&amp;mut </span>W) -&gt; io::Result&lt;()&gt;;
     <span class="kw">fn </span>fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
@@ -758,7 +758,7 @@
 }
 
 <span class="attr">#[cfg(test)]
-</span><span class="kw">pub mod </span>test {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>test {
     <span class="kw">use </span><span class="kw">crate</span>::state::initial_lurk_state;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;

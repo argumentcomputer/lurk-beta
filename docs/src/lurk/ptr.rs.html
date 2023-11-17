@@ -275,8 +275,8 @@
     }
 }
 
-<span class="kw">pub type </span>Ptr&lt;F&gt; = GPtr&lt;F, ExprTag&gt;;
-<span class="kw">pub type </span>ContPtr&lt;F&gt; = GPtr&lt;F, ContTag&gt;;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Ptr&lt;F&gt; = GPtr&lt;F, ExprTag&gt;;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ContPtr&lt;F&gt; = GPtr&lt;F, ContTag&gt;;
 
 <span class="kw">impl</span>&lt;F: LurkField, T: Tag&gt; GPtr&lt;F, T&gt; {
     <span class="doccomment">/// check if a Ptr is an opaque pointer
@@ -387,7 +387,7 @@
     }
 }
 
-<span class="kw">pub trait </span>TypePredicates {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>TypePredicates {
     <span class="kw">fn </span>is_fun(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
     <span class="kw">fn </span>is_self_evaluating(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
     <span class="kw">fn </span>is_potentially(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: ExprTag) -&gt; bool;

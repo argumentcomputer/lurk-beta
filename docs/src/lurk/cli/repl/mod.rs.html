@@ -631,7 +631,7 @@
 }
 
 <span class="attr">#[allow(dead_code)]
-</span><span class="kw">pub struct </span>Repl&lt;F: LurkField&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Repl&lt;F: LurkField&gt; {
     store: Store&lt;F&gt;,
     state: Rc&lt;RefCell&lt;State&gt;&gt;,
     env: Ptr&lt;F&gt;,
@@ -705,7 +705,7 @@
 <span class="kw">type </span>F = pasta_curves::pallas::Scalar; <span class="comment">// TODO: generalize this
 
 </span><span class="kw">impl </span>Repl&lt;F&gt; {
-    <span class="kw">pub fn </span>new(store: Store&lt;F&gt;, rc: usize, limit: usize, backend: Backend) -&gt; Repl&lt;F&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(store: Store&lt;F&gt;, rc: usize, limit: usize, backend: Backend) -&gt; Repl&lt;F&gt; {
         <span class="kw">let </span>limit = pad(limit, rc);
         <span class="macro">info!</span>(
             <span class="string">&quot;Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}&quot;</span>,
@@ -955,7 +955,7 @@
         <span class="prelude-val">Ok</span>(hash)
     }
 
-    <span class="kw">pub fn </span>handle_non_meta(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>handle_non_meta(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(output, iterations) = <span class="self">self</span>.eval_expr_and_memoize(expr_ptr)<span class="question-mark">?</span>;
         <span class="kw">let </span>iterations_display = <span class="self">Self</span>::pretty_iterations_display(iterations);
         <span class="kw">match </span>output[<span class="number">2</span>].tag() {
@@ -1033,7 +1033,7 @@
         <span class="prelude-val">Ok</span>(new_input)
     }
 
-    <span class="kw">pub fn </span>load_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file_path: <span class="kw-2">&amp;</span>Utf8Path, demo: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file_path: <span class="kw-2">&amp;</span>Utf8Path, demo: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>input = read_to_string(file_path)<span class="question-mark">?</span>;
         <span class="kw">if </span>demo {
             <span class="macro">println!</span>(<span class="string">&quot;Loading {file_path} in demo mode&quot;</span>);

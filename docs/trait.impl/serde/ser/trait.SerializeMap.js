@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"lurk":[["impl <a class=\"trait\" href=\"https://docs.rs/serde/1.0.192/serde/ser/trait.SerializeMap.html\" title=\"trait serde::ser::SerializeMap\">SerializeMap</a> for <a class=\"struct\" href=\"lurk/z_data/serde/ser/struct.SerializeMap.html\" title=\"struct lurk::z_data::serde::ser::SerializeMap\">SerializeMap</a>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

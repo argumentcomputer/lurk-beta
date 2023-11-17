@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["allocate_constant"],"struct":["GlobalAllocations"]};

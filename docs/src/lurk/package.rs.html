@@ -99,7 +99,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::Symbol;
 
-<span class="kw">pub type </span>SymbolRef = Arc&lt;Symbol&gt;;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SymbolRef = Arc&lt;Symbol&gt;;
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Package {

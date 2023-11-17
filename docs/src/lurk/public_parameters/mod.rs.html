@@ -227,7 +227,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::proof::MultiFrameTrait;
 
 <span class="kw">pub mod </span>disk_cache;
-<span class="kw">pub mod </span>error;
+<span class="kw">mod </span>error;
 <span class="kw">pub mod </span>instance;
 <span class="kw">mod </span>mem_cache;
 
@@ -283,7 +283,7 @@
             <span class="macro">eprintln!</span>(<span class="string">&quot;Using disk-cached public params for {}&quot;</span>, instance.key());
             <span class="prelude-val">Ok</span>(pp)
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(Error::CacheError(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
+            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
         }
     });
 
@@ -319,7 +319,7 @@
             <span class="macro">eprintln!</span>(<span class="string">&quot;Using disk-cached public params for {}&quot;</span>, instance.key());
             <span class="prelude-val">Ok</span>(pp.clone())
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(Error::CacheError(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
+            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
         }
     })
 }
@@ -346,7 +346,7 @@
             <span class="macro">assert!</span>(remaining.is_empty());
             <span class="prelude-val">Ok</span>(aux_params.clone())
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(Error::CacheError(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
+            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
         }
     })
 }

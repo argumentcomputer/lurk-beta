@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["to_z_data"],"struct":["SerializeCell","SerializeMap","SerializeTupleVariant","Serializer","StructSerializer"]};

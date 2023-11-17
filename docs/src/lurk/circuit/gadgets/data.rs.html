@@ -638,7 +638,7 @@
     }
 }
 
-<span class="kw">pub fn </span>allocate_constant&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate_constant&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     val: F,
 ) -&gt; AllocatedNum&lt;F&gt; {

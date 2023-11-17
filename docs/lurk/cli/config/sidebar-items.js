@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["cli_config"],"static":["CLI_CONFIG"],"struct":["CliSettings"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["ESCAPE_CHARS","KEYWORD_MARKER","SYM_MARKER","SYM_SEPARATOR"],"struct":["Symbol"]};

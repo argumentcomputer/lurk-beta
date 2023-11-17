@@ -199,7 +199,7 @@
                     <span class="macro">assert!</span>(rest.is_empty());
                     <span class="prelude-val">Ok</span>(Arc::new(pp.clone())) <span class="comment">// this clone is VERY expensive
                 </span>}
-                <span class="prelude-val">Err</span>(Error::IOError(e)) =&gt; {
+                <span class="prelude-val">Err</span>(Error::IO(e)) =&gt; {
                     <span class="macro">warn!</span>(<span class="string">&quot;{e}&quot;</span>);
                     <span class="macro">info!</span>(<span class="string">&quot;Generating fresh public parameters&quot;</span>);
                     <span class="kw">let </span>pp = default(instance);
@@ -209,7 +209,7 @@
                         .tap_ok(|<span class="kw">_</span>| {
                             <span class="macro">info!</span>(<span class="string">&quot;writing public params to disk-cache: {}&quot;</span>, instance.key())
                         })
-                        .map_err(|e| Error::CacheError(<span class="macro">format!</span>(<span class="string">&quot;Disk write error: {e}&quot;</span>)))<span class="question-mark">?</span>;
+                        .map_err(|e| Error::Cache(<span class="macro">format!</span>(<span class="string">&quot;Disk write error: {e}&quot;</span>)))<span class="question-mark">?</span>;
                     <span class="prelude-val">Ok</span>(pp)
                 }
                 <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
@@ -224,7 +224,7 @@
                 disk_cache
                     .write(instance, <span class="kw-2">&amp;*</span>pp)
                     .tap_ok(|<span class="kw">_</span>| <span class="macro">info!</span>(<span class="string">&quot;writing public params to disk-cache: {}&quot;</span>, instance.key()))
-                    .map_err(|e| Error::CacheError(<span class="macro">format!</span>(<span class="string">&quot;Disk write error: {e}&quot;</span>)))<span class="question-mark">?</span>;
+                    .map_err(|e| Error::Cache(<span class="macro">format!</span>(<span class="string">&quot;Disk write error: {e}&quot;</span>)))<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(pp)
             }
         }
