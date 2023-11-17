@@ -18,7 +18,6 @@ mod tests;
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::lang::Lang;
-use crate::eval::Meta;
 use crate::field::LurkField;
 
 use ::nova::traits::circuit::StepCircuit;
@@ -146,7 +145,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
     ) -> Result<Self::AllocatedIO, SynthesisError>;
 
     /// Synthesize a blank circuit.
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>, pc: usize) -> Self;
+    fn blank(folding_config: Arc<FoldingConfig<F, C>>, pc: usize) -> Self;
 
     /// Create an instance from some `Self::Frame`s.
     fn from_frames(
@@ -162,7 +161,6 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
         circuit_frame: Option<Self::CircuitFrame>,
         store: &'a Self::Store,
         folding_config: Arc<FoldingConfig<F, C>>,
-        meta: Meta<F>,
     ) -> Self;
 }
 

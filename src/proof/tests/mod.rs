@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use crate::{
     coprocessor::Coprocessor,
-    eval::{lang::Lang, Meta},
+    eval::lang::Lang,
     proof::{
         nova::{public_params, CurveCycleEquipped, NovaProver, G1, G2},
         supernova::FoldingConfig,
@@ -169,7 +169,7 @@ where
 
     let mut cs_blank = MetricCS::<F>::new();
 
-    let blank = M::blank(folding_config, Meta::Lurk, 0);
+    let blank = M::blank(folding_config, 0);
     blank
         .synthesize(&mut cs_blank)
         .expect("failed to synthesize blank");
