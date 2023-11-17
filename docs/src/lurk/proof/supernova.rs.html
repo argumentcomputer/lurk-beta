@@ -413,7 +413,7 @@
 <span class="kw">use crate</span>::{
     coprocessor::Coprocessor,
     error::ProofError,
-    eval::{lang::Lang, Meta},
+    eval::lang::Lang,
     field::LurkField,
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, G1, G2},
@@ -484,7 +484,7 @@
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    <span class="kw">let </span>non_uniform_circuit = M::blank(folding_config, Meta::Lurk, <span class="number">0</span>);
+    <span class="kw">let </span>non_uniform_circuit = M::blank(folding_config, <span class="number">0</span>);
     <span class="comment">// TODO: use `&amp;*SS::commitment_key_floor()`, where `SS&lt;G&gt;: RelaxedR1CSSNARKTrait&lt;G&gt;`` when https://github.com/lurk-lab/arecibo/issues/27 closes
     </span><span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F, M&gt;::new(
         <span class="kw-2">&amp;</span>non_uniform_circuit,
@@ -759,7 +759,7 @@
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, <span class="number">2</span>));
-    <span class="kw">let </span>circuit = M::blank(folding_config, Meta::Lurk, <span class="number">0</span>);
+    <span class="kw">let </span>circuit = M::blank(folding_config, <span class="number">0</span>);
     <span class="kw">let </span>num_circuits = circuit.num_circuits();
     <span class="kw">let </span>circuit = circuit.primary_circuit(circuit_index);
     F::from(rc <span class="kw">as </span>u64) * supernova::circuit_digest::&lt;F::G1, F::G2, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>circuit, num_circuits)

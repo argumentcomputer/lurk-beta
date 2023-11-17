@@ -486,9 +486,6 @@
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -517,7 +514,7 @@
     config::lurk_config,
     coprocessor::Coprocessor,
     error::ProofError,
-    eval::{lang::Lang, Meta},
+    eval::lang::Lang,
     field::LurkField,
     proof::{supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Prover},
 };
@@ -674,7 +671,7 @@
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; F {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, <span class="number">2</span>));
-    <span class="kw">let </span>circuit = M::blank(folding_config, Meta::Lurk, <span class="number">0</span>);
+    <span class="kw">let </span>circuit = M::blank(folding_config, <span class="number">0</span>);
     F::from(rc <span class="kw">as </span>u64) * nova::circuit_digest::&lt;F::G1, F::G2, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>circuit)
 }
 
@@ -713,10 +710,7 @@
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; (M, C2&lt;F&gt;) {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
-    (
-        M::blank(folding_config, Meta::Lurk, <span class="number">0</span>),
-        TrivialCircuit::default(),
-    )
+    (M::blank(folding_config, <span class="number">0</span>), TrivialCircuit::default())
 }
 
 <span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.

@@ -242,8 +242,6 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 
 </span><span class="doccomment">//! This module offers a connection the the backend proving engine of Lurk.
@@ -264,7 +262,6 @@
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::error::ProofError;
 <span class="kw">use </span><span class="kw">crate</span>::eval::lang::Lang;
-<span class="kw">use </span><span class="kw">crate</span>::eval::Meta;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 
 <span class="kw">use </span>::nova::traits::circuit::StepCircuit;
@@ -392,7 +389,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AllocatedIO, SynthesisError&gt;;
 
     <span class="doccomment">/// Synthesize a blank circuit.
-    </span><span class="kw">fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, meta: Meta&lt;F&gt;, pc: usize) -&gt; <span class="self">Self</span>;
+    </span><span class="kw">fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, pc: usize) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Create an instance from some `Self::Frame`s.
     </span><span class="kw">fn </span>from_frames(
@@ -408,7 +405,6 @@
         circuit_frame: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::CircuitFrame&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">Self</span>::Store,
         folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
-        meta: Meta&lt;F&gt;,
     ) -&gt; <span class="self">Self</span>;
 }
 

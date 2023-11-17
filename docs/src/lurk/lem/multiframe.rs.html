@@ -1109,11 +1109,6 @@
 <a href="#1109" id="1109">1109</a>
 <a href="#1110" id="1110">1110</a>
 <a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -1129,7 +1124,7 @@
     config::lurk_config,
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
-    eval::{lang::Lang, Meta},
+    eval::lang::Lang,
     field::{LanguageField, LurkField},
     proof::{
         nova::{CurveCycleEquipped, G1, G2},
@@ -1584,7 +1579,7 @@
         }
     }
 
-    <span class="kw">fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, _meta: Meta&lt;F&gt;, pc: usize) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, pc: usize) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(lurk_step, cprocs, rc) = <span class="kw">match </span><span class="kw-2">&amp;*</span>folding_config {
             FoldingConfig::IVC(lang, rc) =&gt; {
                 (Arc::new(make_eval_step_from_lang(lang, <span class="bool-val">true</span>)), <span class="prelude-val">None</span>, <span class="kw-2">*</span>rc)
@@ -1749,7 +1744,6 @@
         circuit_frame: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::CircuitFrame&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">Self</span>::Store,
         folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
-        _meta: Meta&lt;F&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(lurk_step, cprocs) = <span class="kw">match </span><span class="kw-2">&amp;*</span>folding_config {
             FoldingConfig::IVC(lang, <span class="kw">_</span>) =&gt; (Arc::new(make_eval_step_from_lang(lang, <span class="bool-val">true</span>)), <span class="prelude-val">None</span>),
@@ -2034,11 +2028,7 @@
         <span class="kw">if </span>circuit_index == <span class="number">0 </span>{
             <span class="self">self</span>.clone()
         } <span class="kw">else </span>{
-            <span class="self">Self</span>::blank(
-                <span class="self">self</span>.folding_config.clone(),
-                Default::default(),
-                circuit_index,
-            )
+            <span class="self">Self</span>::blank(<span class="self">self</span>.folding_config.clone(), circuit_index)
         }
     }
 
