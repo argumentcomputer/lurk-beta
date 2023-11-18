@@ -280,7 +280,7 @@ where
         let z0 = M::io_to_scalar_vector(store, frames[0].input());
         let zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
         let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), self.reduction_count()));
-        let circuits = M::from_frames(self.reduction_count(), frames, store, &folding_config);
+        let circuits = M::from_frames(frames, store, &folding_config);
 
         let num_steps = circuits.len();
         let proof = Proof::prove_recursively(

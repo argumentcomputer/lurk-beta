@@ -212,7 +212,8 @@ pub struct SuperNovaProver<
     C: Coprocessor<F> + 'a,
     M: MultiFrameTrait<'a, F, C>,
 > {
-    // `reduction_count` specifies the number of small-step reductions are performed in each recursive step of the primary Lurk circuit.
+    /// The number of small-step reductions are performed in each recursive step
+    /// of the primary Lurk circuit
     reduction_count: usize,
     lang: Lang<F, C>,
     _phantom: PhantomData<&'a M>,
@@ -268,7 +269,7 @@ where
         let zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
         let folding_config = Arc::new(FoldingConfig::new_nivc(lang, self.reduction_count));
 
-        let nivc_steps = M::from_frames(self.reduction_count(), frames, store, &folding_config);
+        let nivc_steps = M::from_frames(frames, store, &folding_config);
 
         let num_steps = nivc_steps.len();
         let (proof, last_running_claim) =
@@ -277,7 +278,8 @@ where
         Ok((proof, z0, zi, num_steps, last_running_claim))
     }
 
-    /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
+    /// Evaluates and proves the computation given the public parameters,
+    /// expression, environment, and store.
     pub fn evaluate_and_prove(
         &'a self,
         pp: &PublicParams<F, M>,
@@ -301,31 +303,39 @@ where
 }
 
 #[derive(Clone, Debug)]
-/// Folding configuration specifies `Lang` and can be either `IVC` or `NIVC`.
-// NOTE: This is somewhat trivial now, but will likely become more elaborate as NIVC configuration becomes more flexible.
+/// Folding configuration specifies the `Lang`, the reduction count and the
+/// folding mode for a proving setup.
+///
+/// NOTE: This is somewhat trivial now, but will likely become more elaborate as
+/// NIVC configuration becomes more flexible.
 pub enum FoldingConfig<F: LurkField, C: Coprocessor<F>> {
     // TODO: maybe (lang, reduction_count) should be a common struct.
-    /// IVC: a single circuit implementing the `Lang`'s reduction will be used for every folding step
+    /// IVC: a single circuit implementing the `Lang`'s reduction will be used
+    /// for every folding step
     IVC(Arc<Lang<F, C>>, usize),
-    /// NIVC: each folding step will use one of a fixed set of circuits which together implement the `Lang`'s reduction.
+    /// NIVC: each folding step will use one of a fixed set of circuits which
+    /// together implement the `Lang`'s reduction.
     NIVC(Arc<Lang<F, C>>, usize),
 }
 
 impl<F: LurkField, C: Coprocessor<F>> FoldingConfig<F, C> {
     /// Create a new IVC config for `lang`.
+    #[inline]
     pub fn new_ivc(lang: Arc<Lang<F, C>>, reduction_count: usize) -> Self {
         Self::IVC(lang, reduction_count)
     }
 
     /// Create a new NIVC config for `lang`.
+    #[inline]
     pub fn new_nivc(lang: Arc<Lang<F, C>>, reduction_count: usize) -> Self {
         Self::NIVC(lang, reduction_count)
     }
 
-    /// Return the total number of NIVC circuits potentially required when folding programs described by this `FoldingConfig`.
+    /// Return the total number of NIVC circuits potentially required when folding
+    /// programs described by this `FoldingConfig`.
     pub fn num_circuits(&self) -> usize {
         match self {
-            Self::IVC(_, _) => 1,
+            Self::IVC(..) => 1,
             Self::NIVC(lang, _) => 1 + lang.coprocessor_count(),
         }
     }
@@ -344,9 +354,9 @@ impl<F: LurkField, C: Coprocessor<F>> FoldingConfig<F, C> {
     }
 }
 
-/// Computes a cache key of a supernova primary circuit. The point is that if a circuit
-/// changes in any way but has the same `rc`/`Lang`, then we still want the
-/// public params to stay in sync with the changes.
+/// Computes a cache key of a supernova primary circuit. The point is that if a
+/// circuit changes in any way but has the same `rc`/`Lang`, then we still want
+/// the public params to stay in sync with the changes.
 ///
 /// Note: For now, we use ad-hoc circuit cache keys.
 /// See: [crate::public_parameters::instance]

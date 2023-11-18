@@ -149,19 +149,10 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
 
     /// Create an instance from some `Self::Frame`s.
     fn from_frames(
-        reduction_count: usize,
         frames: &[Self::EvalFrame],
         store: &'a Self::Store,
         folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self>;
-
-    /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
-    fn make_dummy(
-        reduction_count: usize,
-        circuit_frame: Option<Self::CircuitFrame>,
-        store: &'a Self::Store,
-        folding_config: Arc<FoldingConfig<F, C>>,
-    ) -> Self;
 }
 
 /// Represents a sequential Constraint System for a given proof.
@@ -173,8 +164,8 @@ pub trait Provable<F: LurkField> {
     fn public_inputs(&self) -> Vec<F>;
     /// Returns the size of the public inputs.
     fn public_input_size(&self) -> usize;
-    /// Returns the number of reductions in the provable structure.
-    fn reduction_count(&self) -> usize;
+    /// Returns the number of reduction frames in the provable structure.
+    fn num_frames(&self) -> usize;
 }
 
 /// A trait for a prover that works with a field `F`.
