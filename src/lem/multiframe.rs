@@ -360,6 +360,25 @@ fn synthesize_frames_parallel<F: LurkField, CS: ConstraintSystem<F>, C: Coproces
     }
 }
 
+/// Pads `frames` up to a certain `size`` with a frame generated with Lurk's step
+/// function. For efficiency, `frames` should have enough capacity to avoid
+/// reallocations
+fn pad_frames<F: LurkField, C: Coprocessor<F>>(
+    frames: &mut Vec<Frame<F>>,
+    input: &[Ptr<F>],
+    lurk_step: &Func,
+    lang: &Lang<F, C>,
+    size: usize,
+    store: &Store<F>,
+) {
+    let padding_frame = lurk_step
+        .call_simple(input, store, lang, 0)
+        .expect("reduction step failed");
+    assert_eq!(padding_frame.pc, 0);
+    assert_eq!(input, padding_frame.output);
+    frames.resize(size, padding_frame);
+}
+
 impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
     type Ptr = Ptr<F>;
     type ContPtr = Ptr<F>;
@@ -500,10 +519,9 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         store: &'a Self::Store,
         folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
-        let total_frames = frames.len();
         let reduction_count = folding_config.reduction_count();
-        let n = (total_frames + reduction_count - 1) / reduction_count;
-        let mut multi_frames = Vec::with_capacity(n);
+        let mut multi_frames =
+            Vec::with_capacity((frames.len() + reduction_count - 1) / reduction_count);
         match &**folding_config {
             FoldingConfig::IVC(lang, _) => {
                 let lurk_step = Arc::new(make_eval_step_from_lang(lang, true));
@@ -516,11 +534,14 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                     let inner_frames = if chunk.len() < reduction_count {
                         let mut inner_frames = Vec::with_capacity(reduction_count);
                         inner_frames.extend(chunk.to_vec());
-                        let padding_frame = lurk_step
-                            .call_simple(&output, store, lang, 0)
-                            .expect("reduction step failed");
-                        assert_eq!(output, padding_frame.output);
-                        inner_frames.resize(reduction_count, padding_frame);
+                        pad_frames(
+                            &mut inner_frames,
+                            &output,
+                            &lurk_step,
+                            lang,
+                            reduction_count,
+                            store,
+                        );
                         inner_frames
                     } else {
                         chunk.to_vec()
@@ -592,11 +613,14 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                             .to_vec();
 
                         if inner_frames.len() < reduction_count {
-                            let padding_frame = lurk_step
-                                .call_simple(&output, store, lang, 0)
-                                .expect("reduction step failed");
-                            assert_eq!(output, padding_frame.output);
-                            inner_frames.resize(reduction_count, padding_frame);
+                            pad_frames(
+                                &mut inner_frames,
+                                &output,
+                                &lurk_step,
+                                lang,
+                                reduction_count,
+                                store,
+                            );
                         }
 
                         frames_to_add = inner_frames;
@@ -630,16 +654,16 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         multi_frames
     }
 
-    fn get_evaluation_frames(
-        _padding_predicate: impl Fn(usize) -> bool,
+    fn build_frames(
         expr: Self::Ptr,
         env: Self::Ptr,
         store: &Self::Store,
         limit: usize,
         lang: &Lang<F, C>,
+        ivc: bool,
     ) -> Result<Vec<Self::EvalFrame>, ProofError> {
         let cont = store.cont_outermost();
-        let lurk_step = make_eval_step_from_lang(lang, true);
+        let lurk_step = make_eval_step_from_lang(lang, ivc);
         match evaluate_with_env_and_cont(Some((&lurk_step, lang)), expr, env, cont, store, limit) {
             Ok((frames, _)) => Ok(frames),
             Err(e) => Err(ProofError::Reduction(ReductionError::Misc(e.to_string()))),
@@ -650,7 +674,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         let stop_cond = |output: &[Ptr<F>]| {
             matches!(
                 output[2].tag(),
-                Tag::Cont(ContTag::Terminal) | Tag::Cont(ContTag::Error)
+                Tag::Cont(ContTag::Terminal | ContTag::Error)
             )
         };
         frames

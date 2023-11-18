@@ -133,15 +133,7 @@ where
     let e = s.initial_empty_env();
 
     let nova_prover = NovaProver::<'a, F, C, M>::new(reduction_count, (*lang).clone());
-    let frames = M::get_evaluation_frames(
-        |frame_count| nova_prover.needs_frame_padding(frame_count),
-        expr,
-        e,
-        s,
-        limit,
-        &lang,
-    )
-    .unwrap();
+    let frames = M::build_frames(expr, e, s, limit, &lang, true).unwrap();
 
     if check_nova {
         let pp = public_params::<_, _, M>(reduction_count, lang.clone());
