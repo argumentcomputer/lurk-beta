@@ -1802,10 +1802,6 @@
 <a href="#1802" id="1802">1802</a>
 <a href="#1803" id="1803">1803</a>
 <a href="#1804" id="1804">1804</a>
-<a href="#1805" id="1805">1805</a>
-<a href="#1806" id="1806">1806</a>
-<a href="#1807" id="1807">1807</a>
-<a href="#1808" id="1808">1808</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -3586,32 +3582,28 @@
     <span class="kw">use </span>bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
 
-    <span class="kw">const </span>NUM_INPUTS: usize = <span class="number">1</span>;
-    <span class="kw">const </span>NUM_AUX: usize = <span class="number">9118</span>;
-    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">11064</span>;
-    <span class="kw">const </span>NUM_SLOTS: SlotsCounter = SlotsCounter {
-        hash4: <span class="number">14</span>,
-        hash6: <span class="number">3</span>,
-        hash8: <span class="number">4</span>,
-        commitment: <span class="number">1</span>,
-        bit_decomp: <span class="number">3</span>,
-    };
-
     <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_values() {
+    </span><span class="kw">fn </span>test_counts() {
         <span class="kw">let </span>store = Store::default();
         <span class="kw">let </span>func = eval_step();
         <span class="kw">let </span>frame = Frame::&lt;Fr&gt;::blank(func, <span class="number">0</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
         <span class="kw">let </span>lang: Lang&lt;Fr, Coproc&lt;Fr&gt;&gt; = Lang::new();
         <span class="kw">let _ </span>= func.synthesize_frame_aux(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frame, <span class="kw-2">&amp;</span>lang);
-        <span class="macro">assert_eq!</span>(func.slots_count, NUM_SLOTS);
-        <span class="macro">assert_eq!</span>(cs.num_inputs(), NUM_INPUTS);
         <span class="macro">assert_eq!</span>(
-            (cs.aux().len(), cs.num_constraints()),
-            (NUM_AUX, NUM_CONSTRAINTS)
+            func.slots_count,
+            SlotsCounter {
+                hash4: <span class="number">14</span>,
+                hash6: <span class="number">3</span>,
+                hash8: <span class="number">4</span>,
+                commitment: <span class="number">1</span>,
+                bit_decomp: <span class="number">3</span>,
+            }
         );
-        <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), NUM_CONSTRAINTS);
+        <span class="macro">assert_eq!</span>(cs.num_inputs(), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(cs.aux().len(), <span class="number">9118</span>);
+        <span class="macro">assert_eq!</span>(cs.num_constraints(), <span class="number">11064</span>);
+        <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), cs.num_constraints());
     }
 }
 </code></pre></div></section></main></body></html>
