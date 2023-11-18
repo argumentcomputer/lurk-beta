@@ -161,7 +161,7 @@ where
 
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, nova_prover.reduction_count()));
 
-    let multiframes = M::from_frames(nova_prover.reduction_count(), &frames, s, &folding_config);
+    let multiframes = M::from_frames(&frames, s, &folding_config);
     let len = multiframes.len();
 
     let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
