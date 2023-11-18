@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/multiframe.rs`."><title>multiframe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (a57770440 2023-11-16)" data-channel="nightly" data-search-js="search-83dad86cfc406332.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f06f02fd918e3bb3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/multiframe.rs`."><title>multiframe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (283170175 2023-11-17)" data-channel="nightly" data-search-js="search-83dad86cfc406332.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f06f02fd918e3bb3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1074,41 +1074,6 @@
 <a href="#1074" id="1074">1074</a>
 <a href="#1075" id="1075">1075</a>
 <a href="#1076" id="1076">1076</a>
-<a href="#1077" id="1077">1077</a>
-<a href="#1078" id="1078">1078</a>
-<a href="#1079" id="1079">1079</a>
-<a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
-<a href="#1083" id="1083">1083</a>
-<a href="#1084" id="1084">1084</a>
-<a href="#1085" id="1085">1085</a>
-<a href="#1086" id="1086">1086</a>
-<a href="#1087" id="1087">1087</a>
-<a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
-<a href="#1098" id="1098">1098</a>
-<a href="#1099" id="1099">1099</a>
-<a href="#1100" id="1100">1100</a>
-<a href="#1101" id="1101">1101</a>
-<a href="#1102" id="1102">1102</a>
-<a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -1157,7 +1122,7 @@
     output: <span class="prelude-ty">Option</span>&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
     frames: <span class="prelude-ty">Option</span>&lt;Vec&lt;Frame&lt;F&gt;&gt;&gt;,
     cached_witness: <span class="prelude-ty">Option</span>&lt;WitnessCS&lt;F&gt;&gt;,
-    reduction_count: usize,
+    num_frames: usize,
     folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     pc: usize,
     next_pc: usize,
@@ -1173,7 +1138,7 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>get_lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Lang&lt;F, C&gt; {
+    </span><span class="kw">fn </span>get_lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt; {
         <span class="self">self</span>.folding_config.lang()
     }
 }
@@ -1482,7 +1447,7 @@
     <span class="kw">type </span>AllocatedIO = Vec&lt;AllocatedPtr&lt;F&gt;&gt;;
 
     <span class="kw">fn </span>emitted(_store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, eval_frame: <span class="kw-2">&amp;</span><span class="self">Self</span>::EvalFrame) -&gt; Vec&lt;Ptr&lt;F&gt;&gt; {
-        eval_frame.emitted.clone()
+        eval_frame.emitted.to_vec()
     }
 
     <span class="kw">fn </span>io_to_scalar_vector(
@@ -1590,7 +1555,7 @@
                 <span class="kw-2">*</span>rc,
             ),
         };
-        <span class="kw">let </span>reduction_count = <span class="kw">if </span>pc == <span class="number">0 </span>{ rc } <span class="kw">else </span>{ <span class="number">1 </span>};
+        <span class="kw">let </span>num_frames = <span class="kw">if </span>pc == <span class="number">0 </span>{ rc } <span class="kw">else </span>{ <span class="number">1 </span>};
         <span class="self">Self </span>{
             store: <span class="prelude-val">None</span>,
             lurk_step,
@@ -1599,7 +1564,7 @@
             output: <span class="prelude-val">None</span>,
             frames: <span class="prelude-val">None</span>,
             cached_witness: <span class="prelude-val">None</span>,
-            reduction_count,
+            num_frames,
             folding_config,
             pc,
             next_pc: <span class="number">0</span>,
@@ -1607,12 +1572,12 @@
     }
 
     <span class="kw">fn </span>from_frames(
-        reduction_count: usize,
         frames: <span class="kw-2">&amp;</span>[Frame&lt;F&gt;],
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">Self</span>::Store,
         folding_config: <span class="kw-2">&amp;</span>Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>total_frames = frames.len();
+        <span class="kw">let </span>reduction_count = folding_config.reduction_count();
         <span class="kw">let </span>n = (total_frames + reduction_count - <span class="number">1</span>) / reduction_count;
         <span class="kw">let </span><span class="kw-2">mut </span>multi_frames = Vec::with_capacity(n);
         <span class="kw">match </span><span class="kw-2">&amp;**</span>folding_config {
@@ -1631,7 +1596,7 @@
                             .call_simple(<span class="kw-2">&amp;</span>output, store, lang, <span class="number">0</span>)
                             .expect(<span class="string">&quot;reduction step failed&quot;</span>);
                         <span class="macro">assert_eq!</span>(output, padding_frame.output);
-                        inner_frames.resize(reduction_count, padding_frame.clone());
+                        inner_frames.resize(reduction_count, padding_frame);
                         inner_frames
                     } <span class="kw">else </span>{
                         chunk.to_vec()
@@ -1645,7 +1610,7 @@
                         output: <span class="prelude-val">Some</span>(output),
                         frames: <span class="prelude-val">Some</span>(inner_frames),
                         cached_witness: <span class="prelude-val">None</span>,
-                        reduction_count,
+                        num_frames: reduction_count,
                         folding_config: folding_config.clone(),
                         pc: <span class="number">0</span>,
                         next_pc: <span class="number">0</span>,
@@ -1662,10 +1627,13 @@
                     <span class="kw">let </span>first_frame = <span class="kw-2">&amp;</span>frames[chunk_start_idx];
 
                     <span class="comment">// Variables occurring in both branches
-                    </span><span class="kw">let </span>input = first_frame.input.clone();
+                    </span><span class="kw">let </span>input = first_frame.input.to_vec();
                     <span class="kw">let </span>output: Vec&lt;<span class="kw">_</span>&gt;;
                     <span class="kw">let </span>frames_to_add: Vec&lt;<span class="kw">_</span>&gt;;
-                    <span class="kw">let </span><span class="kw-2">mut </span>reduction_count_to_use = reduction_count;
+
+                    <span class="comment">// the following variables start with the default values for
+                    // IVC
+                    </span><span class="kw">let </span><span class="kw-2">mut </span>num_frames = reduction_count;
                     <span class="kw">let </span><span class="kw-2">mut </span>pc = <span class="number">0</span>;
                     <span class="kw">let </span><span class="kw-2">mut </span>next_pc = <span class="number">0</span>;
 
@@ -1710,9 +1678,9 @@
                         frames_to_add = inner_frames;
                     } <span class="kw">else </span>{
                         chunk_start_idx += <span class="number">1</span>;
-                        output = first_frame.output.clone();
+                        output = first_frame.output.to_vec();
                         frames_to_add = <span class="macro">vec!</span>[first_frame.clone()];
-                        reduction_count_to_use = <span class="number">1</span>;
+                        num_frames = <span class="number">1</span>;
                         pc = first_frame.pc;
                     }
 
@@ -1724,7 +1692,7 @@
                         output: <span class="prelude-val">Some</span>(output),
                         frames: <span class="prelude-val">Some</span>(frames_to_add),
                         cached_witness: <span class="prelude-val">None</span>,
-                        reduction_count: reduction_count_to_use,
+                        num_frames,
                         folding_config: folding_config.clone(),
                         pc,
                         next_pc,
@@ -1736,44 +1704,6 @@
         }
 
         multi_frames
-    }
-
-    <span class="doccomment">/// Make a dummy instance, duplicating `self`&#39;s final `CircuitFrame`.
-    </span><span class="kw">fn </span>make_dummy(
-        reduction_count: usize,
-        circuit_frame: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::CircuitFrame&gt;,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">Self</span>::Store,
-        folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>(lurk_step, cprocs) = <span class="kw">match </span><span class="kw-2">&amp;*</span>folding_config {
-            FoldingConfig::IVC(lang, <span class="kw">_</span>) =&gt; (Arc::new(make_eval_step_from_lang(lang, <span class="bool-val">true</span>)), <span class="prelude-val">None</span>),
-            FoldingConfig::NIVC(lang, <span class="kw">_</span>) =&gt; (
-                Arc::new(make_eval_step_from_lang(lang, <span class="bool-val">false</span>)),
-                <span class="prelude-val">Some</span>(make_cprocs_funcs_from_lang(lang)),
-            ),
-        };
-        <span class="kw">let </span>(frames, input, output) = <span class="kw">if let </span><span class="prelude-val">Some</span>(circuit_frame) = circuit_frame {
-            (
-                <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[circuit_frame.clone(); reduction_count]),
-                <span class="prelude-val">Some</span>(circuit_frame.input),
-                <span class="prelude-val">Some</span>(circuit_frame.output),
-            )
-        } <span class="kw">else </span>{
-            (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
-        };
-        <span class="self">Self </span>{
-            store: <span class="prelude-val">Some</span>(store),
-            lurk_step,
-            cprocs,
-            input,
-            output,
-            frames,
-            cached_witness: <span class="prelude-val">None</span>,
-            reduction_count,
-            folding_config,
-            pc: <span class="number">0</span>,
-            next_pc: <span class="number">0</span>,
-        }
     }
 
     <span class="kw">fn </span>get_evaluation_frames(
@@ -1892,7 +1822,7 @@
                 <span class="kw">let </span>dummy_io = [Ptr::dummy(); <span class="number">3</span>];
                 <span class="kw">let </span>store = Store::default();
                 <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc);
-                <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.reduction_count];
+                <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.num_frames];
                 synth(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>dummy_io, <span class="kw-2">&amp;</span>dummy_io)
             }
         }
@@ -1925,8 +1855,8 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.reduction_count
+    </span><span class="kw">fn </span>num_frames(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.num_frames
     }
 }
 
@@ -1969,7 +1899,7 @@
                 <span class="macro">assert!</span>(<span class="self">self</span>.store.is_none());
                 <span class="kw">let </span>store = Store::default();
                 <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc);
-                <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.reduction_count];
+                <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.num_frames];
                 <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_globals(cs, <span class="kw-2">&amp;</span>store)<span class="question-mark">?</span>;
                 <span class="self">self</span>.synthesize_frames(cs, <span class="kw-2">&amp;</span>store, input, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>g)<span class="question-mark">?
             </span>}
@@ -2211,7 +2141,7 @@
         <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), <span class="number">1</span>));
 
         store.hydrate_z_cache();
-        MultiFrame::from_frames(<span class="number">1</span>, <span class="kw-2">&amp;</span>[frame], <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>folding_config)
+        MultiFrame::from_frames(<span class="kw-2">&amp;</span>[frame], <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>folding_config)
             .pop()
             .unwrap()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
