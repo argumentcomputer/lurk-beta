@@ -136,15 +136,38 @@ jobs:
         uses: peter-evans/commit-comment@v3
         with:
           body-path: BENCHMARKS.md
-      # TODO: Use jq for JSON parsing if needed
-      # Check for benchmark regression based on Criterion's configured noise threshold
-      - name: Performance regression check
-        id: check-regression
-        run: echo "regress_count=$(grep -c 'Regressed' ${{ github.sha }}.json)" | tee -a $GITHUB_OUTPUT
-      # Fail job if regression found
-      - uses: actions/github-script@v7
-        if: ${{ steps.check-regression.outputs.regress_count > 0 }}
-        with:
-          script: |
-            core.setFailed('Fibonacci bench regression detected')
+      # Check for a slowdown >= 10%. If so, open an issue but don't block merge
+      - name: Check for perf regression
+        id: regression-check
+        run: |
+          regressions=$(awk -F'[*x]' '/slower/{print $12}' BENCHMARKS.md)
 
+          echo $regressions
+
+          for r in $regressions
+          do
+            if (( $(echo "$r >= 1.10" | bc -l) ))
+            then
+              exit 1
+            fi
+          done
+        continue-on-error: true
+      # Not possible to use ${{ github.event.number }} with the `merge_group` trigger
+      - name: Get PR number from merge branch
+        run: |
+          echo "PR_NUMBER=$(echo ${{ github.event.merge_group.head_ref }} | sed -e 's/.*pr-\(.*\)-.*/\1/')" | tee -a $GITHUB_ENV
+      - name: Create file for issue
+        if: steps.regression-check.outcome == 'failure'
+        run: |
+          printf '%s\n' "Regression >= 10% found during merge for PR #${{ env.PR_NUMBER }}
+          Commit: ${{ github.sha }}
+          Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" > ./_body.md
+      - name: Open issue on regression
+        if: steps.regression-check.outcome == 'failure'
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: ':rotating_light: Performance regression detected for PR #${{ env.PR_NUMBER }}'
+          content-filepath: ./_body.md
+          labels: |
+            P-Performance
+            automated issue
