@@ -935,12 +935,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         if eq_val {
                             return (val_or_more_rec_env, env, cont, apply)
                         }
-                        match cont.tag {
-                            Cont::Lookup => {
-                                return (expr, smaller_env, cont, ret)
-                            }
-                        };
-                        let cont: Cont::Lookup = cons4(env, cont, foo, foo);
                         return (expr, smaller_env, cont, ret)
                     }
                     Expr::Cons => {
@@ -962,13 +956,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                             return (val2, env, cont, apply)
                         }
                         let (env_to_use) = env_to_use(smaller_env, val_or_more_rec_env);
-
-                        match cont.tag {
-                            Cont::Lookup => {
-                                return (expr, env_to_use, cont, ret)
-                            }
-                        };
-                        let cont: Cont::Lookup = cons4(env, cont, foo, foo);
                         return (expr, env_to_use, cont, ret)
                     }
                 };
@@ -1200,17 +1187,6 @@ fn choose_cproc_call(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
 
 fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     let car_cdr = car_cdr();
-    let make_tail_continuation = func!(make_tail_continuation(env, continuation): 1 => {
-        match continuation.tag {
-            Cont::Tail => {
-                return (continuation);
-            }
-        };
-        let foo: Expr::Nil;
-        let tail_continuation: Cont::Tail = cons4(env, continuation, foo, foo);
-        return (tail_continuation);
-    });
-
     let extend_rec = func!(extend_rec(env, var, result): 1 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
@@ -1272,15 +1248,6 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
         match symbol ctrl {
             "apply-continuation" => {
                 let makethunk = Symbol("make-thunk");
-                let lookup: Cont::Lookup;
-                let tail: Cont::Tail;
-                let cont_is_lookup = eq_tag(cont, lookup);
-                let cont_is_tail = eq_tag(cont, tail);
-                let cont_is_tail_or_lookup = or(cont_is_lookup, cont_is_tail);
-                if cont_is_tail_or_lookup {
-                    let (saved_env, continuation, _foo, _foo) = decons4(cont);
-                    return (result, saved_env, continuation, makethunk)
-                }
 
                 let errctrl = Symbol("error");
                 let ret = Symbol("return");
@@ -1317,8 +1284,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                         let (body_form, end) = car_cdr(body);
                                         match end.tag {
                                             Expr::Nil => {
-                                                let (cont) = make_tail_continuation(saved_env, continuation);
-                                                return (body_form, closed_env, cont, ret)
+                                                return (body_form, closed_env, continuation, ret)
                                             }
                                         };
                                         return (result, env, err, errctrl)
@@ -1359,8 +1325,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                     Expr::Nil => {
                                         let binding: Expr::Cons = cons2(arg, result);
                                         let newer_env: Expr::Cons = cons2(binding, closed_env);
-                                        let (cont) = make_tail_continuation(saved_env, continuation);
-                                        return (body_form, newer_env, cont, ret)
+                                        return (body_form, newer_env, continuation, ret)
                                     }
                                 };
                                 return (result, env, err, errctrl)
@@ -1371,14 +1336,12 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     Cont::Let => {
                         let (var, saved_env, body, cont) = decons4(cont);
                         let binding: Expr::Cons = cons2(var, result);
-                        let extended_env: Expr::Cons = cons2(binding, env);
-                        let (cont) = make_tail_continuation(saved_env, cont);
+                        let extended_env: Expr::Cons = cons2(binding, saved_env);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::LetRec => {
                         let (var, saved_env, body, cont) = decons4(cont);
-                        let (extended_env) = extend_rec(env, var, result);
-                        let (cont) = make_tail_continuation(saved_env, cont);
+                        let (extended_env) = extend_rec(saved_env, var, result);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::Unop => {
@@ -1771,12 +1734,6 @@ fn make_thunk() -> Func {
         match symbol ctrl {
             "make-thunk" => {
                 match cont.tag {
-                    Cont::Tail => {
-                        let (saved_env, saved_cont, _foo, _foo) = decons4(cont);
-                        let thunk: Expr::Thunk = cons2(expr, saved_cont);
-                        let cont: Cont::Dummy = HASH_8_ZEROS;
-                        return (thunk, saved_env, cont)
-                    }
                     Cont::Outermost => {
                         let cont: Cont::Terminal = HASH_8_ZEROS;
                         return (expr, env, cont)
