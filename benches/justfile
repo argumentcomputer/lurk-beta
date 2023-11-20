@@ -28,7 +28,7 @@ gpu-bench +benches:
   env | grep -E "LURK|EC_GPU|CUDA"
   if [ '{{benches}}' != '' ]; then
     for bench in {{benches}}; do
-      cargo criterion --bench $bench --features "cuda" --message-format=json > ../{{commit}}.json
+      cargo criterion --bench $bench --features "cuda" --message-format=json > {{commit}}.json
     done
   else
     echo "Invalid input, enter at least one non-empty string"
