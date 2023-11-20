@@ -824,31 +824,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         };
         return (nil)
     });
-    let make_call = func!(make_call(head, rest, env, cont): 4 => {
-        let ret = Symbol("return");
-        let foo: Expr::Nil;
-        match rest.tag {
-            Expr::Nil => {
-                let cont: Cont::Call0 = cons4(env, cont, foo, foo);
-                return (head, env, cont, ret)
-            }
-            Expr::Cons => {
-                let (arg, more_args) = decons2(rest);
-                match more_args.tag {
-                    Expr::Nil => {
-                        let cont: Cont::Call = cons4(arg, env, cont, foo);
-                        return (head, env, cont, ret)
-                    }
-                };
-                let nil = Symbol("nil");
-                let nil = cast(nil, Expr::Nil);
-                let expanded_inner0: Expr::Cons = cons2(arg, nil);
-                let expanded_inner: Expr::Cons = cons2(head, expanded_inner0);
-                let expanded: Expr::Cons = cons2(expanded_inner, more_args);
-                return (expanded, env, cont, ret)
-            }
-        }
-    });
     let is_potentially_fun = func!(is_potentially_fun(head): 1 => {
         let fun: Expr::Fun;
         let cons: Expr::Cons;
@@ -1082,7 +1057,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                         return (expr, env, err, errctrl)
                                     }
                                 };
-                                let cont: Cont::If = cons4(more, cont, foo, foo);
+                                let cont: Cont::If = cons4(more, env, cont, foo);
                                 return (condition, env, cont, ret)
                             }
                             "current-env" => {
@@ -1137,8 +1112,8 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                             return (arg, env, cont, ret);
                         }
                         // just call assuming that the symbol is bound to a function
-                        let (fun, env, cont, ret) = make_call(head, rest, env, cont);
-                        return (fun, env, cont, ret);
+                        let cont: Cont::Call = cons4(rest, env, cont, foo);
+                        return (head, env, cont, ret);
                     }
                 };
 
@@ -1146,8 +1121,8 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                 let (potentially_fun) = is_potentially_fun(head);
                 let eq_val = eq_val(potentially_fun, t);
                 if eq_val {
-                    let (fun, env, cont, ret) = make_call(head, rest, env, cont);
-                    return (fun, env, cont, ret);
+                    let cont: Cont::Call = cons4(rest, env, cont, foo);
+                    return (head, env, cont, ret);
                 }
                 return (expr, env, err, errctrl)
             }
@@ -1263,54 +1238,55 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                 let term: Cont::Terminal = HASH_8_ZEROS;
                 match cont.tag {
                     Cont::Outermost => {
-                        return (result, env, term, ret)
+                        // We erase the environment as to not leak any information about internal variables.
+                        return (result, nil, term, ret)
                     }
                     Cont::Emit => {
                         let (cont, _rest, _foo, _foo) = decons4(cont);
                         return (result, env, cont, makethunk)
                     }
-                    Cont::Call0 => {
-                        let (saved_env, continuation, _foo, _foo) = decons4(cont);
-                        match result.tag {
-                            Expr::Fun => {
-                                let (arg, body, closed_env) = decons3(result);
-                                match symbol arg {
-                                    "dummy" => {
-                                        match body.tag {
-                                            Expr::Nil => {
-                                                return (result, env, err, errctrl)
-                                            }
-                                        };
-                                        let (body_form, end) = car_cdr(body);
-                                        match end.tag {
-                                            Expr::Nil => {
-                                                return (body_form, closed_env, continuation, ret)
-                                            }
-                                        };
-                                        return (result, env, err, errctrl)
-                                    }
-                                };
-                                return (result, env, continuation, ret)
-                            }
-                        };
-                        return (result, env, err, errctrl)
-                    }
                     Cont::Call => {
                         match result.tag {
                             Expr::Fun => {
-                                let (unevaled_arg, saved_env, continuation, _foo) = decons4(cont);
-                                let newer_cont: Cont::Call2 = cons4(result, saved_env, continuation, foo);
-                                return (unevaled_arg, env, newer_cont, ret)
+                                let (args, args_env, continuation, _foo) = decons4(cont);
+                                match args.tag {
+                                    Expr::Cons => {
+                                        let (arg, rest_args) = decons2(args);
+                                        let newer_cont: Cont::Call2 = cons4(result, rest_args, args_env, continuation);
+                                        return (arg, args_env, newer_cont, ret)
+                                    }
+                                    Expr::Nil => {
+                                        let (var, body, fun_env) = decons3(result);
+                                        match symbol var {
+                                            "dummy" => {
+                                                match body.tag {
+                                                    Expr::Nil => {
+                                                        return (result, env, err, errctrl)
+                                                    }
+                                                };
+                                                let (body_form, end) = decons2(body);
+                                                match end.tag {
+                                                    Expr::Nil => {
+                                                        return (body_form, fun_env, continuation, ret)
+                                                    }
+                                                };
+                                                return (result, env, err, errctrl)
+                                            }
+                                        };
+                                        // TODO should this be an error or should we return the function?
+                                        return (result, env, continuation, ret)
+                                    }
+                                }
                             }
                         };
                         return (result, env, err, errctrl)
                     }
                     Cont::Call2 => {
-                        let (function, saved_env, continuation, _foo) = decons4(cont);
+                        let (function, args, args_env, continuation) = decons4(cont);
                         match function.tag {
                             Expr::Fun => {
-                                let (arg, body, closed_env) = decons3(function);
-                                match symbol arg {
+                                let (var, body, fun_env) = decons3(function);
+                                match symbol var {
                                     "dummy" => {
                                         return (result, env, err, errctrl)
                                     }
@@ -1323,9 +1299,15 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 let (body_form, end) = decons2(body);
                                 match end.tag {
                                     Expr::Nil => {
-                                        let binding: Expr::Cons = cons2(arg, result);
-                                        let newer_env: Expr::Cons = cons2(binding, closed_env);
-                                        return (body_form, newer_env, continuation, ret)
+                                        let binding: Expr::Cons = cons2(var, result);
+                                        let newer_env: Expr::Cons = cons2(binding, fun_env);
+                                        match args.tag {
+                                            Expr::Nil => {
+                                                return (body_form, newer_env, continuation, ret)
+                                            }
+                                        };
+                                        let cont: Cont::Call = cons4(args, args_env, continuation, foo);
+                                        return (body_form, newer_env, cont, ret)
                                     }
                                 };
                                 return (result, env, err, errctrl)
@@ -1684,17 +1666,17 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         return (result, env, err, errctrl)
                     }
                     Cont::If => {
-                        let (unevaled_args, continuation, _foo, _foo) = decons4(cont);
+                        let (unevaled_args, args_env, continuation, _foo) = decons4(cont);
                         let (arg1, more) = car_cdr(unevaled_args);
                         let (arg2, end) = car_cdr(more);
                         match end.tag {
                             Expr::Nil => {
                                 match result.tag {
                                     Expr::Nil => {
-                                        return (arg2, env, continuation, ret)
+                                        return (arg2, args_env, continuation, ret)
                                     }
                                 };
-                                return (arg1, env, continuation, ret)
+                                return (arg1, args_env, continuation, ret)
                             }
                         };
                         return (arg1, env, err, errctrl)
@@ -1735,8 +1717,10 @@ fn make_thunk() -> Func {
             "make-thunk" => {
                 match cont.tag {
                     Cont::Outermost => {
+                        let nil = Symbol("nil");
+                        let nil = cast(nil, Expr::Nil);
                         let cont: Cont::Terminal = HASH_8_ZEROS;
-                        return (expr, env, cont)
+                        return (expr, nil, cont)
                     }
                 };
                 let thunk: Expr::Thunk = cons2(expr, cont);
@@ -1772,7 +1756,7 @@ mod tests {
             SlotsCounter {
                 hash4: 14,
                 hash6: 3,
-                hash8: 4,
+                hash8: 3,
                 commitment: 1,
                 bit_decomp: 3,
             }
@@ -1781,8 +1765,8 @@ mod tests {
             expected.assert_eq(&computed.to_string());
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9118"]);
-        expect_eq(cs.num_constraints(), expect!["11064"]);
+        expect_eq(cs.aux().len(), expect!["8653"]);
+        expect_eq(cs.num_constraints(), expect!["10419"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
