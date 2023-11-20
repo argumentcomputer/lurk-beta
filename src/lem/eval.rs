@@ -1104,11 +1104,13 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         let is_cproc_is_t = eq_val(is_cproc, t);
                         if is_cproc_is_t {
                             if rest_is_nil {
-                                let cont: Cont::Cproc = cons4(head, nil, nil, cont);
+                                let args: Expr::Cons = cons2(nil, nil);
+                                let cont: Cont::Cproc = cons4(head, args, env, cont);
                                 return (nil, env, cont, apply);
                             }
                             let (arg, unevaled_args) = car_cdr(rest);
-                            let cont: Cont::Cproc = cons4(head, unevaled_args, nil, cont);
+                            let args: Expr::Cons = cons2(unevaled_args, nil);
+                            let cont: Cont::Cproc = cons4(head, args, env, cont);
                             return (arg, env, cont, ret);
                         }
                         // just call assuming that the symbol is bound to a function
@@ -1682,25 +1684,27 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         return (arg1, env, err, errctrl)
                     }
                     Cont::Cproc => {
-                        let (cproc_name, unevaled_args, evaluated_args, cont) = decons4(cont);
+                        let (cproc_name, args, saved_env, cont) = decons4(cont);
+                        let (unevaled_args, evaluated_args) = decons2(args);
                         // accumulate the evaluated arg (`result`)
                         let evaluated_args: Expr::Cons = cons2(result, evaluated_args);
                         match unevaled_args.tag {
                             Expr::Nil => {
                                 // nothing else to evaluate
-                                let (expr, env, cont, ctrl) = choose_cproc_call(cproc_name, evaluated_args, env, cont);
+                                let (expr, env, cont, ctrl) = choose_cproc_call(cproc_name, evaluated_args, saved_env, cont);
                                 return (expr, env, cont, ctrl);
                             }
                             Expr::Cons => {
                                 // pop the next argument that needs to be evaluated
                                 let (arg, unevaled_args) = decons2(unevaled_args);
+                                let args: Expr::Cons = cons2(unevaled_args, evaluated_args);
                                 let cont: Cont::Cproc = cons4(
                                     cproc_name,
-                                    unevaled_args,
-                                    evaluated_args,
+                                    args,
+                                    saved_env,
                                     cont
                                 );
-                                return (arg, env, cont, ret);
+                                return (arg, saved_env, cont, ret);
                             }
                         }
                     }
@@ -1766,7 +1770,7 @@ mod tests {
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
         expect_eq(cs.aux().len(), expect!["8653"]);
-        expect_eq(cs.num_constraints(), expect!["10419"]);
+        expect_eq(cs.num_constraints(), expect!["10432"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
