@@ -28,6 +28,7 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
+    lem::eval::EvalConfig,
     proof::{supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Prover},
 };
 
@@ -305,14 +306,7 @@ where
         limit: usize,
         lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
-        let frames = M::get_evaluation_frames(
-            |count| self.needs_frame_padding(count),
-            expr,
-            env,
-            store,
-            limit,
-            lang,
-        )?;
+        let frames = M::build_frames(expr, env, store, limit, &EvalConfig::new_ivc(lang))?;
         self.prove(pp, &frames, store, lang)
     }
 }

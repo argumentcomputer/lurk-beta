@@ -19,6 +19,7 @@ use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::lang::Lang;
 use crate::field::LurkField;
+use crate::lem::eval::EvalConfig;
 
 use ::nova::traits::circuit::StepCircuit;
 use bellpepper::util_cs::witness_cs::WitnessCS;
@@ -103,14 +104,13 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
     /// Counting the number of non-trivial frames in the evaluation
     fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize;
 
-    /// Evaluates and generates the frames of the computation given the expression, environment, and store (IVC only, TODO NIVC)
-    fn get_evaluation_frames(
-        padding_predicate: impl Fn(usize) -> bool, // Determines if the prover needs padding for a given total number of frames
+    /// Evaluates and generates the frames of the computation given the expression, environment, and store
+    fn build_frames(
         expr: Self::Ptr,
         env: Self::Ptr,
         store: &Self::Store,
         limit: usize,
-        land: &Lang<F, C>,
+        ec: &EvalConfig<'_, F, C>,
     ) -> Result<Vec<Self::EvalFrame>, ProofError>;
 
     /// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
