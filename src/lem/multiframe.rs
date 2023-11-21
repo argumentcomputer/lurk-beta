@@ -26,7 +26,7 @@ use crate::{
 
 use super::{
     circuit::{allocate_slot, BoundAllocations, GlobalAllocator, SlotWitness},
-    eval::{evaluate_with_env_and_cont, make_cprocs_funcs_from_lang, make_eval_step_from_lang},
+    eval::{evaluate_with_env_and_cont, make_cprocs_funcs_from_lang, make_eval_step_from_config},
     interpreter::Frame,
     pointers::Ptr,
     slot::SlotType,
@@ -489,11 +489,11 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
 
     fn blank(folding_config: Arc<FoldingConfig<F, C>>, pc: usize) -> Self {
         let (lurk_step, cprocs, rc) = match &*folding_config {
-            FoldingConfig::IVC(lang, rc) => {
-                (Arc::new(make_eval_step_from_lang(lang, true)), None, *rc)
+            FoldingConfig::IVC(_, rc) => {
+                (Arc::new(make_eval_step_from_config(&folding_config)), None, *rc)
             }
             FoldingConfig::NIVC(lang, rc) => (
-                Arc::new(make_eval_step_from_lang(lang, false)),
+                Arc::new(make_eval_step_from_config(&folding_config)),
                 Some(make_cprocs_funcs_from_lang(lang)),
                 *rc,
             ),
@@ -522,9 +522,9 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         let reduction_count = folding_config.reduction_count();
         let mut multi_frames =
             Vec::with_capacity((frames.len() + reduction_count - 1) / reduction_count);
+        let lurk_step = Arc::new(make_eval_step_from_config(folding_config));
         match &**folding_config {
             FoldingConfig::IVC(lang, _) => {
-                let lurk_step = Arc::new(make_eval_step_from_lang(lang, true));
                 for chunk in frames.chunks(reduction_count) {
                     let output = chunk
                         .last()
@@ -565,7 +565,6 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                 }
             }
             FoldingConfig::NIVC(lang, _) => {
-                let lurk_step = Arc::new(make_eval_step_from_lang(lang, false));
                 let cprocs = make_cprocs_funcs_from_lang(lang);
                 let mut chunk_start_idx = 0;
                 while chunk_start_idx < frames.len() {
@@ -659,12 +658,11 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         env: Self::Ptr,
         store: &Self::Store,
         limit: usize,
-        lang: &Lang<F, C>,
-        ivc: bool,
+        fc: &FoldingConfig<F, C>
     ) -> Result<Vec<Self::EvalFrame>, ProofError> {
         let cont = store.cont_outermost();
-        let lurk_step = make_eval_step_from_lang(lang, ivc);
-        match evaluate_with_env_and_cont(Some((&lurk_step, lang)), expr, env, cont, store, limit) {
+        let lurk_step = make_eval_step_from_config(fc);
+        match evaluate_with_env_and_cont(Some((&lurk_step, fc.lang())), expr, env, cont, store, limit) {
             Ok((frames, _)) => Ok(frames),
             Err(e) => Err(ProofError::Reduction(ReductionError::Misc(e.to_string()))),
         }

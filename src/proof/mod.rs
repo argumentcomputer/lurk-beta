@@ -109,8 +109,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
         env: Self::Ptr,
         store: &Self::Store,
         limit: usize,
-        lang: &Lang<F, C>,
-        ivc: bool,
+        fc: &FoldingConfig<F, C>,
     ) -> Result<Vec<Self::EvalFrame>, ProofError>;
 
     /// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO

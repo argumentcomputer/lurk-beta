@@ -18,12 +18,12 @@ use lurk::{
     eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::{evaluate, make_eval_step_from_lang},
+        eval::{evaluate, make_eval_step_from_config},
         multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
     },
-    proof::{nova::NovaProver, supernova::SuperNovaProver, Prover},
+    proof::{nova::NovaProver, supernova::{SuperNovaProver, FoldingConfig}, Prover},
     public_parameters::{
         instance::{Instance, Kind},
         public_params, supernova_public_params,
@@ -109,7 +109,8 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_lang(&lang, true);
+    let fc = FoldingConfig::new_ivc(lang_rc.clone(), reduction_count);
+    let lurk_step = make_eval_step_from_config(&fc);
 
     // use cached public params
     let instance: Instance<'_, Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>> = Instance::new(
@@ -192,7 +193,8 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_lang(&lang, true);
+    let fc = FoldingConfig::new_ivc(lang_rc.clone(), reduction_count);
+    let lurk_step = make_eval_step_from_config(&fc);
 
     // use cached public params
     let instance = Instance::new(
@@ -277,7 +279,8 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_lang(&lang, false);
+    let fc = FoldingConfig::new_ivc(Arc::new(lang.clone()), 1);
+    let lurk_step = make_eval_step_from_config(&fc);
 
     // use cached public params
     let instance = Instance::new(

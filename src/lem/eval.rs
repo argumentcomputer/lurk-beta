@@ -15,7 +15,7 @@ use crate::{
         ContTag::{Error, Terminal},
         ExprTag::Cproc,
     },
-    Symbol,
+    Symbol, proof::supernova::FoldingConfig,
 };
 
 use super::{
@@ -243,12 +243,15 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
 /// the step function. In the NIVC case, the step function won't be able to reduce
 /// calls to coprocessors and sets up a loop via the `Expr::Cproc` tag, meaning
 /// that the reduction must be done from outside.
-pub fn make_eval_step_from_lang<F: LurkField, C: Coprocessor<F>>(
-    lang: &Lang<F, C>,
-    ivc: bool,
+pub fn make_eval_step_from_config<F: LurkField, C: Coprocessor<F>>(
+    fc: &FoldingConfig<F, C>,
 ) -> Func {
+    let ivc = match fc {
+        FoldingConfig::IVC(_, _) => true,
+        FoldingConfig::NIVC(_, _)=> false,
+    };
     make_eval_step(
-        &lang
+        &fc.lang()
             .coprocessors()
             .iter()
             .map(|(s, c)| (s, c.arity()))

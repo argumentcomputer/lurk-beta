@@ -133,7 +133,8 @@ where
     let e = s.initial_empty_env();
 
     let nova_prover = NovaProver::<'a, F, C, M>::new(reduction_count, (*lang).clone());
-    let frames = M::build_frames(expr, e, s, limit, &lang, true).unwrap();
+    let fc = FoldingConfig::new_ivc(lang.clone(), reduction_count);
+    let frames = M::build_frames(expr, e, s, limit, &fc).unwrap();
 
     if check_nova {
         let pp = public_params::<_, _, M>(reduction_count, lang.clone());

@@ -8,12 +8,12 @@ use lurk::{
     eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::{evaluate, make_eval_step_from_lang},
+        eval::{evaluate, make_eval_step_from_config},
         multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
     },
-    proof::{supernova::SuperNovaProver, Prover},
+    proof::{supernova::{SuperNovaProver, FoldingConfig}, Prover},
     public_parameters::{
         instance::{Instance, Kind},
         supernova_public_params,
@@ -76,7 +76,8 @@ fn main() {
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));
     let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_lang(&lang, false);
+    let fc = FoldingConfig::new_nivc(lang_rc.clone(), 1);
+    let lurk_step = make_eval_step_from_config(&fc);
     let (frames, _) = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
 
     let supernova_prover =

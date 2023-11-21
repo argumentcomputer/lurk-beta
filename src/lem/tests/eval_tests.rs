@@ -1,17 +1,17 @@
 use pasta_curves::pallas::Scalar as Fr;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     lem::{
-        eval::{evaluate_simple, make_eval_step_from_lang},
+        eval::{evaluate_simple, make_eval_step_from_config},
         pointers::Ptr,
         store::Store,
         Tag,
     },
     state::State,
-    tag::Op,
+    tag::Op, proof::supernova::FoldingConfig,
 };
 
 fn test_aux<C: Coprocessor<Fr>>(
@@ -112,7 +112,8 @@ fn do_test<C: Coprocessor<Fr>>(
     let (output, iterations, emitted) = if lang.is_default() {
         evaluate_simple::<Fr, C>(None, *expr, s, limit).unwrap()
     } else {
-        let func = make_eval_step_from_lang(lang, true);
+        let fc = FoldingConfig::new_ivc(Arc::new(lang.clone()), 1);
+        let func = make_eval_step_from_config(&fc);
         evaluate_simple(Some((&func, lang)), *expr, s, limit).unwrap()
     };
     let new_expr = output[0];

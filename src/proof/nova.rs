@@ -305,7 +305,8 @@ where
         limit: usize,
         lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
-        let frames = M::build_frames(expr, env, store, limit, lang, true)?;
+        let fc = FoldingConfig::new_ivc(lang.clone(), self.reduction_count());
+        let frames = M::build_frames(expr, env, store, limit, &fc)?;
         self.prove(pp, &frames, store, lang)
     }
 }
