@@ -35,7 +35,9 @@ jobs:
       - name: Install criterion
         run: cargo install cargo-criterion
       - name: Run benchmarks
-        run: just --dotenv-filename bench.env gpu-bench fibonacci
+        run: |
+          just --dotenv-filename bench.env gpu-bench fibonacci
+          cp ${{ github.sha }}.json ..
         working-directory: ${{ github.workspace }}/benches
       # TODO: Prettify labels for easier viewing
       # Compress the benchmark file and metadata for later analysis
@@ -43,6 +45,7 @@ jobs:
         run: |
           echo $LABELS > labels.md
           tar -cvzf ${{ github.sha }}.tar.gz Cargo.lock ${{ github.sha }}.json labels.md
+        working-directory: ${{ github.workspace }}
       - name: Deploy latest benchmark report
         uses: peaceiris/actions-gh-pages@v3
         with:
