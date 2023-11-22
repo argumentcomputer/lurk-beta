@@ -18,7 +18,7 @@ use lurk::{
     eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::{evaluate, make_eval_step_from_lang},
+        eval::{evaluate, make_eval_step_from_config, EvalConfig},
         multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
@@ -109,7 +109,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_lang(&lang, true);
+    let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
 
     // use cached public params
     let instance: Instance<'_, Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>> = Instance::new(
@@ -192,7 +192,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_lang(&lang, true);
+    let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
 
     // use cached public params
     let instance = Instance::new(
@@ -277,7 +277,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_lang(&lang, false);
+    let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
 
     // use cached public params
     let instance = Instance::new(

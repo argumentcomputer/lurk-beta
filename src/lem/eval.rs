@@ -236,6 +236,28 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
     evaluate_simple_with_env(func_lang, expr, store.intern_nil(), store, limit)
 }
 
+pub struct EvalConfig<'a, F: LurkField, C: Coprocessor<F>> {
+    lang: &'a Lang<F, C>,
+    ivc: bool,
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> EvalConfig<'a, F, C> {
+    #[inline]
+    pub fn new_ivc(lang: &'a Lang<F, C>) -> Self {
+        Self { lang, ivc: true }
+    }
+
+    #[inline]
+    pub fn new_nivc(lang: &'a Lang<F, C>) -> Self {
+        Self { lang, ivc: false }
+    }
+
+    #[inline]
+    pub(crate) fn lang(&self) -> &Lang<F, C> {
+        self.lang
+    }
+}
+
 /// Creates a LEM `Func` corresponding to Lurk's step function from a `Lang`.
 /// The `ivc` flag tells whether the generated step function is used for IVC or
 /// NIVC. In the IVC case, the step function is capable of reducing calls to the
@@ -243,17 +265,16 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
 /// the step function. In the NIVC case, the step function won't be able to reduce
 /// calls to coprocessors and sets up a loop via the `Expr::Cproc` tag, meaning
 /// that the reduction must be done from outside.
-pub fn make_eval_step_from_lang<F: LurkField, C: Coprocessor<F>>(
-    lang: &Lang<F, C>,
-    ivc: bool,
+pub fn make_eval_step_from_config<F: LurkField, C: Coprocessor<F>>(
+    ec: &EvalConfig<'_, F, C>,
 ) -> Func {
     make_eval_step(
-        &lang
+        &ec.lang
             .coprocessors()
             .iter()
             .map(|(s, c)| (s, c.arity()))
             .collect::<Vec<_>>(),
-        ivc,
+        ec.ivc,
     )
 }
 

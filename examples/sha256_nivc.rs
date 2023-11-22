@@ -8,7 +8,7 @@ use lurk::{
     eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::{evaluate, make_eval_step_from_lang},
+        eval::{evaluate, make_eval_step_from_config, EvalConfig},
         multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
@@ -76,7 +76,7 @@ fn main() {
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));
     let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_lang(&lang, false);
+    let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang));
     let (frames, _) = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
 
     let supernova_prover =
