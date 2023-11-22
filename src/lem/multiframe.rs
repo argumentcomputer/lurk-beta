@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use std::sync::Arc;
 
 use crate::{
-    circuit::gadgets::pointer::AllocatedPtr,
+    circuit::gadgets::{constraints::enforce_equal_const, pointer::AllocatedPtr},
     config::lurk_config,
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
@@ -849,10 +849,13 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit_supernova::StepC
     fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        _pc: Option<&AllocatedNum<F>>,
+        pc: Option<&AllocatedNum<F>>,
         z: &[AllocatedNum<F>],
     ) -> Result<(Option<AllocatedNum<F>>, Vec<AllocatedNum<F>>), SynthesisError> {
-        let next_pc = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "next_pc"), || {
+        let pc = pc.ok_or(SynthesisError::AssignmentMissing)?;
+        enforce_equal_const(cs, || "enforce pc", F::from_u64(self.pc as u64), pc);
+
+        let next_pc = AllocatedNum::alloc_infallible(cs.namespace(|| "next_pc"), || {
             F::from_u64(self.next_pc as u64)
         });
         let output = <MultiFrame<'_, F, C> as nova::traits::circuit::StepCircuit<F>>::synthesize(
