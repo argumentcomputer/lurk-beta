@@ -823,6 +823,53 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         return (nil)
     });
     let is_cproc = is_cproc(cprocs);
+    let lookup = func!(lookup(expr, env, found, binding): 4 => {
+        let rec = Symbol("rec");
+        let non_rec = Symbol("non_rec");
+        let error = Symbol("error");
+        let not_found = Symbol("not_found");
+        let continue = eq_val(not_found, found);
+        if !continue {
+            return (expr, env, found, binding)
+        }
+        match env.tag {
+            Expr::Nil => {
+                return (expr, env, error, binding)
+            }
+        };
+        let (binding, smaller_env) = car_cdr(env);
+        match binding.tag {
+            Expr::Nil => {
+                return (expr, env, error, binding)
+            }
+        };
+        let (var_or_rec_binding, val_or_more_rec_env) = car_cdr(binding);
+        match var_or_rec_binding.tag {
+            Expr::Sym => {
+                let eq_val = eq_val(var_or_rec_binding, expr);
+                if eq_val {
+                    return (val_or_more_rec_env, env, non_rec, binding)
+                }
+                return (expr, smaller_env, not_found, binding)
+            }
+            Expr::Cons => {
+                let (v2, val2) = decons2(var_or_rec_binding);
+
+                let eq_val = eq_val(v2, expr);
+                if eq_val {
+                    match val2.tag {
+                        Expr::Fun => {
+                            return (val2, env, rec, binding)
+                        }
+                    };
+                    return (val2, env, non_rec, binding)
+                }
+                let (env_to_use) = env_to_use(smaller_env, val_or_more_rec_env);
+                return (expr, env_to_use, not_found, binding)
+            }
+        };
+        return (expr, env, error, binding)
+    });
 
     func!(reduce(expr, env, cont): 4 => {
         let ret = Symbol("return");
@@ -869,53 +916,28 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                 if expr_is_nil_or_t {
                     return (expr, env, cont, apply)
                 }
-
-                match env.tag {
-                    Expr::Nil => {
+                let not_found = Symbol("not_found");
+                let (expr, env, found, binding) = lookup(expr, env, not_found, nil);
+                let (expr, env, found, binding) = lookup(expr, env, found, binding);
+                match symbol found {
+                    "error" => {
                         return (expr, env, err, errctrl)
                     }
-                };
-
-                let (binding, smaller_env) = car_cdr(env);
-                match binding.tag {
-                    Expr::Nil => {
-                        return (expr, env, err, errctrl)
+                    "non_rec" => {
+                        return (expr, env, cont, apply)
                     }
-                };
-
-                let (var_or_rec_binding, val_or_more_rec_env) =
-                    car_cdr(binding);
-                match var_or_rec_binding.tag {
-                    Expr::Sym => {
-                        let eq_val = eq_val(var_or_rec_binding, expr);
-                        if eq_val {
-                            return (val_or_more_rec_env, env, cont, apply)
-                        }
-                        return (expr, smaller_env, cont, ret)
+                    "rec" => {
+                        // if `val2` is a closure, then extend its environment
+                        let (arg, body, closed_env, _foo) = decons4(expr);
+                        let extended: Expr::Cons = cons2(binding, closed_env);
+                        // and return the extended closure
+                        let fun: Expr::Fun = cons4(arg, body, extended, foo);
+                        return (fun, env, cont, apply)
                     }
-                    Expr::Cons => {
-                        let (v2, val2) = decons2(var_or_rec_binding);
-
-                        let eq_val = eq_val(v2, expr);
-                        if eq_val {
-                            match val2.tag {
-                                Expr::Fun => {
-                                    // if `val2` is a closure, then extend its environment
-                                    let (arg, body, closed_env, _foo) = decons4(val2);
-                                    let extended: Expr::Cons = cons2(binding, closed_env);
-                                    // and return the extended closure
-                                    let fun: Expr::Fun = cons4(arg, body, extended, foo);
-                                    return (fun, env, cont, apply)
-                                }
-                            };
-                            // otherwise return `val2`
-                            return (val2, env, cont, apply)
-                        }
-                        let (env_to_use) = env_to_use(smaller_env, val_or_more_rec_env);
-                        return (expr, env_to_use, cont, ret)
+                    "not_found" => {
+                        return (expr, env, cont, ret)
                     }
-                };
-                return (expr, env, err, errctrl)
+                }
             }
             Expr::Cons => {
                 // No need for `car_cdr` since the expression is already a `Cons`
@@ -1750,7 +1772,7 @@ mod tests {
         assert_eq!(
             func.slots_count,
             SlotsCounter {
-                hash4: 14,
+                hash4: 15,
                 hash6: 0,
                 hash8: 6,
                 commitment: 1,
@@ -1761,8 +1783,8 @@ mod tests {
             expected.assert_eq(&computed.to_string());
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["8823"]);
-        expect_eq(cs.num_constraints(), expect!["10628"]);
+        expect_eq(cs.aux().len(), expect!["9186"]);
+        expect_eq(cs.num_constraints(), expect!["11127"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
