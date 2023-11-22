@@ -1,6 +1,6 @@
 use abomonation::Abomonation;
 use anyhow::{bail, Context, Result};
-use nova::traits::Group;
+use nova::traits::Engine;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{collections::HashMap, process};
 
@@ -10,7 +10,7 @@ use crate::{
     field::LurkField,
     lem::{multiframe::MultiFrame, pointers::Ptr, Tag},
     package::{Package, SymbolRef},
-    proof::nova::{CurveCycleEquipped, G1, G2},
+    proof::nova::{CurveCycleEquipped, E1, E2},
     tag::{ContTag, ExprTag},
 };
 
@@ -359,8 +359,8 @@ impl MetaCmd<F> {
 
 impl<F: CurveCycleEquipped + Serialize + DeserializeOwned> MetaCmd<F>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     const VERIFY: MetaCmd<F> = MetaCmd {
         name: "verify",

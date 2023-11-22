@@ -4,11 +4,11 @@ use std::marker::PhantomData;
 
 use abomonation::{encode, Abomonation};
 use camino::{Utf8Path, Utf8PathBuf};
-use nova::traits::Group;
+use nova::traits::Engine;
 
 use crate::config::lurk_config;
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::{CurveCycleEquipped, PublicParams, G1, G2};
+use crate::proof::nova::{CurveCycleEquipped, PublicParams, E1, E2};
 use crate::proof::MultiFrameTrait;
 use crate::public_parameters::error::Error;
 
@@ -34,8 +34,8 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F
     DiskCache<'a, F, C, M>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub(crate) fn new(disk_cache_path: &Utf8Path) -> Result<Self, Error> {
         create_dir_all(disk_cache_path)?;

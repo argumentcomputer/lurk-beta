@@ -45,7 +45,7 @@ use std::{
 use ::nova::{
     constants::NUM_HASH_BITS,
     supernova::NonUniformCircuit,
-    traits::{circuit_supernova::StepCircuit as SuperStepCircuit, Group},
+    traits::{circuit_supernova::StepCircuit as SuperStepCircuit, Engine},
 };
 use abomonation::Abomonation;
 use camino::Utf8Path;
@@ -57,7 +57,7 @@ use crate::{
     eval::lang::Lang,
     proof::MultiFrameTrait,
     proof::{
-        nova::{self, CurveCycleEquipped, G1, G2},
+        nova::{self, CurveCycleEquipped, E1, E2},
         supernova::{self, C2},
     },
 };
@@ -134,11 +134,11 @@ impl<
         'a,
         F: CurveCycleEquipped,
         C: Coprocessor<F>,
-        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
     > Instance<'a, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub fn new(rc: usize, lang: Arc<Lang<F, C>>, abomonated: bool, kind: Kind) -> Self {
         let cache_key = match kind {
@@ -196,8 +196,8 @@ where
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
     Instance<'a, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// The key (or cache_key) of this [Instance] used to retrieve it from the file cache
     pub fn lang(&self) -> Arc<Lang<F, C>> {

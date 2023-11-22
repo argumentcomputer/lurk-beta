@@ -3,7 +3,7 @@ mod nova_tests_lem;
 use abomonation::Abomonation;
 use bellpepper::util_cs::{metric_cs::MetricCS, witness_cs::WitnessCS, Comparable};
 use bellpepper_core::{test_cs::TestConstraintSystem, ConstraintSystem, Delta};
-use nova::traits::Group;
+use nova::traits::Engine;
 use std::sync::Arc;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
     eval::lang::Lang,
     lem::eval::EvalConfig,
     proof::{
-        nova::{public_params, CurveCycleEquipped, NovaProver, G1, G2},
+        nova::{public_params, CurveCycleEquipped, NovaProver, E1, E2},
         supernova::FoldingConfig,
         CEKState, EvaluationStore, MultiFrameTrait, Prover,
     },
@@ -47,8 +47,8 @@ fn test_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a,
 )
 // technical bounds that would disappear once associated_type_bounds stabilizes
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     for chunk_size in REDUCTION_COUNTS_TO_TEST {
         nova_test_full_aux::<F, C, M>(
@@ -82,8 +82,8 @@ fn nova_test_full_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFram
 )
 // technical bounds that would disappear once associated_type_bounds stabilizes
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let expr = s.read(expr).unwrap();
 
@@ -126,8 +126,8 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFra
 )
 // technical bounds that would disappear once associated_type_bounds stabilizes
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let limit = limit.unwrap_or(10000);
 

@@ -4,7 +4,7 @@ use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
 use elsa::sync::FrozenMap;
 use ff::PrimeField;
-use nova::{supernova::NonUniformCircuit, traits::Group};
+use nova::{supernova::NonUniformCircuit, traits::Engine};
 use rayon::prelude::*;
 use std::sync::Arc;
 
@@ -16,7 +16,7 @@ use crate::{
     eval::lang::Lang,
     field::{LanguageField, LurkField},
     proof::{
-        nova::{CurveCycleEquipped, G1, G2},
+        nova::{CurveCycleEquipped, E1, E2},
         supernova::{FoldingConfig, C2},
         CEKState, EvaluationStore, FrameLike, MultiFrameTrait, Provable,
     },
@@ -901,12 +901,12 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit_supernova::StepC
     }
 }
 
-impl<'a, F, C> NonUniformCircuit<G1<F>, G2<F>, MultiFrame<'a, F, C>, C2<F>> for MultiFrame<'a, F, C>
+impl<'a, F, C> NonUniformCircuit<E1<F>, E2<F>, MultiFrame<'a, F, C>, C2<F>> for MultiFrame<'a, F, C>
 where
     F: CurveCycleEquipped + LurkField,
     C: Coprocessor<F> + 'a,
-    <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     fn num_circuits(&self) -> usize {
         assert_eq!(self.pc, 0);

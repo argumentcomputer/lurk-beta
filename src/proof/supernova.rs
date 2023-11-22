@@ -9,7 +9,7 @@ use nova::{
     traits::{
         circuit_supernova::{StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit},
         snark::default_ck_hint,
-        Group,
+        Engine,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -23,39 +23,39 @@ use crate::{
     field::LurkField,
     lem::eval::EvalConfig,
     proof::{
-        nova::{CurveCycleEquipped, NovaCircuitShape, G1, G2},
+        nova::{CurveCycleEquipped, NovaCircuitShape, E1, E2},
         {EvaluationStore, FrameLike, MultiFrameTrait, Prover},
     },
 };
 
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-pub type C2<F> = TrivialSecondaryCircuit<<G2<F> as Group>::Scalar>;
+pub type C2<F> = TrivialSecondaryCircuit<<E2<F> as Engine>::Scalar>;
 
 /// Type alias for SuperNova Aux Parameters with the curve cycle types defined above.
-pub type SuperNovaAuxParams<F> = AuxParams<G1<F>, G2<F>>;
+pub type SuperNovaAuxParams<F> = AuxParams<E1<F>, E2<F>>;
 
 /// Type alias for SuperNova Public Parameters with the curve cycle types defined above.
-pub type SuperNovaPublicParams<F, C1> = supernova::PublicParams<G1<F>, G2<F>, C1, C2<F>>;
+pub type SuperNovaPublicParams<F, C1> = supernova::PublicParams<E1<F>, E2<F>, C1, C2<F>>;
 
 /// A struct that contains public parameters for the SuperNova proving system.
 pub struct PublicParams<F: CurveCycleEquipped, SC: SuperStepCircuit<F>>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
-    <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     /// Public params for SuperNova.
     pub pp: SuperNovaPublicParams<F, SC>,
     // SuperNova does not yet have a `CompressedSNARK`.
-    // pk: ProverKey<G1<F>, G2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
-    // vk: VerifierKey<G1<F>, G2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    // pk: ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    // vk: VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
 }
 
 impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> Index<usize> for PublicParams<F, SC>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
-    <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     type Output = NovaCircuitShape<F>;
 
@@ -67,8 +67,8 @@ where
 impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> PublicParams<F, SC>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
-    <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     /// return the digest
     pub fn digest(&self) -> F {
@@ -81,19 +81,19 @@ pub fn public_params<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
 >(
     rc: usize,
     lang: Arc<Lang<F, C>>,
 ) -> PublicParams<F, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
     let non_uniform_circuit = M::blank(folding_config, 0);
     // TODO: use `&*SS::commitment_key_floor()`, where `SS<G>: RelaxedR1CSSNARKTrait<G>`` when https://github.com/lurk-lab/arecibo/issues/27 closes
-    let pp = SuperNovaPublicParams::<F, M>::new(
+    let pp = SuperNovaPublicParams::<F, M>::setup(
         &non_uniform_circuit,
         &*default_ck_hint(),
         &*default_ck_hint(),
@@ -105,13 +105,13 @@ where
 #[derive(Serialize, Deserialize)]
 pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// A proof for the intermediate steps of a recursive computation
-    Recursive(Box<RecursiveSNARK<G1<F>, G2<F>>>),
+    Recursive(Box<RecursiveSNARK<E1<F>, E2<F>>>),
     /// A proof for the final step of a recursive computation
-    // Compressed(Box<CompressedSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>),
+    // Compressed(Box<CompressedSNARK<E1<F>, E2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>),
     Compressed(PhantomData<&'a (C, M)>),
 }
 
@@ -119,11 +119,11 @@ impl<
         'a,
         F: CurveCycleEquipped,
         C: Coprocessor<F>,
-        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
     > Proof<'a, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation recursively, generating a recursive SNARK proof.
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
@@ -136,7 +136,7 @@ where
         // Is this assertion strictly necessary?
         assert!(!nivc_steps.is_empty());
 
-        let mut recursive_snark_option: Option<RecursiveSNARK<G1<F>, G2<F>>> = None;
+        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>, E2<F>>> = None;
 
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
@@ -200,8 +200,8 @@ where
         Ok(zi_primary == zi_primary_verified && *zi_secondary == zi_secondary_verified)
     }
 
-    fn z0_secondary() -> Vec<<F::G2 as Group>::Scalar> {
-        vec![<G2<F> as Group>::Scalar::ZERO]
+    fn z0_secondary() -> Vec<<F::E2 as Engine>::Scalar> {
+        vec![<E2<F> as Engine>::Scalar::ZERO]
     }
 }
 
@@ -227,8 +227,8 @@ impl<
         M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
     > Prover<'a, F, C, M> for SuperNovaProver<'a, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, M>;
     fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
@@ -251,11 +251,11 @@ impl<
         'a,
         F: CurveCycleEquipped,
         C: Coprocessor<F>,
-        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
     > SuperNovaProver<'a, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation given the public parameters, frames, and store.
     pub fn prove(
@@ -358,21 +358,21 @@ pub fn circuit_cache_key<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
 >(
     rc: usize,
     lang: Arc<Lang<F, C>>,
     circuit_index: usize,
 ) -> F
 where
-    <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, 2));
     let circuit = M::blank(folding_config, 0);
     let num_circuits = circuit.num_circuits();
     let circuit = circuit.primary_circuit(circuit_index);
-    F::from(rc as u64) * supernova::circuit_digest::<F::G1, F::G2, _>(&circuit, num_circuits)
+    F::from(rc as u64) * supernova::circuit_digest::<F::E1, F::E2, _>(&circuit, num_circuits)
 }
 
 /// Collects all the cache keys of supernova instance. We need all of them to compute
@@ -381,14 +381,14 @@ pub fn circuit_cache_keys<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
 >(
     rc: usize,
     lang: &Arc<Lang<F, C>>,
-) -> CircuitDigests<G1<F>>
+) -> CircuitDigests<E1<F>>
 where
-    <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     let num_circuits = lang.coprocessor_count() + 1;
     let digests = (0..num_circuits)
