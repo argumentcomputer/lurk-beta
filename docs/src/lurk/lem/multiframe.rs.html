@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/multiframe.rs`."><title>multiframe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (3a85a5cfe 2023-11-20)" data-channel="nightly" data-search-js="search-d23a059ec093b287.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f06f02fd918e3bb3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/multiframe.rs`."><title>multiframe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (2f8d81f9d 2023-11-21)" data-channel="nightly" data-search-js="search-21db098bdc95be9e.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f06f02fd918e3bb3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1074,6 +1074,41 @@
 <a href="#1074" id="1074">1074</a>
 <a href="#1075" id="1075">1075</a>
 <a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -1102,7 +1137,10 @@
 
 <span class="kw">use super</span>::{
     circuit::{allocate_slot, BoundAllocations, GlobalAllocator, SlotWitness},
-    eval::{evaluate_with_env_and_cont, make_cprocs_funcs_from_lang, make_eval_step_from_lang},
+    eval::{
+        evaluate_with_env_and_cont, make_cprocs_funcs_from_lang, make_eval_step_from_config,
+        EvalConfig,
+    },
     interpreter::Frame,
     pointers::Ptr,
     slot::SlotType,
@@ -1436,6 +1474,25 @@
     }
 }
 
+<span class="doccomment">/// Pads `frames` up to a certain `size`` with a frame generated with Lurk&#39;s step
+/// function. For efficiency, `frames` should have enough capacity to avoid
+/// reallocations
+</span><span class="kw">fn </span>pad_frames&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
+    frames: <span class="kw-2">&amp;mut </span>Vec&lt;Frame&lt;F&gt;&gt;,
+    input: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
+    lurk_step: <span class="kw-2">&amp;</span>Func,
+    lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
+    size: usize,
+    store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+) {
+    <span class="kw">let </span>padding_frame = lurk_step
+        .call_simple(input, store, lang, <span class="number">0</span>)
+        .expect(<span class="string">&quot;reduction step failed&quot;</span>);
+    <span class="macro">assert_eq!</span>(padding_frame.pc, <span class="number">0</span>);
+    <span class="macro">assert_eq!</span>(input, padding_frame.output);
+    frames.resize(size, padding_frame);
+}
+
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="kw">type </span>Ptr = Ptr&lt;F&gt;;
     <span class="kw">type </span>ContPtr = Ptr&lt;F&gt;;
@@ -1546,11 +1603,13 @@
 
     <span class="kw">fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, pc: usize) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(lurk_step, cprocs, rc) = <span class="kw">match </span><span class="kw-2">&amp;*</span>folding_config {
-            FoldingConfig::IVC(lang, rc) =&gt; {
-                (Arc::new(make_eval_step_from_lang(lang, <span class="bool-val">true</span>)), <span class="prelude-val">None</span>, <span class="kw-2">*</span>rc)
-            }
+            FoldingConfig::IVC(lang, rc) =&gt; (
+                Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(lang))),
+                <span class="prelude-val">None</span>,
+                <span class="kw-2">*</span>rc,
+            ),
             FoldingConfig::NIVC(lang, rc) =&gt; (
-                Arc::new(make_eval_step_from_lang(lang, <span class="bool-val">false</span>)),
+                Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_nivc(lang))),
                 <span class="prelude-val">Some</span>(make_cprocs_funcs_from_lang(lang)),
                 <span class="kw-2">*</span>rc,
             ),
@@ -1576,13 +1635,12 @@
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">Self</span>::Store,
         folding_config: <span class="kw-2">&amp;</span>Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>total_frames = frames.len();
         <span class="kw">let </span>reduction_count = folding_config.reduction_count();
-        <span class="kw">let </span>n = (total_frames + reduction_count - <span class="number">1</span>) / reduction_count;
-        <span class="kw">let </span><span class="kw-2">mut </span>multi_frames = Vec::with_capacity(n);
+        <span class="kw">let </span><span class="kw-2">mut </span>multi_frames =
+            Vec::with_capacity((frames.len() + reduction_count - <span class="number">1</span>) / reduction_count);
         <span class="kw">match </span><span class="kw-2">&amp;**</span>folding_config {
             FoldingConfig::IVC(lang, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_lang(lang, <span class="bool-val">true</span>));
+                <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(lang)));
                 <span class="kw">for </span>chunk <span class="kw">in </span>frames.chunks(reduction_count) {
                     <span class="kw">let </span>output = chunk
                         .last()
@@ -1592,11 +1650,14 @@
                     <span class="kw">let </span>inner_frames = <span class="kw">if </span>chunk.len() &lt; reduction_count {
                         <span class="kw">let </span><span class="kw-2">mut </span>inner_frames = Vec::with_capacity(reduction_count);
                         inner_frames.extend(chunk.to_vec());
-                        <span class="kw">let </span>padding_frame = lurk_step
-                            .call_simple(<span class="kw-2">&amp;</span>output, store, lang, <span class="number">0</span>)
-                            .expect(<span class="string">&quot;reduction step failed&quot;</span>);
-                        <span class="macro">assert_eq!</span>(output, padding_frame.output);
-                        inner_frames.resize(reduction_count, padding_frame);
+                        pad_frames(
+                            <span class="kw-2">&amp;mut </span>inner_frames,
+                            <span class="kw-2">&amp;</span>output,
+                            <span class="kw-2">&amp;</span>lurk_step,
+                            lang,
+                            reduction_count,
+                            store,
+                        );
                         inner_frames
                     } <span class="kw">else </span>{
                         chunk.to_vec()
@@ -1620,7 +1681,7 @@
                 }
             }
             FoldingConfig::NIVC(lang, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_lang(lang, <span class="bool-val">false</span>));
+                <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_nivc(lang)));
                 <span class="kw">let </span>cprocs = make_cprocs_funcs_from_lang(lang);
                 <span class="kw">let </span><span class="kw-2">mut </span>chunk_start_idx = <span class="number">0</span>;
                 <span class="kw">while </span>chunk_start_idx &lt; frames.len() {
@@ -1668,11 +1729,14 @@
                             .to_vec();
 
                         <span class="kw">if </span>inner_frames.len() &lt; reduction_count {
-                            <span class="kw">let </span>padding_frame = lurk_step
-                                .call_simple(<span class="kw-2">&amp;</span>output, store, lang, <span class="number">0</span>)
-                                .expect(<span class="string">&quot;reduction step failed&quot;</span>);
-                            <span class="macro">assert_eq!</span>(output, padding_frame.output);
-                            inner_frames.resize(reduction_count, padding_frame);
+                            pad_frames(
+                                <span class="kw-2">&amp;mut </span>inner_frames,
+                                <span class="kw-2">&amp;</span>output,
+                                <span class="kw-2">&amp;</span>lurk_step,
+                                lang,
+                                reduction_count,
+                                store,
+                            );
                         }
 
                         frames_to_add = inner_frames;
@@ -1706,17 +1770,23 @@
         multi_frames
     }
 
-    <span class="kw">fn </span>get_evaluation_frames(
-        _padding_predicate: <span class="kw">impl </span>Fn(usize) -&gt; bool,
+    <span class="kw">fn </span>build_frames(
         expr: <span class="self">Self</span>::Ptr,
         env: <span class="self">Self</span>::Ptr,
         store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store,
         limit: usize,
-        lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
+        ec: <span class="kw-2">&amp;</span>EvalConfig&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="self">Self</span>::EvalFrame&gt;, ProofError&gt; {
         <span class="kw">let </span>cont = store.cont_outermost();
-        <span class="kw">let </span>lurk_step = make_eval_step_from_lang(lang, <span class="bool-val">true</span>);
-        <span class="kw">match </span>evaluate_with_env_and_cont(<span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>lurk_step, lang)), expr, env, cont, store, limit) {
+        <span class="kw">let </span>lurk_step = make_eval_step_from_config(ec);
+        <span class="kw">match </span>evaluate_with_env_and_cont(
+            <span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>lurk_step, ec.lang())),
+            expr,
+            env,
+            cont,
+            store,
+            limit,
+        ) {
             <span class="prelude-val">Ok</span>((frames, <span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(frames),
             <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(ProofError::Reduction(ReductionError::Misc(e.to_string()))),
         }
@@ -1726,7 +1796,7 @@
         <span class="kw">let </span>stop_cond = |output: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]| {
             <span class="macro">matches!</span>(
                 output[<span class="number">2</span>].tag(),
-                Tag::Cont(ContTag::Terminal) | Tag::Cont(ContTag::Error)
+                Tag::Cont(ContTag::Terminal | ContTag::Error)
             )
         };
         frames
