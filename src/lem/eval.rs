@@ -679,18 +679,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         let expanded: Expr::Cons = cons2(head, expanded_0);
         return (expanded)
     });
-    let choose_let_cont = func!(choose_let_cont(head, var, env, expanded, cont): 1 => {
-        match symbol head {
-            "let" => {
-                let cont: Cont::Let = cons4(var, env, expanded, cont);
-                return (cont)
-            }
-            "letrec" => {
-                let cont: Cont::LetRec = cons4(var, env, expanded, cont);
-                return (cont)
-            }
-        }
-    });
     let get_unop = func!(get_unop(head): 1 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
@@ -977,14 +965,17 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                     match var.tag {
                                         Expr::Sym => {
                                             let (val, end) = car_cdr(vals);
-                                            match end.tag {
-                                                Expr::Nil => {
-                                                    let (expanded) = expand_bindings(head, body, body1, rest_bindings);
-                                                    let (cont) = choose_let_cont(head, var, env, expanded, cont);
-                                                    return (val, env, cont, ret)
-                                                }
-                                            };
-                                            return (expr, env, err, errctrl)
+                                            let end_is_nil = eq_tag(end, nil);
+                                            if !end_is_nil {
+                                                return (expr, env, err, errctrl)
+                                            }
+                                            let (expanded) = expand_bindings(head, body, body1, rest_bindings);
+                                            if head_is_let_sym {
+                                                let cont: Cont::Let = cons4(var, env, expanded, cont);
+                                                return (val, env, cont, ret)
+                                            }
+                                            let cont: Cont::LetRec = cons4(var, env, expanded, cont);
+                                            return (val, env, cont, ret)
                                         }
                                     };
                                     return (expr, env, err, errctrl)
@@ -1783,7 +1774,7 @@ mod tests {
             expected.assert_eq(&computed.to_string());
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9186"]);
+        expect_eq(cs.aux().len(), expect!["9185"]);
         expect_eq(cs.num_constraints(), expect!["11127"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
