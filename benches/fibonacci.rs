@@ -15,8 +15,9 @@ use lurk::{
     proof::nova::NovaProver,
     proof::Prover,
     public_parameters::{
+        fresh_public_params,
         instance::{Instance, Kind},
-        public_params,
+        load_public_params,
     },
     state::State,
 };
@@ -51,6 +52,7 @@ fn fib_limit(n: usize, rc: usize) -> usize {
 struct ProveParams {
     fib_n: usize,
     reduction_count: usize,
+    fresh: bool,
     date: &'static str,
     sha: &'static str,
 }
@@ -74,8 +76,7 @@ impl ProveParams {
 }
 
 fn bench_parameters_env() -> anyhow::Result<String> {
-    std::env::var("LURK_BENCH_OUTPUT")
-        .map_err(|e| anyhow!("Noise threshold env var isn't set: {e}"))
+    std::env::var("LURK_BENCH_OUTPUT").map_err(|e| anyhow!("Bench output env var isn't set: {e}"))
 }
 
 fn rc_env() -> anyhow::Result<Vec<usize>> {
@@ -118,7 +119,11 @@ fn fibonacci_prove<M: measurement::Measurement>(
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = if prove_params.fresh {
+        fresh_public_params::<_, _, MultiFrame<'_, _, _>>(&instance, true).unwrap()
+    } else {
+        load_public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap()
+    };
 
     // Track the number of `Lurk frames / sec`
     let rc = prove_params.reduction_count as u64;
@@ -159,18 +164,20 @@ fn fibonacci_prove<M: measurement::Measurement>(
 
 fn fibonacci_benchmark(c: &mut Criterion) {
     // Uncomment to record the logs. May negatively impact performance
-    //tracing_subscriber::fmt::init();
+    // tracing_subscriber::fmt::init();
     set_bench_config();
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
-    let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
+    let reduction_counts = rc_env().unwrap_or_else(|_| vec![100, 600]);
     let batch_sizes = [100, 200];
 
     let state = State::init_lurk_state().rccell();
 
     for reduction_count in reduction_counts.iter() {
-        let mut group: BenchmarkGroup<'_, _> =
-            c.benchmark_group(format!("LEM Fibonacci Prove - rc = {}", reduction_count));
+        let mut group: BenchmarkGroup<'_, _> = c.benchmark_group(format!(
+            "LEM Fibonacci Prove Fresh - rc = {}",
+            reduction_count
+        ));
         group.sampling_mode(SamplingMode::Flat); // This can take a *while*
         group.sample_size(10);
         group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
@@ -179,6 +186,28 @@ fn fibonacci_benchmark(c: &mut Criterion) {
             let prove_params = ProveParams {
                 fib_n: *fib_n,
                 reduction_count: *reduction_count,
+                fresh: true,
+                date: env!("VERGEN_GIT_COMMIT_DATE"),
+                sha: env!("VERGEN_GIT_SHA"),
+            };
+            fibonacci_prove(prove_params, &mut group, &state);
+        }
+    }
+
+    for reduction_count in reduction_counts.iter() {
+        let mut group: BenchmarkGroup<'_, _> = c.benchmark_group(format!(
+            "LEM Fibonacci Prove Load - rc = {}",
+            reduction_count
+        ));
+        group.sampling_mode(SamplingMode::Flat); // This can take a *while*
+        group.sample_size(10);
+        group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
+
+        for fib_n in batch_sizes.iter() {
+            let prove_params = ProveParams {
+                fib_n: *fib_n,
+                reduction_count: *reduction_count,
+                fresh: false,
                 date: env!("VERGEN_GIT_COMMIT_DATE"),
                 sha: env!("VERGEN_GIT_SHA"),
             };

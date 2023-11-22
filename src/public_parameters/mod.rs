@@ -36,47 +36,53 @@ where
     mem_cache::PUBLIC_PARAM_MEM_CACHE.get_from_mem_cache_or_update_with(instance, f)
 }
 
-/// Attempts to extract abomonated public parameters.
-/// To avoid all copying overhead, we zerocopy all of the data within the file;
-/// this leads to extremely high performance, but restricts the lifetime of the data
-/// to the lifetime of the file. Thus, we cannot pass a reference out and must
-/// rely on a closure to capture the data and continue the computation in `bind`.
-pub fn with_public_params<'a, F, C, M, Fn, T>(
+/// Generates fresh public parameters. If `write` is `true`, then we also write it into the disk cache.
+pub fn fresh_public_params<'a, F, C, M>(
     instance: &Instance<'a, F, C, M>,
-    bind: Fn,
-) -> Result<T, Error>
+    write: bool,
+) -> Result<PublicParams<F, M>, Error>
 where
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
     M: MultiFrameTrait<'a, F, C>,
-    Fn: FnOnce(&PublicParams<F, M>) -> T,
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default =
-        |instance: &Instance<'a, F, C, M>| nova::public_params(instance.rc, instance.lang());
+    let pp = nova::public_params(instance.rc, instance.lang());
+
+    if write {
+        let disk_cache = DiskCache::<F, C, M>::new(public_params_dir()).unwrap();
+        disk_cache.write_abomonated(instance, &pp)?;
+    }
+
+    Ok(pp)
+}
+
+/// Attempts to load in a specificed set of params from the disk cache. Fails if no cached params are found.
+pub fn load_public_params<'a, F, C, M>(
+    instance: &Instance<'a, F, C, M>,
+) -> Result<PublicParams<F, M>, Error>
+where
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     let disk_cache = DiskCache::<F, C, M>::new(public_params_dir()).unwrap();
 
     let mut bytes = vec![];
     let pp = disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
-        if let Some((pp, remaining)) = unsafe { decode(&mut bytes) } {
+        if let Some((pp, remaining)) = unsafe { decode::<PublicParams<F, M>>(&mut bytes) } {
             assert!(remaining.is_empty());
-            eprintln!("Using disk-cached public params for {}", instance.key());
+            tracing::info!("Using disk-cached public params for {}", instance.key());
             Ok(pp)
         } else {
             Err(Error::Cache("failed to decode bytes".into()))
         }
     });
 
-    match pp {
-        Ok(pp) => Ok(bind(pp)),
-        Err(e) => {
-            eprintln!("{e}");
-            let pp = default(instance);
-            disk_cache.write_abomonated(instance, &pp)?;
-            Ok(bind(&pp))
-        }
-    }
+    pp.cloned()
 }
 
 pub fn supernova_circuit_params<
