@@ -13,7 +13,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 // modulus for consistency. If everything goes well, we further unwrap the second
 // vector of bytes.
 
-pub(crate) trait HasFieldModulus {
+pub trait HasFieldModulus {
     fn field_modulus() -> String;
 }
 
@@ -32,7 +32,7 @@ pub(crate) fn dump<T: Serialize + HasFieldModulus>(t: T, path: &Utf8PathBuf) -> 
     Ok(std::fs::write(path, ser(t)?)?)
 }
 
-pub(crate) fn load<T: DeserializeOwned + HasFieldModulus>(path: &Utf8PathBuf) -> Result<T> {
+pub fn load<T: DeserializeOwned + HasFieldModulus>(path: &Utf8PathBuf) -> Result<T> {
     de(&std::fs::read(path)?)
 }
 

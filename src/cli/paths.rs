@@ -74,13 +74,13 @@ pub(crate) fn commitment_path(name: &str) -> Utf8PathBuf {
     commits_dir().join(Utf8Path::new(&format!("{name}.commit")))
 }
 
-pub(crate) fn proof_path(name: &str) -> Utf8PathBuf {
+pub fn proof_path(name: &str) -> Utf8PathBuf {
     proofs_dir()
         .join(Utf8Path::new(name))
         .with_extension("proof")
 }
 
-pub(crate) fn proof_meta_path(name: &str) -> Utf8PathBuf {
+pub fn proof_meta_path(name: &str) -> Utf8PathBuf {
     proofs_dir()
         .join(Utf8Path::new(name))
         .with_extension("meta")

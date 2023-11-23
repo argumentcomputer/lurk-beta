@@ -24,7 +24,7 @@ pub mod store;
 mod symbol;
 mod syntax;
 mod syntax_macros;
-mod tag;
+pub mod tag;
 mod uint;
 mod writer;
 pub mod z_data;

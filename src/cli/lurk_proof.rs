@@ -33,7 +33,7 @@ use super::{
 
 /// Carries information to help with visualization
 #[derive(Serialize, Deserialize)]
-pub(crate) struct LurkProofMeta<F: LurkField> {
+pub struct LurkProofMeta<F: LurkField> {
     pub(crate) iterations: usize,
     pub(crate) expr_io: (ZPtr<F>, ZPtr<F>),
     pub(crate) env_io: Option<(ZPtr<F>, ZPtr<F>)>,
@@ -151,7 +151,7 @@ impl<F: LurkField + DeserializeOwned> LurkProofMeta<F> {
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-pub(crate) enum LurkProof<
+pub enum LurkProof<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + Serialize + DeserializeOwned,
@@ -195,8 +195,9 @@ where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
+    /// Get the public input and output of a proof
     #[inline]
-    fn public_io(&self) -> (&[F], &[F]) {
+    pub fn public_io(&self) -> (&[F], &[F]) {
         match self {
             Self::Nova {
                 proof: _,
@@ -207,34 +208,53 @@ where
         }
     }
 
-    fn matches_meta(&self, meta: &LurkProofMeta<F>) -> bool {
+    /// Check whether the proof's public input and output match CEK IO fields
+    /// provided as `ZPtr`s
+    pub fn matches(
+        &self,
+        expr: Option<&ZPtr<F>>,
+        expr_out: Option<&ZPtr<F>>,
+        env: Option<&ZPtr<F>>,
+        env_out: Option<&ZPtr<F>>,
+        cont: Option<&ZPtr<F>>,
+        cont_out: Option<&ZPtr<F>>,
+    ) -> bool {
         let (public_input, public_output) = self.public_io();
-        let matches_exprs = {
-            let (expr, expr_out) = &meta.expr_io;
-            public_input[0] == expr.tag_field()
-                && &public_input[1] == expr.value()
-                && public_output[0] == expr_out.tag_field()
-                && &public_output[1] == expr_out.value()
-        };
-        let matches_envs = {
-            if let Some((env, env_out)) = &meta.env_io {
-                public_input[2] == env.tag_field()
-                    && &public_input[3] == env.value()
-                    && public_output[2] == env_out.tag_field()
-                    && &public_output[3] == env_out.value()
+        let matches_fn = |opt: Option<&ZPtr<F>>, vec: &[F], idx| {
+            if let Some(z_ptr) = opt {
+                vec[idx] == z_ptr.tag_field() && &vec[idx + 1] == z_ptr.value()
             } else {
-                // no data to trigger inconsistency
                 true
             }
         };
-        let matches_conts = {
-            let (cont, cont_out) = &meta.cont_io;
-            public_input[4] == cont.tag_field()
-                && &public_input[5] == cont.value()
-                && public_output[4] == cont_out.tag_field()
-                && &public_output[5] == cont_out.value()
+        let matches_expr = matches_fn(expr, public_input, 0);
+        let matches_expr_out = matches_fn(expr_out, public_output, 0);
+        let matches_env = matches_fn(env, public_input, 2);
+        let matches_env_out = matches_fn(env_out, public_output, 2);
+        let matches_cont = matches_fn(cont, public_input, 4);
+        let matches_cont_out = matches_fn(cont_out, public_output, 4);
+
+        matches_expr
+            && matches_expr_out
+            && matches_env
+            && matches_env_out
+            && matches_cont
+            && matches_cont_out
+    }
+
+    fn matches_meta(&self, meta: &LurkProofMeta<F>) -> bool {
+        let (env, env_out) = match &meta.env_io {
+            Some((env, env_out)) => (Some(env), Some(env_out)),
+            None => (None, None),
         };
-        matches_exprs && matches_envs && matches_conts
+        self.matches(
+            Some(&meta.expr_io.0),
+            Some(&meta.expr_io.1),
+            env,
+            env_out,
+            Some(&meta.cont_io.0),
+            Some(&meta.cont_io.1),
+        )
     }
 }
 
