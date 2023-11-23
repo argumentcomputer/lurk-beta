@@ -4,7 +4,7 @@ use std::{
 };
 
 use abomonation::{decode, Abomonation};
-use nova::traits::Group;
+use nova::traits::Engine;
 use once_cell::sync::Lazy;
 use tap::TapFallible;
 use tracing::{info, warn};
@@ -12,7 +12,7 @@ use tracing::{info, warn};
 use crate::proof::MultiFrameTrait;
 use crate::{
     coprocessor::Coprocessor,
-    proof::nova::{PublicParams, G1, G2},
+    proof::nova::{PublicParams, E1, E2},
 };
 use crate::{proof::nova::CurveCycleEquipped, public_parameters::error::Error};
 
@@ -51,8 +51,8 @@ impl PublicParamMemCache {
         default: Fn,
     ) -> Result<Arc<PublicParams<F, M>>, Error>
     where
-        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     {
         // subdirectory search
         let disk_cache = DiskCache::new(public_params_dir()).unwrap();
@@ -111,8 +111,8 @@ impl PublicParamMemCache {
         default: Fn,
     ) -> Result<Arc<PublicParams<F, M>>, Error>
     where
-        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     {
         // re-grab the lock
         let mut mem_cache = self.mem_cache.lock().unwrap();

@@ -1,6 +1,6 @@
 use ::nova::{
     supernova::NonUniformCircuit,
-    traits::{circuit_supernova::StepCircuit as SuperStepCircuit, Group},
+    traits::{circuit_supernova::StepCircuit as SuperStepCircuit, Engine},
 };
 use abomonation::Abomonation;
 use anyhow::{bail, Result};
@@ -14,7 +14,7 @@ use crate::{
     field::LurkField,
     lem::{pointers::ZPtr, store::Store},
     proof::{
-        nova::{self, CurveCycleEquipped, G1, G2},
+        nova::{self, CurveCycleEquipped, E1, E2},
         supernova::C2,
         MultiFrameTrait,
     },
@@ -157,8 +157,8 @@ pub(crate) enum LurkProof<
     C: Coprocessor<F> + Serialize + DeserializeOwned,
     M: MultiFrameTrait<'a, F, C>,
 > where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     Nova {
         proof: nova::Proof<'a, F, C, M>,
@@ -177,8 +177,8 @@ impl<
         M: MultiFrameTrait<'a, F, C>,
     > HasFieldModulus for LurkProof<'a, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
@@ -192,8 +192,8 @@ impl<
         M: MultiFrameTrait<'a, F, C>,
     > LurkProof<'a, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     #[inline]
     fn public_io(&self) -> (&[F], &[F]) {
@@ -245,8 +245,8 @@ impl<
         M: MultiFrameTrait<'a, F, C>,
     > LurkProof<'a, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
@@ -259,12 +259,12 @@ impl<
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
         M: MultiFrameTrait<'static, F, C>
             + SuperStepCircuit<F>
-            + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>
+            + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>
             + 'static,
     > LurkProof<'static, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
         let lurk_proof = load::<Self>(&proof_path(proof_key))?;
@@ -309,8 +309,8 @@ pub(crate) struct PackedLurkProof<
     C: Coprocessor<F> + Serialize + DeserializeOwned,
     M: MultiFrameTrait<'a, F, C>,
 > where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     proof: LurkProof<'a, F, C, M>,
     meta: Option<LurkProofMeta<F>>,
@@ -324,8 +324,8 @@ impl<
         M: MultiFrameTrait<'a, F, C>,
     > HasFieldModulus for PackedLurkProof<'a, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
@@ -337,12 +337,12 @@ impl<
         C: Coprocessor<F> + 'static + Serialize + DeserializeOwned,
         M: MultiFrameTrait<'static, F, C>
             + SuperStepCircuit<F>
-            + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>
+            + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>
             + 'static,
     > PackedLurkProof<'static, F, C, M>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub(crate) fn pack(
         proof_key: String,

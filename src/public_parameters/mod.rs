@@ -1,10 +1,10 @@
-use ::nova::traits::Group;
+use ::nova::traits::Engine;
 use abomonation::{decode, Abomonation};
 use std::sync::Arc;
 
 use crate::coprocessor::Coprocessor;
 use crate::proof::nova::{self, NovaCircuitShape, PublicParams};
-use crate::proof::nova::{CurveCycleEquipped, G1, G2};
+use crate::proof::nova::{CurveCycleEquipped, E1, E2};
 use crate::proof::MultiFrameTrait;
 
 pub mod disk_cache;
@@ -27,8 +27,8 @@ pub fn public_params<
     instance: &Instance<'static, F, C, M>,
 ) -> Result<Arc<PublicParams<F, M>>, Error>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let f = |instance: &Instance<'static, F, C, M>| {
         Arc::new(nova::public_params(instance.rc, instance.lang()))
@@ -50,8 +50,8 @@ where
     C: Coprocessor<F> + 'a,
     M: MultiFrameTrait<'a, F, C>,
     Fn: FnOnce(&PublicParams<F, M>) -> T,
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let default =
         |instance: &Instance<'a, F, C, M>| nova::public_params(instance.rc, instance.lang());
@@ -88,8 +88,8 @@ pub fn supernova_circuit_params<
     instance: &Instance<'a, F, C, M>,
 ) -> Result<NovaCircuitShape<F>, Error>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C, M>::new(public_params_dir()).unwrap();
 
@@ -114,8 +114,8 @@ pub fn supernova_aux_params<
     instance: &Instance<'a, F, C, M>,
 ) -> Result<SuperNovaAuxParams<F>, Error>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C, M>::new(public_params_dir()).unwrap();
 
@@ -140,13 +140,13 @@ pub fn supernova_public_params<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
 >(
     instance_primary: &Instance<'a, F, C, M>,
 ) -> Result<supernova::PublicParams<F, M>, Error>
 where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let default = |instance: &Instance<'a, F, C, M>| {
         supernova::public_params::<'a, F, C, M>(instance.rc, instance.lang())
