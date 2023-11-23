@@ -3,12 +3,10 @@
 use abomonation::Abomonation;
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem};
 use ff::Field;
+use halo2curves::bn256::Fr as Bn256Scalar;
 use nova::{
     errors::NovaError,
-    provider::{
-        bn256_grumpkin::{bn256, Bn256Engine, GrumpkinEngine},
-        pasta::{PallasEngine, VestaEngine},
-    },
+    provider::{Bn256Engine, GrumpkinEngine, PallasEngine, VestaEngine},
     traits::{
         circuit::{StepCircuit, TrivialCircuit},
         evaluation::EvaluationEngineTrait,
@@ -68,7 +66,7 @@ impl CurveCycleEquipped for pallas::Scalar {
 }
 // The impl CurveCycleEquipped for vesta::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 
-impl CurveCycleEquipped for bn256::Scalar {
+impl CurveCycleEquipped for Bn256Scalar {
     type EE1 = nova::provider::ipa_pc::EvaluationEngine<Self::E1>;
     type EE2 = nova::provider::ipa_pc::EvaluationEngine<Self::E2>;
 

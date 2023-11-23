@@ -929,7 +929,8 @@ where
 #[cfg(test)]
 mod tests {
     use bellpepper_core::test_cs::TestConstraintSystem;
-    use nova::provider::bn256_grumpkin::{bn256::Scalar as Bn, grumpkin::Scalar as Gr};
+    use halo2curves::bn256::Fr as Bn;
+    use halo2curves::grumpkin::Fr as Gr;
     use pasta_curves::{Fp, Fq};
 
     use crate::{
