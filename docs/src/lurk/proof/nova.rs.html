@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (2f8d81f9d 2023-11-21)" data-channel="nightly" data-search-js="search-21db098bdc95be9e.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f06f02fd918e3bb3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1e9dda77b 2023-11-22)" data-channel="nightly" data-search-js="search-f4028ef4dd0903c7.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f06f02fd918e3bb3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -480,6 +480,9 @@
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -487,16 +490,19 @@
 <span class="kw">use </span>ff::Field;
 <span class="kw">use </span>nova::{
     errors::NovaError,
-    provider::bn256_grumpkin::{bn256, grumpkin},
+    provider::{
+        bn256_grumpkin::{bn256, Bn256Engine, GrumpkinEngine},
+        pasta::{PallasEngine, VestaEngine},
+    },
     traits::{
         circuit::{StepCircuit, TrivialCircuit},
         evaluation::EvaluationEngineTrait,
         snark::RelaxedR1CSSNARKTrait,
-        Group,
+        Engine,
     },
     CircuitShape, CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
 };
-<span class="kw">use </span>pasta_curves::{pallas, vesta};
+<span class="kw">use </span>pasta_curves::pallas;
 <span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{
@@ -528,38 +534,38 @@
     /// encapsulating these idiosyncracies within Nova.
 
     /// a concrete implementation of an [`nova::traits::evaluation::EvaluationEngineTrait&lt;G&gt;`] for G1,
-    </span><span class="kw">type </span>EE1: EvaluationEngineTrait&lt;<span class="self">Self</span>::G1&gt;;
+    </span><span class="kw">type </span>EE1: EvaluationEngineTrait&lt;<span class="self">Self</span>::E1&gt;;
     <span class="doccomment">/// a concrete implementation of an [`nova::traits::evaluation::EvaluationEngineTrait&lt;G&gt;`] for G2,
-    </span><span class="kw">type </span>EE2: EvaluationEngineTrait&lt;<span class="self">Self</span>::G2&gt;;
+    </span><span class="kw">type </span>EE2: EvaluationEngineTrait&lt;<span class="self">Self</span>::E2&gt;;
 
     <span class="doccomment">/// The group type for the first curve in the cycle.
-    </span><span class="kw">type </span>G1: Group&lt;Base = &lt;<span class="self">Self</span>::G2 <span class="kw">as </span>Group&gt;::Scalar, Scalar = <span class="self">Self</span>&gt;;
+    </span><span class="kw">type </span>E1: Engine&lt;Base = &lt;<span class="self">Self</span>::E2 <span class="kw">as </span>Engine&gt;::Scalar, Scalar = <span class="self">Self</span>&gt;;
     <span class="doccomment">/// The  group type for the second curve in the cycle.
-    </span><span class="kw">type </span>G2: Group&lt;Base = &lt;<span class="self">Self</span>::G1 <span class="kw">as </span>Group&gt;::Scalar&gt;;
+    </span><span class="kw">type </span>E2: Engine&lt;Base = &lt;<span class="self">Self</span>::E1 <span class="kw">as </span>Engine&gt;::Scalar&gt;;
 }
 
 <span class="kw">impl </span>CurveCycleEquipped <span class="kw">for </span>pallas::Scalar {
-    <span class="kw">type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::G1&gt;;
-    <span class="kw">type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::G2&gt;;
+    <span class="kw">type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::E1&gt;;
+    <span class="kw">type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::E2&gt;;
 
-    <span class="kw">type </span>G1 = pallas::Point;
-    <span class="kw">type </span>G2 = vesta::Point;
+    <span class="kw">type </span>E1 = PallasEngine;
+    <span class="kw">type </span>E2 = VestaEngine;
 }
 <span class="comment">// The impl CurveCycleEquipped for vesta::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 
 </span><span class="kw">impl </span>CurveCycleEquipped <span class="kw">for </span>bn256::Scalar {
-    <span class="kw">type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::G1&gt;;
-    <span class="kw">type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::G2&gt;;
+    <span class="kw">type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::E1&gt;;
+    <span class="kw">type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::E2&gt;;
 
-    <span class="kw">type </span>G1 = bn256::Point;
-    <span class="kw">type </span>G2 = grumpkin::Point;
+    <span class="kw">type </span>E1 = Bn256Engine;
+    <span class="kw">type </span>E2 = GrumpkinEngine;
 }
 <span class="comment">// The impl CurveCycleEquipped for grumpkin::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 
 </span><span class="doccomment">/// Convenience alias for the primary group type pegged to a LurkField through a CurveCycleEquipped type.
-</span><span class="kw">pub type </span>G1&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::G1;
+</span><span class="kw">pub type </span>E1&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::E1;
 <span class="doccomment">/// Convenience alias for the secondary group type pegged to a LurkField through a CurveCycleEquipped type.
-</span><span class="kw">pub type </span>G2&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::G2;
+</span><span class="kw">pub type </span>E2&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::E2;
 
 <span class="doccomment">/// Type alias for the Evaluation Engine using G1 group elements.
 </span><span class="kw">pub type </span>EE1&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::EE1;
@@ -569,24 +575,24 @@
 <span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
 </span><span class="comment">// NOTE: this is not a SNARK that uses computational commitments,
 // that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
-</span><span class="kw">pub type </span>SS1&lt;F&gt; = nova::spartan::snark::RelaxedR1CSSNARK&lt;G1&lt;F&gt;, EE1&lt;F&gt;&gt;;
+</span><span class="kw">pub type </span>SS1&lt;F&gt; = nova::spartan::snark::RelaxedR1CSSNARK&lt;E1&lt;F&gt;, EE1&lt;F&gt;&gt;;
 <span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
 </span><span class="comment">// NOTE: this is not a SNARK that uses computational commitments,
 // that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
-</span><span class="kw">pub type </span>SS2&lt;F&gt; = nova::spartan::snark::RelaxedR1CSSNARK&lt;G2&lt;F&gt;, EE2&lt;F&gt;&gt;;
+</span><span class="kw">pub type </span>SS2&lt;F&gt; = nova::spartan::snark::RelaxedR1CSSNARK&lt;E2&lt;F&gt;, EE2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// Type alias for a MultiFrame with S1 field elements.
 /// This uses the &lt;&lt;F as CurveCycleEquipped&gt;::G1 as Group&gt;::Scalar type for the G1 scalar field elements
 /// to reflect it this should not be used outside the Nova context
 </span><span class="kw">pub type </span>C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt; = <span class="kw">crate</span>::lem::multiframe::MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;;
 <span class="doccomment">/// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-</span><span class="kw">pub type </span>C2&lt;F&gt; = TrivialCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;;
+</span><span class="kw">pub type </span>C2&lt;F&gt; = TrivialCircuit&lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar&gt;;
 
 <span class="doccomment">/// Type alias for Nova Circuit Parameters with the curve cycle types defined above.
-</span><span class="kw">pub type </span>NovaCircuitShape&lt;F&gt; = CircuitShape&lt;G1&lt;F&gt;&gt;;
+</span><span class="kw">pub type </span>NovaCircuitShape&lt;F&gt; = CircuitShape&lt;E1&lt;F&gt;&gt;;
 
 <span class="doccomment">/// Type alias for Nova Public Parameters with the curve cycle types defined above.
-</span><span class="kw">pub type </span>NovaPublicParams&lt;F, C1&gt; = nova::PublicParams&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1, C2&lt;F&gt;&gt;;
+</span><span class="kw">pub type </span>NovaPublicParams&lt;F, C1&gt; = nova::PublicParams&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1, C2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// A struct that contains public parameters for the Nova proving system.
 </span><span class="attr">#[derive(Clone, Serialize, Deserialize)]
@@ -595,18 +601,18 @@
 <span class="kw">where
     </span>F: CurveCycleEquipped,
     <span class="comment">// technical bounds that would disappear once associated_type_bounds stabilizes
-    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     pp: NovaPublicParams&lt;F, SC&gt;,
-    pk: ProverKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
-    vk: VerifierKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+    pk: ProverKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+    vk: VerifierKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;F: CurveCycleEquipped, SC: StepCircuit&lt;F&gt;&gt; Abomonation <span class="kw">for </span>PublicParams&lt;F, SC&gt;
 <span class="kw">where
-    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">unsafe fn </span>entomb&lt;W: std::io::Write&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;mut </span>W) -&gt; std::io::Result&lt;()&gt; {
         <span class="self">self</span>.pp.entomb(bytes)<span class="question-mark">?</span>;
@@ -635,17 +641,17 @@
 #[serde(bound = <span class="string">&quot;&quot;</span>)]
 </span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
 <span class="kw">where
-    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="doccomment">/// A proof for the intermediate steps of a recursive computation
     </span>Recursive(
-        Box&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt;,
+        Box&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt;,
         PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C&gt;,
     ),
     <span class="doccomment">/// A proof for the final step of a recursive computation
     </span>Compressed(
-        Box&lt;CompressedSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;,
+        Box&lt;CompressedSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;,
         PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C&gt;,
     ),
 }
@@ -667,7 +673,7 @@
 ) -&gt; F {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, <span class="number">2</span>));
     <span class="kw">let </span>circuit = M::blank(folding_config, <span class="number">0</span>);
-    F::from(rc <span class="kw">as </span>u64) * nova::circuit_digest::&lt;F::G1, F::G2, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>circuit)
+    F::from(rc <span class="kw">as </span>u64) * nova::circuit_digest::&lt;F::E1, F::E2, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>circuit)
 }
 
 <span class="doccomment">/// Generates the public parameters for the Nova proving system.
@@ -681,15 +687,15 @@
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; PublicParams&lt;F, M&gt;
 <span class="kw">where
-    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>(circuit_primary, circuit_secondary) = circuits(num_iters_per_step, lang);
 
-    <span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G1&lt;F&gt;&gt;&gt;::ck_floor();
-    <span class="kw">let </span>commitment_size_hint2 = &lt;SS2&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G2&lt;F&gt;&gt;&gt;::ck_floor();
+    <span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;E1&lt;F&gt;&gt;&gt;::ck_floor();
+    <span class="kw">let </span>commitment_size_hint2 = &lt;SS2&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;E2&lt;F&gt;&gt;&gt;::ck_floor();
 
-    <span class="kw">let </span>pp = nova::PublicParams::new(
+    <span class="kw">let </span>pp = nova::PublicParams::setup(
         <span class="kw-2">&amp;</span>circuit_primary,
         <span class="kw-2">&amp;</span>circuit_secondary,
         <span class="kw-2">&amp;*</span>commitment_size_hint1,
@@ -725,8 +731,8 @@
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
     <span class="kw">for </span>NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
 <span class="kw">where
-    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F, M&gt;;
     <span class="kw">fn </span>new(reduction_count: usize, lang: Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
@@ -748,8 +754,8 @@
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
     NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
 <span class="kw">where
-    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="doccomment">/// Proves the computation given the public parameters, frames, and store.
     </span><span class="kw">pub fn </span>prove(
@@ -795,8 +801,8 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt; Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
 <span class="kw">where
-    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="doccomment">/// Proves the computation recursively, generating a recursive SNARK proof.
     </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">&quot;nova::prove_recursively&quot;</span>)]
@@ -815,13 +821,13 @@
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
 
         <span class="macro">assert_eq!</span>(circuits[<span class="number">0</span>].frames().unwrap().len(), num_iters_per_step);
-        <span class="kw">let </span>(_circuit_primary, circuit_secondary): (M, TrivialCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;) =
+        <span class="kw">let </span>(_circuit_primary, circuit_secondary): (M, TrivialCircuit&lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar&gt;) =
             <span class="kw">crate</span>::proof::nova::circuits(num_iters_per_step, lang);
 
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;circuits.len: {}&quot;</span>, circuits.len());
 
         <span class="comment">// produce a recursive SNARK
-        </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
 
         <span class="comment">// the shadowing here is voluntary
         </span><span class="kw">let </span>recursive_snark = <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
@@ -881,7 +887,7 @@
                 <span class="kw">if </span>debug {
                     <span class="comment">// For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                     </span><span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
-                    <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;::new();
+                    <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar&gt;::new();
 
                     <span class="comment">// This is a CircuitFrame, not an EvalFrame
                     </span><span class="kw">let </span>first_frame = circuit_primary.frames().unwrap().iter().next().unwrap();
@@ -958,8 +964,8 @@
         <span class="prelude-val">Ok</span>(zi_primary == zi_primary_verified &amp;&amp; zi_secondary == zi_secondary_verified)
     }
 
-    <span class="kw">fn </span>z0_secondary() -&gt; Vec&lt;&lt;F::G2 <span class="kw">as </span>Group&gt;::Scalar&gt; {
-        <span class="macro">vec!</span>[&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar::ZERO]
+    <span class="kw">fn </span>z0_secondary() -&gt; Vec&lt;&lt;F::E2 <span class="kw">as </span>Engine&gt;::Scalar&gt; {
+        <span class="macro">vec!</span>[&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar::ZERO]
     }
 }
 </code></pre></div></section></main></body></html>
