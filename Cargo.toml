@@ -127,7 +127,7 @@ clap = "4.3.17"
 ff = "0.13"
 metrics = "0.21.1"
 neptune = { git = "https://github.com/lurk-lab/neptune", branch = "dev", features = ["abomonation"] }
-nova = { git = "https://github.com/lurk-lab/arecibo", branch = "port_more_nova", package = "nova-snark" }
+nova = { git = "https://github.com/lurk-lab/arecibo", branch = "dev", package = "nova-snark" }
 once_cell = "1.18.0"
 pairing = { version = "0.23" }
 pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch = "dev" }
