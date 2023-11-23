@@ -660,15 +660,6 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
     // Auxiliary functions
     let car_cdr = car_cdr();
-    let env_to_use = func!(env_to_use(smaller_env, smaller_rec_env): 1 => {
-        match smaller_rec_env.tag {
-            Expr::Nil => {
-                return (smaller_env)
-            }
-        };
-        let env: Expr::Cons = cons2(smaller_rec_env, smaller_env);
-        return (env)
-    });
     let expand_bindings = func!(expand_bindings(head, body, body1, rest_bindings): 1 => {
         match rest_bindings.tag {
             Expr::Nil => {
@@ -831,29 +822,22 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                 return (expr, env, error, binding)
             }
         };
-        let (var_or_rec_binding, val_or_more_rec_env) = car_cdr(binding);
-        match var_or_rec_binding.tag {
+        let (var, val) = decons2(binding);
+        match var.tag {
             Expr::Sym => {
-                let eq_val = eq_val(var_or_rec_binding, expr);
+                let eq_val = eq_val(var, expr);
                 if eq_val {
-                    return (val_or_more_rec_env, env, non_rec, binding)
+                    return (val, env, non_rec, binding)
                 }
                 return (expr, smaller_env, not_found, binding)
             }
-            Expr::Cons => {
-                let (v2, val2) = decons2(var_or_rec_binding);
-
-                let eq_val = eq_val(v2, expr);
+            // This is a hack to signal that the binding came from a letrec
+            Expr::Thunk => {
+                let eq_val = eq_val(var, expr);
                 if eq_val {
-                    match val2.tag {
-                        Expr::Fun => {
-                            return (val2, env, rec, binding)
-                        }
-                    };
-                    return (val2, env, non_rec, binding)
+                    return (val, env, rec, binding)
                 }
-                let (env_to_use) = env_to_use(smaller_env, val_or_more_rec_env);
-                return (expr, env_to_use, not_found, binding)
+                return (expr, smaller_env, not_found, binding)
             }
         };
         return (expr, env, error, binding)
@@ -907,6 +891,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                 let not_found = Symbol("not_found");
                 let (expr, env, found, binding) = lookup(expr, env, not_found, nil);
                 let (expr, env, found, binding) = lookup(expr, env, found, binding);
+                let (expr, env, found, binding) = lookup(expr, env, found, binding);
                 match symbol found {
                     "error" => {
                         return (expr, env, err, errctrl)
@@ -915,12 +900,17 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         return (expr, env, cont, apply)
                     }
                     "rec" => {
-                        // if `val2` is a closure, then extend its environment
-                        let (arg, body, closed_env, _foo) = decons4(expr);
-                        let extended: Expr::Cons = cons2(binding, closed_env);
-                        // and return the extended closure
-                        let fun: Expr::Fun = cons4(arg, body, extended, foo);
-                        return (fun, env, cont, apply)
+                        match expr.tag {
+                            Expr::Fun => {
+                                // if `val2` is a closure, then extend its environment
+                                let (arg, body, closed_env, _foo) = decons4(expr);
+                                let extended: Expr::Cons = cons2(binding, closed_env);
+                                // and return the extended closure
+                                let fun: Expr::Fun = cons4(arg, body, extended, foo);
+                                return (fun, env, cont, apply)
+                            }
+                        };
+                        return (expr, env, cont, apply)
                     }
                     "not_found" => {
                         return (expr, env, cont, ret)
@@ -1166,27 +1156,6 @@ fn choose_cproc_call(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
 
 fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     let car_cdr = car_cdr();
-    let extend_rec = func!(extend_rec(env, var, result): 1 => {
-        let nil = Symbol("nil");
-        let nil = cast(nil, Expr::Nil);
-        let sym: Expr::Sym;
-        let (binding_or_env, rest) = car_cdr(env);
-        let (var_or_binding, _val_or_more_bindings) = car_cdr(binding_or_env);
-        let binding: Expr::Cons = cons2(var, result);
-        let var_or_binding_is_sym = eq_tag(var_or_binding, sym);
-        let var_or_binding_is_nil = eq_tag(var_or_binding, nil);
-        let var_or_binding_is_sym_or_nil = or(var_or_binding_is_sym, var_or_binding_is_nil);
-        if var_or_binding_is_sym_or_nil {
-            // It's a var, so we are extending a simple env with a recursive env.
-            let list: Expr::Cons = cons2(binding, nil);
-            let res: Expr::Cons = cons2(list, env);
-            return (res)
-        }
-        // It's a binding, so we are extending a recursive env.
-        let cons2: Expr::Cons = cons2(binding, binding_or_env);
-        let res: Expr::Cons = cons2(cons2, rest);
-        return (res)
-    });
     // Returns 0u64 if both arguments are U64, 0 (num) if the arguments are some kind of number (either U64 or Num),
     // and nil otherwise
     let args_num_type = func!(args_num_type(arg1, arg2): 1 => {
@@ -1330,7 +1299,10 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     }
                     Cont::LetRec => {
                         let (var, saved_env, body, cont) = decons4(cont);
-                        let (extended_env) = extend_rec(saved_env, var, result);
+                        // This is a hack to signal that the binding came from a letrec
+                        let var = cast(var, Expr::Thunk);
+                        let binding: Expr::Cons = cons2(var, result);
+                        let extended_env: Expr::Cons = cons2(binding, saved_env);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::Unop => {
@@ -1763,7 +1735,7 @@ mod tests {
         assert_eq!(
             func.slots_count,
             SlotsCounter {
-                hash4: 15,
+                hash4: 14,
                 hash6: 0,
                 hash8: 6,
                 commitment: 1,
@@ -1774,8 +1746,8 @@ mod tests {
             expected.assert_eq(&computed.to_string());
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9185"]);
-        expect_eq(cs.num_constraints(), expect!["11127"]);
+        expect_eq(cs.aux().len(), expect!["8883"]);
+        expect_eq(cs.num_constraints(), expect!["10830"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
