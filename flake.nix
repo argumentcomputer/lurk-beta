@@ -21,7 +21,7 @@
 
         toolchain = with fenix.packages.${system}; fromToolchainFile {
           file = ./rust-toolchain; # alternatively, dir = ./.;
-          sha256 = "sha256-gdYqng0y9iHYzYPAdkC/ka3DRny3La/S5G8ASj0Ayyc=";
+          sha256 = "sha256-rLP8+fTxnPHoR96ZJiCa/5Ans1OojI7MLsmSqR2ip8o=";
         };
 
       in rec {
@@ -36,6 +36,8 @@
         # For `nix develop` or `direnv allow`:
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
+            pkg-config
+            openssl
             ocl-icd
             toolchain
             rust-analyzer
