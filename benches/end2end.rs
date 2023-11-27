@@ -13,7 +13,7 @@ use lurk::{
         pointers::Ptr,
         store::Store,
     },
-    proof::{nova::NovaProver, Prover},
+    proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         self,
         instance::{Instance, Kind},
@@ -60,17 +60,17 @@ fn end2end_benchmark(c: &mut Criterion) {
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     // setup
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+    let lang = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_arc = Arc::new(lang);
 
     let store = Store::default();
     let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
-        NovaProver::new(reduction_count, (*lang_pallas_rc).clone());
+        NovaProver::new(reduction_count, lang_arc.clone());
 
     // use cached public params
     let instance = Instance::new(
         reduction_count,
-        lang_pallas_rc.clone(),
+        lang_arc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -85,7 +85,9 @@ fn end2end_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
             let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let _result = prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
+            let _result = prover
+                .prove(&pp, &frames, &store, lang_arc.clone())
+                .unwrap();
         })
     });
 
@@ -235,13 +237,13 @@ fn prove_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+    let lang = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_arc = Arc::new(lang);
 
     // use cached public params
     let instance = Instance::new(
         reduction_count,
-        lang_pallas_rc.clone(),
+        lang_arc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -250,11 +252,13 @@ fn prove_benchmark(c: &mut Criterion) {
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
         let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
-            NovaProver::new(reduction_count, Lang::new());
+            NovaProver::new(reduction_count, lang_arc.clone());
         let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
         b.iter(|| {
-            let result = prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
+            let result = prover
+                .prove(&pp, &frames, &store, lang_arc.clone())
+                .unwrap();
             black_box(result);
         })
     });
@@ -283,13 +287,13 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+    let lang = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_arc = Arc::new(lang);
 
     // use cached public params
     let instance = Instance::new(
         reduction_count,
-        lang_pallas_rc.clone(),
+        lang_arc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -297,11 +301,13 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
-        let prover = NovaProver::new(reduction_count, Lang::new());
+        let prover = NovaProver::new(reduction_count, lang_arc.clone());
         let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
         b.iter(|| {
-            let (proof, _, _, _) = prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
+            let (proof, ..) = prover
+                .prove(&pp, &frames, &store, lang_arc.clone())
+                .unwrap();
 
             let compressed_result = proof.compress(&pp).unwrap();
             black_box(compressed_result);
@@ -325,13 +331,13 @@ fn verify_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+    let lang = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_arc = Arc::new(lang);
 
     // use cached public params
     let instance = Instance::new(
         reduction_count,
-        lang_pallas_rc.clone(),
+        lang_arc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -343,15 +349,16 @@ fn verify_benchmark(c: &mut Criterion) {
         let benchmark_id = BenchmarkId::new("verify_go_base_nova", &parameter_string);
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
-            let prover = NovaProver::new(reduction_count, Lang::new());
+            let prover = NovaProver::new(reduction_count, lang_arc.clone());
             let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let (proof, z0, zi, num_steps) =
-                prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
+            let (proof, z0, zi, num_steps) = prover
+                .prove(&pp, &frames, &store, lang_arc.clone())
+                .unwrap();
 
             b.iter_batched(
                 || z0.clone(),
                 |z0| {
-                    let result = proof.verify(&pp, num_steps, &z0, &zi[..]).unwrap();
+                    let result = proof.verify(&pp, &z0, &zi[..], num_steps).unwrap();
                     black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -378,13 +385,13 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+    let lang = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_arc = Arc::new(lang);
 
     // use cached public params
     let instance = Instance::new(
         reduction_count,
-        lang_pallas_rc.clone(),
+        lang_arc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -396,10 +403,11 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         let benchmark_id = BenchmarkId::new("verify_compressed_go_base_nova", &parameter_string);
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
-            let prover = NovaProver::new(reduction_count, Lang::new());
+            let prover = NovaProver::new(reduction_count, lang_arc.clone());
             let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let (proof, z0, zi, num_steps) =
-                prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
+            let (proof, z0, zi, num_steps) = prover
+                .prove(&pp, &frames, &store, lang_arc.clone())
+                .unwrap();
 
             let compressed_proof = proof.compress(&pp).unwrap();
 
@@ -407,7 +415,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
                 || z0.clone(),
                 |z0| {
                     let result = compressed_proof
-                        .verify(&pp, num_steps, &z0, &zi[..])
+                        .verify(&pp, &z0, &zi[..], num_steps)
                         .unwrap();
                     black_box(result);
                 },

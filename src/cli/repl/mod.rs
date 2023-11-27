@@ -24,7 +24,7 @@ use crate::{
         Tag,
     },
     parser,
-    proof::{nova::NovaProver, Prover},
+    proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
@@ -259,16 +259,16 @@ impl Repl<F> {
 
                         let prover = NovaProver::<_, _, MultiFrame<'_, F, Coproc<F>>>::new(
                             self.rc,
-                            (*self.lang).clone(),
+                            self.lang.clone(),
                         );
 
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
-                            prover.prove(&pp, frames, &self.store, &self.lang)?;
+                            prover.prove(&pp, frames, &self.store, self.lang.clone())?;
                         info!("Compressing proof");
                         let proof = proof.compress(&pp)?;
                         assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
-                        assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
+                        assert!(proof.verify(&pp, &public_inputs, &public_outputs, num_steps)?);
 
                         let lurk_proof = LurkProof::Nova {
                             proof,

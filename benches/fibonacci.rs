@@ -108,13 +108,13 @@ fn fibonacci_prove<M: measurement::Measurement>(
     state: &Rc<RefCell<State>>,
 ) {
     let limit = fib_limit(prove_params.fib_n, prove_params.reduction_count);
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let lang_rc = Arc::new(lang_pallas.clone());
+    let lang = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+    let lang_arc = Arc::new(lang);
 
     // use cached public params
     let instance = Instance::new(
         prove_params.reduction_count,
-        lang_rc.clone(),
+        lang_arc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -138,7 +138,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
                 state.clone(),
                 black_box(prove_params.fib_n as u64),
             );
-            let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
+            let prover = NovaProver::new(prove_params.reduction_count, lang_arc.clone());
 
             let frames =
                 &evaluate::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>(None, ptr, &store, limit)
@@ -146,9 +146,9 @@ fn fibonacci_prove<M: measurement::Measurement>(
                     .0;
 
             b.iter_batched(
-                || (frames, lang_rc.clone()),
-                |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, &store, &lang_rc);
+                || (frames, lang_arc.clone()),
+                |(frames, lang_arc)| {
+                    let result = prover.prove(&pp, frames, &store, lang_arc);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

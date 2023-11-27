@@ -42,9 +42,11 @@ use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 use lurk::eval::lang::Lang;
 use lurk::field::LurkField;
 use lurk::lem::{pointers::Ptr, store::Store};
-use lurk::proof::{nova::NovaProver, Prover};
-use lurk::public_parameters::instance::{Instance, Kind};
-use lurk::public_parameters::public_params;
+use lurk::proof::{nova::NovaProver, Prover, RecursiveSNARKTrait};
+use lurk::public_parameters::{
+    instance::{Instance, Kind},
+    public_params,
+};
 use lurk::Symbol;
 use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
@@ -104,21 +106,22 @@ fn main() {
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_sha256));
 
+    let lang_arc = Arc::new(lang);
+
     let expr = "(.circom_sha256_2)".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();
 
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
         REDUCTION_COUNT,
-        lang.clone(),
+        lang_arc.clone(),
     );
-    let lang_rc = Arc::new(lang);
 
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
     let instance = Instance::new(
         REDUCTION_COUNT,
-        lang_rc.clone(),
+        lang_arc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -131,7 +134,7 @@ fn main() {
 
     let proof_start = Instant::now();
     let (proof, z0, zi, num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000, &lang_rc)
+        .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000, lang_arc.clone())
         .unwrap();
     let proof_end = proof_start.elapsed();
 
@@ -140,7 +143,7 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
+    let res = proof.verify(&pp, &z0, &zi, num_steps).unwrap();
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {verify_end:?}");
