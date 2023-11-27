@@ -27,6 +27,7 @@ dashmap = "5.5.0"
 ff = { workspace = true }
 fxhash = "0.2.1"
 generic-array = "0.14.7"
+halo2curves = "0.4"
 hex = { version = "0.4.3", features = ["serde"] }
 indexmap = { version = "2.1.0", features = ["rayon", "serde"] }
 itertools = "0.11"
