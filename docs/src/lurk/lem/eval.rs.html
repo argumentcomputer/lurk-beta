@@ -1813,16 +1813,6 @@
 <a href="#1813" id="1813">1813</a>
 <a href="#1814" id="1814">1814</a>
 <a href="#1815" id="1815">1815</a>
-<a href="#1816" id="1816">1816</a>
-<a href="#1817" id="1817">1817</a>
-<a href="#1818" id="1818">1818</a>
-<a href="#1819" id="1819">1819</a>
-<a href="#1820" id="1820">1820</a>
-<a href="#1821" id="1821">1821</a>
-<a href="#1822" id="1822">1822</a>
-<a href="#1823" id="1823">1823</a>
-<a href="#1824" id="1824">1824</a>
-<a href="#1825" id="1825">1825</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2136,8 +2126,9 @@
 
 <span class="doccomment">/// This `Func` is used to call a standalone coprocessor out of the Lurk&#39;s step
 /// function. It checks whether the coprocessor expression corresponds to the
-/// right coprocessor. If it doesn&#39;t, return the same input. If it does,
-/// destructure the list of arguments and call the coprocessor.
+/// right coprocessor. If it doesn&#39;t, evaluation will error and the circuit
+/// becomes unsatisfiable. If it does, destructure the list of arguments and
+/// call the coprocessor.
 ///
 /// `run_cproc` is meant to be used in the context of NIVC, when the circuit for
 /// each coprocessor is detached from Lurk&#39;s universal circuit.
@@ -2177,13 +2168,11 @@
 ///                     }
 ///                     return (evaluated_args_cp, env, err);
 ///                 }
-///             };
-///             // coprocessor not found... just loop
-///             return (cproc, env, cont);
+///             }
+///             // no default case
 ///         }
-///     };
-///     // not a proper Cproc expression... just loop
-///     return (cproc, env, cont);
+///     }
+///     // no default case
 /// }
 /// ```
 </span><span class="kw">fn </span>run_cproc(cproc_sym: Symbol, arity: usize) -&gt; Func {
@@ -2202,7 +2191,6 @@
     <span class="kw">let </span>cproc_out = <span class="macro">vec!</span>[expr.clone(), env.clone(), cont.clone()];
     <span class="kw">let </span>func_out = <span class="macro">vec!</span>[expr, env.clone(), cont.clone()];
     <span class="kw">let </span>err_block = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(evaluated_args_cp, env, err)));
-    <span class="kw">let </span>def_block = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(cproc, env, cont)));
     <span class="kw">let </span><span class="kw-2">mut </span>cproc_inp = (<span class="number">0</span>..arity)
         .map(|i| Var(<span class="macro">format!</span>(<span class="string">&quot;x{i}&quot;</span>).into()))
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -2247,11 +2235,7 @@
             [cproc_name.clone(), evaluated_args],
             cproc.clone(),
         )],
-        ctrl: Ctrl::match_symbol(
-            cproc_name,
-            <span class="macro">vec!</span>[(cproc_sym, block)],
-            <span class="prelude-val">Some</span>(def_block.clone()),
-        ),
+        ctrl: Ctrl::match_symbol(cproc_name, <span class="macro">vec!</span>[(cproc_sym, block)], <span class="prelude-val">None</span>),
     };
 
     <span class="comment">// MatchTag
@@ -2265,11 +2249,7 @@
                 <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
             ]
         },
-        ctrl: Ctrl::match_tag(
-            cproc.clone(),
-            <span class="macro">vec!</span>[(Tag::Expr(Cproc), block)],
-            <span class="prelude-val">Some</span>(def_block),
-        ),
+        ctrl: Ctrl::match_tag(cproc.clone(), <span class="macro">vec!</span>[(Tag::Expr(Cproc), block)], <span class="prelude-val">None</span>),
     };
     <span class="kw">let </span>func_inp = <span class="macro">vec!</span>[cproc, env, cont];
     Func::new(<span class="string">&quot;run_cproc&quot;</span>.into(), func_inp, <span class="number">3</span>, block).unwrap()
