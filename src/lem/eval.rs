@@ -311,8 +311,9 @@ fn car_cdr() -> Func {
 
 /// This `Func` is used to call a standalone coprocessor out of the Lurk's step
 /// function. It checks whether the coprocessor expression corresponds to the
-/// right coprocessor. If it doesn't, return the same input. If it does,
-/// destructure the list of arguments and call the coprocessor.
+/// right coprocessor. If it doesn't, evaluation will error and the circuit
+/// becomes unsatisfiable. If it does, destructure the list of arguments and
+/// call the coprocessor.
 ///
 /// `run_cproc` is meant to be used in the context of NIVC, when the circuit for
 /// each coprocessor is detached from Lurk's universal circuit.
@@ -352,13 +353,11 @@ fn car_cdr() -> Func {
 ///                     }
 ///                     return (evaluated_args_cp, env, err);
 ///                 }
-///             };
-///             // coprocessor not found... just loop
-///             return (cproc, env, cont);
+///             }
+///             // no default case
 ///         }
-///     };
-///     // not a proper Cproc expression... just loop
-///     return (cproc, env, cont);
+///     }
+///     // no default case
 /// }
 /// ```
 fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
@@ -377,7 +376,6 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     let cproc_out = vec![expr.clone(), env.clone(), cont.clone()];
     let func_out = vec![expr, env.clone(), cont.clone()];
     let err_block = Block::ctrl(ctrl!(return (evaluated_args_cp, env, err)));
-    let def_block = Block::ctrl(ctrl!(return (cproc, env, cont)));
     let mut cproc_inp = (0..arity)
         .map(|i| Var(format!("x{i}").into()))
         .collect::<Vec<_>>();
@@ -422,11 +420,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
             [cproc_name.clone(), evaluated_args],
             cproc.clone(),
         )],
-        ctrl: Ctrl::match_symbol(
-            cproc_name,
-            vec![(cproc_sym, block)],
-            Some(def_block.clone()),
-        ),
+        ctrl: Ctrl::match_symbol(cproc_name, vec![(cproc_sym, block)], None),
     };
 
     // MatchTag
@@ -440,11 +434,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
                 op!(let nil = cast(nil, Expr::Nil)),
             ]
         },
-        ctrl: Ctrl::match_tag(
-            cproc.clone(),
-            vec![(Tag::Expr(Cproc), block)],
-            Some(def_block),
-        ),
+        ctrl: Ctrl::match_tag(cproc.clone(), vec![(Tag::Expr(Cproc), block)], None),
     };
     let func_inp = vec![cproc, env, cont];
     Func::new("run_cproc".into(), func_inp, 3, block).unwrap()
