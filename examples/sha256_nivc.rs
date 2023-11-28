@@ -74,22 +74,20 @@ fn main() {
 
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));
-    let lang_arc = Arc::new(lang);
+    let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang_arc));
-    let (frames, _) = evaluate(Some((&lurk_step, &lang_arc)), call, store, 1000).unwrap();
+    let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang));
+    let (frames, _) = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
 
-    let supernova_prover = SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
-        REDUCTION_COUNT,
-        lang_arc.clone(),
-    );
+    let supernova_prover =
+        SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(REDUCTION_COUNT, lang_rc.clone());
 
     println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
     let pp_start = Instant::now();
 
     let instance_primary = Instance::new(
         REDUCTION_COUNT,
-        lang_arc.clone(),
+        lang_rc.clone(),
         true,
         Kind::SuperNovaAuxParams,
     );
@@ -103,7 +101,7 @@ fn main() {
     let ((proof, last_circuit_index), z0, zi, _num_steps) =
         tracing_texray::examine(tracing::info_span!("bang!")).in_scope(|| {
             supernova_prover
-                .prove(&pp, &frames, store, lang_arc.clone())
+                .prove(&pp, &frames, store, lang_rc)
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();

@@ -107,14 +107,14 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
-    let lang_arc = Arc::new(lang);
+    let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang_arc));
+    let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
 
     // use cached public params
     let instance: Instance<'_, Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>> = Instance::new(
         reduction_count,
-        lang_arc.clone(),
+        lang_rc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -132,16 +132,16 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
                 &(0..prove_params.n).collect(),
             );
 
-            let prover = NovaProver::new(prove_params.reduction_count, lang_arc.clone());
+            let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang_arc)), ptr, store, limit)
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
                 .unwrap()
                 .0;
 
             b.iter_batched(
-                || (frames, lang_arc.clone()),
-                |(frames, lang_arc)| {
-                    let result = prover.prove(&pp, frames, store, lang_arc);
+                || (frames, lang_rc.clone()),
+                |(frames, lang_rc)| {
+                    let result = prover.prove(&pp, frames, store, lang_rc.clone());
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -190,14 +190,14 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
-    let lang_arc = Arc::new(lang);
+    let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang_arc));
+    let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
 
     // use cached public params
     let instance = Instance::new(
         reduction_count,
-        lang_arc.clone(),
+        lang_rc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -215,16 +215,16 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
                 &(0..prove_params.n).collect(),
             );
 
-            let prover = NovaProver::new(prove_params.reduction_count, lang_arc.clone());
+            let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang_arc)), ptr, store, limit)
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
                 .unwrap()
                 .0;
 
             b.iter_batched(
-                || (frames, lang_arc.clone()),
-                |(frames, lang_arc)| {
-                    let (proof, ..) = prover.prove(&pp, frames, store, lang_arc).unwrap();
+                || (frames, lang_rc.clone()),
+                |(frames, lang_rc)| {
+                    let (proof, _, _, _) = prover.prove(&pp, frames, store, lang_rc.clone()).unwrap();
                     let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);
@@ -275,14 +275,14 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
 
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
-    let lang_arc = Arc::new(lang);
+    let lang_rc = Arc::new(lang.clone());
 
-    let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang_arc));
+    let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
 
     // use cached public params
     let instance = Instance::new(
         reduction_count,
-        lang_arc.clone(),
+        lang_rc.clone(),
         true,
         Kind::SuperNovaAuxParams,
     );
@@ -300,16 +300,16 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
                 &(0..prove_params.n).collect(),
             );
 
-            let prover = SuperNovaProver::new(prove_params.reduction_count, lang_arc.clone());
+            let prover = SuperNovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang_arc)), ptr, store, limit)
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
                 .unwrap()
                 .0;
 
             b.iter_batched(
-                || (frames, lang_arc.clone()),
-                |(frames, lang_arc)| {
-                    let result = prover.prove(&pp, frames, store, lang_arc);
+                || (frames, lang_rc.clone()),
+                |(frames, lang_rc)| {
+                    let result = prover.prove(&pp, frames, store, lang_rc.clone());
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

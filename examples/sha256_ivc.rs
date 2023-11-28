@@ -69,19 +69,17 @@ fn main() {
 
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));
-    let lang_arc = Arc::new(lang);
+    let lang_rc = Arc::new(lang.clone());
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
-        REDUCTION_COUNT,
-        lang_arc.clone(),
-    );
+    let nova_prover =
+        NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(REDUCTION_COUNT, lang_rc.clone());
 
     println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
 
     let pp_start = Instant::now();
     let instance = Instance::new(
         REDUCTION_COUNT,
-        lang_arc.clone(),
+        lang_rc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -95,14 +93,7 @@ fn main() {
     let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
         .in_scope(|| {
             nova_prover
-                .evaluate_and_prove(
-                    &pp,
-                    call,
-                    store.intern_nil(),
-                    store,
-                    10000,
-                    lang_arc.clone(),
-                )
+                .evaluate_and_prove(&pp, call, store.intern_nil(), store, 10000, lang_rc.clone())
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();
