@@ -107,7 +107,7 @@ jobs:
           if [ -f "${{ env.BASE_COMMIT }}-${{ env.GPU_ID }}.json" ]
           then
             echo "cached=true" | tee -a $GITHUB_OUTPUT
-            cp ${{ env.BASE_COMMIT }}-${{ env.GPU_NAME }}.json ../${{ env.BASE_COMMIT }}.json
+            cp ${{ env.BASE_COMMIT }}-${{ env.GPU_ID }}.json ../${{ env.BASE_COMMIT }}.json
           else
             echo "cached=false" | tee -a $GITHUB_OUTPUT
           fi
@@ -193,7 +193,7 @@ jobs:
       - name: Remove old main bench
         run: |
           rm ${{ env.BASE_COMMIT }}.json
-          mv ${{ github.sha }}.json ${{ github.sha }}-${{ env.GPU_NAME }}.json
+          mv ${{ github.sha }}.json ${{ github.sha }}-${{ env.GPU_ID }}.json
         working-directory: ${{ github.workspace }}
       - name: Commit bench result to `gh-pages` branch if no regression
         if: steps.regression-check.outcome != 'failure'
