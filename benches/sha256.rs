@@ -40,7 +40,7 @@ fn sha256_ivc<F: LurkField>(
     arity: usize,
     n: usize,
     input: &Vec<usize>,
-) -> Ptr<F> {
+) -> Ptr {
     assert_eq!(n, input.len());
     let input = input
         .iter()

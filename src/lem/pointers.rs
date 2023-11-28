@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    field::*,
-    tag::ExprTag::{Char, Comm, Nil, Num, U64},
-};
+use crate::{field::LurkField, tag::ExprTag::Nil};
 
 use super::Tag;
 
@@ -18,26 +15,15 @@ use super::Tag;
 /// children a pointer has. However, LEMs require extra flexibility because LEM
 /// hashing operations can plug any tag to the resulting pointer. Thus, the
 /// number of children have to be made explicit as the `Ptr` enum.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Ptr<F: LurkField> {
-    Atom(Tag, F),
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum Ptr {
+    Atom(Tag, usize),
     Tuple2(Tag, usize),
     Tuple3(Tag, usize),
     Tuple4(Tag, usize),
 }
 
-impl<F: LurkField> std::hash::Hash for Ptr<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            Ptr::Atom(tag, f) => (0, tag, f.to_repr().as_ref()).hash(state),
-            Ptr::Tuple2(tag, x) => (1, tag, x).hash(state),
-            Ptr::Tuple3(tag, x) => (2, tag, x).hash(state),
-            Ptr::Tuple4(tag, x) => (3, tag, x).hash(state),
-        }
-    }
-}
-
-impl<F: LurkField> Ptr<F> {
+impl Ptr {
     pub fn tag(&self) -> &Tag {
         match self {
             Ptr::Atom(tag, _) | Ptr::Tuple2(tag, _) | Ptr::Tuple3(tag, _) | Ptr::Tuple4(tag, _) => {
@@ -46,64 +32,14 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
-    #[inline]
-    pub fn num(f: F) -> Self {
-        Ptr::Atom(Tag::Expr(Num), f)
-    }
-
-    #[inline]
-    pub fn num_u64(u: u64) -> Self {
-        Ptr::Atom(Tag::Expr(Num), F::from_u64(u))
-    }
-
-    #[inline]
-    pub fn u64(u: u64) -> Self {
-        Ptr::Atom(Tag::Expr(U64), F::from_u64(u))
-    }
-
-    #[inline]
-    pub fn char(c: char) -> Self {
-        Ptr::Atom(Tag::Expr(Char), F::from_char(c))
-    }
-
-    #[inline]
-    pub fn comm(hash: F) -> Self {
-        Ptr::Atom(Tag::Expr(Comm), hash)
-    }
-
-    #[inline]
-    pub fn zero(tag: Tag) -> Self {
-        Ptr::Atom(tag, F::ZERO)
-    }
-
-    pub fn is_zero(&self) -> bool {
-        match self {
-            Ptr::Atom(_, f) => f == &F::ZERO,
-            _ => false,
-        }
-    }
-
     pub fn is_nil(&self) -> bool {
         self.tag() == &Tag::Expr(Nil)
     }
 
     #[inline]
-    pub fn dummy() -> Self {
-        Self::zero(Tag::Expr(Nil))
-    }
-
-    /// Creates an atom pointer from a `ZPtr`, with its tag and hash. Thus hashing
-    /// such pointer will result on the same original `ZPtr`
-    #[inline]
-    pub fn opaque(z_ptr: ZPtr<F>) -> Self {
-        let crate::z_data::z_ptr::ZPtr(t, h) = z_ptr;
-        Ptr::Atom(t, h)
-    }
-
-    #[inline]
     pub fn cast(self, tag: Tag) -> Self {
         match self {
-            Ptr::Atom(_, f) => Ptr::Atom(tag, f),
+            Ptr::Atom(_, x) => Ptr::Atom(tag, x),
             Ptr::Tuple2(_, x) => Ptr::Tuple2(tag, x),
             Ptr::Tuple3(_, x) => Ptr::Tuple3(tag, x),
             Ptr::Tuple4(_, x) => Ptr::Tuple4(tag, x),
@@ -116,9 +52,9 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
-    pub fn get_atom(&self) -> Option<&F> {
+    pub fn get_atom(&self) -> Option<usize> {
         match self {
-            Ptr::Atom(_, f) => Some(f),
+            Ptr::Atom(_, x) => Some(*x),
             _ => None,
         }
     }
@@ -145,6 +81,11 @@ impl<F: LurkField> Ptr<F> {
             Ptr::Tuple4(_, x) => Some(*x),
             _ => None,
         }
+    }
+
+    #[inline]
+    pub fn dummy() -> Self {
+        Ptr::Atom(Tag::Expr(Nil), 0)
     }
 }
 

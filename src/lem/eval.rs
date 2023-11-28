@@ -35,7 +35,7 @@ pub fn eval_step() -> &'static Func {
 
 #[inline]
 fn get_pc<F: LurkField, C: Coprocessor<F>>(
-    expr: &Ptr<F>,
+    expr: &Ptr,
     store: &Store<F>,
     lang: &Lang<F, C>,
 ) -> usize {
@@ -58,12 +58,12 @@ fn get_pc<F: LurkField, C: Coprocessor<F>>(
 fn compute_frame<F: LurkField, C: Coprocessor<F>>(
     lurk_step: &Func,
     cprocs_run: &[Func],
-    input: &[Ptr<F>],
+    input: &[Ptr],
     store: &Store<F>,
     lang: &Lang<F, C>,
-    emitted: &mut Vec<Ptr<F>>,
+    emitted: &mut Vec<Ptr>,
     pc: usize,
-) -> Result<(Frame<F>, bool)> {
+) -> Result<(Frame, bool)> {
     let func = if pc == 0 {
         lurk_step
     } else {
@@ -82,16 +82,16 @@ fn compute_frame<F: LurkField, C: Coprocessor<F>>(
 fn build_frames<
     F: LurkField,
     C: Coprocessor<F>,
-    LogFmt: Fn(usize, &[Ptr<F>], &[Ptr<F>], &Store<F>) -> String,
+    LogFmt: Fn(usize, &[Ptr], &[Ptr], &Store<F>) -> String,
 >(
     lurk_step: &Func,
     cprocs_run: &[Func],
-    mut input: Vec<Ptr<F>>,
+    mut input: Vec<Ptr>,
     store: &Store<F>,
     limit: usize,
     lang: &Lang<F, C>,
     log_fmt: LogFmt,
-) -> Result<(Vec<Frame<F>>, usize)> {
+) -> Result<(Vec<Frame>, usize)> {
     let mut pc = 0;
     let mut frames = vec![];
     let mut iterations = 0;
@@ -119,11 +119,11 @@ fn build_frames<
 fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
     lurk_step: &Func,
     cprocs_run: &[Func],
-    mut input: Vec<Ptr<F>>,
+    mut input: Vec<Ptr>,
     store: &Store<F>,
     limit: usize,
     lang: &Lang<F, C>,
-) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
     let mut pc = 0;
     let mut iterations = 0;
     let mut emitted = vec![];
@@ -144,14 +144,14 @@ fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
 
 pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
     func_lang: Option<(&Func, &Lang<F, C>)>,
-    expr: Ptr<F>,
-    env: Ptr<F>,
-    cont: Ptr<F>,
+    expr: Ptr,
+    env: Ptr,
+    cont: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Frame<F>>, usize)> {
+) -> Result<(Vec<Frame>, usize)> {
     let state = initial_lurk_state();
-    let log_fmt = |i: usize, inp: &[Ptr<F>], emit: &[Ptr<F>], store: &Store<F>| {
+    let log_fmt = |i: usize, inp: &[Ptr], emit: &[Ptr], store: &Store<F>| {
         let mut out = format!(
             "Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}",
             inp[0].fmt_to_string(store, state),
@@ -181,21 +181,21 @@ pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
 #[inline]
 pub fn evaluate_with_env<F: LurkField, C: Coprocessor<F>>(
     func_lang: Option<(&Func, &Lang<F, C>)>,
-    expr: Ptr<F>,
-    env: Ptr<F>,
+    expr: Ptr,
+    env: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Frame<F>>, usize)> {
+) -> Result<(Vec<Frame>, usize)> {
     evaluate_with_env_and_cont(func_lang, expr, env, store.cont_outermost(), store, limit)
 }
 
 #[inline]
 pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
     func_lang: Option<(&Func, &Lang<F, C>)>,
-    expr: Ptr<F>,
+    expr: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Frame<F>>, usize)> {
+) -> Result<(Vec<Frame>, usize)> {
     evaluate_with_env_and_cont(
         func_lang,
         expr,
@@ -208,11 +208,11 @@ pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
 
 pub fn evaluate_simple_with_env<F: LurkField, C: Coprocessor<F>>(
     func_lang: Option<(&Func, &Lang<F, C>)>,
-    expr: Ptr<F>,
-    env: Ptr<F>,
+    expr: Ptr,
+    env: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
     let input = vec![expr, env, store.cont_outermost()];
     match func_lang {
         None => {
@@ -229,10 +229,10 @@ pub fn evaluate_simple_with_env<F: LurkField, C: Coprocessor<F>>(
 #[inline]
 pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
     func_lang: Option<(&Func, &Lang<F, C>)>,
-    expr: Ptr<F>,
+    expr: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
     evaluate_simple_with_env(func_lang, expr, store.intern_nil(), store, limit)
 }
 
@@ -1793,7 +1793,7 @@ mod tests {
     fn test_counts() {
         let store = Store::default();
         let func = eval_step();
-        let frame = Frame::<Fr>::blank(func, 0);
+        let frame = Frame::blank(func, 0);
         let mut cs = TestConstraintSystem::<Fr>::new();
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);

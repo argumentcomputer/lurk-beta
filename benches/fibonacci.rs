@@ -24,7 +24,7 @@ use lurk::{
 mod common;
 use common::set_bench_config;
 
-fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Ptr<F> {
+fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Ptr {
     let program = r#"
 (letrec ((next (lambda (a b) (next b (+ a b))))
            (fib (next 0 1)))

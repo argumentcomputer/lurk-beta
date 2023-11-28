@@ -23,7 +23,7 @@ use lurk::{
 
 const REDUCTION_COUNT: usize = 10;
 
-fn sha256_nivc<F: LurkField>(store: &Store<F>, n: usize, input: &[usize]) -> Ptr<F> {
+fn sha256_nivc<F: LurkField>(store: &Store<F>, n: usize, input: &[usize]) -> Ptr {
     assert_eq!(n, input.len());
     let input = input
         .iter()

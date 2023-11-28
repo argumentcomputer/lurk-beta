@@ -144,7 +144,7 @@ impl<F: LurkField> GlobalAllocator<F> {
 
     pub fn get_allocated_ptr_from_ptr(
         &self,
-        ptr: &Ptr<F>,
+        ptr: &Ptr,
         store: &Store<F>,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
         let crate::z_ptr::ZPtr(tag, hash) = store.hash_ptr(ptr);
@@ -221,7 +221,7 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
 
 pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    slot_data: &Option<SlotData<F>>,
+    slot_data: &Option<SlotData>,
     slot_idx: usize,
     slot_type: SlotType,
     store: &Store<F>,
@@ -260,6 +260,7 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
                 }
             }
             SlotData::FPtr(f, ptr) => {
+                let f = store.expect_f(*f);
                 let z_ptr = store.hash_ptr(ptr);
                 // allocate first component
                 preallocated_preimg.push(AllocatedNum::alloc_infallible(
@@ -278,6 +279,7 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
                 ));
             }
             SlotData::F(a) => {
+                let a = store.expect_f(*a);
                 preallocated_preimg.push(AllocatedNum::alloc_infallible(
                     cs.namespace(|| format!("component 0 slot {slot}")),
                     || *a,
@@ -311,7 +313,7 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
 /// Allocates unconstrained slots
 pub(crate) fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    slots_data: &[Option<SlotData<F>>],
+    slots_data: &[Option<SlotData>],
     slot_type: SlotType,
     num_slots: usize,
     store: &Store<F>,
@@ -335,7 +337,7 @@ pub(crate) fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
 pub fn build_slots_allocations<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     store: &Store<F>,
-    frame: &Frame<F>,
+    frame: &Frame,
     slot_counter: &SlotsCounter,
 ) -> Result<SlotsAllocations<F>> {
     let hash4 = allocate_slots(
@@ -414,19 +416,19 @@ impl Block {
                 }
                 Op::Hash3Zeros(_, tag) => {
                     g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, store.hash3zeros);
+                    g.new_const(cs, *store.hash3zeros());
                 }
                 Op::Hash4Zeros(_, tag) => {
                     g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, store.hash4zeros);
+                    g.new_const(cs, *store.hash4zeros());
                 }
                 Op::Hash6Zeros(_, tag) => {
                     g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, store.hash6zeros);
+                    g.new_const(cs, *store.hash6zeros());
                 }
                 Op::Hash8Zeros(_, tag) => {
                     g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, store.hash8zeros);
+                    g.new_const(cs, *store.hash8zeros());
                 }
                 Op::Not(..)
                 | Op::And(..)
@@ -488,9 +490,9 @@ struct RecursiveContext<'a, F: LurkField, C: Coprocessor<F>> {
     commitment_slots: &'a [&'a (Vec<AllocatedNum<F>>, AllocatedVal<F>)],
     bit_decomp_slots: &'a [&'a (Vec<AllocatedNum<F>>, AllocatedVal<F>)],
     blank: bool,
-    call_outputs: &'a VecDeque<Vec<Ptr<F>>>,
+    call_outputs: &'a VecDeque<Vec<Ptr>>,
     call_idx: usize,
-    cproc_outputs: &'a [Vec<Ptr<F>>],
+    cproc_outputs: &'a [Vec<Ptr>],
 }
 
 fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
@@ -730,28 +732,28 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 bound_allocations.insert_ptr(
                     tgt.clone(),
                     ctx.global_allocator
-                        .get_allocated_ptr(tag, ctx.store.hash3zeros)?,
+                        .get_allocated_ptr(tag, *ctx.store.hash3zeros())?,
                 );
             }
             Op::Hash4Zeros(tgt, tag) => {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
                     ctx.global_allocator
-                        .get_allocated_ptr(tag, ctx.store.hash4zeros)?,
+                        .get_allocated_ptr(tag, *ctx.store.hash4zeros())?,
                 );
             }
             Op::Hash6Zeros(tgt, tag) => {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
                     ctx.global_allocator
-                        .get_allocated_ptr(tag, ctx.store.hash6zeros)?,
+                        .get_allocated_ptr(tag, *ctx.store.hash6zeros())?,
                 );
             }
             Op::Hash8Zeros(tgt, tag) => {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
                     ctx.global_allocator
-                        .get_allocated_ptr(tag, ctx.store.hash8zeros)?,
+                        .get_allocated_ptr(tag, *ctx.store.hash8zeros())?,
                 );
             }
             Op::Lit(tgt, lit) => {
@@ -1262,7 +1264,7 @@ impl Func {
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        frame: &Frame<F>,
+        frame: &Frame,
     ) -> Vec<AllocatedPtr<F>> {
         assert_eq!(self.output_size, frame.output.len());
         let mut output = Vec::with_capacity(frame.output.len());
@@ -1281,7 +1283,7 @@ impl Func {
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        frame: &Frame<F>,
+        frame: &Frame,
         bound_allocations: &mut BoundAllocations<F>,
     ) {
         for (i, ptr) in frame.input.iter().enumerate() {
@@ -1311,7 +1313,7 @@ impl Func {
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        frame: &Frame<F>,
+        frame: &Frame,
         global_allocator: &GlobalAllocator<F>,
         bound_allocations: &mut BoundAllocations<F>,
         lang: &Lang<F, C>,
@@ -1407,7 +1409,7 @@ impl Func {
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        frame: &Frame<F>,
+        frame: &Frame,
         lang: &Lang<F, C>,
     ) -> Result<()> {
         let bound_allocations = &mut BoundAllocations::new();
@@ -1449,22 +1451,22 @@ impl Func {
                     Op::Hash3Zeros(_, tag) => {
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));
-                        globals.insert(FWrap(store.hash3zeros));
+                        globals.insert(FWrap(*store.hash3zeros()));
                     }
                     Op::Hash4Zeros(_, tag) => {
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));
-                        globals.insert(FWrap(store.hash4zeros));
+                        globals.insert(FWrap(*store.hash4zeros()));
                     }
                     Op::Hash6Zeros(_, tag) => {
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));
-                        globals.insert(FWrap(store.hash6zeros));
+                        globals.insert(FWrap(*store.hash6zeros()));
                     }
                     Op::Hash8Zeros(_, tag) => {
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));
-                        globals.insert(FWrap(store.hash8zeros));
+                        globals.insert(FWrap(*store.hash8zeros()));
                     }
                     Op::Lit(_, lit) => {
                         let lit_ptr = lit.to_ptr(store);

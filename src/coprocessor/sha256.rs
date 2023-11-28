@@ -110,9 +110,9 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         true
     }
 
-    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
         let z_ptrs = args.iter().map(|ptr| s.hash_ptr(ptr)).collect::<Vec<_>>();
-        Ptr::num(compute_sha256(self.n, &z_ptrs))
+        s.num(compute_sha256(self.n, &z_ptrs))
     }
 }
 

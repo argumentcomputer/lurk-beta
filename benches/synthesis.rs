@@ -16,7 +16,7 @@ use lurk::{
     state::State,
 };
 
-fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr<F> {
+fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr {
     let program = format!(
         r#"
 (let ((fib (lambda (target)

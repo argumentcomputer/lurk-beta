@@ -15,8 +15,12 @@ use crate::{
 ///   therefore this parameter can be used to test circuit uniformity among all the
 ///   provided expressions.
 ///   - `expected_slots` gives the number of expected slots for each type of hash.
-fn synthesize_test_helper(func: &Func, inputs: Vec<Ptr<Fr>>, expected_num_slots: SlotsCounter) {
-    let store = &Store::default();
+fn synthesize_test_helper(
+    func: &Func,
+    inputs: Vec<Ptr>,
+    expected_num_slots: SlotsCounter,
+    store: &Store<Fr>,
+) {
     let nil = store.intern_nil();
     let outermost = store.cont_outermost();
 
@@ -82,8 +86,9 @@ fn accepts_virtual_nested_match_tag() {
         }
     });
 
-    let inputs = vec![Ptr::num(Fr::from_u64(42))];
-    synthesize_test_helper(&lem, inputs, SlotsCounter::default());
+    let store = Store::default();
+    let inputs = vec![store.num(Fr::from_u64(42))];
+    synthesize_test_helper(&lem, inputs, SlotsCounter::default(), &store);
 }
 
 #[test]
@@ -106,8 +111,9 @@ fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
         }
     });
 
-    let inputs = vec![Ptr::num(Fr::from_u64(42))];
-    synthesize_test_helper(&lem, inputs, SlotsCounter::default());
+    let store = Store::default();
+    let inputs = vec![store.num(Fr::from_u64(42))];
+    synthesize_test_helper(&lem, inputs, SlotsCounter::default(), &store);
 }
 
 #[test]
@@ -121,8 +127,9 @@ fn handles_non_ssa() {
         return (x, x, cont_out_terminal);
     });
 
-    let inputs = vec![Ptr::num(Fr::from_u64(42))];
-    synthesize_test_helper(&func, inputs, SlotsCounter::new((2, 0, 0, 0, 0)));
+    let store = Store::default();
+    let inputs = vec![store.num(Fr::from_u64(42))];
+    synthesize_test_helper(&func, inputs, SlotsCounter::new((2, 0, 0, 0, 0)), &store);
 }
 
 #[test]
@@ -132,8 +139,9 @@ fn test_simple_all_paths_delta() {
         return (expr_in, env_in, cont_out_terminal);
     });
 
-    let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-    synthesize_test_helper(&lem, inputs, SlotsCounter::default());
+    let store = Store::default();
+    let inputs = vec![store.num(Fr::from_u64(42)), store.char('c')];
+    synthesize_test_helper(&lem, inputs, SlotsCounter::default(), &store);
 }
 
 #[test]
@@ -151,8 +159,9 @@ fn test_match_all_paths_delta() {
         }
     });
 
-    let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-    synthesize_test_helper(&lem, inputs, SlotsCounter::default());
+    let store = Store::default();
+    let inputs = vec![store.num(Fr::from_u64(42)), store.char('c')];
+    synthesize_test_helper(&lem, inputs, SlotsCounter::default(), &store);
 }
 
 #[test]
@@ -182,8 +191,9 @@ fn test_hash_slots() {
         }
     });
 
-    let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-    synthesize_test_helper(&lem, inputs, SlotsCounter::new((2, 2, 2, 0, 0)));
+    let store = Store::default();
+    let inputs = vec![store.num(Fr::from_u64(42)), store.char('c')];
+    synthesize_test_helper(&lem, inputs, SlotsCounter::new((2, 2, 2, 0, 0)), &store);
 }
 
 #[test]
@@ -216,8 +226,9 @@ fn test_unhash_slots() {
         }
     });
 
-    let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-    synthesize_test_helper(&lem, inputs, SlotsCounter::new((3, 3, 3, 0, 0)));
+    let store = Store::default();
+    let inputs = vec![store.num(Fr::from_u64(42)), store.char('c')];
+    synthesize_test_helper(&lem, inputs, SlotsCounter::new((3, 3, 3, 0, 0)), &store);
 }
 
 #[test]
@@ -263,6 +274,7 @@ fn test_unhash_nested_slots() {
         }
     });
 
-    let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-    synthesize_test_helper(&lem, inputs, SlotsCounter::new((4, 4, 4, 0, 0)));
+    let store = Store::default();
+    let inputs = vec![store.num(Fr::from_u64(42)), store.char('c')];
+    synthesize_test_helper(&lem, inputs, SlotsCounter::new((4, 4, 4, 0, 0)), &store);
 }

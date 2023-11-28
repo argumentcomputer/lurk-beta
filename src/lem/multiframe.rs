@@ -45,9 +45,9 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     /// Cached coprocessor functions according to the `folding_config`. Holds
     /// `None` in case of IVC
     cprocs: Option<Arc<[Func]>>,
-    input: Option<Vec<Ptr<F>>>,
-    output: Option<Vec<Ptr<F>>>,
-    frames: Option<Vec<Frame<F>>>,
+    input: Option<Vec<Ptr>>,
+    output: Option<Vec<Ptr>>,
+    frames: Option<Vec<Frame>>,
     cached_witness: Option<WitnessCS<F>>,
     num_frames: usize,
     folding_config: Arc<FoldingConfig<F, C>>,
@@ -70,20 +70,20 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 }
 
-impl<F: LurkField> CEKState<Ptr<F>, Ptr<F>> for Vec<Ptr<F>> {
-    fn expr(&self) -> &Ptr<F> {
+impl CEKState<Ptr, Ptr> for Vec<Ptr> {
+    fn expr(&self) -> &Ptr {
         &self[0]
     }
-    fn env(&self) -> &Ptr<F> {
+    fn env(&self) -> &Ptr {
         &self[1]
     }
-    fn cont(&self) -> &Ptr<F> {
+    fn cont(&self) -> &Ptr {
         &self[2]
     }
 }
 
-impl<F: LurkField> FrameLike<Ptr<F>, Ptr<F>> for Frame<F> {
-    type FrameIO = Vec<Ptr<F>>;
+impl FrameLike<Ptr, Ptr> for Frame {
+    type FrameIO = Vec<Ptr>;
     fn input(&self) -> &Self::FrameIO {
         &self.input
     }
@@ -93,8 +93,8 @@ impl<F: LurkField> FrameLike<Ptr<F>, Ptr<F>> for Frame<F> {
 }
 
 impl<F: LurkField> EvaluationStore for Store<F> {
-    type Ptr = Ptr<F>;
-    type ContPtr = Ptr<F>;
+    type Ptr = Ptr;
+    type ContPtr = Ptr;
     type Error = anyhow::Error;
 
     fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error> {
@@ -124,7 +124,7 @@ impl<F: LurkField> EvaluationStore for Store<F> {
 fn assert_eq_ptrs_aptrs<F: LurkField>(
     store: &Store<F>,
     blank: bool,
-    ptrs: &[Ptr<F>],
+    ptrs: &[Ptr],
     aptrs: &[AllocatedPtr<F>],
 ) -> Result<(), SynthesisError> {
     assert_eq!(ptrs.len(), aptrs.len());
@@ -171,7 +171,7 @@ fn compute_witness_size<F: LurkField>(slot_type: &SlotType, store: &Store<F>) ->
 /// with dummy data, we cache their (dummy) witnesses for extra speed
 fn generate_slots_witnesses<F: LurkField>(
     store: &Store<F>,
-    frames: &[Frame<F>],
+    frames: &[Frame],
     num_slots_per_frame: usize,
     parallel: bool,
 ) -> Vec<Arc<SlotWitness<F>>> {
@@ -250,7 +250,7 @@ fn synthesize_frames_sequential<F: LurkField, CS: ConstraintSystem<F>, C: Coproc
     g: &GlobalAllocator<F>,
     store: &Store<F>,
     input: &[AllocatedPtr<F>],
-    frames: &[Frame<F>],
+    frames: &[Frame],
     func: &Func,
     lang: &Lang<F, C>,
     slots_witnesses_num_slots_per_frame: Option<(&[Arc<SlotWitness<F>>], usize)>,
@@ -289,7 +289,7 @@ fn synthesize_frames_parallel<F: LurkField, CS: ConstraintSystem<F>, C: Coproces
     g: &GlobalAllocator<F>,
     store: &Store<F>,
     input: Vec<AllocatedPtr<F>>,
-    frames: &[Frame<F>],
+    frames: &[Frame],
     func: &Func,
     lang: &Lang<F, C>,
     slots_witnesses: &[Arc<SlotWitness<F>>],
@@ -367,8 +367,8 @@ fn synthesize_frames_parallel<F: LurkField, CS: ConstraintSystem<F>, C: Coproces
 /// function. For efficiency, `frames` should have enough capacity to avoid
 /// reallocations
 fn pad_frames<F: LurkField, C: Coprocessor<F>>(
-    frames: &mut Vec<Frame<F>>,
-    input: &[Ptr<F>],
+    frames: &mut Vec<Frame>,
+    input: &[Ptr],
     lurk_step: &Func,
     lang: &Lang<F, C>,
     size: usize,
@@ -383,22 +383,22 @@ fn pad_frames<F: LurkField, C: Coprocessor<F>>(
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
-    type Ptr = Ptr<F>;
-    type ContPtr = Ptr<F>;
+    type Ptr = Ptr;
+    type ContPtr = Ptr;
     type Store = Store<F>;
     type StoreError = store::Error;
-    type EvalFrame = Frame<F>;
-    type CircuitFrame = Frame<F>;
+    type EvalFrame = Frame;
+    type CircuitFrame = Frame;
     type GlobalAllocation = GlobalAllocator<F>;
     type AllocatedIO = Vec<AllocatedPtr<F>>;
 
-    fn emitted(_store: &Store<F>, eval_frame: &Self::EvalFrame) -> Vec<Ptr<F>> {
+    fn emitted(_store: &Store<F>, eval_frame: &Self::EvalFrame) -> Vec<Ptr> {
         eval_frame.emitted.to_vec()
     }
 
     fn io_to_scalar_vector(
         store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike<Ptr<F>, Ptr<F>>>::FrameIO,
+        io: &<Self::EvalFrame as FrameLike<Ptr, Ptr>>::FrameIO,
     ) -> Vec<F> {
         store.to_scalar_vector(io)
     }
@@ -423,7 +423,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         &mut self.cached_witness
     }
 
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr<F>, Ptr<F>>>::FrameIO> {
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr, Ptr>>::FrameIO> {
         &self.output
     }
 
@@ -520,7 +520,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     }
 
     fn from_frames(
-        frames: &[Frame<F>],
+        frames: &[Frame],
         store: &'a Self::Store,
         folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
@@ -682,7 +682,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     }
 
     fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
-        let stop_cond = |output: &[Ptr<F>]| {
+        let stop_cond = |output: &[Ptr]| {
             matches!(
                 output[2].tag(),
                 Tag::Cont(ContTag::Terminal | ContTag::Error)
@@ -698,70 +698,69 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
 
 impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
     fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        let mut synth =
-            |store: &Store<F>, frames: &[Frame<F>], input: &[Ptr<F>], output: &[Ptr<F>]| {
-                let mut allocated_input = Vec::with_capacity(input.len());
-                for (i, ptr) in input.iter().enumerate() {
-                    let z_ptr = store.hash_ptr(ptr);
+        let mut synth = |store: &Store<F>, frames: &[Frame], input: &[Ptr], output: &[Ptr]| {
+            let mut allocated_input = Vec::with_capacity(input.len());
+            for (i, ptr) in input.iter().enumerate() {
+                let z_ptr = store.hash_ptr(ptr);
 
-                    let allocated_tag = AllocatedNum::alloc_infallible(
-                        &mut cs.namespace(|| format!("allocated tag for input {i}")),
-                        || z_ptr.tag_field(),
-                    );
-                    allocated_tag
-                        .inputize(&mut cs.namespace(|| format!("inputized tag for input {i}")))?;
+                let allocated_tag = AllocatedNum::alloc_infallible(
+                    &mut cs.namespace(|| format!("allocated tag for input {i}")),
+                    || z_ptr.tag_field(),
+                );
+                allocated_tag
+                    .inputize(&mut cs.namespace(|| format!("inputized tag for input {i}")))?;
 
-                    let allocated_hash = AllocatedNum::alloc_infallible(
-                        &mut cs.namespace(|| format!("allocated hash for input {i}")),
-                        || *z_ptr.value(),
-                    );
-                    allocated_hash
-                        .inputize(&mut cs.namespace(|| format!("inputized hash for input {i}")))?;
+                let allocated_hash = AllocatedNum::alloc_infallible(
+                    &mut cs.namespace(|| format!("allocated hash for input {i}")),
+                    || *z_ptr.value(),
+                );
+                allocated_hash
+                    .inputize(&mut cs.namespace(|| format!("inputized hash for input {i}")))?;
 
-                    allocated_input.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
-                }
+                allocated_input.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
+            }
 
-                let mut allocated_output = Vec::with_capacity(output.len());
-                for (i, ptr) in output.iter().enumerate() {
-                    let z_ptr = store.hash_ptr(ptr);
+            let mut allocated_output = Vec::with_capacity(output.len());
+            for (i, ptr) in output.iter().enumerate() {
+                let z_ptr = store.hash_ptr(ptr);
 
-                    let allocated_tag = AllocatedNum::alloc_infallible(
-                        &mut cs.namespace(|| format!("allocated tag for output {i}")),
-                        || z_ptr.tag_field(),
-                    );
-                    allocated_tag
-                        .inputize(&mut cs.namespace(|| format!("inputized tag for output {i}")))?;
+                let allocated_tag = AllocatedNum::alloc_infallible(
+                    &mut cs.namespace(|| format!("allocated tag for output {i}")),
+                    || z_ptr.tag_field(),
+                );
+                allocated_tag
+                    .inputize(&mut cs.namespace(|| format!("inputized tag for output {i}")))?;
 
-                    let allocated_hash = AllocatedNum::alloc_infallible(
-                        &mut cs.namespace(|| format!("allocated hash for output {i}")),
-                        || *z_ptr.value(),
-                    );
-                    allocated_hash
-                        .inputize(&mut cs.namespace(|| format!("inputized hash for output {i}")))?;
+                let allocated_hash = AllocatedNum::alloc_infallible(
+                    &mut cs.namespace(|| format!("allocated hash for output {i}")),
+                    || *z_ptr.value(),
+                );
+                allocated_hash
+                    .inputize(&mut cs.namespace(|| format!("inputized hash for output {i}")))?;
 
-                    allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
-                }
+                allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
+            }
 
-                let g = self.lurk_step.alloc_globals(cs, store)?;
+            let g = self.lurk_step.alloc_globals(cs, store)?;
 
-                let allocated_output_result =
-                    self.synthesize_frames(cs, store, allocated_input, frames, &g)?;
+            let allocated_output_result =
+                self.synthesize_frames(cs, store, allocated_input, frames, &g)?;
 
-                assert_eq!(allocated_output.len(), allocated_output_result.len());
+            assert_eq!(allocated_output.len(), allocated_output_result.len());
 
-                for (i, (o_res, o)) in allocated_output_result
-                    .iter()
-                    .zip(allocated_output)
-                    .enumerate()
-                {
-                    o_res.enforce_equal(
-                        &mut cs.namespace(|| format!("outer output {i} is correct")),
-                        &o,
-                    );
-                }
+            for (i, (o_res, o)) in allocated_output_result
+                .iter()
+                .zip(allocated_output)
+                .enumerate()
+            {
+                o_res.enforce_equal(
+                    &mut cs.namespace(|| format!("outer output {i} is correct")),
+                    &o,
+                );
+            }
 
-                Ok(())
-            };
+            Ok(())
+        };
 
         match self.store {
             Some(store) => {
@@ -778,8 +777,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
             }
             None => {
                 assert!(self.frames.is_none());
-                let dummy_io = [Ptr::dummy(); 3];
                 let store = Store::default();
+                let dummy_io = [store.dummy(); 3];
                 let blank_frame = Frame::blank(self.get_func(), self.pc);
                 let frames = vec![blank_frame; self.num_frames];
                 synth(&store, &frames, &dummy_io, &dummy_io)

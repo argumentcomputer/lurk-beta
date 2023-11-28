@@ -25,5 +25,5 @@ pub trait CircomGadget<F: LurkField>: Send + Sync + Clone {
 
     fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)>;
 
-    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
+    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr;
 }
