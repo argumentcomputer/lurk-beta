@@ -29,11 +29,10 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::eval::EvalConfig,
     proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
 };
 
-use super::RecursiveSNARKTrait;
+use super::{FoldingMode, RecursiveSNARKTrait};
 
 /// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
 /// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
@@ -410,7 +409,23 @@ pub struct NovaProver<
     /// The number of small-step reductions performed in each recursive step.
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
+    folding_mode: FoldingMode,
     _phantom: PhantomData<&'a M>,
+}
+
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
+    NovaProver<'a, F, C, M>
+{
+    /// Create a new NovaProver with a reduction count and a `Lang`
+    #[inline]
+    pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
+        Self {
+            reduction_count,
+            lang,
+            folding_mode: FoldingMode::IVC,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Prover<'a, F, C, M>
@@ -424,31 +439,17 @@ where
     type RecursiveSnark = Proof<'a, F, C, M>;
 
     #[inline]
-    fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
-        Self {
-            reduction_count,
-            lang,
-            _phantom: PhantomData,
-        }
-    }
-
-    #[inline]
     fn reduction_count(&self) -> usize {
         self.reduction_count
     }
 
     #[inline]
-    fn lang(&self) -> &Lang<F, C> {
+    fn lang(&self) -> &Arc<Lang<F, C>> {
         &self.lang
     }
 
     #[inline]
-    fn folding_config(&self) -> FoldingConfig<F, C> {
-        FoldingConfig::new_ivc(self.lang.clone(), self.reduction_count)
-    }
-
-    #[inline]
-    fn eval_config(&self) -> EvalConfig<'_, F, C> {
-        EvalConfig::new_ivc(&self.lang)
+    fn folding_mode(&self) -> &FoldingMode {
+        &self.folding_mode
     }
 }

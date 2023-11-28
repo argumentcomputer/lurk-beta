@@ -55,7 +55,8 @@ fn synthesize<M: measurement::Measurement>(
             let folding_config =
                 Arc::new(FoldingConfig::new_ivc(lang_rc.clone(), *reduction_count));
 
-            let multiframe = MultiFrame::from_frames(&frames, &store, folding_config.clone())[0].clone();
+            let multiframe =
+                MultiFrame::from_frames(&frames, &store, folding_config.clone())[0].clone();
 
             b.iter_batched(
                 || (multiframe.clone()), // avoid cloning the frames in the benchmark

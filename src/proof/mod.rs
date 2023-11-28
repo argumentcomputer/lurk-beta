@@ -218,6 +218,38 @@ pub trait RecursiveSNARKTrait<
     }
 }
 
+/// Folding mode used for proving
+#[derive(Debug)]
+pub enum FoldingMode {
+    /// Variant for IVC folding
+    IVC,
+    /// Variant for NIVC folding
+    NIVC,
+}
+
+impl FoldingMode {
+    fn folding_config<F: LurkField, C: Coprocessor<F>>(
+        &self,
+        lang: Arc<Lang<F, C>>,
+        reduction_count: usize,
+    ) -> FoldingConfig<F, C> {
+        match self {
+            Self::IVC => FoldingConfig::new_ivc(lang, reduction_count),
+            Self::NIVC => FoldingConfig::new_nivc(lang, reduction_count),
+        }
+    }
+
+    fn eval_config<'a, F: LurkField, C: Coprocessor<F>>(
+        &self,
+        lang: &'a Lang<F, C>,
+    ) -> EvalConfig<'a, F, C> {
+        match self {
+            Self::IVC => EvalConfig::new_ivc(lang),
+            Self::NIVC => EvalConfig::new_nivc(lang),
+        }
+    }
+}
+
 /// A trait for a prover that works with a field `F`.
 pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>> {
     /// Associated type for public parameters
@@ -236,20 +268,14 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         ProveOutput = Self::ProveOutput,
     >;
 
-    /// Return the corresponding `FoldingConfig` for this prover
-    fn folding_config(&self) -> FoldingConfig<F, C>;
-
-    /// Return the corresponding `EvalConfig` for this prover
-    fn eval_config(&self) -> EvalConfig<'_, F, C>;
-
-    /// Creates a new prover with the specified number of reductions.
-    fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self;
+    /// Returns a reference to the prover's FoldingMode
+    fn folding_mode(&self) -> &FoldingMode;
 
     /// Returns the number of reductions for the prover.
     fn reduction_count(&self) -> usize;
 
     /// Returns a reference to the Prover's Lang.
-    fn lang(&self) -> &Lang<F, C>;
+    fn lang(&self) -> &Arc<Lang<F, C>>;
 
     /// Generate a proof from a sequence of frames
     fn prove(
@@ -257,13 +283,17 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         pp: &Self::PublicParams,
         frames: &[M::EvalFrame],
         store: &'a M::Store,
-        lang: Arc<Lang<F, C>>,
     ) -> Result<(Self::ProveOutput, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
         let z0 = M::io_to_scalar_vector(store, frames[0].input());
         let zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
 
-        let steps = M::from_frames(frames, store, self.folding_config().into());
+        let lang = self.lang().clone();
+        let folding_config = self
+            .folding_mode()
+            .folding_config(lang.clone(), self.reduction_count());
+
+        let steps = M::from_frames(frames, store, folding_config.into());
 
         let prove_output = Self::RecursiveSnark::prove_recursively(
             pp,
@@ -285,10 +315,10 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         env: M::Ptr,
         store: &'a M::Store,
         limit: usize,
-        lang: Arc<Lang<F, C>>,
     ) -> Result<(Self::ProveOutput, Vec<F>, Vec<F>, usize), ProofError> {
-        let frames = M::build_frames(expr, env, store, limit, &self.eval_config())?;
-        self.prove(pp, &frames, store, lang)
+        let eval_config = self.folding_mode().eval_config(self.lang());
+        let frames = M::build_frames(expr, env, store, limit, &eval_config)?;
+        self.prove(pp, &frames, store)
     }
 
     /// Returns the expected total number of steps for the prover given raw iterations.

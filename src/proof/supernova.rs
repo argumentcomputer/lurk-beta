@@ -21,12 +21,13 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::eval::EvalConfig,
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, E1, E2},
         RecursiveSNARKTrait, {MultiFrameTrait, Prover},
     },
 };
+
+use super::FoldingMode;
 
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialSecondaryCircuit<<E2<F> as Engine>::Scalar>;
@@ -128,7 +129,23 @@ pub struct SuperNovaProver<
     /// the primary Lurk circuit.
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
+    folding_mode: FoldingMode,
     _phantom: PhantomData<&'a M>,
+}
+
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
+    SuperNovaProver<'a, F, C, M>
+{
+    /// Create a new SuperNovaProver with a reduction count and a `Lang`
+    #[inline]
+    pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
+        Self {
+            reduction_count,
+            lang,
+            folding_mode: FoldingMode::NIVC,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<
@@ -242,32 +259,18 @@ where
     type RecursiveSnark = Proof<'a, F, C, M>;
 
     #[inline]
-    fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
-        Self {
-            reduction_count,
-            lang,
-            _phantom: PhantomData,
-        }
-    }
-
-    #[inline]
     fn reduction_count(&self) -> usize {
         self.reduction_count
     }
 
     #[inline]
-    fn lang(&self) -> &Lang<F, C> {
+    fn lang(&self) -> &Arc<Lang<F, C>> {
         &self.lang
     }
 
     #[inline]
-    fn folding_config(&self) -> FoldingConfig<F, C> {
-        FoldingConfig::new_nivc(self.lang.clone(), self.reduction_count)
-    }
-
-    #[inline]
-    fn eval_config(&self) -> EvalConfig<'_, F, C> {
-        EvalConfig::new_nivc(&self.lang)
+    fn folding_mode(&self) -> &FoldingMode {
+        &self.folding_mode
     }
 }
 

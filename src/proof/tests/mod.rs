@@ -138,7 +138,7 @@ where
 
     if check_nova {
         let pp = public_params::<_, _, M>(reduction_count, lang.clone());
-        let (proof, z0, zi, num_steps) = nova_prover.prove(&pp, &frames, s, lang.clone()).unwrap();
+        let (proof, z0, zi, num_steps) = nova_prover.prove(&pp, &frames, s).unwrap();
 
         let res = proof.verify(&pp, &z0, &zi, num_steps);
         if res.is_err() {

@@ -139,9 +139,9 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
                 .0;
 
             b.iter_batched(
-                || (frames, lang_rc.clone()),
-                |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, store, lang_rc.clone());
+                || frames,
+                |frames| {
+                    let result = prover.prove(&pp, frames, store);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -222,9 +222,9 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
                 .0;
 
             b.iter_batched(
-                || (frames, lang_rc.clone()),
-                |(frames, lang_rc)| {
-                    let (proof, _, _, _) = prover.prove(&pp, frames, store, lang_rc.clone()).unwrap();
+                || frames,
+                |frames| {
+                    let (proof, _, _, _) = prover.prove(&pp, frames, store).unwrap();
                     let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);
@@ -307,9 +307,9 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
                 .0;
 
             b.iter_batched(
-                || (frames, lang_rc.clone()),
-                |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, store, lang_rc.clone());
+                || frames,
+                |frames| {
+                    let result = prover.prove(&pp, frames, store);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

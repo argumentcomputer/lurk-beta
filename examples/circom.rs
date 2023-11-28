@@ -118,12 +118,7 @@ fn main() {
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let instance = Instance::new(
-        REDUCTION_COUNT,
-        lang_rc.clone(),
-        true,
-        Kind::NovaPublicParams,
-    );
+    let instance = Instance::new(REDUCTION_COUNT, lang_rc, true, Kind::NovaPublicParams);
     let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
     let pp_end = pp_start.elapsed();
 
@@ -133,7 +128,7 @@ fn main() {
 
     let proof_start = Instant::now();
     let (proof, z0, zi, num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000, lang_rc.clone())
+        .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000)
         .unwrap();
     let proof_end = proof_start.elapsed();
 

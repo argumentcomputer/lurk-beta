@@ -146,9 +146,9 @@ fn fibonacci_prove<M: measurement::Measurement>(
                     .0;
 
             b.iter_batched(
-                || (frames, lang_rc.clone()),
-                |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, &store, lang_rc.clone());
+                || frames,
+                |frames| {
+                    let result = prover.prove(&pp, frames, &store);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

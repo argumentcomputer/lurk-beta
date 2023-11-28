@@ -10,6 +10,7 @@ use crate::{
     func,
     lem::Block,
     op,
+    proof::FoldingMode,
     state::initial_lurk_state,
     tag::{
         ContTag::{Error, Terminal},
@@ -238,23 +239,34 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
 
 pub struct EvalConfig<'a, F: LurkField, C: Coprocessor<F>> {
     lang: &'a Lang<F, C>,
-    ivc: bool,
+    folding_mode: FoldingMode,
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> EvalConfig<'a, F, C> {
     #[inline]
     pub fn new_ivc(lang: &'a Lang<F, C>) -> Self {
-        Self { lang, ivc: true }
+        Self {
+            lang,
+            folding_mode: FoldingMode::IVC,
+        }
     }
 
     #[inline]
     pub fn new_nivc(lang: &'a Lang<F, C>) -> Self {
-        Self { lang, ivc: false }
+        Self {
+            lang,
+            folding_mode: FoldingMode::NIVC,
+        }
     }
 
     #[inline]
     pub(crate) fn lang(&self) -> &Lang<F, C> {
         self.lang
+    }
+
+    #[inline]
+    fn is_ivc(&self) -> bool {
+        matches!(self.folding_mode, FoldingMode::IVC)
     }
 }
 
@@ -274,7 +286,7 @@ pub fn make_eval_step_from_config<F: LurkField, C: Coprocessor<F>>(
             .iter()
             .map(|(s, c)| (s, c.arity()))
             .collect::<Vec<_>>(),
-        ec.ivc,
+        ec.is_ivc(),
     )
 }
 
