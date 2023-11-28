@@ -105,15 +105,14 @@ fn main() {
     let circom_sha256: CircomSha256<Fr> = CircomSha256::new(0);
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_sha256));
-
-    let lang_arc = Arc::new(lang);
+    let lang_rc = Arc::new(lang);
 
     let expr = "(.circom_sha256_2)".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();
 
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
         REDUCTION_COUNT,
-        lang_arc.clone(),
+        lang_rc.clone(),
     );
 
     println!("Setting up public parameters...");
@@ -121,7 +120,7 @@ fn main() {
     let pp_start = Instant::now();
     let instance = Instance::new(
         REDUCTION_COUNT,
-        lang_arc.clone(),
+        lang_rc.clone(),
         true,
         Kind::NovaPublicParams,
     );
@@ -134,7 +133,7 @@ fn main() {
 
     let proof_start = Instant::now();
     let (proof, z0, zi, num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000, lang_arc.clone())
+        .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000, lang_rc.clone())
         .unwrap();
     let proof_end = proof_start.elapsed();
 
