@@ -13,7 +13,7 @@ use crate::{
     proof::{
         nova::{public_params, CurveCycleEquipped, NovaProver, E1, E2},
         supernova::FoldingConfig,
-        CEKState, EvaluationStore, MultiFrameTrait, Prover,
+        CEKState, EvaluationStore, MultiFrameTrait, Prover, RecursiveSNARKTrait,
     },
 };
 
@@ -133,31 +133,31 @@ where
 
     let e = s.initial_empty_env();
 
-    let nova_prover = NovaProver::<'a, F, C, M>::new(reduction_count, (*lang).clone());
     let frames = M::build_frames(expr, e, s, limit, &EvalConfig::new_ivc(&lang)).unwrap();
+    let nova_prover = NovaProver::<'a, F, C, M>::new(reduction_count, lang.clone());
 
     if check_nova {
         let pp = public_params::<_, _, M>(reduction_count, lang.clone());
-        let (proof, z0, zi, num_steps) = nova_prover.prove(&pp, &frames, s, &lang).unwrap();
+        let (proof, z0, zi, num_steps) = nova_prover.prove(&pp, &frames, s).unwrap();
 
-        let res = proof.verify(&pp, num_steps, &z0, &zi);
+        let res = proof.verify(&pp, &z0, &zi, num_steps);
         if res.is_err() {
             tracing::debug!("{:?}", &res);
         }
         assert!(res.unwrap());
 
         let compressed = proof.compress(&pp).unwrap();
-        let res2 = compressed.verify(&pp, num_steps, &z0, &zi);
+        let res2 = compressed.verify(&pp, &z0, &zi, num_steps);
 
         assert!(res2.unwrap());
     }
 
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, nova_prover.reduction_count()));
 
-    let multiframes = M::from_frames(&frames, s, &folding_config);
+    let multiframes = M::from_frames(&frames, s, folding_config.clone());
     let len = multiframes.len();
 
-    let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
+    let adjusted_iterations = nova_prover.expected_num_steps(expected_iterations);
     let mut previous_frame: Option<&M> = None;
 
     let mut cs_blank = MetricCS::<F>::new();

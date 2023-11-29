@@ -8,7 +8,7 @@ use lurk::{
     eval::lang::Lang,
     field::LurkField,
     lem::{multiframe::MultiFrame, pointers::Ptr, store::Store},
-    proof::{nova::NovaProver, Prover},
+    proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
@@ -71,18 +71,15 @@ fn main() {
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));
     let lang_rc = Arc::new(lang.clone());
 
-    let nova_prover =
-        NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(REDUCTION_COUNT, lang);
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
+        REDUCTION_COUNT,
+        lang_rc.clone(),
+    );
 
     println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
 
     let pp_start = Instant::now();
-    let instance = Instance::new(
-        REDUCTION_COUNT,
-        lang_rc.clone(),
-        true,
-        Kind::NovaPublicParams,
-    );
+    let instance = Instance::new(REDUCTION_COUNT, lang_rc, true, Kind::NovaPublicParams);
     // see the documentation on `with_public_params`
     let pp = public_params(&instance).unwrap();
     let pp_end = pp_start.elapsed();
@@ -93,7 +90,7 @@ fn main() {
     let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
         .in_scope(|| {
             nova_prover
-                .evaluate_and_prove(&pp, call, store.intern_nil(), store, 10000, &lang_rc)
+                .evaluate_and_prove(&pp, call, store.intern_nil(), store, 10000)
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();
@@ -103,7 +100,7 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
+    let res = proof.verify(&pp, &z0, &zi, num_steps).unwrap();
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {:?}", verify_end);

@@ -16,7 +16,7 @@ use crate::{
     proof::{
         nova::{self, CurveCycleEquipped, E1, E2},
         supernova::C2,
-        MultiFrameTrait,
+        MultiFrameTrait, RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
@@ -295,7 +295,7 @@ where
                 let instance =
                     Instance::new(*rc, Arc::new(lang.clone()), true, Kind::NovaPublicParams);
                 let pp = public_params(&instance)?;
-                Ok(proof.verify(&pp, *num_steps, public_inputs, public_outputs)?)
+                Ok(proof.verify(&pp, public_inputs, public_outputs, *num_steps)?)
             }
         }
     }

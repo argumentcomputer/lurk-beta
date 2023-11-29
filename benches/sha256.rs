@@ -23,7 +23,7 @@ use lurk::{
         pointers::Ptr,
         store::Store,
     },
-    proof::{nova::NovaProver, supernova::SuperNovaProver, Prover},
+    proof::{nova::NovaProver, supernova::SuperNovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         public_params, supernova_public_params,
@@ -132,16 +132,16 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
                 &(0..prove_params.n).collect(),
             );
 
-            let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
+            let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
             let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
                 .unwrap()
                 .0;
 
             b.iter_batched(
-                || (frames, lang_rc.clone()),
-                |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, store, &lang_rc);
+                || frames,
+                |frames| {
+                    let result = prover.prove(&pp, frames, store);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -215,16 +215,16 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
                 &(0..prove_params.n).collect(),
             );
 
-            let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
+            let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
             let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
                 .unwrap()
                 .0;
 
             b.iter_batched(
-                || (frames, lang_rc.clone()),
-                |(frames, lang_rc)| {
-                    let (proof, _, _, _) = prover.prove(&pp, frames, store, &lang_rc).unwrap();
+                || frames,
+                |frames| {
+                    let (proof, _, _, _) = prover.prove(&pp, frames, store).unwrap();
                     let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);
@@ -300,16 +300,16 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
                 &(0..prove_params.n).collect(),
             );
 
-            let prover = SuperNovaProver::new(prove_params.reduction_count, lang.clone());
+            let prover = SuperNovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
             let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
                 .unwrap()
                 .0;
 
             b.iter_batched(
-                || (frames, lang_rc.clone()),
-                |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, store, lang_rc);
+                || frames,
+                |frames| {
+                    let result = prover.prove(&pp, frames, store);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

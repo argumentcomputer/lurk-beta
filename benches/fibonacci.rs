@@ -138,7 +138,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
                 state.clone(),
                 black_box(prove_params.fib_n as u64),
             );
-            let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
+            let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
             let frames =
                 &evaluate::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>(None, ptr, &store, limit)
@@ -146,9 +146,9 @@ fn fibonacci_prove<M: measurement::Measurement>(
                     .0;
 
             b.iter_batched(
-                || (frames, lang_rc.clone()),
-                |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, &store, &lang_rc);
+                || frames,
+                |frames| {
+                    let result = prover.prove(&pp, frames, &store);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

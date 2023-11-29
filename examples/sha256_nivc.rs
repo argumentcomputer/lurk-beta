@@ -13,7 +13,7 @@ use lurk::{
         pointers::Ptr,
         store::Store,
     },
-    proof::{supernova::SuperNovaProver, Prover},
+    proof::{supernova::SuperNovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         supernova_public_params,
@@ -79,18 +79,15 @@ fn main() {
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang));
     let (frames, _) = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
 
-    let supernova_prover =
-        SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(REDUCTION_COUNT, lang);
+    let supernova_prover = SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
+        REDUCTION_COUNT,
+        lang_rc.clone(),
+    );
 
     println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
     let pp_start = Instant::now();
 
-    let instance_primary = Instance::new(
-        REDUCTION_COUNT,
-        lang_rc.clone(),
-        true,
-        Kind::SuperNovaAuxParams,
-    );
+    let instance_primary = Instance::new(REDUCTION_COUNT, lang_rc, true, Kind::SuperNovaAuxParams);
     let pp = supernova_public_params::<_, _, MultiFrame<'_, _, _>>(&instance_primary).unwrap();
 
     let pp_end = pp_start.elapsed();
@@ -98,12 +95,9 @@ fn main() {
 
     println!("Beginning proof step...");
     let proof_start = Instant::now();
-    let (proof, z0, zi, num_steps, last_circuit_index) =
-        tracing_texray::examine(tracing::info_span!("bang!")).in_scope(|| {
-            supernova_prover
-                .prove(&pp, &frames, store, lang_rc)
-                .unwrap()
-        });
+    let ((proof, last_circuit_index), z0, zi, _num_steps) =
+        tracing_texray::examine(tracing::info_span!("bang!"))
+            .in_scope(|| supernova_prover.prove(&pp, &frames, store).unwrap());
     let proof_end = proof_start.elapsed();
 
     println!("Proofs took {:?}", proof_end);
@@ -111,9 +105,7 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    let res = proof
-        .verify(&pp, last_circuit_index, num_steps, &z0, &zi)
-        .unwrap();
+    let res = proof.verify(&pp, &z0, &zi, last_circuit_index).unwrap();
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {:?}", verify_end);

@@ -2,7 +2,7 @@
 
 use abomonation::Abomonation;
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem};
-use ff::Field;
+use ff::PrimeField;
 use halo2curves::bn256::Fr as Bn256Scalar;
 use nova::{
     errors::NovaError,
@@ -29,9 +29,10 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::eval::EvalConfig,
-    proof::{supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Prover},
+    proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
 };
+
+use super::{FoldingMode, RecursiveSNARKTrait};
 
 /// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
 /// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
@@ -196,14 +197,14 @@ pub fn public_params<
     C: Coprocessor<F> + 'a,
     M: StepCircuit<F> + MultiFrameTrait<'a, F, C>,
 >(
-    num_iters_per_step: usize,
+    reduction_count: usize,
     lang: Arc<Lang<F, C>>,
 ) -> PublicParams<F, M>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let (circuit_primary, circuit_secondary) = circuits(num_iters_per_step, lang);
+    let (circuit_primary, circuit_secondary) = circuits(reduction_count, lang);
 
     let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
     let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<E2<F>>>::ck_floor();
@@ -220,124 +221,48 @@ where
 
 /// Generates the circuits for the Nova proving system.
 pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>(
-    count: usize,
+    reduction_count: usize,
     lang: Arc<Lang<F, C>>,
 ) -> (M, C2<F>) {
-    let folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
+    let folding_config = Arc::new(FoldingConfig::new_ivc(lang, reduction_count));
     (M::blank(folding_config, 0), TrivialCircuit::default())
 }
 
-/// A struct for the Nova prover that operates on field elements of type `F`.
-#[derive(Debug)]
-pub struct NovaProver<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
-> {
-    // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
-    reduction_count: usize,
-    lang: Lang<F, C>,
-    _phantom: PhantomData<&'a M>,
-}
-
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Prover<'a, F, C, M>
-    for NovaProver<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
+    RecursiveSNARKTrait<'a, F, C, M> for Proof<'a, F, C, M>
 where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as PrimeField>::Repr: Abomonation,
+    <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, M>;
-    fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
-        NovaProver::<F, C, M> {
-            reduction_count,
-            lang,
-            _phantom: PhantomData,
-        }
-    }
-    fn reduction_count(&self) -> usize {
-        self.reduction_count
-    }
 
-    fn lang(&self) -> &Lang<F, C> {
-        &self.lang
-    }
-}
+    type ProveOutput = Self;
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
-    NovaProver<'a, F, C, M>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
-    /// Proves the computation given the public parameters, frames, and store.
-    pub fn prove(
-        &self,
-        pp: &PublicParams<F, M>,
-        frames: &[M::EvalFrame],
-        store: &'a M::Store,
-        lang: &Arc<Lang<F, C>>,
-    ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
-        store.hydrate_z_cache();
-        let z0 = M::io_to_scalar_vector(store, frames[0].input());
-        let zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
-        let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), self.reduction_count()));
-        let circuits = M::from_frames(frames, store, &folding_config);
+    /// The number of steps
+    type ExtraVerifyInput = usize;
 
-        let num_steps = circuits.len();
-        let proof = Proof::prove_recursively(
-            pp,
-            store,
-            &circuits,
-            self.reduction_count,
-            z0.clone(),
-            lang.clone(),
-        )?;
+    type ErrorType = NovaError;
 
-        Ok((proof, z0, zi, num_steps))
-    }
-
-    /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
-    pub fn evaluate_and_prove(
-        &self,
-        pp: &PublicParams<F, M>,
-        expr: M::Ptr,
-        env: M::Ptr,
-        store: &'a M::Store,
-        limit: usize,
-        lang: &Arc<Lang<F, C>>,
-    ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
-        let frames = M::build_frames(expr, env, store, limit, &EvalConfig::new_ivc(lang))?;
-        self.prove(pp, &frames, store, lang)
-    }
-}
-
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Proof<'a, F, C, M>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
-    /// Proves the computation recursively, generating a recursive SNARK proof.
     #[tracing::instrument(skip_all, name = "nova::prove_recursively")]
-    pub fn prove_recursively(
+    fn prove_recursively(
         pp: &PublicParams<F, M>,
-        store: &M::Store,
-        circuits: &[M],
-        num_iters_per_step: usize,
-        z0: Vec<F>,
+        z0: &[F],
+        steps: &[M],
+        store: &'a <M>::Store,
+        reduction_count: usize,
         lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {
-        assert!(!circuits.is_empty());
-        assert_eq!(circuits[0].arity(), z0.len());
+        assert!(!steps.is_empty());
+        assert_eq!(steps[0].arity(), z0.len());
         let debug = false;
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
 
-        assert_eq!(circuits[0].frames().unwrap().len(), num_iters_per_step);
+        assert_eq!(steps[0].frames().unwrap().len(), reduction_count);
         let (_circuit_primary, circuit_secondary): (M, TrivialCircuit<<E2<F> as Engine>::Scalar>) =
-            crate::proof::nova::circuits(num_iters_per_step, lang);
+            circuits(reduction_count, lang);
 
-        tracing::debug!("circuits.len: {}", circuits.len());
+        tracing::debug!("steps.len: {}", steps.len());
 
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<E1<F>, E2<F>, M, C2<F>>> = None;
@@ -349,9 +274,9 @@ where
             .recursive_steps
             .is_parallel()
         {
-            let cc = circuits
+            let cc = steps
                 .iter()
-                .map(|c| Mutex::new(c.clone()))
+                .map(|c| Mutex::new(c.clone())) // expensive clones!
                 .collect::<Vec<_>>();
 
             crossbeam::thread::scope(|s| {
@@ -371,17 +296,14 @@ where
 
                 for circuit_primary in cc.iter() {
                     let circuit_primary = circuit_primary.lock().unwrap();
-                    assert_eq!(
-                        num_iters_per_step,
-                        circuit_primary.frames().unwrap().iter().len()
-                    );
+                    assert_eq!(reduction_count, circuit_primary.frames().unwrap().len());
 
                     let mut r_snark = recursive_snark.unwrap_or_else(|| {
                         RecursiveSNARK::new(
                             &pp.pp,
                             &circuit_primary,
                             &circuit_secondary,
-                            &z0_primary,
+                            z0_primary,
                             &z0_secondary,
                         )
                         .expect("Failed to construct initial recursive snark")
@@ -395,8 +317,8 @@ where
             })
             .unwrap()
         } else {
-            for circuit_primary in circuits.iter() {
-                assert_eq!(num_iters_per_step, circuit_primary.frames().unwrap().len());
+            for circuit_primary in steps {
+                assert_eq!(reduction_count, circuit_primary.frames().unwrap().len());
                 if debug {
                     // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                     use bellpepper_core::test_cs::TestConstraintSystem;
@@ -423,7 +345,7 @@ where
                         &pp.pp,
                         circuit_primary,
                         &circuit_secondary,
-                        &z0_primary,
+                        z0_primary,
                         &z0_secondary,
                     )
                     .expect("Failed to construct initial recursive snark")
@@ -442,8 +364,7 @@ where
         ))
     }
 
-    /// Compresses the proof using a (Spartan) Snark (finishing step)
-    pub fn compress(self, pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
+    fn compress(self, pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark, _) => Ok(Self::Compressed(
                 Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
@@ -453,31 +374,82 @@ where
                 )?),
                 PhantomData,
             )),
-            Self::Compressed(_, _) => Ok(self),
+            Self::Compressed(..) => Ok(self),
         }
     }
 
-    /// Verifies the proof given the public parameters, the number of steps, and the input and output values.
-    pub fn verify(
+    fn verify(
         &self,
-        pp: &PublicParams<F, M>,
-        num_steps: usize,
+        pp: &Self::PublicParams,
         z0: &[F],
         zi: &[F],
-    ) -> Result<bool, NovaError> {
+        num_steps: usize,
+    ) -> Result<bool, Self::ErrorType> {
         let (z0_primary, zi_primary) = (z0, zi);
         let z0_secondary = Self::z0_secondary();
-        let zi_secondary = z0_secondary.clone();
+        let zi_secondary = &z0_secondary;
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p, _) => p.verify(&pp.pp, num_steps, z0_primary, &z0_secondary),
-            Self::Compressed(p, _) => p.verify(&pp.vk, num_steps, z0_primary, &z0_secondary),
-        }?;
+            Self::Recursive(p, _) => p.verify(&pp.pp, num_steps, z0_primary, &z0_secondary)?,
+            Self::Compressed(p, _) => p.verify(&pp.vk, num_steps, z0_primary, &z0_secondary)?,
+        };
 
-        Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
+        Ok(zi_primary == zi_primary_verified && zi_secondary == &zi_secondary_verified)
+    }
+}
+
+/// A struct for the Nova prover that operates on field elements of type `F`.
+#[derive(Debug)]
+pub struct NovaProver<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
+> {
+    /// The number of small-step reductions performed in each recursive step.
+    reduction_count: usize,
+    lang: Arc<Lang<F, C>>,
+    folding_mode: FoldingMode,
+    _phantom: PhantomData<&'a M>,
+}
+
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
+    NovaProver<'a, F, C, M>
+{
+    /// Create a new NovaProver with a reduction count and a `Lang`
+    #[inline]
+    pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
+        Self {
+            reduction_count,
+            lang,
+            folding_mode: FoldingMode::IVC,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Prover<'a, F, C, M>
+    for NovaProver<'a, F, C, M>
+where
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    type PublicParams = PublicParams<F, M>;
+    type ProveOutput = Proof<'a, F, C, M>;
+    type RecursiveSnark = Proof<'a, F, C, M>;
+
+    #[inline]
+    fn reduction_count(&self) -> usize {
+        self.reduction_count
     }
 
-    fn z0_secondary() -> Vec<<F::E2 as Engine>::Scalar> {
-        vec![<E2<F> as Engine>::Scalar::ZERO]
+    #[inline]
+    fn lang(&self) -> &Arc<Lang<F, C>> {
+        &self.lang
+    }
+
+    #[inline]
+    fn folding_mode(&self) -> &FoldingMode {
+        &self.folding_mode
     }
 }
