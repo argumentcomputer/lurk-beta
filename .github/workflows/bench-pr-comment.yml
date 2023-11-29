@@ -80,14 +80,11 @@ jobs:
       # Install dependencies
       - uses: actions-rs/toolchain@v1
       - uses: Swatinem/rust-cache@v2
-      - name: Load env vars
-        run: |
-          set -a
-          source bench.env
-          set +a
-          echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
-          env | grep -E 'LURK|EC_GPU|CUDA'
-        working-directory: ${{ github.workspace }}/benches
+      - name: Set output type
+        run: echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
+      - uses: cardinalby/export-env-action@v2
+        with:
+          envFile: 'benches/bench.env'
       # Run the comparative benchmark and comment output on the PR
       - uses: boa-dev/criterion-compare-action@v3
         with:
