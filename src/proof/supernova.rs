@@ -221,6 +221,8 @@ where
     }
 
     fn compress(self, _pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
+        // TODO: change this upon merging https://github.com/lurk-lab/arecibo/pull/131
+        // in order to close https://github.com/lurk-lab/lurk-rs/issues/912
         unimplemented!()
     }
 

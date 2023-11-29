@@ -166,6 +166,10 @@ pub trait Provable<F: LurkField> {
     fn num_frames(&self) -> usize;
 }
 
+// Next we have two traits:
+// * `RecursiveSNARKTrait`, which abstracts over Nova and a SuperNova proofs
+// * `Prover`, which abstracts over Nova and SuperNova provers
+
 /// Trait to abstract Nova and SuperNova proofs
 pub trait RecursiveSNARKTrait<
     'a,
