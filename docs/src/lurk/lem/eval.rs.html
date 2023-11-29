@@ -1813,6 +1813,18 @@
 <a href="#1813" id="1813">1813</a>
 <a href="#1814" id="1814">1814</a>
 <a href="#1815" id="1815">1815</a>
+<a href="#1816" id="1816">1816</a>
+<a href="#1817" id="1817">1817</a>
+<a href="#1818" id="1818">1818</a>
+<a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
+<a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
+<a href="#1823" id="1823">1823</a>
+<a href="#1824" id="1824">1824</a>
+<a href="#1825" id="1825">1825</a>
+<a href="#1826" id="1826">1826</a>
+<a href="#1827" id="1827">1827</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -1825,6 +1837,7 @@
     func,
     lem::Block,
     op,
+    proof::FoldingMode,
     state::initial_lurk_state,
     tag::{
         ContTag::{Error, Terminal},
@@ -2053,23 +2066,34 @@
 
 <span class="kw">pub struct </span>EvalConfig&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
     lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;,
-    ivc: bool,
+    folding_mode: FoldingMode,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; EvalConfig&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new_ivc(lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ lang, ivc: <span class="bool-val">true </span>}
+        <span class="self">Self </span>{
+            lang,
+            folding_mode: FoldingMode::IVC,
+        }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new_nivc(lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ lang, ivc: <span class="bool-val">false </span>}
+        <span class="self">Self </span>{
+            lang,
+            folding_mode: FoldingMode::NIVC,
+        }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Lang&lt;F, C&gt; {
         <span class="self">self</span>.lang
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>is_ivc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>.folding_mode, FoldingMode::IVC)
     }
 }
 
@@ -2089,7 +2113,7 @@
             .iter()
             .map(|(s, c)| (s, c.arity()))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-        ec.ivc,
+        ec.is_ivc(),
     )
 }
 

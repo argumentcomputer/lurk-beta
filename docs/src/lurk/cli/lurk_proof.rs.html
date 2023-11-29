@@ -403,7 +403,7 @@
     proof::{
         nova::{<span class="self">self</span>, CurveCycleEquipped, E1, E2},
         supernova::C2,
-        MultiFrameTrait,
+        MultiFrameTrait, RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
@@ -682,7 +682,7 @@
                 <span class="kw">let </span>instance =
                     Instance::new(<span class="kw-2">*</span>rc, Arc::new(lang.clone()), <span class="bool-val">true</span>, Kind::NovaPublicParams);
                 <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">*</span>num_steps, public_inputs, public_outputs)<span class="question-mark">?</span>)
+                <span class="prelude-val">Ok</span>(proof.verify(<span class="kw-2">&amp;</span>pp, public_inputs, public_outputs, <span class="kw-2">*</span>num_steps)<span class="question-mark">?</span>)
             }
         }
     }

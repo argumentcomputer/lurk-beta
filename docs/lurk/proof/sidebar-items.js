@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["nova","supernova"],"trait":["CEKState","EvaluationStore","FrameLike","MultiFrameTrait","NIVCProver","Provable","Prover"]};
+window.SIDEBAR_ITEMS = {"enum":["FoldingMode"],"mod":["nova","supernova"],"trait":["CEKState","EvaluationStore","FrameLike","MultiFrameTrait","Provable","Prover","RecursiveSNARKTrait"]};

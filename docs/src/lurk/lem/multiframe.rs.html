@@ -1657,12 +1657,12 @@
     <span class="kw">fn </span>from_frames(
         frames: <span class="kw-2">&amp;</span>[Frame&lt;F&gt;],
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">Self</span>::Store,
-        folding_config: <span class="kw-2">&amp;</span>Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
+        folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>reduction_count = folding_config.reduction_count();
         <span class="kw">let </span><span class="kw-2">mut </span>multi_frames =
             Vec::with_capacity((frames.len() + reduction_count - <span class="number">1</span>) / reduction_count);
-        <span class="kw">match </span><span class="kw-2">&amp;**</span>folding_config {
+        <span class="kw">match </span><span class="kw-2">&amp;*</span>folding_config {
             FoldingConfig::IVC(lang, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(lang)));
                 <span class="kw">for </span>chunk <span class="kw">in </span>frames.chunks(reduction_count) {
@@ -2259,7 +2259,7 @@
         <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), <span class="number">1</span>));
 
         store.hydrate_z_cache();
-        MultiFrame::from_frames(<span class="kw-2">&amp;</span>[frame], <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>folding_config)
+        MultiFrame::from_frames(<span class="kw-2">&amp;</span>[frame], <span class="kw-2">&amp;</span>store, folding_config)
             .pop()
             .unwrap()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)

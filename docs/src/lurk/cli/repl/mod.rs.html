@@ -585,7 +585,7 @@
         Tag,
     },
     parser,
-    proof::{nova::NovaProver, Prover},
+    proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
@@ -820,16 +820,16 @@
 
                         <span class="kw">let </span>prover = NovaProver::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, Coproc&lt;F&gt;&gt;&gt;::new(
                             <span class="self">self</span>.rc,
-                            (<span class="kw-2">*</span><span class="self">self</span>.lang).clone(),
+                            <span class="self">self</span>.lang.clone(),
                         );
 
                         <span class="macro">info!</span>(<span class="string">&quot;Proving&quot;</span>);
                         <span class="kw">let </span>(proof, public_inputs, public_outputs, num_steps) =
-                            prover.prove(<span class="kw-2">&amp;</span>pp, frames, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.lang)<span class="question-mark">?</span>;
+                            prover.prove(<span class="kw-2">&amp;</span>pp, frames, <span class="kw-2">&amp;</span><span class="self">self</span>.store)<span class="question-mark">?</span>;
                         <span class="macro">info!</span>(<span class="string">&quot;Compressing proof&quot;</span>);
                         <span class="kw">let </span>proof = proof.compress(<span class="kw-2">&amp;</span>pp)<span class="question-mark">?</span>;
                         <span class="macro">assert_eq!</span>(<span class="self">self</span>.rc * num_steps, pad(n_frames, <span class="self">self</span>.rc));
-                        <span class="macro">assert!</span>(proof.verify(<span class="kw-2">&amp;</span>pp, num_steps, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs)<span class="question-mark">?</span>);
+                        <span class="macro">assert!</span>(proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs, num_steps)<span class="question-mark">?</span>);
 
                         <span class="kw">let </span>lurk_proof = LurkProof::Nova {
                             proof,

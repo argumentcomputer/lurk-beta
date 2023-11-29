@@ -453,39 +453,11 @@
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
 <a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem};
-<span class="kw">use </span>ff::Field;
+<span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Bn256Scalar;
 <span class="kw">use </span>nova::{
     errors::NovaError,
@@ -512,9 +484,10 @@
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::eval::EvalConfig,
-    proof::{supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Prover},
+    proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
 };
+
+<span class="kw">use super</span>::{FoldingMode, RecursiveSNARKTrait};
 
 <span class="doccomment">/// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
 /// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
@@ -679,14 +652,14 @@
     C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
     M: StepCircuit&lt;F&gt; + MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
 &gt;(
-    num_iters_per_step: usize,
+    reduction_count: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; PublicParams&lt;F, M&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">let </span>(circuit_primary, circuit_secondary) = circuits(num_iters_per_step, lang);
+    <span class="kw">let </span>(circuit_primary, circuit_secondary) = circuits(reduction_count, lang);
 
     <span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;E1&lt;F&gt;&gt;&gt;::ck_floor();
     <span class="kw">let </span>commitment_size_hint2 = &lt;SS2&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;E2&lt;F&gt;&gt;&gt;::ck_floor();
@@ -703,124 +676,48 @@
 
 <span class="doccomment">/// Generates the circuits for the Nova proving system.
 </span><span class="kw">pub fn </span>circuits&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;(
-    count: usize,
+    reduction_count: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; (M, C2&lt;F&gt;) {
-    <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
+    <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, reduction_count));
     (M::blank(folding_config, <span class="number">0</span>), TrivialCircuit::default())
 }
 
-<span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>NovaProver&lt;
-    <span class="lifetime">&#39;a</span>,
-    F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
-&gt; {
-    <span class="comment">// `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
-    </span>reduction_count: usize,
-    lang: Lang&lt;F, C&gt;,
-    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M&gt;,
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
-    <span class="kw">for </span>NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
+    RecursiveSNARKTrait&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt; <span class="kw">for </span>Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
 <span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;F <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;&lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::E2 <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F, M&gt;;
-    <span class="kw">fn </span>new(reduction_count: usize, lang: Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
-        NovaProver::&lt;F, C, M&gt; {
-            reduction_count,
-            lang,
-            _phantom: PhantomData,
-        }
-    }
-    <span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.reduction_count
-    }
 
-    <span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Lang&lt;F, C&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.lang
-    }
-}
+    <span class="kw">type </span>ProveOutput = <span class="self">Self</span>;
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
-    NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
-    <span class="doccomment">/// Proves the computation given the public parameters, frames, and store.
-    </span><span class="kw">pub fn </span>prove(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    <span class="doccomment">/// The number of steps
+    </span><span class="kw">type </span>ExtraVerifyInput = usize;
+
+    <span class="kw">type </span>ErrorType = NovaError;
+
+    <span class="attr">#[tracing::instrument(skip_all, name = <span class="string">&quot;nova::prove_recursively&quot;</span>)]
+    </span><span class="kw">fn </span>prove_recursively(
         pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
-        frames: <span class="kw-2">&amp;</span>[M::EvalFrame],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
-        lang: <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
-        store.hydrate_z_cache();
-        <span class="kw">let </span>z0 = M::io_to_scalar_vector(store, frames[<span class="number">0</span>].input());
-        <span class="kw">let </span>zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
-        <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), <span class="self">self</span>.reduction_count()));
-        <span class="kw">let </span>circuits = M::from_frames(frames, store, <span class="kw-2">&amp;</span>folding_config);
-
-        <span class="kw">let </span>num_steps = circuits.len();
-        <span class="kw">let </span>proof = Proof::prove_recursively(
-            pp,
-            store,
-            <span class="kw-2">&amp;</span>circuits,
-            <span class="self">self</span>.reduction_count,
-            z0.clone(),
-            lang.clone(),
-        )<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>((proof, z0, zi, num_steps))
-    }
-
-    <span class="doccomment">/// Evaluates and proves the computation given the public parameters, expression, environment, and store.
-    </span><span class="kw">pub fn </span>evaluate_and_prove(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
-        expr: M::Ptr,
-        env: M::Ptr,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
-        limit: usize,
-        lang: <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
-        <span class="kw">let </span>frames = M::build_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>EvalConfig::new_ivc(lang))<span class="question-mark">?</span>;
-        <span class="self">self</span>.prove(pp, <span class="kw-2">&amp;</span>frames, store, lang)
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt; Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
-    <span class="doccomment">/// Proves the computation recursively, generating a recursive SNARK proof.
-    </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">&quot;nova::prove_recursively&quot;</span>)]
-    </span><span class="kw">pub fn </span>prove_recursively(
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
-        store: <span class="kw-2">&amp;</span>M::Store,
-        circuits: <span class="kw-2">&amp;</span>[M],
-        num_iters_per_step: usize,
-        z0: Vec&lt;F&gt;,
+        z0: <span class="kw-2">&amp;</span>[F],
+        steps: <span class="kw-2">&amp;</span>[M],
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>&lt;M&gt;::Store,
+        reduction_count: usize,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
-        <span class="macro">assert!</span>(!circuits.is_empty());
-        <span class="macro">assert_eq!</span>(circuits[<span class="number">0</span>].arity(), z0.len());
+        <span class="macro">assert!</span>(!steps.is_empty());
+        <span class="macro">assert_eq!</span>(steps[<span class="number">0</span>].arity(), z0.len());
         <span class="kw">let </span>debug = <span class="bool-val">false</span>;
         <span class="kw">let </span>z0_primary = z0;
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
 
-        <span class="macro">assert_eq!</span>(circuits[<span class="number">0</span>].frames().unwrap().len(), num_iters_per_step);
+        <span class="macro">assert_eq!</span>(steps[<span class="number">0</span>].frames().unwrap().len(), reduction_count);
         <span class="kw">let </span>(_circuit_primary, circuit_secondary): (M, TrivialCircuit&lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar&gt;) =
-            <span class="kw">crate</span>::proof::nova::circuits(num_iters_per_step, lang);
+            circuits(reduction_count, lang);
 
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;circuits.len: {}&quot;</span>, circuits.len());
+        <span class="macro">tracing::debug!</span>(<span class="string">&quot;steps.len: {}&quot;</span>, steps.len());
 
         <span class="comment">// produce a recursive SNARK
         </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
@@ -832,10 +729,10 @@
             .recursive_steps
             .is_parallel()
         {
-            <span class="kw">let </span>cc = circuits
+            <span class="kw">let </span>cc = steps
                 .iter()
-                .map(|c| Mutex::new(c.clone()))
-                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+                .map(|c| Mutex::new(c.clone())) <span class="comment">// expensive clones!
+                </span>.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
             crossbeam::thread::scope(|s| {
                 s.spawn(|<span class="kw">_</span>| {
@@ -854,17 +751,14 @@
 
                 <span class="kw">for </span>circuit_primary <span class="kw">in </span>cc.iter() {
                     <span class="kw">let </span>circuit_primary = circuit_primary.lock().unwrap();
-                    <span class="macro">assert_eq!</span>(
-                        num_iters_per_step,
-                        circuit_primary.frames().unwrap().iter().len()
-                    );
+                    <span class="macro">assert_eq!</span>(reduction_count, circuit_primary.frames().unwrap().len());
 
                     <span class="kw">let </span><span class="kw-2">mut </span>r_snark = recursive_snark.unwrap_or_else(|| {
                         RecursiveSNARK::new(
                             <span class="kw-2">&amp;</span>pp.pp,
                             <span class="kw-2">&amp;</span>circuit_primary,
                             <span class="kw-2">&amp;</span>circuit_secondary,
-                            <span class="kw-2">&amp;</span>z0_primary,
+                            z0_primary,
                             <span class="kw-2">&amp;</span>z0_secondary,
                         )
                         .expect(<span class="string">&quot;Failed to construct initial recursive snark&quot;</span>)
@@ -878,8 +772,8 @@
             })
             .unwrap()
         } <span class="kw">else </span>{
-            <span class="kw">for </span>circuit_primary <span class="kw">in </span>circuits.iter() {
-                <span class="macro">assert_eq!</span>(num_iters_per_step, circuit_primary.frames().unwrap().len());
+            <span class="kw">for </span>circuit_primary <span class="kw">in </span>steps {
+                <span class="macro">assert_eq!</span>(reduction_count, circuit_primary.frames().unwrap().len());
                 <span class="kw">if </span>debug {
                     <span class="comment">// For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                     </span><span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
@@ -906,7 +800,7 @@
                         <span class="kw-2">&amp;</span>pp.pp,
                         circuit_primary,
                         <span class="kw-2">&amp;</span>circuit_secondary,
-                        <span class="kw-2">&amp;</span>z0_primary,
+                        z0_primary,
                         <span class="kw-2">&amp;</span>z0_secondary,
                     )
                     .expect(<span class="string">&quot;Failed to construct initial recursive snark&quot;</span>)
@@ -925,8 +819,7 @@
         ))
     }
 
-    <span class="doccomment">/// Compresses the proof using a (Spartan) Snark (finishing step)
-    </span><span class="kw">pub fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
+    <span class="kw">fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
             <span class="self">Self</span>::Recursive(recursive_snark, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Compressed(
                 Box::new(CompressedSNARK::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;::prove(
@@ -936,32 +829,83 @@
                 )<span class="question-mark">?</span>),
                 PhantomData,
             )),
-            <span class="self">Self</span>::Compressed(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="self">self</span>),
+            <span class="self">Self</span>::Compressed(..) =&gt; <span class="prelude-val">Ok</span>(<span class="self">self</span>),
         }
     }
 
-    <span class="doccomment">/// Verifies the proof given the public parameters, the number of steps, and the input and output values.
-    </span><span class="kw">pub fn </span>verify(
+    <span class="kw">fn </span>verify(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
-        num_steps: usize,
+        pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
         z0: <span class="kw-2">&amp;</span>[F],
         zi: <span class="kw-2">&amp;</span>[F],
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, NovaError&gt; {
+        num_steps: usize,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, <span class="self">Self</span>::ErrorType&gt; {
         <span class="kw">let </span>(z0_primary, zi_primary) = (z0, zi);
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
-        <span class="kw">let </span>zi_secondary = z0_secondary.clone();
+        <span class="kw">let </span>zi_secondary = <span class="kw-2">&amp;</span>z0_secondary;
 
         <span class="kw">let </span>(zi_primary_verified, zi_secondary_verified) = <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Recursive(p, <span class="kw">_</span>) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.pp, num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary),
-            <span class="self">Self</span>::Compressed(p, <span class="kw">_</span>) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.vk, num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary),
-        }<span class="question-mark">?</span>;
+            <span class="self">Self</span>::Recursive(p, <span class="kw">_</span>) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.pp, num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary)<span class="question-mark">?</span>,
+            <span class="self">Self</span>::Compressed(p, <span class="kw">_</span>) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.vk, num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary)<span class="question-mark">?</span>,
+        };
 
-        <span class="prelude-val">Ok</span>(zi_primary == zi_primary_verified &amp;&amp; zi_secondary == zi_secondary_verified)
+        <span class="prelude-val">Ok</span>(zi_primary == zi_primary_verified &amp;&amp; zi_secondary == <span class="kw-2">&amp;</span>zi_secondary_verified)
+    }
+}
+
+<span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>NovaProver&lt;
+    <span class="lifetime">&#39;a</span>,
+    F: CurveCycleEquipped,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+&gt; {
+    <span class="doccomment">/// The number of small-step reductions performed in each recursive step.
+    </span>reduction_count: usize,
+    lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
+    folding_mode: FoldingMode,
+    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M&gt;,
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
+    NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
+{
+    <span class="doccomment">/// Create a new NovaProver with a reduction count and a `Lang`
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>new(reduction_count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            reduction_count,
+            lang,
+            folding_mode: FoldingMode::IVC,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
+    <span class="kw">for </span>NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
+<span class="kw">where
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+{
+    <span class="kw">type </span>PublicParams = PublicParams&lt;F, M&gt;;
+    <span class="kw">type </span>ProveOutput = Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;;
+    <span class="kw">type </span>RecursiveSnark = Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;;
+
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.reduction_count
     }
 
-    <span class="kw">fn </span>z0_secondary() -&gt; Vec&lt;&lt;F::E2 <span class="kw">as </span>Engine&gt;::Scalar&gt; {
-        <span class="macro">vec!</span>[&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar::ZERO]
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.lang
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>folding_mode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FoldingMode {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.folding_mode
     }
 }
 </code></pre></div></section></main></body></html>
