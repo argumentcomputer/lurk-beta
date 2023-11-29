@@ -6,7 +6,6 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fmt;
 use std::sync::Arc;
 use std::usize;
-use thiserror;
 
 use crate::cont::Continuation;
 use crate::expr;
@@ -204,24 +203,6 @@ impl<F: LurkField> Store<F> {
             .map(|(secret, payload)| (secret.0, *payload))
     }
 
-    pub fn open_mut(&self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
-        let p = match ptr.tag {
-            ExprTag::Comm => ptr,
-            ExprTag::Num => {
-                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
-
-                self.intern_maybe_opaque_comm(scalar)
-            }
-            _ => return Err(Error("wrong type for commitment specifier".into())),
-        };
-
-        if let Some((secret, payload)) = self.fetch_comm(&p) {
-            Ok((secret.0, *payload))
-        } else {
-            Err(Error("hidden value could not be opened".into()))
-        }
-    }
-
     pub fn secret(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
         let p = match ptr.tag {
             ExprTag::Comm => ptr,
@@ -232,31 +213,12 @@ impl<F: LurkField> Store<F> {
             .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
     }
 
-    pub fn secret_mut(&self, ptr: Ptr<F>) -> Result<Ptr<F>, Error> {
-        let p = match ptr.tag {
-            ExprTag::Comm => ptr,
-            _ => return Err(Error("wrong type for commitment specifier".into())),
-        };
-
-        if let Some((secret, _payload)) = self.fetch_comm(&p) {
-            let secret_element = Num::Scalar(secret.0);
-            let secret_num = self.intern_num(secret_element);
-            Ok(secret_num)
-        } else {
-            Err(Error("secret could not be extracted".into()))
-        }
-    }
-
     pub fn list(&self, elts: &[Ptr<F>]) -> Ptr<F> {
         self.intern_list(elts)
     }
 
     pub fn num<T: Into<Num<F>>>(&self, num: T) -> Ptr<F> {
         self.intern_num(num)
-    }
-
-    pub fn uint64(&self, n: u64) -> Ptr<F> {
-        self.intern_u64(n)
     }
 
     pub fn str(&self, s: &str) -> Ptr<F> {
@@ -402,28 +364,12 @@ impl<F: LurkField> Store<F> {
         Ptr::opaque(tag, i)
     }
 
-    pub fn intern_maybe_opaque_fun(&self, hash: F) -> Ptr<F> {
-        self.intern_maybe_opaque(ExprTag::Fun, hash)
-    }
-
-    pub fn intern_maybe_opaque_sym(&self, hash: F) -> Ptr<F> {
-        self.intern_maybe_opaque(ExprTag::Sym, hash)
-    }
-
     pub fn intern_maybe_opaque_cons(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Cons, hash)
     }
 
     pub fn intern_maybe_opaque_comm(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Comm, hash)
-    }
-
-    pub fn intern_opaque_fun(&self, hash: F) -> Ptr<F> {
-        self.intern_opaque(ExprTag::Fun, hash)
-    }
-
-    pub fn intern_opaque_sym(&self, hash: F) -> Ptr<F> {
-        self.intern_opaque(ExprTag::Sym, hash)
     }
 
     pub fn intern_opaque_cons(&self, hash: F) -> Ptr<F> {
@@ -563,10 +509,6 @@ impl<F: LurkField> Store<F> {
         p
     }
 
-    pub fn get_cont_outermost(&self) -> ContPtr<F> {
-        Continuation::Outermost.get_simple_cont()
-    }
-
     pub fn get_cont_error(&self) -> ContPtr<F> {
         Continuation::Error.get_simple_cont()
     }
@@ -579,52 +521,12 @@ impl<F: LurkField> Store<F> {
         Continuation::Dummy.get_simple_cont()
     }
 
-    pub fn get_hash_components_cont(&self, ptr: &ContPtr<F>) -> Option<[F; 8]> {
-        Some(self.to_z_cont(ptr)?.hash_components())
-    }
-
-    pub fn get_hash_components_thunk(&self, thunk: &Thunk<F>) -> Option<[F; 4]> {
-        let value_hash = self.hash_expr(&thunk.value)?;
-        let continuation_hash = self.hash_cont(&thunk.continuation)?;
-
-        Some([
-            value_hash.0.to_field(),
-            value_hash.1,
-            continuation_hash.0.to_field(),
-            continuation_hash.1,
-        ])
-    }
-
-    pub fn intern_cont_error(&self) -> ContPtr<F> {
-        self.mark_dehydrated_cont(self.get_cont_error())
-    }
-
-    pub fn intern_cont_outermost(&self) -> ContPtr<F> {
-        self.mark_dehydrated_cont(self.get_cont_outermost())
-    }
-
-    pub fn intern_cont_terminal(&self) -> ContPtr<F> {
-        self.mark_dehydrated_cont(self.get_cont_terminal())
-    }
-
-    pub fn intern_cont_dummy(&self) -> ContPtr<F> {
-        self.mark_dehydrated_cont(self.get_cont_dummy())
-    }
-
     pub fn fetch_z_expr_ptr(&self, z_ptr: &ZExprPtr<F>) -> Option<Ptr<F>> {
         self.z_expr_ptr_map.get(z_ptr).copied()
     }
 
     pub fn fetch_z_cont_ptr(&self, z_ptr: &ZContPtr<F>) -> Option<ContPtr<F>> {
         self.z_cont_ptr_map.get(z_ptr).copied()
-    }
-
-    pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Symbol> {
-        if matches!(ptr.tag, ExprTag::Sym) {
-            self.fetch_sym(ptr)
-        } else {
-            None
-        }
     }
 
     // fetch a symbol cons or keyword cons
@@ -1264,21 +1166,8 @@ impl<F: LurkField> Store<F> {
         Ok((store_opt.unwrap(), z_ptr))
     }
 
-    pub fn to_z_expr(&self, ptr: &Ptr<F>) -> Option<ZExpr<F>> {
-        self.get_z_expr(ptr, &mut None).ok()?.1
-    }
-
     pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         self.get_z_expr(ptr, &mut None).ok().map(|x| x.0)
-    }
-
-    // TODO: Add errors as below
-    //pub fn hash_expr(&self, ptr: &Ptr<F>) -> Result<ZExprPtr<F>, Error> {
-    //    self.get_z_expr(ptr, None).map(|x| x.0)
-    //}
-
-    pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
-        self.get_z_cont(ptr, &mut None).ok()?.1
     }
 
     pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ZContPtr<F>> {
@@ -1301,23 +1190,6 @@ impl<F: LurkField> Store<F> {
             },
             _ => Err(Error("Can only extract car_cdr from Cons".into())),
         }
-    }
-
-    pub fn get_opaque_ptr(&self, ptr: Ptr<F>) -> Option<ZExprPtr<F>> {
-        let s = self.opaque_ptrs.get_index(ptr.raw.opaque_idx()?)?;
-        Some(*s)
-    }
-
-    // An opaque Ptr is one for which we have the hash, but not the preimages.
-    // So we cannot open or traverse the enclosed data, but we can manipulate
-    // it atomically and include it in containing structures, etc.
-    pub fn new_opaque_ptr(&self) -> Ptr<F> {
-        // TODO: May need new tag for this.
-        // Meanwhile, it is illegal to try to dereference/follow an opaque PTR.
-        // So any tag and RawPtr are okay.
-        let z_ptr = ZExpr::Nil.z_ptr(&self.poseidon_cache);
-        let (i, _) = self.opaque_ptrs.insert_probe(Box::new(z_ptr));
-        Ptr::opaque(ExprTag::Nil, i)
     }
 
     pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool, Error> {
@@ -1652,9 +1524,6 @@ impl<F: LurkField> Expression<F> {
         self.is_null() || self.is_cons()
     }
 
-    pub const fn is_sym(&self) -> bool {
-        matches!(self, Self::Sym(..) | Self::RootSym)
-    }
     pub const fn is_fun(&self) -> bool {
         matches!(self, Self::Fun(_, _, _))
     }
@@ -1666,9 +1535,6 @@ impl<F: LurkField> Expression<F> {
         matches!(self, Self::Str(..) | Self::EmptyStr)
     }
 
-    pub const fn is_thunk(&self) -> bool {
-        matches!(self, Self::Thunk(_))
-    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1846,7 +1712,7 @@ impl<F: LurkField> ZStore<F> {
 }
 
 #[cfg(test)]
-pub mod test {
+pub(crate) mod test {
     use super::*;
 
     use crate::parser::position::Pos;

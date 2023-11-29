@@ -20,7 +20,7 @@ pub mod proof;
 mod ptr;
 pub mod public_parameters;
 pub mod state;
-pub mod store;
+mod store;
 mod symbol;
 mod syntax;
 mod syntax_macros;
