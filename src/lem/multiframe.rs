@@ -838,6 +838,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
 
         if cs.is_witness_generator() {
             if let Some(w) = &self.cached_witness {
+                assert_eq!(cs.inputs_slice().len(), 1);
+                assert!(cs.aux_slice().is_empty());
                 let aux = w.aux_slice();
                 let end = aux.len() - z.len();
                 let inputs = &w.inputs_slice()[1..];
