@@ -284,14 +284,10 @@ where
                     // Skip the very first circuit's witness, so `prove_step` can begin immediately.
                     // That circuit's witness will not be cached and will just be computed on-demand.
                     cc.par_iter().skip(1).for_each(|mf| {
-                        let witness = {
-                            let mf1 = mf.lock().unwrap();
-                            mf1.compute_witness(store)
-                                .expect("witness computation failure")
-                        };
-                        let mut mf2 = mf.lock().unwrap();
-
-                        *mf2.cached_witness() = Some(witness);
+                        mf.lock()
+                            .unwrap()
+                            .cache_witness(store)
+                            .expect("witness caching failed");
                     });
                 });
 
