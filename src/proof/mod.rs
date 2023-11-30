@@ -193,7 +193,7 @@ pub trait RecursiveSNARKTrait<
     fn prove_recursively(
         pp: &Self::PublicParams,
         z0: &[F],
-        steps: &[M],
+        steps: Vec<M>,
         store: &'a M::Store,
         reduction_count: usize,
         lang: Arc<Lang<F, C>>,
@@ -296,17 +296,18 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
             .folding_config(lang.clone(), self.reduction_count());
 
         let steps = M::from_frames(frames, store, folding_config.into());
+        let num_steps = steps.len();
 
         let prove_output = Self::RecursiveSnark::prove_recursively(
             pp,
             &z0,
-            &steps,
+            steps,
             store,
             self.reduction_count(),
             lang,
         )?;
 
-        Ok((prove_output, z0, zi, steps.len()))
+        Ok((prove_output, z0, zi, num_steps))
     }
 
     /// Evaluate an expression with an environment and then generate the corresponding proof

@@ -247,7 +247,7 @@ where
     fn prove_recursively(
         pp: &PublicParams<F, M>,
         z0: &[F],
-        steps: &[M],
+        steps: Vec<M>,
         store: &'a <M>::Store,
         reduction_count: usize,
         lang: Arc<Lang<F, C>>,
@@ -274,10 +274,7 @@ where
             .recursive_steps
             .is_parallel()
         {
-            let cc = steps
-                .iter()
-                .map(|c| Mutex::new(c.clone())) // expensive clones!
-                .collect::<Vec<_>>();
+            let cc = steps.into_iter().map(Mutex::new).collect::<Vec<_>>();
 
             crossbeam::thread::scope(|s| {
                 s.spawn(|_| {
@@ -314,7 +311,7 @@ where
             })
             .unwrap()
         } else {
-            for circuit_primary in steps {
+            for circuit_primary in steps.iter() {
                 assert_eq!(reduction_count, circuit_primary.frames().unwrap().len());
                 if debug {
                     // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
