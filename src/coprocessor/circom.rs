@@ -131,7 +131,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
             0
         }
 
-        fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+        fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
             self.gadget.evaluate_simple(s, args)
         }
 

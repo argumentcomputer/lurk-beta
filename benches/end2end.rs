@@ -26,7 +26,7 @@ use common::set_bench_config;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
-fn go_base<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64, b: u64) -> Ptr<F> {
+fn go_base<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64, b: u64) -> Ptr {
     let program = format!(
         r#"
 (let ((foo (lambda (a b)

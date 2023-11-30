@@ -17,10 +17,10 @@ use crate::{
 fn test_aux<C: Coprocessor<Fr>>(
     s: &Store<Fr>,
     expr: &str,
-    expected_result: Option<Ptr<Fr>>,
-    expected_env: Option<Ptr<Fr>>,
-    expected_cont: Option<Ptr<Fr>>,
-    expected_emitted: Option<Vec<Ptr<Fr>>>,
+    expected_result: Option<Ptr>,
+    expected_env: Option<Ptr>,
+    expected_cont: Option<Ptr>,
+    expected_emitted: Option<Vec<Ptr>>,
     expected_iterations: usize,
     lang: &Option<&Lang<Fr, C>>,
 ) {
@@ -41,10 +41,10 @@ fn test_aux_with_state<C: Coprocessor<Fr>>(
     s: &Store<Fr>,
     state: Rc<RefCell<State>>,
     expr: &str,
-    expected_result: Option<Ptr<Fr>>,
-    expected_env: Option<Ptr<Fr>>,
-    expected_cont: Option<Ptr<Fr>>,
-    expected_emitted: Option<Vec<Ptr<Fr>>>,
+    expected_result: Option<Ptr>,
+    expected_env: Option<Ptr>,
+    expected_cont: Option<Ptr>,
+    expected_emitted: Option<Vec<Ptr>>,
     expected_iterations: usize,
     lang: &Option<&Lang<Fr, C>>,
 ) {
@@ -64,11 +64,11 @@ fn test_aux_with_state<C: Coprocessor<Fr>>(
 #[inline]
 fn do_test_aux<C: Coprocessor<Fr>>(
     s: &Store<Fr>,
-    ptr: &Ptr<Fr>,
-    expected_result: Option<Ptr<Fr>>,
-    expected_env: Option<Ptr<Fr>>,
-    expected_cont: Option<Ptr<Fr>>,
-    expected_emitted: Option<Vec<Ptr<Fr>>>,
+    ptr: &Ptr,
+    expected_result: Option<Ptr>,
+    expected_env: Option<Ptr>,
+    expected_cont: Option<Ptr>,
+    expected_emitted: Option<Vec<Ptr>>,
     expected_iterations: usize,
     lang: &Option<&Lang<Fr, C>>,
 ) {
@@ -100,11 +100,11 @@ fn do_test_aux<C: Coprocessor<Fr>>(
 
 fn do_test<C: Coprocessor<Fr>>(
     s: &Store<Fr>,
-    expr: &Ptr<Fr>,
-    expected_result: Option<Ptr<Fr>>,
-    expected_env: Option<Ptr<Fr>>,
-    expected_cont: Option<Ptr<Fr>>,
-    expected_emitted: Option<Vec<Ptr<Fr>>>,
+    expr: &Ptr,
+    expected_result: Option<Ptr>,
+    expected_env: Option<Ptr>,
+    expected_cont: Option<Ptr>,
+    expected_emitted: Option<Vec<Ptr>>,
     expected_iterations: usize,
     lang: &Lang<Fr, C>,
 ) {
@@ -145,13 +145,13 @@ fn do_test<C: Coprocessor<Fr>>(
 fn self_evaluating() {
     let s = &Store::<Fr>::default();
     let expr_num = "999";
-    let expt_num = Ptr::num_u64(999);
+    let expt_num = s.num_u64(999);
 
     let expr_u64 = "999u64";
-    let expt_u64 = Ptr::u64(999);
+    let expt_u64 = s.u64(999);
 
     let expr_char = "'a'";
-    let expt_char = Ptr::char('a');
+    let expt_char = s.char('a');
 
     let expr_str = "\"abc\"";
     let expt_str = s.intern_string("abc");
@@ -188,8 +188,8 @@ fn evaluate_cons() {
     let s = &Store::<Fr>::default();
     let expr = "(cons 1 2)";
 
-    let car = Ptr::num_u64(1);
-    let cdr = Ptr::num_u64(2);
+    let car = s.num_u64(1);
+    let cdr = s.num_u64(2);
     let expected = s.cons(car, cdr);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
@@ -208,7 +208,7 @@ fn evaluate_cons() {
 fn emit_output() {
     let s = &Store::<Fr>::default();
     let expr = "(emit 123)";
-    let expected = Ptr::num_u64(123);
+    let expected = s.num_u64(123);
     let emitted = vec![expected];
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
@@ -228,7 +228,7 @@ fn evaluate_lambda() {
     let s = &Store::<Fr>::default();
     let expr = "((lambda (x) x) 123)";
 
-    let expected = Ptr::num_u64(123);
+    let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -247,7 +247,7 @@ fn evaluate_empty_args_lambda() {
     let s = &Store::<Fr>::default();
     let expr = "((lambda () 123))";
 
-    let expected = Ptr::num_u64(123);
+    let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -266,7 +266,7 @@ fn evaluate_lambda2() {
     let s = &Store::<Fr>::default();
     let expr = "((lambda (y) ((lambda (x) y) 321)) 123)";
 
-    let expected = Ptr::num_u64(123);
+    let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -285,7 +285,7 @@ fn evaluate_lambda3() {
     let s = &Store::<Fr>::default();
     let expr = "((lambda (y) ((lambda (x) ((lambda (z) z) x)) y)) 123)";
 
-    let expected = Ptr::num_u64(123);
+    let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -306,7 +306,7 @@ fn evaluate_lambda4() {
         // NOTE: We pass two different values. This tests which is returned.
             "((lambda (y) ((lambda (x) ((lambda (z) z) x)) 888)) 999)";
 
-    let expected = Ptr::num_u64(888);
+    let expected = s.num_u64(888);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -327,7 +327,7 @@ fn evaluate_lambda5() {
         // Bind a function to the name FN, then call it.
             "(((lambda (fn) (lambda (x) (fn x))) (lambda (y) y)) 999)";
 
-    let expected = Ptr::num_u64(999);
+    let expected = s.num_u64(999);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -346,7 +346,7 @@ fn evaluate_sum() {
     let s = &Store::<Fr>::default();
     let expr = "(+ 2 (+ 3 4))";
 
-    let expected = Ptr::num_u64(9);
+    let expected = s.num_u64(9);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -365,7 +365,7 @@ fn evaluate_diff() {
     let s = &Store::<Fr>::default();
     let expr = "(- 9 5)";
 
-    let expected = Ptr::num_u64(4);
+    let expected = s.num_u64(4);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -384,7 +384,7 @@ fn evaluate_product() {
     let s = &Store::<Fr>::default();
     let expr = "(* 9 5)";
 
-    let expected = Ptr::num_u64(45);
+    let expected = s.num_u64(45);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -403,7 +403,7 @@ fn evaluate_quotient() {
     let s = &Store::<Fr>::default();
     let expr = "(/ 21 7)";
 
-    let expected = Ptr::num_u64(3);
+    let expected = s.num_u64(3);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -469,7 +469,7 @@ fn evaluate_adder1() {
     let s = &Store::<Fr>::default();
     let expr = "(((lambda (x) (lambda (y) (+ x y))) 2) 3)";
 
-    let expected = Ptr::num_u64(5);
+    let expected = s.num_u64(5);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -490,7 +490,7 @@ fn evaluate_adder2() {
     let expr = "(let ((make-adder (lambda (x) (lambda (y) (+ x y)))))
                    ((make-adder 2) 3))";
 
-    let expected = Ptr::num_u64(5);
+    let expected = s.num_u64(5);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -509,7 +509,7 @@ fn evaluate_let_simple() {
     let s = &Store::<Fr>::default();
     let expr = "(let ((a 1)) a)";
 
-    let expected = Ptr::num_u64(1);
+    let expected = s.num_u64(1);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -528,7 +528,7 @@ fn evaluate_empty_let_bug() {
     let s = &Store::<Fr>::default();
     let expr = "(let () (+ 1 2))";
 
-    let expected = Ptr::num_u64(3);
+    let expected = s.num_u64(3);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -549,7 +549,7 @@ fn evaluate_let() {
                         (b 2))
                    (+ a b))";
 
-    let expected = Ptr::num_u64(3);
+    let expected = s.num_u64(3);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -623,7 +623,7 @@ fn evaluate_let_parallel_binding() {
     let s = &Store::<Fr>::default();
     let expr = "(let ((a 1) (b a)) b)";
 
-    let expected = Ptr::num_u64(1);
+    let expected = s.num_u64(1);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -645,7 +645,7 @@ fn evaluate_arithmetic_let() {
                         (c 2))
                    (/ (+ a b) c))";
 
-    let expected = Ptr::num_u64(3);
+    let expected = s.num_u64(3);
     let new_env = s.intern_nil();
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
@@ -677,7 +677,7 @@ fn evaluate_fundamental_conditional() {
                                        ((cond a) b))))))
                        (((iff 5) 6) true))";
 
-        let expected = Ptr::num_u64(5);
+        let expected = s.num_u64(5);
         let terminal = s.cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -704,7 +704,7 @@ fn evaluate_fundamental_conditional() {
                                        ((cond a) b))))))
                        (((iff 5) 6) false))";
 
-        let expected = Ptr::num_u64(6);
+        let expected = s.num_u64(6);
         let terminal = s.cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -725,7 +725,7 @@ fn evaluate_if() {
         let s = &Store::<Fr>::default();
         let expr = "(if t 5 6)";
 
-        let expected = Ptr::num_u64(5);
+        let expected = s.num_u64(5);
         let terminal = s.cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -742,7 +742,7 @@ fn evaluate_if() {
         let s = &Store::<Fr>::default();
         let expr = "(if nil 5 6)";
 
-        let expected = Ptr::num_u64(6);
+        let expected = s.num_u64(6);
         let terminal = s.cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -763,7 +763,7 @@ fn evaluate_fully_evaluates() {
         let s = &Store::<Fr>::default();
         let expr = "(if t (+ 5 5) 6)";
 
-        let expected = Ptr::num_u64(10);
+        let expected = s.num_u64(10);
         let terminal = s.cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -788,7 +788,7 @@ fn evaluate_recursion1() {
                                         (* base ((exp base) (- exponent 1))))))))
                    ((exp 5) 3))";
 
-    let expected = Ptr::num_u64(125);
+    let expected = s.num_u64(125);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -813,7 +813,7 @@ fn evaluate_recursion2() {
                                           (((exp base) (- exponent 1)) (* acc base))))))))
                    (((exp 5) 5) 1))";
 
-    let expected = Ptr::num_u64(3125);
+    let expected = s.num_u64(3125);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -836,7 +836,7 @@ fn evaluate_recursion_multiarg() {
                                       (* base (exp base (- exponent 1)))))))
                           (exp 5 3))";
 
-    let expected = Ptr::num_u64(125);
+    let expected = s.num_u64(125);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -862,7 +862,7 @@ fn evaluate_recursion_optimized() {
                                         base-inner))))
                     ((exp 5) 3))";
 
-    let expected = Ptr::num_u64(125);
+    let expected = s.num_u64(125);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -887,7 +887,7 @@ fn evaluate_tail_recursion() {
                                           (((exp base) (- exponent-remaining 1)) (* acc base))))))))
                           (((exp 5) 3) 1))";
 
-    let expected = Ptr::num_u64(125);
+    let expected = s.num_u64(125);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -915,7 +915,7 @@ fn evaluate_tail_recursion_somewhat_optimized() {
                                       base-inner))))
                    (((exp 5) 3) 1))";
 
-    let expected = Ptr::num_u64(125);
+    let expected = s.num_u64(125);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -936,7 +936,7 @@ fn evaluate_multiple_letrec_bindings() {
                            (square (lambda (x) (* x x))))
                    (+ (square 3) (double 2)))";
 
-    let expected = Ptr::num_u64(13);
+    let expected = s.num_u64(13);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -957,7 +957,7 @@ fn evaluate_multiple_letrec_bindings_referencing() {
                            (double-inc (lambda (x) (+ 1 (double x)))))
                    (+ (double 3) (double-inc 2)))";
 
-    let expected = Ptr::num_u64(11);
+    let expected = s.num_u64(11);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -989,7 +989,7 @@ fn evaluate_multiple_letrec_bindings_recursive() {
                    (+ (+ (exp 3 2) (exp2 2 3))
                       (exp3 4 2)))";
 
-    let expected = Ptr::num_u64(33);
+    let expected = s.num_u64(33);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1007,7 +1007,7 @@ fn evaluate_multiple_letrec_bindings_recursive() {
 fn nested_let_closure_regression() {
     let s = &Store::<Fr>::default();
     let terminal = s.cont_terminal();
-    let expected = Ptr::num_u64(6);
+    let expected = s.num_u64(6);
 
     {
         // This always works.
@@ -1125,7 +1125,7 @@ fn evaluate_zero_arg_lambda() {
     {
         let expr = "((lambda () 123))";
 
-        let expected = Ptr::num_u64(123);
+        let expected = s.num_u64(123);
         test_aux::<Coproc<Fr>>(
             s,
             expr,
@@ -1140,7 +1140,7 @@ fn evaluate_zero_arg_lambda() {
     {
         let expected = {
             let arg = s.intern_user_symbol("x");
-            let num = Ptr::num_u64(123);
+            let num = s.num_u64(123);
             let body = s.list(vec![num]);
             let env = s.intern_nil();
             s.intern_fun(arg, body, env)
@@ -1162,7 +1162,7 @@ fn evaluate_zero_arg_lambda() {
     {
         let expr = "(letrec ((x 9) (f (lambda () (+ x 1)))) (f))";
 
-        let expected = Ptr::num_u64(10);
+        let expected = s.num_u64(10);
         test_aux::<Coproc<Fr>>(
             s,
             expr,
@@ -1348,7 +1348,7 @@ fn dont_discard_rest_env() {
                                  (b 2)
                                  (l (lambda (x) (+ z x))))
                          (l 9)))";
-        let expected = Ptr::num_u64(18);
+        let expected = s.num_u64(18);
         let terminal = s.cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -1572,7 +1572,7 @@ fn go_translate() {
     // }
 
     let s = &Store::<Fr>::default();
-    let n = Ptr::num_u64(0x1044);
+    let n = s.num_u64(0x1044);
     test_aux::<Coproc<Fr>>(
         s,
         r#"
@@ -1611,7 +1611,7 @@ fn begin() {
     {
         let s = &Store::<Fr>::default();
         let expr = "(car (begin 1 2 '(3 . 4)))";
-        let expected = Ptr::num_u64(3);
+        let expected = s.num_u64(3);
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, None, None, 6, &None);
     }
 }
@@ -1623,7 +1623,7 @@ fn begin_current_env1() {
         let expr = "(let ((a 1))
                        (begin 123 (current-env)))";
         let a = s.intern_user_symbol("a");
-        let one = Ptr::num_u64(1);
+        let one = s.num_u64(1);
         let binding = s.cons(a, one);
         let expected = s.list(vec![binding]);
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, None, None, 5, &None);
@@ -1645,7 +1645,7 @@ fn hide_opaque_open_available() {
     let (output, ..) = evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, 10).unwrap();
 
     let c = *s.hash_ptr(&output[0]).value();
-    let comm = Ptr::comm(c);
+    let comm = s.comm(c);
 
     let open = s.intern_lurk_symbol("open");
     let x = s.intern_user_symbol("x");
@@ -1659,13 +1659,13 @@ fn hide_opaque_open_available() {
     {
         let secret = s.intern_lurk_symbol("secret");
         let expr = s.list(vec![secret, comm]);
-        let sec = Ptr::num_u64(123);
+        let sec = s.num_u64(123);
         do_test::<Coproc<Fr>>(s, &expr, Some(sec), None, None, None, 2, &lang);
     }
 
     {
         // We can open a commitment identified by its corresponding `Num`.
-        let comm_num = Ptr::num(c);
+        let comm_num = s.num(c);
         let expr2 = s.list(vec![open, comm_num]);
         do_test::<Coproc<Fr>>(s, &expr2, Some(x), None, None, None, 2, &lang);
     }
@@ -1681,7 +1681,7 @@ fn hide_opaque_open_unavailable() {
     let c = *s.hash_ptr(&output[0]).value();
 
     let s2 = &Store::<Fr>::default();
-    let comm = Ptr::comm(c);
+    let comm = s.comm(c);
     let open = s2.intern_lurk_symbol("open");
     let x = s2.intern_user_symbol("x");
 
@@ -1779,7 +1779,7 @@ fn char_error() {
 fn prove_commit_secret() {
     let s = &Store::<Fr>::default();
     let expr = "(secret (commit 123))";
-    let expected = Ptr::num_u64(0);
+    let expected = s.num_u64(0);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1797,7 +1797,7 @@ fn prove_commit_secret() {
 fn num() {
     let s = &Store::<Fr>::default();
     let expr = "(num 123)";
-    let expected = Ptr::num_u64(123);
+    let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1815,7 +1815,7 @@ fn num() {
 fn num_char() {
     let s = &Store::<Fr>::default();
     let expr = r"(num #\a)";
-    let expected = Ptr::num_u64(97);
+    let expected = s.num_u64(97);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1877,7 +1877,7 @@ fn commit_num() {
 fn hide_open_comm_num() {
     let s = &Store::<Fr>::default();
     let expr = "(open (comm (num (hide 123 456))))";
-    let expected = Ptr::num_u64(456);
+    let expected = s.num_u64(456);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1895,7 +1895,7 @@ fn hide_open_comm_num() {
 fn hide_secret_comm_num() {
     let s = &Store::<Fr>::default();
     let expr = "(secret (comm (num (hide 123 456))))";
-    let expected = Ptr::num_u64(123);
+    let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1913,7 +1913,7 @@ fn hide_secret_comm_num() {
 fn commit_open_comm_num() {
     let s = &Store::<Fr>::default();
     let expr = "(open (comm (num (commit 123))))";
-    let expected = Ptr::num_u64(123);
+    let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1931,7 +1931,7 @@ fn commit_open_comm_num() {
 fn commit_secret_comm_num() {
     let s = &Store::<Fr>::default();
     let expr = "(secret (comm (num (commit 123))))";
-    let expected = Ptr::num_u64(0);
+    let expected = s.num_u64(0);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1949,7 +1949,7 @@ fn commit_secret_comm_num() {
 fn commit_num_open() {
     let s = &Store::<Fr>::default();
     let expr = "(open (num (commit 123)))";
-    let expected = Ptr::num_u64(123);
+    let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -2282,7 +2282,7 @@ fn test_quoted_symbols() {
     let expr = "(let ((|foo bar| 9)
                           (|Foo \\| Bar| (lambda (x) (* x x))))
                       (|Foo \\| Bar| |foo bar|))";
-    let res = Ptr::num_u64(81);
+    let res = s.num_u64(81);
     let terminal = s.cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 13, &None);
@@ -2293,8 +2293,8 @@ fn test_eval() {
     let s = &Store::<Fr>::default();
     let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
     let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
-    let res = Ptr::num_u64(9);
-    let res2 = Ptr::num_u64(20);
+    let res = s.num_u64(9);
+    let res2 = s.num_u64(20);
     let terminal = s.cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 17, &None);
@@ -2306,7 +2306,7 @@ fn test_eval_env_regression() {
     let s = &Store::<Fr>::default();
     let expr = "(let ((a 1)) (eval 'a))";
     let expr2 = "(let ((a 1)) (eval 'a (current-env)))";
-    let res = Ptr::num_u64(1);
+    let res = s.num_u64(1);
     let error = s.cont_error();
     let terminal = s.cont_terminal();
 
@@ -2321,7 +2321,7 @@ fn test_u64_mul() {
     let expr = "(* (u64 18446744073709551615) (u64 2))";
     let expr2 = "(* 18446744073709551615u64 2u64)";
     let expr3 = "(* (- 0u64 1u64) 2u64)";
-    let res = Ptr::u64(18446744073709551614);
+    let res = s.u64(18446744073709551614);
     let terminal = s.cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 7, &None);
@@ -2335,7 +2335,7 @@ fn test_u64_add() {
 
     let expr = "(+ 18446744073709551615u64 2u64)";
     let expr2 = "(+ (- 0u64 1u64) 2u64)";
-    let res = Ptr::u64(1);
+    let res = s.u64(1);
     let terminal = s.cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 3, &None);
@@ -2349,9 +2349,9 @@ fn test_u64_sub() {
     let expr = "(- 2u64 1u64)";
     let expr2 = "(- 0u64 1u64)";
     let expr3 = "(+ 1u64 (- 0u64 1u64))";
-    let res = Ptr::u64(1);
-    let res2 = Ptr::u64(18446744073709551615);
-    let res3 = Ptr::u64(0);
+    let res = s.u64(1);
+    let res2 = s.u64(18446744073709551615);
+    let res3 = s.u64(0);
     let terminal = s.cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 3, &None);
@@ -2364,10 +2364,10 @@ fn test_u64_div() {
     let s = &Store::<Fr>::default();
 
     let expr = "(/ 100u64 2u64)";
-    let res = Ptr::u64(50);
+    let res = s.u64(50);
 
     let expr2 = "(/ 100u64 3u64)";
-    let res2 = Ptr::u64(33);
+    let res2 = s.u64(33);
 
     let expr3 = "(/ 100u64 0u64)";
 
@@ -2384,10 +2384,10 @@ fn test_u64_mod() {
     let s = &Store::<Fr>::default();
 
     let expr = "(% 100u64 2u64)";
-    let res = Ptr::u64(0);
+    let res = s.u64(0);
 
     let expr2 = "(% 100u64 3u64)";
-    let res2 = Ptr::u64(1);
+    let res2 = s.u64(1);
 
     let expr3 = "(% 100u64 0u64)";
 
@@ -2467,10 +2467,10 @@ fn test_u64_conversion() {
     let expr6 = "(u64)";
     let expr7 = "(u64 1 1)";
 
-    let res = Ptr::num_u64(1);
-    let res2 = Ptr::num_u64(2);
-    let res3 = Ptr::u64(2);
-    let res5 = Ptr::u64(123);
+    let res = s.num_u64(1);
+    let res2 = s.num_u64(2);
+    let res3 = s.u64(2);
+    let res5 = s.u64(123);
     let terminal = s.cont_terminal();
     let error = s.cont_error();
 
@@ -2632,7 +2632,7 @@ fn test_fold_cons_regression() {
                                          (fold op (op acc (car l)) (cdr l))
                                          acc))))
                       (fold (lambda (x y) (+ x y)) 0 '(1 2 3)))";
-    let res = Ptr::num_u64(6);
+    let res = s.num_u64(6);
     let terminal = s.cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 152, &None);
@@ -2819,11 +2819,11 @@ fn test_dumb_lang() {
     let expr6_ = "(cproc-dumb 'x' 'y')";
     let expr7 = "(cproc-dumb 0 'y')";
 
-    let res = Ptr::num_u64(89);
-    let error4 = s.list(vec![Ptr::num_u64(123), Ptr::num_u64(8), Ptr::num_u64(9)]);
-    let error5 = s.list(vec![Ptr::num_u64(9)]);
-    let error6 = Ptr::char('x');
-    let error7 = Ptr::char('y');
+    let res = s.num_u64(89);
+    let error4 = s.list(vec![s.num_u64(123), s.num_u64(8), s.num_u64(9)]);
+    let error5 = s.list(vec![s.num_u64(9)]);
+    let error6 = s.char('x');
+    let error7 = s.char('y');
 
     let error = s.cont_error();
     let terminal = s.cont_terminal();
@@ -2942,7 +2942,7 @@ fn test_trie_lang() {
 
     let expr2 =
         "(.lurk.trie.lookup 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123)";
-    let res2 = Ptr::comm(Fr::zero());
+    let res2 = s.comm(Fr::zero());
 
     test_aux_with_state(
         s,
@@ -2978,7 +2978,7 @@ fn test_trie_lang() {
 
     let expr4 =
         "(.lurk.trie.lookup 0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27 123)";
-    let res4 = Ptr::comm(Fr::from(456));
+    let res4 = s.comm(Fr::from(456));
 
     test_aux_with_state(
         s,
@@ -2996,7 +2996,7 @@ fn test_trie_lang() {
     let expr5 = "(let ((trie (.lurk.trie.new))
                        (found (.lurk.trie.lookup trie 123)))
                       found)";
-    let res5 = Ptr::comm(Fr::zero());
+    let res5 = s.comm(Fr::zero());
 
     test_aux_with_state(
         s,
@@ -3013,7 +3013,7 @@ fn test_trie_lang() {
     let expr6 = "(let ((trie (.lurk.trie.insert (.lurk.trie.new) 123 456))
                        (found (.lurk.trie.lookup trie 123)))
                       found)";
-    let res6 = Ptr::comm(Fr::from(456));
+    let res6 = s.comm(Fr::from(456));
 
     test_aux_with_state(
         s,

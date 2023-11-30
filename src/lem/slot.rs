@@ -104,7 +104,6 @@
 //! expression and so will STEP 3.
 
 use super::{pointers::Ptr, Block, Ctrl, Op};
-use crate::field::LurkField;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlotsCounter {
@@ -234,11 +233,16 @@ impl Block {
     }
 }
 
+/// Holds data to feed the slots
 #[derive(Clone, Debug)]
-pub enum SlotData<F: LurkField> {
-    PtrVec(Vec<Ptr<F>>),
-    FPtr(F, Ptr<F>),
-    F(F),
+pub enum SlotData {
+    /// A sequence of pointers, holding hashing preimages
+    PtrVec(Vec<Ptr>),
+    /// An element of the finite field (cached in a `Store`) and a `Ptr` for
+    /// commitments
+    FPtr(usize, Ptr),
+    /// An element of the finite field (cached in a `Store`) for bit decompositions
+    F(usize),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -261,7 +265,7 @@ impl SlotType {
         }
     }
 
-    pub(crate) fn is_compatible<F: LurkField>(&self, slot_data: &SlotData<F>) -> bool {
+    pub(crate) fn is_compatible(&self, slot_data: &SlotData) -> bool {
         matches!(
             (self, slot_data),
             (Self::Hash4, SlotData::PtrVec(..))
