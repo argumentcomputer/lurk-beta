@@ -53,19 +53,19 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 }
             }
 
-            fn evaluate_internal(&self, s: &lurk::lem::store::Store<F>, ptrs: &[lurk::lem::pointers::Ptr<F>]) -> Vec<lurk::lem::pointers::Ptr<F>> {
+            fn evaluate_internal(&self, s: &lurk::lem::store::Store<F>, ptrs: &[lurk::lem::pointers::Ptr]) -> Vec<lurk::lem::pointers::Ptr> {
                 match self {
                     #evaluate_internal_arms
                 }
             }
 
-            fn evaluate(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr<F>], env: &lurk::lem::pointers::Ptr<F>, cont: &lurk::lem::pointers::Ptr<F>) -> Vec<lurk::lem::pointers::Ptr<F>> {
+            fn evaluate(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr], env: &lurk::lem::pointers::Ptr, cont: &lurk::lem::pointers::Ptr) -> Vec<lurk::lem::pointers::Ptr> {
                 match self {
                     #evaluate_arms
                 }
             }
 
-            fn evaluate_simple(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr<F>]) -> lurk::lem::pointers::Ptr<F> {
+            fn evaluate_simple(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr]) -> lurk::lem::pointers::Ptr {
                 match self {
                     #evaluate_simple_arms
                 }

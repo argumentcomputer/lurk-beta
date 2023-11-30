@@ -80,9 +80,9 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
         vec![a, b]
     }
 
-    fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+    fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
         // TODO: actually use the lurk inputs
-        Ptr::num(
+        s.num(
             F::from_str_vartime(
                 "55165702627807990590530466439275329993482327026534454077267643456",
             )

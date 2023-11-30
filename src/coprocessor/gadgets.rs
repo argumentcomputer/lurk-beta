@@ -142,10 +142,7 @@ pub(crate) fn construct_list<F: LurkField, CS: ConstraintSystem<F>>(
 /// Retrieves the `Ptr` that corresponds to `a_ptr` by using the `Store` as the
 /// hint provider
 #[allow(dead_code)]
-fn get_ptr<F: LurkField>(
-    a_ptr: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<Ptr<F>, SynthesisError> {
+fn get_ptr<F: LurkField>(a_ptr: &AllocatedPtr<F>, store: &Store<F>) -> Result<Ptr, SynthesisError> {
     let z_ptr = ZPtr::from_parts(
         Tag::from_field(
             &a_ptr
@@ -457,8 +454,8 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 ///
 /// let ab = store.intern_string("ab");
 /// let z_ab = store.hash_ptr(&ab);
-/// let a = Ptr::char('a');
-/// let b = Ptr::char('b');
+/// let a = store.char('a');
+/// let b = store.char('b');
 /// let z_a = store.hash_ptr(&a);
 /// let z_b = store.hash_ptr(&b);
 /// let a_ab = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "ab"), || z_ab);
@@ -537,7 +534,7 @@ mod test {
             deconstruct_tuple4,
         },
         field::LurkField,
-        lem::{circuit::GlobalAllocator, pointers::Ptr, store::Store},
+        lem::{circuit::GlobalAllocator, store::Store},
         tag::ExprTag,
     };
 
@@ -602,7 +599,7 @@ mod test {
         let mut cs = WitnessCS::new();
         let mut g = GlobalAllocator::default();
         let store = Store::<Fq>::default();
-        let one = Ptr::num_u64(1);
+        let one = store.num_u64(1);
         let nil = store.intern_nil();
         let z_one = store.hash_ptr(&one);
         let z_nil = store.hash_ptr(&nil);
@@ -705,7 +702,7 @@ mod test {
         assert_eq!(not_empty.get_value(), Some(false));
 
         // cons
-        let one = Ptr::num_u64(1);
+        let one = store.num_u64(1);
         let z_one = store.hash_ptr(&one);
         let cons = store.cons(one, one);
         let z_cons = store.hash_ptr(&cons);
@@ -740,7 +737,7 @@ mod test {
         // non-empty string
         let abc = store.intern_string("abc");
         let bc = store.intern_string("bc");
-        let a = Ptr::char('a');
+        let a = store.char('a');
         let z_abc = store.hash_ptr(&abc);
         let z_bc = store.hash_ptr(&bc);
         let z_a = store.hash_ptr(&a);
@@ -776,8 +773,8 @@ mod test {
         // string
         let ab = store.intern_string("ab");
         let z_ab = store.hash_ptr(&ab);
-        let a = Ptr::char('a');
-        let b = Ptr::char('b');
+        let a = store.char('a');
+        let b = store.char('b');
         let z_a = store.hash_ptr(&a);
         let z_b = store.hash_ptr(&b);
         let a_ab = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "ab"), || z_ab);
