@@ -48,7 +48,7 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     input: Option<Vec<Ptr<F>>>,
     output: Option<Vec<Ptr<F>>>,
     frames: Option<Vec<Frame<F>>>,
-    cached_witness: Option<WitnessCS<F>>,
+    cached_witness: Option<(WitnessCS<F>, Vec<AllocatedNum<F>>)>,
     num_frames: usize,
     folding_config: Arc<FoldingConfig<F, C>>,
     pc: usize,
@@ -403,7 +403,10 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         store.to_scalar_vector(io)
     }
 
-    fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
+    fn compute_witness(
+        &self,
+        s: &Store<F>,
+    ) -> Result<(WitnessCS<F>, Vec<AllocatedNum<F>>), SynthesisError> {
         let mut wcs = WitnessCS::new();
 
         let z_scalar = s.to_scalar_vector(self.input.as_ref().unwrap());
@@ -414,12 +417,12 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
             .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
             .collect::<Vec<_>>();
 
-        let _ = nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice());
+        let output = nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice())?;
 
-        wcs
+        Ok((wcs, output))
     }
 
-    fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>> {
+    fn cached_witness(&mut self) -> &mut Option<(WitnessCS<F>, Vec<AllocatedNum<F>>)> {
         &mut self.cached_witness
     }
 
@@ -836,7 +839,16 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
     {
         assert_eq!(self.arity(), z.len());
 
-        let n_ptrs = self.arity() / 2;
+        if cs.is_witness_generator() {
+            if let Some((w, output)) = &self.cached_witness {
+                // skip the first (F::ONE) input
+                cs.extend_inputs(&w.inputs_slice()[1..]);
+                cs.extend_aux(w.aux_slice());
+                return Ok(output.clone());
+            }
+        };
+
+        let n_ptrs = z.len() / 2;
         let mut input = Vec::with_capacity(n_ptrs);
         for i in 0..n_ptrs {
             input.push(AllocatedPtr::from_parts(
@@ -864,7 +876,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
             }
         };
 
-        let mut output = Vec::with_capacity(self.arity());
+        let mut output = Vec::with_capacity(z.len());
         for ptr in output_ptrs {
             output.push(ptr.tag().clone());
             output.push(ptr.hash().clone());

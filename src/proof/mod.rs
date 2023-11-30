@@ -17,7 +17,9 @@ mod tests;
 
 use ::nova::traits::{circuit::StepCircuit, Engine};
 use bellpepper::util_cs::witness_cs::WitnessCS;
-use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
+use bellpepper_core::{
+    num::AllocatedNum, test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError,
+};
 use std::sync::Arc;
 
 use crate::{
@@ -120,11 +122,14 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
     /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
     fn precedes(&self, maybe_next: &Self) -> bool;
 
-    /// Populates a WitnessCS with the witness values for the given store.
-    fn compute_witness(&self, s: &Self::Store) -> WitnessCS<F>;
+    /// Populates a WitnessCS with the witness values for the given store, also returning the allocated output.
+    fn compute_witness(
+        &self,
+        s: &Self::Store,
+    ) -> Result<(WitnessCS<F>, Vec<AllocatedNum<F>>), SynthesisError>;
 
     /// Returns a reference to the cached witness values
-    fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>>;
+    fn cached_witness(&mut self) -> &mut Option<(WitnessCS<F>, Vec<AllocatedNum<F>>)>;
 
     /// The output of the last frame
     fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO>;

@@ -287,6 +287,7 @@ where
                         let witness = {
                             let mf1 = mf.lock().unwrap();
                             mf1.compute_witness(store)
+                                .expect("witness computation failure")
                         };
                         let mut mf2 = mf.lock().unwrap();
 
