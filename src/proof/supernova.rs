@@ -172,7 +172,7 @@ where
     fn prove_recursively(
         pp: &PublicParams<F, M>,
         z0: &[F],
-        steps: &[M],
+        steps: Vec<M>,
         _store: &'a <M>::Store,
         _reduction_count: usize,
         _lang: Arc<Lang<F, C>>,

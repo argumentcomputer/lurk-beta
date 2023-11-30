@@ -1786,32 +1786,28 @@ fn test_prove_fibonacci() {
     );
 }
 
-// #[test]
-// #[ignore]
-// fn test_prove_fibonacci_100() {
-//     let s = &Store::<Fr>::default();
-//     let expected = s.read_with_default_state("354224848179261915075").unwrap();
-//     let terminal = s.cont_terminal();
-//     nova_test_full_aux::<Coproc<Fr>>::(
-//         s,
-//         "(letrec ((next (lambda (a b n target)
-//                  (if (eq n target)
-//                      a
-//                      (next b
-//                          (+ a b)
-//                          (+ 1 n)
-//                         target))))
-//                 (fib (next 0 1 0)))
-//             (fib 100))",
-//         Some(expected),
-//         None,
-//         Some(terminal),
-//         None,
-//         4841,
-//         5,
-//         false,
-//     );
-// }
+/// This test is a follow up to https://github.com/lurk-lab/lurk-rs/pull/931,
+/// which reverts a PR that made the "parallel steps" flow break
+#[test]
+#[ignore]
+fn test_one_folding() {
+    let s = &Store::<Fr>::default();
+    let expected = Ptr::num_u64(4);
+    let terminal = s.cont_terminal();
+    nova_test_full_aux::<_, _, M1<'_, _>>(
+        s,
+        "(+ 1 (+ 1 (+ 1 1)))",
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        9,
+        5,    // 9 iterations and rc=5 causes one folding to happen and uses the cached witness
+        true, // generate Nova proof and verify it
+        None,
+        &None,
+    );
+}
 
 #[test]
 fn test_prove_terminal_continuation_regression() {
