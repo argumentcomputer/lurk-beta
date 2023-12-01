@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/zstore.rs`."><title>zstore.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (b10cfcd65 2023-11-29)" data-channel="nightly" data-search-js="search-56a624991a76cfad.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/zstore.rs`."><title>zstore.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -360,6 +360,9 @@
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::collections::{BTreeMap, HashMap, HashSet};
@@ -392,16 +395,17 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; ZDag&lt;F&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>populate_with(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
+        ptr: <span class="kw-2">&amp;</span>Ptr,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;Ptr&lt;F&gt;, ZPtr&lt;F&gt;&gt;,
+        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;Ptr, ZPtr&lt;F&gt;&gt;,
     ) -&gt; ZPtr&lt;F&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>recurse = |ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| -&gt; ZPtr&lt;F&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>recurse = |ptr: <span class="kw-2">&amp;</span>Ptr| -&gt; ZPtr&lt;F&gt; {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = cache.get(ptr) {
                 <span class="kw-2">*</span>z_ptr
             } <span class="kw">else </span>{
                 <span class="kw">let </span>z_ptr = <span class="kw">match </span>ptr {
-                    Ptr::Atom(tag, f) =&gt; {
+                    Ptr::Atom(tag, idx) =&gt; {
+                        <span class="kw">let </span>f = store.expect_f(<span class="kw-2">*</span>idx);
                         <span class="kw">let </span>z_ptr = ZPtr::from_parts(<span class="kw-2">*</span>tag, <span class="kw-2">*</span>f);
                         <span class="self">self</span>.<span class="number">0</span>.insert(z_ptr, ZPtrType::Atom);
                         z_ptr
@@ -479,15 +483,17 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;ZPtr&lt;F&gt;, Ptr&lt;F&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>recurse = |z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
+        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;ZPtr&lt;F&gt;, Ptr&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>recurse = |z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&gt; {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = cache.get(z_ptr) {
                 <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>z_ptr)
             } <span class="kw">else </span>{
                 <span class="kw">let </span>ptr = <span class="kw">match </span><span class="self">self</span>.get_type(z_ptr) {
                     <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Couldn&#39;t find ZPtr on ZStore&quot;</span>),
-                    <span class="prelude-val">Some</span>(ZPtrType::Atom) =&gt; Ptr::Atom(<span class="kw-2">*</span>z_ptr.tag(), <span class="kw-2">*</span>z_ptr.value()),
+                    <span class="prelude-val">Some</span>(ZPtrType::Atom) =&gt; {
+                        store.intern_atom_hydrated(<span class="kw-2">*</span>z_ptr.tag(), <span class="kw-2">*</span>z_ptr.value(), <span class="kw-2">*</span>z_ptr)
+                    }
                     <span class="prelude-val">Some</span>(ZPtrType::Tuple2(z1, z2)) =&gt; {
                         <span class="kw">let </span>ptr1 = <span class="self">self</span>.populate_store(z1, store, cache)<span class="question-mark">?</span>;
                         <span class="kw">let </span>ptr2 = <span class="self">self</span>.populate_store(z2, store, cache)<span class="question-mark">?</span>;
@@ -604,9 +610,9 @@
     <span class="attr">#[inline]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>populate_with(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
+        ptr: <span class="kw-2">&amp;</span>Ptr,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;Ptr&lt;F&gt;, ZPtr&lt;F&gt;&gt;,
+        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;Ptr, ZPtr&lt;F&gt;&gt;,
     ) -&gt; ZPtr&lt;F&gt; {
         <span class="self">self</span>.z_dag.populate_with(ptr, store, cache)
     }
@@ -615,8 +621,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;ZPtr&lt;F&gt;, Ptr&lt;F&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
+        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;ZPtr&lt;F&gt;, Ptr&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&gt; {
         <span class="self">self</span>.z_dag.populate_store(z_ptr, store, cache)
     }
 }
@@ -638,7 +644,7 @@
     <span class="kw">use super</span>::{ZDag, ZStore};
 
     <span class="doccomment">/// helper function that interns random data into a store
-    </span><span class="kw">fn </span>rng_interner(rng: <span class="kw-2">&amp;mut </span>StdRng, max_depth: usize, store: <span class="kw-2">&amp;</span>Store&lt;Fp&gt;) -&gt; Ptr&lt;Fp&gt; {
+    </span><span class="kw">fn </span>rng_interner(rng: <span class="kw-2">&amp;mut </span>StdRng, max_depth: usize, store: <span class="kw-2">&amp;</span>Store&lt;Fp&gt;) -&gt; Ptr {
         <span class="kw">let </span>rnd = rng.gen::&lt;u64&gt;();
         <span class="kw">let </span>tag = <span class="kw">match </span>rnd % <span class="number">4 </span>{
             <span class="number">0 </span>=&gt; Tag::Expr(ExprTag::try_from((rnd % <span class="number">11</span>) <span class="kw">as </span>u16).unwrap()),
@@ -648,10 +654,10 @@
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
         };
         <span class="kw">if </span>max_depth == <span class="number">0 </span>{
-            Ptr::Atom(tag, Fp::from_u64(rnd))
+            store.intern_atom(tag, Fp::from_u64(rnd))
         } <span class="kw">else </span>{
             <span class="kw">match </span>rnd % <span class="number">4 </span>{
-                <span class="number">0 </span>=&gt; Ptr::Atom(tag, Fp::from_u64(rnd)),
+                <span class="number">0 </span>=&gt; store.intern_atom(tag, Fp::from_u64(rnd)),
                 <span class="number">1 </span>=&gt; store.intern_2_ptrs(
                     tag,
                     rng_interner(rng, max_depth - <span class="number">1</span>, store),
@@ -702,9 +708,9 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_filtered_dag() {
         <span class="kw">let </span>store = Store::&lt;Fp&gt;::default();
-        <span class="kw">let </span>one = Ptr::num_u64(<span class="number">1</span>);
-        <span class="kw">let </span>two = Ptr::num_u64(<span class="number">2</span>);
-        <span class="kw">let </span>thr = Ptr::num_u64(<span class="number">3</span>);
+        <span class="kw">let </span>one = store.num_u64(<span class="number">1</span>);
+        <span class="kw">let </span>two = store.num_u64(<span class="number">2</span>);
+        <span class="kw">let </span>thr = store.num_u64(<span class="number">3</span>);
         <span class="kw">let </span>one_two = store.cons(one, two);
         <span class="kw">let </span>two_thr = store.cons(two, thr);
         <span class="kw">let </span><span class="kw-2">mut </span>z_dag = ZDag::default();

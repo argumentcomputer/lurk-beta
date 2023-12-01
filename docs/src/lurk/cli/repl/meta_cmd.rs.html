@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (b10cfcd65 2023-11-29)" data-channel="nightly" data-search-js="search-56a624991a76cfad.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -678,6 +678,8 @@
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
 <a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>nova::traits::Engine;
@@ -702,7 +704,7 @@
     format: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
     description: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
     example: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
-    <span class="kw">pub</span>(<span class="kw">super</span>) run: <span class="kw">fn</span>(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) run: <span class="kw">fn</span>(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;,
 }
 
 <span class="kw">type </span>F = pasta_curves::pallas::Scalar; <span class="comment">// TODO: generalize this
@@ -735,7 +737,7 @@
             <span class="string">&quot;The state&#39;s env is set to the result.&quot;</span>,
         ],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(def foo (lambda () 123))&quot;</span>],
-        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| {
+        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr| {
             <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>new_name = first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow());
             <span class="kw">let </span>l = repl.store.intern_lurk_symbol(<span class="string">&quot;let&quot;</span>);
@@ -942,6 +944,7 @@
                     first_io[<span class="number">0</span>].fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
                 )
             };
+            <span class="kw">let </span>secret = <span class="kw-2">*</span>repl.store.expect_f(secret);
             repl.hide(secret, second_io[<span class="number">0</span>])<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(())
         },
@@ -959,7 +962,7 @@
             <span class="string">&quot;!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
         ],
         run: |repl, args| {
-            <span class="kw">let </span>hash = repl.get_comm_hash(args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(args)<span class="question-mark">?</span>;
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)
         },
     };
@@ -976,7 +979,7 @@
             <span class="string">&quot;!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
         ],
         run: |repl, args| {
-            <span class="kw">let </span>hash = repl.get_comm_hash(args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(args)<span class="question-mark">?</span>;
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">true</span>)
         },
     };
@@ -1210,18 +1213,18 @@
 }
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
-    <span class="kw">fn </span>call(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">fn </span>call(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(hash_ptr, args) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
         <span class="kw">let </span>hash_expr = <span class="kw">match </span>hash_ptr.tag() {
             Tag::Expr(ExprTag::Cons) =&gt; hash_ptr,
             <span class="kw">_ </span>=&gt; repl.store.list(<span class="macro">vec!</span>[hash_ptr]),
         };
-        <span class="kw">let </span>hash = repl.get_comm_hash(<span class="kw-2">&amp;</span>hash_expr)<span class="question-mark">?</span>;
+        <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(<span class="kw-2">&amp;</span>hash_expr)<span class="question-mark">?</span>;
         <span class="kw">if </span>repl.store.open(hash).is_none() {
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
         }
         <span class="kw">let </span>open = repl.store.intern_lurk_symbol(<span class="string">&quot;open&quot;</span>);
-        <span class="kw">let </span>open_expr = repl.store.list(<span class="macro">vec!</span>[open, Ptr::num(hash)]);
+        <span class="kw">let </span>open_expr = repl.store.list(<span class="macro">vec!</span>[open, repl.store.num(hash)]);
         <span class="kw">let </span>(args_vec, <span class="kw">_</span>) = repl
             .store
             .fetch_list(<span class="kw-2">&amp;</span>args)
@@ -1262,7 +1265,7 @@
                (add 0)))&quot;</span>,
             <span class="string">&quot;!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 1)&quot;</span>,
         ],
-        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| {
+        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr| {
             <span class="self">Self</span>::call(repl, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>ev = repl
                 .get_evaluation()
@@ -1275,6 +1278,7 @@
             <span class="kw">let </span>Ptr::Atom(Tag::Expr(ExprTag::Comm), hash) = comm <span class="kw">else </span>{
                 <span class="macro">bail!</span>(<span class="string">&quot;Second component of a chain must be a commitment&quot;</span>)
             };
+            <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.store.expect_f(hash);
             <span class="comment">// retrieve from store to persist
             </span><span class="kw">let </span>(secret, fun) = repl
                 .store
@@ -1286,7 +1290,7 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField + DeserializeOwned&gt; MetaCmd&lt;F&gt; {
-    <span class="kw">fn </span>inspect(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, full: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">fn </span>inspect(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr, full: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
         <span class="kw">let </span>proof_id = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
         LurkProofMeta::&lt;F&gt;::inspect_proof(

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (b10cfcd65 2023-11-29)" data-channel="nightly" data-search-js="search-56a624991a76cfad.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -582,6 +582,29 @@
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>std::collections::VecDeque;
 
@@ -596,28 +619,28 @@
     field::LurkField,
     num::Num <span class="kw">as </span>BaseNum,
     state::initial_lurk_state,
-    tag::ExprTag::{Comm, Nil, Num, Sym},
+    tag::ExprTag::{Comm, Num, Sym},
 };
 
 <span class="attr">#[derive(Clone)]
-</span><span class="kw">pub enum </span>Val&lt;F: LurkField&gt; {
-    Pointer(Ptr&lt;F&gt;),
+</span><span class="kw">pub enum </span>Val {
+    Pointer(Ptr),
     Boolean(bool),
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; VarMap&lt;Val&lt;F&gt;&gt; {
-    <span class="kw">fn </span>get_many_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>[Var]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt; {
+<span class="kw">impl </span>VarMap&lt;Val&gt; {
+    <span class="kw">fn </span>get_many_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>[Var]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Ptr&gt;&gt; {
         args.iter().map(|arg| <span class="self">self</span>.get_ptr(arg)).collect()
     }
 
-    <span class="kw">fn </span>get_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, var: <span class="kw-2">&amp;</span>Var) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
+    <span class="kw">fn </span>get_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, var: <span class="kw-2">&amp;</span>Var) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&gt; {
         <span class="kw">if let </span>Val::Pointer(ptr) = <span class="self">self</span>.get(var)<span class="question-mark">? </span>{
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="kw-2">*</span>ptr);
         }
         <span class="macro">bail!</span>(<span class="string">&quot;Expected {var} to be a pointer&quot;</span>)
     }
 
-    <span class="kw">fn </span>insert_ptr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var: Var, ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Val&lt;F&gt;&gt; {
+    <span class="kw">fn </span>insert_ptr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var: Var, ptr: Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;Val&gt; {
         <span class="self">self</span>.insert(var, Val::Pointer(ptr))
     }
 
@@ -628,7 +651,7 @@
         <span class="macro">bail!</span>(<span class="string">&quot;Expected {var} to be a boolean&quot;</span>)
     }
 
-    <span class="kw">fn </span>insert_bool(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var: Var, b: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Val&lt;F&gt;&gt; {
+    <span class="kw">fn </span>insert_bool(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var: Var, b: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Val&gt; {
         <span class="self">self</span>.insert(var, Val::Boolean(b))
     }
 }
@@ -638,18 +661,18 @@
 /// The hash preimages must have the same shape as the allocated slots for the
 /// `Func`, and the `None` values are used to fill the unused slots, which are
 /// later filled by dummy values.
-</span><span class="kw">pub struct </span>Hints&lt;F: LurkField&gt; {
-    <span class="kw">pub </span>hash4: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>hash6: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>hash8: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>commitment: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>bit_decomp: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>call_outputs: VecDeque&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>cproc_outputs: Vec&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
+</span><span class="kw">pub struct </span>Hints {
+    <span class="kw">pub </span>hash4: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&gt;&gt;,
+    <span class="kw">pub </span>hash6: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&gt;&gt;,
+    <span class="kw">pub </span>hash8: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&gt;&gt;,
+    <span class="kw">pub </span>commitment: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&gt;&gt;,
+    <span class="kw">pub </span>bit_decomp: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&gt;&gt;,
+    <span class="kw">pub </span>call_outputs: VecDeque&lt;Vec&lt;Ptr&gt;&gt;,
+    <span class="kw">pub </span>cproc_outputs: Vec&lt;Vec&lt;Ptr&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Hints&lt;F&gt; {
-    <span class="kw">pub fn </span>new_from_func(func: <span class="kw-2">&amp;</span>Func) -&gt; Hints&lt;F&gt; {
+<span class="kw">impl </span>Hints {
+    <span class="kw">pub fn </span>new_from_func(func: <span class="kw-2">&amp;</span>Func) -&gt; Hints {
         <span class="kw">let </span>slot = func.slots_count;
         <span class="kw">let </span>hash4 = Vec::with_capacity(slot.hash4);
         <span class="kw">let </span>hash6 = Vec::with_capacity(slot.hash6);
@@ -669,7 +692,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func) -&gt; Hints&lt;F&gt; {
+    <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func) -&gt; Hints {
         <span class="kw">let </span>slot = func.slots_count;
         <span class="kw">let </span>hash4 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash4];
         <span class="kw">let </span>hash6 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash6];
@@ -696,19 +719,19 @@
 ///
 /// This information is used to generate the witness.
 </span><span class="attr">#[derive(Clone, Debug, Default)]
-</span><span class="kw">pub struct </span>Frame&lt;F: LurkField&gt; {
-    <span class="kw">pub </span>input: Vec&lt;Ptr&lt;F&gt;&gt;,
-    <span class="kw">pub </span>output: Vec&lt;Ptr&lt;F&gt;&gt;,
-    <span class="kw">pub </span>emitted: Vec&lt;Ptr&lt;F&gt;&gt;,
-    <span class="kw">pub </span>hints: Hints&lt;F&gt;,
+</span><span class="kw">pub struct </span>Frame {
+    <span class="kw">pub </span>input: Vec&lt;Ptr&gt;,
+    <span class="kw">pub </span>output: Vec&lt;Ptr&gt;,
+    <span class="kw">pub </span>emitted: Vec&lt;Ptr&gt;,
+    <span class="kw">pub </span>hints: Hints,
     <span class="kw">pub </span>blank: bool,
     <span class="kw">pub </span>pc: usize,
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Frame&lt;F&gt; {
-    <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func, pc: usize) -&gt; Frame&lt;F&gt; {
-        <span class="kw">let </span>input = <span class="macro">vec!</span>[Ptr::zero(Tag::Expr(Nil)); func.input_params.len()];
-        <span class="kw">let </span>output = <span class="macro">vec!</span>[Ptr::zero(Tag::Expr(Nil)); func.output_size];
+<span class="kw">impl </span>Frame {
+    <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func, pc: usize) -&gt; Frame {
+        <span class="kw">let </span>input = <span class="macro">vec!</span>[Ptr::dummy(); func.input_params.len()];
+        <span class="kw">let </span>output = <span class="macro">vec!</span>[Ptr::dummy(); func.output_size];
         <span class="kw">let </span>hints = Hints::blank(func);
         Frame {
             input,
@@ -727,15 +750,15 @@
     /// in `circuit.rs`)
     </span><span class="kw">fn </span>run&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        input: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
+        input: <span class="kw-2">&amp;</span>[Ptr],
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        <span class="kw-2">mut </span>bindings: VarMap&lt;Val&lt;F&gt;&gt;,
-        <span class="kw-2">mut </span>hints: Hints&lt;F&gt;,
+        <span class="kw-2">mut </span>bindings: VarMap&lt;Val&gt;,
+        <span class="kw-2">mut </span>hints: Hints,
         <span class="kw-2">mut </span>path: Path,
-        emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&lt;F&gt;&gt;,
+        emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         pc: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame&lt;F&gt;, Path)&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame, Path)&gt; {
         <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.ops {
             <span class="kw">match </span>op {
                 Op::Cproc(out, sym, inp) =&gt; {
@@ -781,19 +804,19 @@
                     bindings.insert(tgt.clone(), bindings.get_cloned(src)<span class="question-mark">?</span>);
                 }
                 Op::Zero(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::zero(<span class="kw-2">*</span>tag));
+                    bindings.insert_ptr(tgt.clone(), store.zero(<span class="kw-2">*</span>tag));
                 }
                 Op::Hash3Zeros(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash3zeros));
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash3zeros_idx));
                 }
                 Op::Hash4Zeros(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash4zeros));
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash4zeros_idx));
                 }
                 Op::Hash6Zeros(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash6zeros));
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash6zeros_idx));
                 }
                 Op::Hash8Zeros(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash8zeros));
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash8zeros_idx));
                 }
                 Op::Lit(tgt, lit) =&gt; {
                     bindings.insert_ptr(tgt.clone(), lit.to_ptr(store));
@@ -835,7 +858,8 @@
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
                     <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
-                        Ptr::Atom(Tag::Expr(Num), f + g)
+                        <span class="kw">let </span>(f, g) = (store.expect_f(f), store.expect_f(g));
+                        store.intern_atom(Tag::Expr(Num), <span class="kw-2">*</span>f + <span class="kw-2">*</span>g)
                     } <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;`Add` only works on atoms&quot;</span>)
                     };
@@ -845,7 +869,8 @@
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
                     <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
-                        Ptr::Atom(Tag::Expr(Num), f - g)
+                        <span class="kw">let </span>(f, g) = (store.expect_f(f), store.expect_f(g));
+                        store.intern_atom(Tag::Expr(Num), <span class="kw-2">*</span>f - <span class="kw-2">*</span>g)
                     } <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;`Sub` only works on atoms&quot;</span>)
                     };
@@ -855,7 +880,8 @@
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
                     <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
-                        Ptr::Atom(Tag::Expr(Num), f * g)
+                        <span class="kw">let </span>(f, g) = (store.expect_f(f), store.expect_f(g));
+                        store.intern_atom(Tag::Expr(Num), <span class="kw-2">*</span>f * <span class="kw-2">*</span>g)
                     } <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;`Mul` only works on atoms&quot;</span>)
                     };
@@ -865,10 +891,11 @@
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
                     <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
-                        <span class="kw">if </span>g == F::ZERO {
+                        <span class="kw">let </span>(f, g) = (store.expect_f(f), store.expect_f(g));
+                        <span class="kw">if </span>g == <span class="kw-2">&amp;</span>F::ZERO {
                             <span class="macro">bail!</span>(<span class="string">&quot;Can&#39;t divide by zero&quot;</span>)
                         }
-                        Ptr::Atom(Tag::Expr(Num), f * g.invert().expect(<span class="string">&quot;not zero&quot;</span>))
+                        store.intern_atom(Tag::Expr(Num), <span class="kw-2">*</span>f * g.invert().expect(<span class="string">&quot;not zero&quot;</span>))
                     } <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;`Div` only works on numbers&quot;</span>)
                     };
@@ -877,11 +904,19 @@
                 Op::Lt(tgt, a, b) =&gt; {
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
+                    <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f_idx), Ptr::Atom(<span class="kw">_</span>, g_idx)) = (a, b) {
+                        <span class="kw">let </span>f = <span class="kw-2">*</span>store.expect_f(f_idx);
+                        <span class="kw">let </span>g = <span class="kw-2">*</span>store.expect_f(g_idx);
                         <span class="kw">let </span>diff = f - g;
-                        hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData::F(f + f)));
-                        hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData::F(g + g)));
-                        hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData::F(diff + diff)));
+                        hints
+                            .bit_decomp
+                            .push(<span class="prelude-val">Some</span>(SlotData::F(store.intern_f(f + f).<span class="number">0</span>)));
+                        hints
+                            .bit_decomp
+                            .push(<span class="prelude-val">Some</span>(SlotData::F(store.intern_f(g + g).<span class="number">0</span>)));
+                        hints
+                            .bit_decomp
+                            .push(<span class="prelude-val">Some</span>(SlotData::F(store.intern_f(diff + diff).<span class="number">0</span>)));
                         <span class="kw">let </span>f = BaseNum::Scalar(f);
                         <span class="kw">let </span>g = BaseNum::Scalar(g);
                         f &lt; g
@@ -893,10 +928,11 @@
                 Op::Trunc(tgt, a, n) =&gt; {
                     <span class="macro">assert!</span>(<span class="kw-2">*</span>n &lt;= <span class="number">64</span>);
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="kw">if let </span>Ptr::Atom(<span class="kw">_</span>, f) = a {
-                        hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData::F(f)));
+                    <span class="kw">let </span>c = <span class="kw">if let </span>Ptr::Atom(<span class="kw">_</span>, f_idx) = a {
+                        <span class="kw">let </span>f = <span class="kw-2">*</span>store.expect_f(f_idx);
+                        hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData::F(f_idx)));
                         <span class="kw">let </span>b = <span class="kw">if </span><span class="kw-2">*</span>n &lt; <span class="number">64 </span>{ (<span class="number">1 </span>&lt;&lt; <span class="kw-2">*</span>n) - <span class="number">1 </span>} <span class="kw">else </span>{ u64::MAX };
-                        Ptr::Atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() &amp; b))
+                        store.intern_atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() &amp; b))
                     } <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;`Trunc` only works on atoms&quot;</span>)
                     };
@@ -906,13 +942,15 @@
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
                     <span class="kw">let </span>(c1, c2) = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
+                        <span class="kw">let </span>f = <span class="kw-2">*</span>store.expect_f(f);
+                        <span class="kw">let </span>g = <span class="kw-2">*</span>store.expect_f(g);
                         <span class="kw">if </span>g == F::ZERO {
                             <span class="macro">bail!</span>(<span class="string">&quot;Can&#39;t divide by zero&quot;</span>)
                         }
                         <span class="kw">let </span>f = f.to_u64_unchecked();
                         <span class="kw">let </span>g = g.to_u64_unchecked();
-                        <span class="kw">let </span>c1 = Ptr::Atom(Tag::Expr(Num), F::from_u64(f / g));
-                        <span class="kw">let </span>c2 = Ptr::Atom(Tag::Expr(Num), F::from_u64(f % g));
+                        <span class="kw">let </span>c1 = store.intern_atom(Tag::Expr(Num), F::from_u64(f / g));
+                        <span class="kw">let </span>c2 = store.intern_atom(Tag::Expr(Num), F::from_u64(f % g));
                         (c1, c2)
                     } <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;`DivRem64` only works on atoms&quot;</span>)
@@ -1000,23 +1038,31 @@
                 }
                 Op::Hide(tgt, sec, src) =&gt; {
                     <span class="kw">let </span>src_ptr = bindings.get_ptr(src)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>Ptr::Atom(Tag::Expr(Num), secret) = bindings.get_ptr(sec)<span class="question-mark">? </span><span class="kw">else </span>{
+                    <span class="kw">let </span>Ptr::Atom(Tag::Expr(Num), secret_idx) = bindings.get_ptr(sec)<span class="question-mark">? </span><span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;{sec} is not a numeric pointer&quot;</span>)
                     };
+                    <span class="kw">let </span>secret = <span class="kw-2">*</span>store.expect_f(secret_idx);
                     <span class="kw">let </span>tgt_ptr = store.hide(secret, src_ptr);
-                    hints.commitment.push(<span class="prelude-val">Some</span>(SlotData::FPtr(secret, src_ptr)));
+                    hints
+                        .commitment
+                        .push(<span class="prelude-val">Some</span>(SlotData::FPtr(secret_idx, src_ptr)));
                     bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
                 Op::Open(tgt_secret, tgt_ptr, comm) =&gt; {
                     <span class="kw">let </span>Ptr::Atom(Tag::Expr(Comm), hash) = bindings.get_ptr(comm)<span class="question-mark">? </span><span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;{comm} is not a comm pointer&quot;</span>)
                     };
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((secret, ptr)) = store.open(hash) <span class="kw">else </span>{
+                    <span class="kw">let </span>hash = <span class="kw-2">*</span>store.expect_f(hash);
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((secret, ptr)) = store.open(hash).cloned() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;No committed data for hash {}&quot;</span>, <span class="kw-2">&amp;</span>hash.hex_digits())
                     };
-                    bindings.insert_ptr(tgt_ptr.clone(), <span class="kw-2">*</span>ptr);
-                    bindings.insert_ptr(tgt_secret.clone(), Ptr::Atom(Tag::Expr(Num), <span class="kw-2">*</span>secret));
-                    hints.commitment.push(<span class="prelude-val">Some</span>(SlotData::FPtr(<span class="kw-2">*</span>secret, <span class="kw-2">*</span>ptr)))
+                    bindings.insert_ptr(tgt_ptr.clone(), ptr);
+                    bindings.insert_ptr(
+                        tgt_secret.clone(),
+                        store.intern_atom(Tag::Expr(Num), secret),
+                    );
+                    <span class="kw">let </span>secret_idx = store.intern_f(secret).<span class="number">0</span>;
+                    hints.commitment.push(<span class="prelude-val">Some</span>(SlotData::FPtr(secret_idx, ptr)))
                 }
                 Op::Unit(f) =&gt; f(),
             }
@@ -1089,13 +1135,13 @@
 <span class="kw">impl </span>Func {
     <span class="kw">pub fn </span>call&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
+        args: <span class="kw-2">&amp;</span>[Ptr],
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        hints: Hints&lt;F&gt;,
-        emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&lt;F&gt;&gt;,
+        hints: Hints,
+        emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         pc: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame&lt;F&gt;, Path)&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame, Path)&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>bindings = VarMap::new();
         <span class="kw">for </span>(i, param) <span class="kw">in </span><span class="self">self</span>.input_params.iter().enumerate() {
             bindings.insert_ptr(param.clone(), args[i]);
@@ -1149,11 +1195,11 @@
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>call_simple&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
+        args: <span class="kw-2">&amp;</span>[Ptr],
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         pc: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Frame&lt;F&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Frame&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self
             </span>.call(
                 args,

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/circuit.rs`."><title>circuit.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (b10cfcd65 2023-11-29)" data-channel="nightly" data-search-js="search-56a624991a76cfad.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/circuit.rs`."><title>circuit.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1603,6 +1603,8 @@
 <a href="#1603" id="1603">1603</a>
 <a href="#1604" id="1604">1604</a>
 <a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -1749,7 +1751,7 @@
 
     <span class="kw">pub fn </span>get_allocated_ptr_from_ptr(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
+        ptr: <span class="kw-2">&amp;</span>Ptr,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span><span class="kw">crate</span>::z_ptr::ZPtr(tag, hash) = store.hash_ptr(ptr);
@@ -1826,7 +1828,7 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate_slot&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
-    slot_data: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;,
+    slot_data: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;SlotData&gt;,
     slot_idx: usize,
     slot_type: SlotType,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -1865,6 +1867,7 @@
                 }
             }
             SlotData::FPtr(f, ptr) =&gt; {
+                <span class="kw">let </span>f = store.expect_f(<span class="kw-2">*</span>f);
                 <span class="kw">let </span>z_ptr = store.hash_ptr(ptr);
                 <span class="comment">// allocate first component
                 </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
@@ -1883,6 +1886,7 @@
                 ));
             }
             SlotData::F(a) =&gt; {
+                <span class="kw">let </span>a = store.expect_f(<span class="kw-2">*</span>a);
                 preallocated_preimg.push(AllocatedNum::alloc_infallible(
                     cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component 0 slot {slot}&quot;</span>)),
                     || <span class="kw-2">*</span>a,
@@ -1916,7 +1920,7 @@
 <span class="doccomment">/// Allocates unconstrained slots
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate_slots&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
-    slots_data: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;],
+    slots_data: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span>&lt;SlotData&gt;],
     slot_type: SlotType,
     num_slots: usize,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -1940,7 +1944,7 @@
 <span class="kw">pub fn </span>build_slots_allocations&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-    frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
+    frame: <span class="kw-2">&amp;</span>Frame,
     slot_counter: <span class="kw-2">&amp;</span>SlotsCounter,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SlotsAllocations&lt;F&gt;&gt; {
     <span class="kw">let </span>hash4 = allocate_slots(
@@ -2019,19 +2023,19 @@
                 }
                 Op::Hash3Zeros(<span class="kw">_</span>, tag) =&gt; {
                     g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, store.hash3zeros);
+                    g.new_const(cs, <span class="kw-2">*</span>store.hash3zeros());
                 }
                 Op::Hash4Zeros(<span class="kw">_</span>, tag) =&gt; {
                     g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, store.hash4zeros);
+                    g.new_const(cs, <span class="kw-2">*</span>store.hash4zeros());
                 }
                 Op::Hash6Zeros(<span class="kw">_</span>, tag) =&gt; {
                     g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, store.hash6zeros);
+                    g.new_const(cs, <span class="kw-2">*</span>store.hash6zeros());
                 }
                 Op::Hash8Zeros(<span class="kw">_</span>, tag) =&gt; {
                     g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, store.hash8zeros);
+                    g.new_const(cs, <span class="kw-2">*</span>store.hash8zeros());
                 }
                 Op::Not(..)
                 | Op::And(..)
@@ -2093,9 +2097,9 @@
     commitment_slots: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
     bit_decomp_slots: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
     blank: bool,
-    call_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VecDeque&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
+    call_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VecDeque&lt;Vec&lt;Ptr&gt;&gt;,
     call_idx: usize,
-    cproc_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[Vec&lt;Ptr&lt;F&gt;&gt;],
+    cproc_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[Vec&lt;Ptr&gt;],
 }
 
 <span class="kw">fn </span>synthesize_block&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, C: Coprocessor&lt;F&gt;&gt;(
@@ -2335,28 +2339,28 @@
                 bound_allocations.insert_ptr(
                     tgt.clone(),
                     ctx.global_allocator
-                        .get_allocated_ptr(tag, ctx.store.hash3zeros)<span class="question-mark">?</span>,
+                        .get_allocated_ptr(tag, <span class="kw-2">*</span>ctx.store.hash3zeros())<span class="question-mark">?</span>,
                 );
             }
             Op::Hash4Zeros(tgt, tag) =&gt; {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
                     ctx.global_allocator
-                        .get_allocated_ptr(tag, ctx.store.hash4zeros)<span class="question-mark">?</span>,
+                        .get_allocated_ptr(tag, <span class="kw-2">*</span>ctx.store.hash4zeros())<span class="question-mark">?</span>,
                 );
             }
             Op::Hash6Zeros(tgt, tag) =&gt; {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
                     ctx.global_allocator
-                        .get_allocated_ptr(tag, ctx.store.hash6zeros)<span class="question-mark">?</span>,
+                        .get_allocated_ptr(tag, <span class="kw-2">*</span>ctx.store.hash6zeros())<span class="question-mark">?</span>,
                 );
             }
             Op::Hash8Zeros(tgt, tag) =&gt; {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
                     ctx.global_allocator
-                        .get_allocated_ptr(tag, ctx.store.hash8zeros)<span class="question-mark">?</span>,
+                        .get_allocated_ptr(tag, <span class="kw-2">*</span>ctx.store.hash8zeros())<span class="question-mark">?</span>,
                 );
             }
             Op::Lit(tgt, lit) =&gt; {
@@ -2867,7 +2871,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
+        frame: <span class="kw-2">&amp;</span>Frame,
     ) -&gt; Vec&lt;AllocatedPtr&lt;F&gt;&gt; {
         <span class="macro">assert_eq!</span>(<span class="self">self</span>.output_size, frame.output.len());
         <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::with_capacity(frame.output.len());
@@ -2886,7 +2890,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
+        frame: <span class="kw-2">&amp;</span>Frame,
         bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
     ) {
         <span class="kw">for </span>(i, ptr) <span class="kw">in </span>frame.input.iter().enumerate() {
@@ -2916,7 +2920,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
+        frame: <span class="kw-2">&amp;</span>Frame,
         global_allocator: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
@@ -3012,7 +3016,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
+        frame: <span class="kw-2">&amp;</span>Frame,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>bound_allocations = <span class="kw-2">&amp;mut </span>BoundAllocations::new();
@@ -3054,22 +3058,22 @@
                     Op::Hash3Zeros(<span class="kw">_</span>, tag) =&gt; {
                         <span class="comment">// constrain tag and hash
                         </span>globals.insert(FWrap(tag.to_field()));
-                        globals.insert(FWrap(store.hash3zeros));
+                        globals.insert(FWrap(<span class="kw-2">*</span>store.hash3zeros()));
                     }
                     Op::Hash4Zeros(<span class="kw">_</span>, tag) =&gt; {
                         <span class="comment">// constrain tag and hash
                         </span>globals.insert(FWrap(tag.to_field()));
-                        globals.insert(FWrap(store.hash4zeros));
+                        globals.insert(FWrap(<span class="kw-2">*</span>store.hash4zeros()));
                     }
                     Op::Hash6Zeros(<span class="kw">_</span>, tag) =&gt; {
                         <span class="comment">// constrain tag and hash
                         </span>globals.insert(FWrap(tag.to_field()));
-                        globals.insert(FWrap(store.hash6zeros));
+                        globals.insert(FWrap(<span class="kw-2">*</span>store.hash6zeros()));
                     }
                     Op::Hash8Zeros(<span class="kw">_</span>, tag) =&gt; {
                         <span class="comment">// constrain tag and hash
                         </span>globals.insert(FWrap(tag.to_field()));
-                        globals.insert(FWrap(store.hash8zeros));
+                        globals.insert(FWrap(<span class="kw-2">*</span>store.hash8zeros()));
                     }
                     Op::Lit(<span class="kw">_</span>, lit) =&gt; {
                         <span class="kw">let </span>lit_ptr = lit.to_ptr(store);

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (b10cfcd65 2023-11-29)" data-channel="nightly" data-search-js="search-56a624991a76cfad.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1863,7 +1863,7 @@
 
 <span class="attr">#[inline]
 </span><span class="kw">fn </span>get_pc&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
-    expr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
+    expr: <span class="kw-2">&amp;</span>Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
 ) -&gt; usize {
@@ -1886,12 +1886,12 @@
 <span class="kw">fn </span>compute_frame&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     lurk_step: <span class="kw-2">&amp;</span>Func,
     cprocs_run: <span class="kw-2">&amp;</span>[Func],
-    input: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
+    input: <span class="kw-2">&amp;</span>[Ptr],
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
-    emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&lt;F&gt;&gt;,
+    emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&gt;,
     pc: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame&lt;F&gt;, bool)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame, bool)&gt; {
     <span class="kw">let </span>func = <span class="kw">if </span>pc == <span class="number">0 </span>{
         lurk_step
     } <span class="kw">else </span>{
@@ -1910,16 +1910,16 @@
 </span><span class="kw">fn </span>build_frames&lt;
     F: LurkField,
     C: Coprocessor&lt;F&gt;,
-    LogFmt: Fn(usize, <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;], <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;], <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String,
+    LogFmt: Fn(usize, <span class="kw-2">&amp;</span>[Ptr], <span class="kw-2">&amp;</span>[Ptr], <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String,
 &gt;(
     lurk_step: <span class="kw-2">&amp;</span>Func,
     cprocs_run: <span class="kw-2">&amp;</span>[Func],
-    <span class="kw-2">mut </span>input: Vec&lt;Ptr&lt;F&gt;&gt;,
+    <span class="kw-2">mut </span>input: Vec&lt;Ptr&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
     log_fmt: LogFmt,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&lt;F&gt;&gt;, usize)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&gt;, usize)&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>pc = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>frames = <span class="macro">vec!</span>[];
     <span class="kw">let </span><span class="kw-2">mut </span>iterations = <span class="number">0</span>;
@@ -1947,11 +1947,11 @@
 </span><span class="kw">fn </span>traverse_frames&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     lurk_step: <span class="kw-2">&amp;</span>Func,
     cprocs_run: <span class="kw-2">&amp;</span>[Func],
-    <span class="kw-2">mut </span>input: Vec&lt;Ptr&lt;F&gt;&gt;,
+    <span class="kw-2">mut </span>input: Vec&lt;Ptr&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&lt;F&gt;&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>pc = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>iterations = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>emitted = <span class="macro">vec!</span>[];
@@ -1972,14 +1972,14 @@
 
 <span class="kw">pub fn </span>evaluate_with_env_and_cont&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
-    expr: Ptr&lt;F&gt;,
-    env: Ptr&lt;F&gt;,
-    cont: Ptr&lt;F&gt;,
+    expr: Ptr,
+    env: Ptr,
+    cont: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&lt;F&gt;&gt;, usize)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&gt;, usize)&gt; {
     <span class="kw">let </span>state = initial_lurk_state();
-    <span class="kw">let </span>log_fmt = |i: usize, inp: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;], emit: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;], store: <span class="kw-2">&amp;</span>Store&lt;F&gt;| {
+    <span class="kw">let </span>log_fmt = |i: usize, inp: <span class="kw-2">&amp;</span>[Ptr], emit: <span class="kw-2">&amp;</span>[Ptr], store: <span class="kw-2">&amp;</span>Store&lt;F&gt;| {
         <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="macro">format!</span>(
             <span class="string">&quot;Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}&quot;</span>,
             inp[<span class="number">0</span>].fmt_to_string(store, state),
@@ -2009,21 +2009,21 @@
 <span class="attr">#[inline]
 </span><span class="kw">pub fn </span>evaluate_with_env&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
-    expr: Ptr&lt;F&gt;,
-    env: Ptr&lt;F&gt;,
+    expr: Ptr,
+    env: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&lt;F&gt;&gt;, usize)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&gt;, usize)&gt; {
     evaluate_with_env_and_cont(func_lang, expr, env, store.cont_outermost(), store, limit)
 }
 
 <span class="attr">#[inline]
 </span><span class="kw">pub fn </span>evaluate&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
-    expr: Ptr&lt;F&gt;,
+    expr: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&lt;F&gt;&gt;, usize)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&gt;, usize)&gt; {
     evaluate_with_env_and_cont(
         func_lang,
         expr,
@@ -2036,11 +2036,11 @@
 
 <span class="kw">pub fn </span>evaluate_simple_with_env&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
-    expr: Ptr&lt;F&gt;,
-    env: Ptr&lt;F&gt;,
+    expr: Ptr,
+    env: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&lt;F&gt;&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
     <span class="kw">let </span>input = <span class="macro">vec!</span>[expr, env, store.cont_outermost()];
     <span class="kw">match </span>func_lang {
         <span class="prelude-val">None </span>=&gt; {
@@ -2057,10 +2057,10 @@
 <span class="attr">#[inline]
 </span><span class="kw">pub fn </span>evaluate_simple&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
-    expr: Ptr&lt;F&gt;,
+    expr: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&lt;F&gt;&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
     evaluate_simple_with_env(func_lang, expr, store.intern_nil(), store, limit)
 }
 
@@ -3632,7 +3632,7 @@
     </span><span class="kw">fn </span>test_counts() {
         <span class="kw">let </span>store = Store::default();
         <span class="kw">let </span>func = eval_step();
-        <span class="kw">let </span>frame = Frame::&lt;Fr&gt;::blank(func, <span class="number">0</span>);
+        <span class="kw">let </span>frame = Frame::blank(func, <span class="number">0</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
         <span class="kw">let </span>lang: Lang&lt;Fr, Coproc&lt;Fr&gt;&gt; = Lang::new();
         <span class="kw">let _ </span>= func.synthesize_frame_aux(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frame, <span class="kw-2">&amp;</span>lang);

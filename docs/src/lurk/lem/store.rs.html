@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (b10cfcd65 2023-11-29)" data-channel="nightly" data-search-js="search-56a624991a76cfad.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1312,6 +1312,150 @@
 <a href="#1312" id="1312">1312</a>
 <a href="#1313" id="1313">1313</a>
 <a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
+<a href="#1360" id="1360">1360</a>
+<a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
+<a href="#1363" id="1363">1363</a>
+<a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
+<a href="#1367" id="1367">1367</a>
+<a href="#1368" id="1368">1368</a>
+<a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -1362,29 +1506,31 @@
 /// the resulting commitment hash.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Store&lt;F: LurkField&gt; {
-    tuple2: FrozenIndexSet&lt;Box&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt;&gt;,
-    tuple3: FrozenIndexSet&lt;Box&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt;&gt;,
-    tuple4: FrozenIndexSet&lt;Box&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt;&gt;,
+    f_elts: FrozenIndexSet&lt;Box&lt;FWrap&lt;F&gt;&gt;&gt;,
+    tuple2: FrozenIndexSet&lt;Box&lt;(Ptr, Ptr)&gt;&gt;,
+    tuple3: FrozenIndexSet&lt;Box&lt;(Ptr, Ptr, Ptr)&gt;&gt;,
+    tuple4: FrozenIndexSet&lt;Box&lt;(Ptr, Ptr, Ptr, Ptr)&gt;&gt;,
 
-    string_ptr_cache: FrozenMap&lt;String, Box&lt;Ptr&lt;F&gt;&gt;&gt;,
-    symbol_ptr_cache: FrozenMap&lt;Symbol, Box&lt;Ptr&lt;F&gt;&gt;&gt;,
+    string_ptr_cache: FrozenMap&lt;String, Box&lt;Ptr&gt;&gt;,
+    symbol_ptr_cache: FrozenMap&lt;Symbol, Box&lt;Ptr&gt;&gt;,
 
-    ptr_string_cache: FrozenMap&lt;Ptr&lt;F&gt;, String&gt;,
-    ptr_symbol_cache: FrozenMap&lt;Ptr&lt;F&gt;, Box&lt;Symbol&gt;&gt;,
+    ptr_string_cache: FrozenMap&lt;Ptr, String&gt;,
+    ptr_symbol_cache: FrozenMap&lt;Ptr, Box&lt;Symbol&gt;&gt;,
 
     <span class="kw">pub </span>poseidon_cache: PoseidonCache&lt;F&gt;,
     <span class="kw">pub </span>inverse_poseidon_cache: InversePoseidonCache&lt;F&gt;,
 
-    dehydrated: ArcSwap&lt;FrozenVec&lt;Box&lt;Ptr&lt;F&gt;&gt;&gt;&gt;,
-    z_cache: FrozenMap&lt;Ptr&lt;F&gt;, Box&lt;ZPtr&lt;F&gt;&gt;&gt;,
-    inverse_z_cache: FrozenMap&lt;ZPtr&lt;F&gt;, Box&lt;Ptr&lt;F&gt;&gt;&gt;,
+    dehydrated: ArcSwap&lt;FrozenVec&lt;Box&lt;Ptr&gt;&gt;&gt;,
+    z_cache: FrozenMap&lt;Ptr, Box&lt;ZPtr&lt;F&gt;&gt;&gt;,
+    inverse_z_cache: FrozenMap&lt;ZPtr&lt;F&gt;, Box&lt;Ptr&gt;&gt;,
 
-    comms: FrozenMap&lt;FWrap&lt;F&gt;, Box&lt;(F, Ptr&lt;F&gt;)&gt;&gt;, <span class="comment">// hash -&gt; (secret, src)
+    comms: FrozenMap&lt;FWrap&lt;F&gt;, Box&lt;(F, Ptr)&gt;&gt;, <span class="comment">// hash -&gt; (secret, src)
 
-    </span><span class="kw">pub </span>hash3zeros: F,
-    <span class="kw">pub </span>hash4zeros: F,
-    <span class="kw">pub </span>hash6zeros: F,
-    <span class="kw">pub </span>hash8zeros: F,
+    // cached indices for the hashes of 3, 4, 6 and 8 padded zeros
+    </span><span class="kw">pub </span>hash3zeros_idx: usize,
+    <span class="kw">pub </span>hash4zeros_idx: usize,
+    <span class="kw">pub </span>hash6zeros_idx: usize,
+    <span class="kw">pub </span>hash8zeros_idx: usize,
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Default <span class="kw">for </span>Store&lt;F&gt; {
@@ -1395,7 +1541,14 @@
         <span class="kw">let </span>hash6zeros = poseidon_cache.hash6(<span class="kw-2">&amp;</span>[F::ZERO; <span class="number">6</span>]);
         <span class="kw">let </span>hash8zeros = poseidon_cache.hash8(<span class="kw-2">&amp;</span>[F::ZERO; <span class="number">8</span>]);
 
+        <span class="kw">let </span>f_elts = FrozenIndexSet::default();
+        <span class="kw">let </span>(hash3zeros_idx, <span class="kw">_</span>) = f_elts.insert_probe(FWrap(hash3zeros).into());
+        <span class="kw">let </span>(hash4zeros_idx, <span class="kw">_</span>) = f_elts.insert_probe(FWrap(hash4zeros).into());
+        <span class="kw">let </span>(hash6zeros_idx, <span class="kw">_</span>) = f_elts.insert_probe(FWrap(hash6zeros).into());
+        <span class="kw">let </span>(hash8zeros_idx, <span class="kw">_</span>) = f_elts.insert_probe(FWrap(hash8zeros).into());
+
         <span class="self">Self </span>{
+            f_elts,
             tuple2: Default::default(),
             tuple3: Default::default(),
             tuple4: Default::default(),
@@ -1409,10 +1562,10 @@
             z_cache: Default::default(),
             inverse_z_cache: Default::default(),
             comms: Default::default(),
-            hash3zeros,
-            hash4zeros,
-            hash6zeros,
-            hash8zeros,
+            hash3zeros_idx,
+            hash4zeros_idx,
+            hash6zeros_idx,
+            hash8zeros_idx,
         }
     }
 }
@@ -1442,8 +1595,59 @@
         Poseidon::new(<span class="self">self</span>.poseidon_cache.constants.c8()).num_aux() + <span class="number">1
     </span>}
 
+    <span class="doccomment">/// Retrieves the hash of 3 padded zeros
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>hash3zeros(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
+        <span class="self">self</span>.expect_f(<span class="self">self</span>.hash3zeros_idx)
+    }
+
+    <span class="doccomment">/// Retrieves the hash of 4 padded zeros
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>hash4zeros(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
+        <span class="self">self</span>.expect_f(<span class="self">self</span>.hash4zeros_idx)
+    }
+
+    <span class="doccomment">/// Retrieves the hash of 6 padded zeros
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>hash6zeros(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
+        <span class="self">self</span>.expect_f(<span class="self">self</span>.hash6zeros_idx)
+    }
+
+    <span class="doccomment">/// Retrieves the hash of 8 padded zeros
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>hash8zeros(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
+        <span class="self">self</span>.expect_f(<span class="self">self</span>.hash8zeros_idx)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>intern_f(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; (usize, bool) {
+        <span class="self">self</span>.f_elts.insert_probe(Box::new(FWrap(f)))
+    }
+
+    <span class="doccomment">/// Creates an atom `Ptr` which points to a cached element of the finite
+    /// field `F`
+    </span><span class="kw">pub fn </span>intern_atom(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, f: F) -&gt; Ptr {
+        <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.intern_f(f);
+        <span class="kw">let </span>ptr = Ptr::Atom(tag, idx);
+        <span class="kw">if </span>inserted {
+            <span class="comment">// this is for `hydrate_z_cache`
+            </span><span class="self">self</span>.dehydrated.load().push(Box::new(ptr));
+        }
+        ptr
+    }
+
+    <span class="doccomment">/// Similar to `intern_atom` but doesn&#39;t add the resulting pointer to
+    /// `dehydrated`. This function is used when converting a `ZStore` to a
+    /// `Store`.
+    </span><span class="kw">pub fn </span>intern_atom_hydrated(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, f: F, z: ZPtr&lt;F&gt;) -&gt; Ptr {
+        <span class="kw">let </span>ptr = Ptr::Atom(tag, <span class="self">self</span>.intern_f(f).<span class="number">0</span>);
+        <span class="self">self</span>.z_cache.insert(ptr, Box::new(z));
+        <span class="self">self</span>.inverse_z_cache.insert(z, Box::new(ptr));
+        ptr
+    }
+
     <span class="doccomment">/// Creates a `Ptr` that&#39;s a parent of two children
-    </span><span class="kw">pub fn </span>intern_2_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr&lt;F&gt;, b: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_2_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr, b: Ptr) -&gt; Ptr {
         <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.tuple2.insert_probe(Box::new((a, b)));
         <span class="kw">let </span>ptr = Ptr::Tuple2(tag, idx);
         <span class="kw">if </span>inserted {
@@ -1456,7 +1660,7 @@
     <span class="doccomment">/// Similar to `intern_2_ptrs` but doesn&#39;t add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    </span><span class="kw">pub fn </span>intern_2_ptrs_hydrated(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr&lt;F&gt;, b: Ptr&lt;F&gt;, z: ZPtr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_2_ptrs_hydrated(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr, b: Ptr, z: ZPtr&lt;F&gt;) -&gt; Ptr {
         <span class="kw">let </span>ptr = Ptr::Tuple2(tag, <span class="self">self</span>.tuple2.insert_probe(Box::new((a, b))).<span class="number">0</span>);
         <span class="self">self</span>.z_cache.insert(ptr, Box::new(z));
         <span class="self">self</span>.inverse_z_cache.insert(z, Box::new(ptr));
@@ -1464,7 +1668,7 @@
     }
 
     <span class="doccomment">/// Creates a `Ptr` that&#39;s a parent of three children
-    </span><span class="kw">pub fn </span>intern_3_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr&lt;F&gt;, b: Ptr&lt;F&gt;, c: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_3_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr, b: Ptr, c: Ptr) -&gt; Ptr {
         <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.tuple3.insert_probe(Box::new((a, b, c)));
         <span class="kw">let </span>ptr = Ptr::Tuple3(tag, idx);
         <span class="kw">if </span>inserted {
@@ -1477,14 +1681,7 @@
     <span class="doccomment">/// Similar to `intern_3_ptrs` but doesn&#39;t add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    </span><span class="kw">pub fn </span>intern_3_ptrs_hydrated(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        tag: Tag,
-        a: Ptr&lt;F&gt;,
-        b: Ptr&lt;F&gt;,
-        c: Ptr&lt;F&gt;,
-        z: ZPtr&lt;F&gt;,
-    ) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_3_ptrs_hydrated(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr, b: Ptr, c: Ptr, z: ZPtr&lt;F&gt;) -&gt; Ptr {
         <span class="kw">let </span>ptr = Ptr::Tuple3(tag, <span class="self">self</span>.tuple3.insert_probe(Box::new((a, b, c))).<span class="number">0</span>);
         <span class="self">self</span>.z_cache.insert(ptr, Box::new(z));
         <span class="self">self</span>.inverse_z_cache.insert(z, Box::new(ptr));
@@ -1492,7 +1689,7 @@
     }
 
     <span class="doccomment">/// Creates a `Ptr` that&#39;s a parent of four children
-    </span><span class="kw">pub fn </span>intern_4_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr&lt;F&gt;, b: Ptr&lt;F&gt;, c: Ptr&lt;F&gt;, d: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_4_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag, a: Ptr, b: Ptr, c: Ptr, d: Ptr) -&gt; Ptr {
         <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.tuple4.insert_probe(Box::new((a, b, c, d)));
         <span class="kw">let </span>ptr = Ptr::Tuple4(tag, idx);
         <span class="kw">if </span>inserted {
@@ -1508,12 +1705,12 @@
     </span><span class="kw">pub fn </span>intern_4_ptrs_hydrated(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         tag: Tag,
-        a: Ptr&lt;F&gt;,
-        b: Ptr&lt;F&gt;,
-        c: Ptr&lt;F&gt;,
-        d: Ptr&lt;F&gt;,
+        a: Ptr,
+        b: Ptr,
+        c: Ptr,
+        d: Ptr,
         z: ZPtr&lt;F&gt;,
-    ) -&gt; Ptr&lt;F&gt; {
+    ) -&gt; Ptr {
         <span class="kw">let </span>ptr = Ptr::Tuple4(tag, <span class="self">self</span>.tuple4.insert_probe(Box::new((a, b, c, d))).<span class="number">0</span>);
         <span class="self">self</span>.z_cache.insert(ptr, Box::new(z));
         <span class="self">self</span>.inverse_z_cache.insert(z, Box::new(ptr));
@@ -1521,26 +1718,81 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>fetch_2_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt; {
+    </span><span class="kw">pub fn </span>fetch_f(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
+        <span class="self">self</span>.f_elts.get_index(idx).map(|fw| <span class="kw-2">&amp;</span>fw.<span class="number">0</span>)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>fetch_2_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(Ptr, Ptr)&gt; {
         <span class="self">self</span>.tuple2.get_index(idx)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>fetch_3_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt; {
+    </span><span class="kw">pub fn </span>fetch_3_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(Ptr, Ptr, Ptr)&gt; {
         <span class="self">self</span>.tuple3.get_index(idx)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>fetch_4_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt; {
+    </span><span class="kw">pub fn </span>fetch_4_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(Ptr, Ptr, Ptr, Ptr)&gt; {
         <span class="self">self</span>.tuple4.get_index(idx)
     }
 
-    <span class="kw">pub fn </span>intern_string(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>str) -&gt; Ptr&lt;F&gt; {
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>num(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; Ptr {
+        <span class="self">self</span>.intern_atom(Tag::Expr(Num), f)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>num_u64(<span class="kw-2">&amp;</span><span class="self">self</span>, u: u64) -&gt; Ptr {
+        <span class="self">self</span>.intern_atom(Tag::Expr(Num), F::from_u64(u))
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>u64(<span class="kw-2">&amp;</span><span class="self">self</span>, u: u64) -&gt; Ptr {
+        <span class="self">self</span>.intern_atom(Tag::Expr(U64), F::from_u64(u))
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>char(<span class="kw-2">&amp;</span><span class="self">self</span>, c: char) -&gt; Ptr {
+        <span class="self">self</span>.intern_atom(Tag::Expr(Char), F::from_char(c))
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>comm(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: F) -&gt; Ptr {
+        <span class="self">self</span>.intern_atom(Tag::Expr(Comm), hash)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>zero(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag) -&gt; Ptr {
+        <span class="self">self</span>.intern_atom(tag, F::ZERO)
+    }
+
+    <span class="kw">pub fn </span>is_zero(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; bool {
+        <span class="kw">match </span>ptr {
+            Ptr::Atom(<span class="kw">_</span>, idx) =&gt; <span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx) == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>F::ZERO),
+            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+        }
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>dummy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
+        <span class="self">self</span>.zero(Tag::Expr(Nil))
+    }
+
+    <span class="doccomment">/// Creates an atom pointer from a `ZPtr`, with its tag and hash. Thus hashing
+    /// such pointer will result on the same original `ZPtr`
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>opaque(<span class="kw-2">&amp;</span><span class="self">self</span>, z_ptr: ZPtr&lt;F&gt;) -&gt; Ptr {
+        <span class="kw">let </span><span class="kw">crate</span>::z_data::z_ptr::ZPtr(t, h) = z_ptr;
+        <span class="self">self</span>.intern_atom(t, h)
+    }
+
+    <span class="kw">pub fn </span>intern_string(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>str) -&gt; Ptr {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = <span class="self">self</span>.string_ptr_cache.get(s) {
             <span class="kw-2">*</span>ptr
         } <span class="kw">else </span>{
-            <span class="kw">let </span>ptr = s.chars().rev().fold(Ptr::zero(Tag::Expr(Str)), |acc, c| {
-                <span class="self">self</span>.intern_2_ptrs(Tag::Expr(Str), Ptr::char(c), acc)
+            <span class="kw">let </span>ptr = s.chars().rev().fold(<span class="self">self</span>.zero(Tag::Expr(Str)), |acc, c| {
+                <span class="self">self</span>.intern_2_ptrs(Tag::Expr(Str), <span class="self">self</span>.char(c), acc)
             });
             <span class="self">self</span>.string_ptr_cache.insert(s.to_string(), Box::new(ptr));
             <span class="self">self</span>.ptr_string_cache.insert(ptr, s.to_string());
@@ -1548,7 +1800,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>fetch_string(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+    <span class="kw">pub fn </span>fetch_string(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(str) = <span class="self">self</span>.ptr_string_cache.get(ptr) {
             <span class="prelude-val">Some</span>(str.to_string())
         } <span class="kw">else </span>{
@@ -1556,8 +1808,8 @@
             <span class="kw">let </span><span class="kw-2">mut </span>ptr = <span class="kw-2">*</span>ptr;
             <span class="kw">loop </span>{
                 <span class="kw">match </span>ptr {
-                    Ptr::Atom(Tag::Expr(Str), f) =&gt; {
-                        <span class="kw">if </span>f == F::ZERO {
+                    Ptr::Atom(Tag::Expr(Str), idx) =&gt; {
+                        <span class="kw">if </span><span class="self">self</span>.fetch_f(idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
                             <span class="self">self</span>.ptr_string_cache.insert(ptr, string.clone());
                             <span class="kw">return </span><span class="prelude-val">Some</span>(string);
                         } <span class="kw">else </span>{
@@ -1567,8 +1819,9 @@
                     Ptr::Tuple2(Tag::Expr(Str), idx) =&gt; {
                         <span class="kw">let </span>(car, cdr) = <span class="self">self</span>.fetch_2_ptrs(idx)<span class="question-mark">?</span>;
                         <span class="kw">match </span>car {
-                            Ptr::Atom(Tag::Expr(Char), c) =&gt; {
-                                string.push(c.to_char().expect(<span class="string">&quot;malformed char pointer&quot;</span>));
+                            Ptr::Atom(Tag::Expr(Char), idx) =&gt; {
+                                <span class="kw">let </span>f = <span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx)<span class="question-mark">?</span>;
+                                string.push(f.to_char().expect(<span class="string">&quot;malformed char pointer&quot;</span>));
                                 ptr = <span class="kw-2">*</span>cdr
                             }
                             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
@@ -1580,14 +1833,14 @@
         }
     }
 
-    <span class="kw">pub fn </span>intern_symbol_path(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>[String]) -&gt; Ptr&lt;F&gt; {
-        path.iter().fold(Ptr::zero(Tag::Expr(Sym)), |acc, s| {
+    <span class="kw">pub fn </span>intern_symbol_path(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>[String]) -&gt; Ptr {
+        path.iter().fold(<span class="self">self</span>.zero(Tag::Expr(Sym)), |acc, s| {
             <span class="kw">let </span>s_ptr = <span class="self">self</span>.intern_string(s);
             <span class="self">self</span>.intern_2_ptrs(Tag::Expr(Sym), s_ptr, acc)
         })
     }
 
-    <span class="kw">pub fn </span>intern_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, sym: <span class="kw-2">&amp;</span>Symbol) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">pub fn </span>intern_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, sym: <span class="kw-2">&amp;</span>Symbol) -&gt; Ptr {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = <span class="self">self</span>.symbol_ptr_cache.get(sym) {
             <span class="kw-2">*</span>ptr
         } <span class="kw">else </span>{
@@ -1613,8 +1866,8 @@
             <span class="kw">let </span>string = <span class="self">self</span>.fetch_string(car)<span class="question-mark">?</span>;
             path.push(string);
             <span class="kw">match </span>cdr {
-                Ptr::Atom(Tag::Expr(Sym), f) =&gt; {
-                    <span class="kw">if </span>f == <span class="kw-2">&amp;</span>F::ZERO {
+                Ptr::Atom(Tag::Expr(Sym), idx) =&gt; {
+                    <span class="kw">if </span><span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
                         path.reverse();
                         <span class="kw">return </span><span class="prelude-val">Some</span>(path);
                     } <span class="kw">else </span>{
@@ -1627,13 +1880,13 @@
         }
     }
 
-    <span class="kw">pub fn </span>fetch_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
+    <span class="kw">pub fn </span>fetch_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(sym) = <span class="self">self</span>.ptr_symbol_cache.get(ptr) {
             <span class="prelude-val">Some</span>(sym.clone())
         } <span class="kw">else </span>{
             <span class="kw">match </span>ptr {
-                Ptr::Atom(Tag::Expr(Sym), f) =&gt; {
-                    <span class="kw">if </span>f == <span class="kw-2">&amp;</span>F::ZERO {
+                Ptr::Atom(Tag::Expr(Sym), idx) =&gt; {
+                    <span class="kw">if </span><span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
                         <span class="kw">let </span>sym = Symbol::root_sym();
                         <span class="self">self</span>.ptr_symbol_cache.insert(<span class="kw-2">*</span>ptr, Box::new(sym.clone()));
                         <span class="prelude-val">Some</span>(sym)
@@ -1641,8 +1894,8 @@
                         <span class="prelude-val">None
                     </span>}
                 }
-                Ptr::Atom(Tag::Expr(Key), f) =&gt; {
-                    <span class="kw">if </span>f == <span class="kw-2">&amp;</span>F::ZERO {
+                Ptr::Atom(Tag::Expr(Key), idx) =&gt; {
+                    <span class="kw">if </span><span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
                         <span class="kw">let </span>key = Symbol::root_key();
                         <span class="self">self</span>.ptr_symbol_cache.insert(<span class="kw-2">*</span>ptr, Box::new(key.clone()));
                         <span class="prelude-val">Some</span>(key)
@@ -1667,7 +1920,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>fetch_sym(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
+    <span class="kw">pub fn </span>fetch_sym(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
         <span class="kw">if </span>ptr.tag() == <span class="kw-2">&amp;</span>Tag::Expr(Sym) {
             <span class="self">self</span>.fetch_symbol(ptr)
         } <span class="kw">else </span>{
@@ -1675,7 +1928,7 @@
         </span>}
     }
 
-    <span class="kw">pub fn </span>fetch_key(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
+    <span class="kw">pub fn </span>fetch_key(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
         <span class="kw">if </span>ptr.tag() == <span class="kw-2">&amp;</span>Tag::Expr(Key) {
             <span class="self">self</span>.fetch_symbol(ptr)
         } <span class="kw">else </span>{
@@ -1684,17 +1937,17 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>add_comm(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: F, secret: F, payload: Ptr&lt;F&gt;) {
+    </span><span class="kw">pub fn </span>add_comm(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: F, secret: F, payload: Ptr) {
         <span class="self">self</span>.comms
             .insert(FWrap::&lt;F&gt;(hash), Box::new((secret, payload)));
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>hide(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
-        Ptr::comm(<span class="self">self</span>.hide_and_return_z_payload(secret, payload).<span class="number">0</span>)
+    </span><span class="kw">pub fn </span>hide(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr) -&gt; Ptr {
+        <span class="self">self</span>.comm(<span class="self">self</span>.hide_and_return_z_payload(secret, payload).<span class="number">0</span>)
     }
 
-    <span class="kw">pub fn </span>hide_and_return_z_payload(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr&lt;F&gt;) -&gt; (F, ZPtr&lt;F&gt;) {
+    <span class="kw">pub fn </span>hide_and_return_z_payload(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr) -&gt; (F, ZPtr&lt;F&gt;) {
         <span class="kw">let </span>z_ptr = <span class="self">self</span>.hash_ptr(<span class="kw-2">&amp;</span>payload);
         <span class="kw">let </span>hash = <span class="self">self
             </span>.poseidon_cache
@@ -1704,61 +1957,61 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>, payload: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>, payload: Ptr) -&gt; Ptr {
         <span class="self">self</span>.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>open(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: F) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(F, Ptr&lt;F&gt;)&gt; {
+    </span><span class="kw">pub fn </span>open(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: F) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(F, Ptr)&gt; {
         <span class="self">self</span>.comms.get(<span class="kw-2">&amp;</span>FWrap(hash))
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>intern_lurk_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_lurk_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Ptr {
         <span class="self">self</span>.intern_symbol(<span class="kw-2">&amp;</span>lurk_sym(name))
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>intern_nil(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_nil(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
         <span class="self">self</span>.intern_lurk_symbol(<span class="string">&quot;nil&quot;</span>)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>intern_user_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_user_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Ptr {
         <span class="self">self</span>.intern_symbol(<span class="kw-2">&amp;</span>user_sym(name))
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>key(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>key(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Ptr {
         <span class="self">self</span>.intern_symbol(<span class="kw-2">&amp;</span>Symbol::key(<span class="kw-2">&amp;</span>[name.to_string()]))
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>cons(<span class="kw-2">&amp;</span><span class="self">self</span>, car: Ptr&lt;F&gt;, cdr: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>cons(<span class="kw-2">&amp;</span><span class="self">self</span>, car: Ptr, cdr: Ptr) -&gt; Ptr {
         <span class="self">self</span>.intern_2_ptrs(Tag::Expr(Cons), car, cdr)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>intern_fun(<span class="kw-2">&amp;</span><span class="self">self</span>, arg: Ptr&lt;F&gt;, body: Ptr&lt;F&gt;, env: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_fun(<span class="kw-2">&amp;</span><span class="self">self</span>, arg: Ptr, body: Ptr, env: Ptr) -&gt; Ptr {
         <span class="self">self</span>.intern_3_ptrs(Tag::Expr(Fun), arg, body, env)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>cont_outermost(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr&lt;F&gt; {
-        Ptr::Atom(Tag::Cont(Outermost), <span class="self">self</span>.hash8zeros)
+    </span><span class="kw">pub fn </span>cont_outermost(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
+        Ptr::Atom(Tag::Cont(Outermost), <span class="self">self</span>.hash8zeros_idx)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>cont_error(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr&lt;F&gt; {
-        Ptr::Atom(Tag::Cont(ContTag::Error), <span class="self">self</span>.hash8zeros)
+    </span><span class="kw">pub fn </span>cont_error(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
+        Ptr::Atom(Tag::Cont(ContTag::Error), <span class="self">self</span>.hash8zeros_idx)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr&lt;F&gt; {
-        Ptr::Atom(Tag::Cont(Terminal), <span class="self">self</span>.hash8zeros)
+    </span><span class="kw">pub fn </span>cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
+        Ptr::Atom(Tag::Cont(Terminal), <span class="self">self</span>.hash8zeros_idx)
     }
 
-    <span class="kw">pub fn </span>car_cdr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt; {
+    <span class="kw">pub fn </span>car_cdr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;(Ptr, Ptr)&gt; {
         <span class="kw">match </span>ptr.tag() {
             Tag::Expr(Nil) =&gt; {
                 <span class="kw">let </span>nil = <span class="self">self</span>.intern_nil();
@@ -1774,8 +2027,8 @@
                 }
             }
             Tag::Expr(Str) =&gt; {
-                <span class="kw">if </span>ptr.is_zero() {
-                    <span class="prelude-val">Ok</span>((<span class="self">self</span>.intern_nil(), Ptr::zero(Tag::Expr(Str))))
+                <span class="kw">if </span><span class="self">self</span>.is_zero(ptr) {
+                    <span class="prelude-val">Ok</span>((<span class="self">self</span>.intern_nil(), <span class="self">self</span>.zero(Tag::Expr(Str))))
                 } <span class="kw">else </span>{
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = ptr.get_index2() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;malformed str pointer&quot;</span>)
@@ -1792,7 +2045,7 @@
 
     <span class="doccomment">/// Interns a sequence of pointers as a cons-list. The terminating element
     /// defaults to `nil` if `last` is `None`
-    </span><span class="kw">fn </span>intern_list(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: Vec&lt;Ptr&lt;F&gt;&gt;, last: <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">fn </span>intern_list(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: Vec&lt;Ptr&gt;, last: <span class="prelude-ty">Option</span>&lt;Ptr&gt;) -&gt; Ptr {
         elts.into_iter()
             .rev()
             .fold(last.unwrap_or_else(|| <span class="self">self</span>.intern_nil()), |acc, elt| {
@@ -1802,20 +2055,20 @@
 
     <span class="doccomment">/// Interns a sequence of pointers as a proper (`nil`-terminated) cons-list
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>list(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: Vec&lt;Ptr&lt;F&gt;&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>list(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: Vec&lt;Ptr&gt;) -&gt; Ptr {
         <span class="self">self</span>.intern_list(elts, <span class="prelude-val">None</span>)
     }
 
     <span class="doccomment">/// Interns a sequence of pointers as an improper cons-list whose last
     /// element is `last`
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>improper_list(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: Vec&lt;Ptr&lt;F&gt;&gt;, last: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>improper_list(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: Vec&lt;Ptr&gt;, last: Ptr) -&gt; Ptr {
         <span class="self">self</span>.intern_list(elts, <span class="prelude-val">Some</span>(last))
     }
 
     <span class="doccomment">/// Fetches a cons list that was interned. If the list is improper, the second
     /// element of the returned pair will carry the improper terminating value
-    </span><span class="kw">pub fn </span>fetch_list(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;(Vec&lt;Ptr&lt;F&gt;&gt;, <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;)&gt; {
+    </span><span class="kw">pub fn </span>fetch_list(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;(Vec&lt;Ptr&gt;, <span class="prelude-ty">Option</span>&lt;Ptr&gt;)&gt; {
         <span class="kw">match </span>ptr {
             Ptr::Tuple2(Tag::Expr(Nil), <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>((<span class="macro">vec!</span>[], <span class="prelude-val">None</span>)),
             Ptr::Tuple2(Tag::Expr(Cons), <span class="kw-2">mut </span>idx) =&gt; {
@@ -1840,11 +2093,11 @@
         }
     }
 
-    <span class="kw">pub fn </span>intern_syntax(<span class="kw-2">&amp;</span><span class="self">self</span>, syn: Syntax&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">pub fn </span>intern_syntax(<span class="kw-2">&amp;</span><span class="self">self</span>, syn: Syntax&lt;F&gt;) -&gt; Ptr {
         <span class="kw">match </span>syn {
-            Syntax::Num(<span class="kw">_</span>, x) =&gt; Ptr::num(x.into_scalar()),
-            Syntax::UInt(<span class="kw">_</span>, x) =&gt; Ptr::u64(x.into()),
-            Syntax::Char(<span class="kw">_</span>, x) =&gt; Ptr::char(x),
+            Syntax::Num(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.num(x.into_scalar()),
+            Syntax::UInt(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.u64(x.into()),
+            Syntax::Char(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.char(x),
             Syntax::Symbol(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_symbol(<span class="kw-2">&amp;</span>x),
             Syntax::String(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_string(<span class="kw-2">&amp;</span>x),
             Syntax::Quote(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.list(<span class="macro">vec!</span>[
@@ -1861,7 +2114,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, state: Rc&lt;RefCell&lt;State&gt;&gt;, input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
+    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, state: Rc&lt;RefCell&lt;State&gt;&gt;, input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&gt; {
         <span class="kw">match </span>preceded(
             syntax::parse_space,
             syntax::parse_syntax(state, <span class="bool-val">false</span>, <span class="bool-val">false</span>),
@@ -1877,7 +2130,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         state: Rc&lt;RefCell&lt;State&gt;&gt;,
         input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, Span&lt;<span class="lifetime">&#39;a</span>&gt;, Ptr&lt;F&gt;, bool), Error&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, Span&lt;<span class="lifetime">&#39;a</span>&gt;, Ptr, bool), Error&gt; {
         <span class="kw">match </span>preceded(syntax::parse_space, syntax::parse_maybe_meta(state, <span class="bool-val">false</span>))
             .parse(input.into())
         {
@@ -1894,22 +2147,27 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>read_with_default_state(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
+    </span><span class="kw">pub fn </span>read_with_default_state(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&gt; {
         <span class="self">self</span>.read(State::init_lurk_state().rccell(), input)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>expect_2_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="kw-2">&amp;</span>(Ptr&lt;F&gt;, Ptr&lt;F&gt;) {
+    </span><span class="kw">pub fn </span>expect_f(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="kw-2">&amp;</span>F {
+        <span class="self">self</span>.fetch_f(idx).expect(<span class="string">&quot;Index missing from f_elts&quot;</span>)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>expect_2_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="kw-2">&amp;</span>(Ptr, Ptr) {
         <span class="self">self</span>.fetch_2_ptrs(idx).expect(<span class="string">&quot;Index missing from tuple2&quot;</span>)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>expect_3_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="kw-2">&amp;</span>(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;) {
+    </span><span class="kw">pub fn </span>expect_3_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="kw-2">&amp;</span>(Ptr, Ptr, Ptr) {
         <span class="self">self</span>.fetch_3_ptrs(idx).expect(<span class="string">&quot;Index missing from tuple3&quot;</span>)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>expect_4_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="kw-2">&amp;</span>(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;) {
+    </span><span class="kw">pub fn </span>expect_4_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="kw-2">&amp;</span>(Ptr, Ptr, Ptr, Ptr) {
         <span class="self">self</span>.fetch_4_ptrs(idx).expect(<span class="string">&quot;Index missing from tuple4&quot;</span>)
     }
 
@@ -1921,9 +2179,18 @@
     /// Warning: without cache hits, this function might blow up Rust&#39;s recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`
     /// beforehand or by using `hash_ptr` instead, which is slightly slower.
-    </span><span class="kw">fn </span>hash_ptr_unsafe(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; ZPtr&lt;F&gt; {
+    </span><span class="kw">fn </span>hash_ptr_unsafe(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; ZPtr&lt;F&gt; {
         <span class="kw">match </span>ptr {
-            Ptr::Atom(tag, x) =&gt; ZPtr::from_parts(<span class="kw-2">*</span>tag, <span class="kw-2">*</span>x),
+            Ptr::Atom(tag, idx) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = <span class="self">self</span>.z_cache.get(ptr) {
+                    <span class="kw-2">*</span>z_ptr
+                } <span class="kw">else </span>{
+                    <span class="kw">let </span>z_ptr = ZPtr::from_parts(<span class="kw-2">*</span>tag, <span class="kw-2">*</span><span class="self">self</span>.expect_f(<span class="kw-2">*</span>idx));
+                    <span class="self">self</span>.z_cache.insert(<span class="kw-2">*</span>ptr, Box::new(z_ptr));
+                    <span class="self">self</span>.inverse_z_cache.insert(z_ptr, Box::new(<span class="kw-2">*</span>ptr));
+                    z_ptr
+                }
+            }
             Ptr::Tuple2(tag, idx) =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = <span class="self">self</span>.z_cache.get(ptr) {
                     <span class="kw-2">*</span>z_ptr
@@ -2005,7 +2272,7 @@
     /// limit in `hash_ptr_unsafe`. So we move in smaller chunks from left to
     /// right, populating the `z_cache`, which can rescue `hash_ptr_unsafe` from
     /// dangerously deep recursions
-    </span><span class="kw">fn </span>hydrate_z_cache_with_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Ptr&lt;F&gt;]) {
+    </span><span class="kw">fn </span>hydrate_z_cache_with_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Ptr]) {
         ptrs.chunks(<span class="number">256</span>).for_each(|chunk| {
             chunk.par_iter().for_each(|ptr| {
                 <span class="self">self</span>.hash_ptr_unsafe(ptr);
@@ -2036,13 +2303,13 @@
     <span class="doccomment">/// Safe version of `hash_ptr_unsafe` that doesn&#39;t hit a stack overflow by
     /// precomputing the pointers that need to be hashed in order to hash the
     /// provided `ptr`
-    </span><span class="kw">pub fn </span>hash_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; ZPtr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>hash_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; ZPtr&lt;F&gt; {
         <span class="kw">if </span><span class="self">self</span>.is_below_safe_threshold() {
             <span class="comment">// just run `hash_ptr_unsafe` for extra speed when the dehydrated
             // queue is small enough
             </span><span class="kw">return </span><span class="self">self</span>.hash_ptr_unsafe(ptr);
         }
-        <span class="kw">let </span><span class="kw-2">mut </span>ptrs: IndexSet&lt;<span class="kw-2">&amp;</span>Ptr&lt;F&gt;&gt; = IndexSet::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>ptrs: IndexSet&lt;<span class="kw-2">&amp;</span>Ptr&gt; = IndexSet::default();
         <span class="kw">let </span><span class="kw-2">mut </span>stack = <span class="macro">vec!</span>[ptr];
         <span class="macro">macro_rules! </span>feed_loop {
             (<span class="macro-nonterminal">$x</span>:expr) =&gt; {
@@ -2086,7 +2353,7 @@
 
     <span class="doccomment">/// Constructs a vector of scalars that correspond to tags and hashes computed
     /// from a slice of `Ptr`s turned into `ZPtr`s
-    </span><span class="kw">pub fn </span>to_scalar_vector(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Vec&lt;F&gt; {
+    </span><span class="kw">pub fn </span>to_scalar_vector(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[Ptr]) -&gt; Vec&lt;F&gt; {
         ptrs.iter()
             .fold(Vec::with_capacity(<span class="number">2 </span>* ptrs.len()), |<span class="kw-2">mut </span>acc, ptr| {
                 <span class="kw">let </span>z_ptr = <span class="self">self</span>.hash_ptr(ptr);
@@ -2098,7 +2365,7 @@
 
     <span class="doccomment">/// Equality of the content-addressed versions of two pointers
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, a: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, b: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; bool {
+    </span><span class="kw">pub fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, a: <span class="kw-2">&amp;</span>Ptr, b: <span class="kw-2">&amp;</span>Ptr) -&gt; bool {
         <span class="self">self</span>.hash_ptr(a) == <span class="self">self</span>.hash_ptr(b)
     }
 
@@ -2106,16 +2373,16 @@
     /// `inverse_z_cache`. If the mapping is not there, returns an atom pointer
     /// with the same tag and value
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>to_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>to_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;) -&gt; Ptr {
         <span class="self">self</span>.inverse_z_cache
             .get(z_ptr)
             .cloned()
-            .unwrap_or_else(|| Ptr::opaque(<span class="kw-2">*</span>z_ptr))
+            .unwrap_or_else(|| <span class="self">self</span>.opaque(<span class="kw-2">*</span>z_ptr))
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Ptr&lt;F&gt; {
-    <span class="kw">pub fn </span>fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State) -&gt; String {
+<span class="kw">impl </span>Ptr {
+    <span class="kw">pub fn </span>fmt_to_string&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State) -&gt; String {
         <span class="kw">match </span><span class="self">self</span>.tag() {
             Tag::Expr(t) =&gt; <span class="kw">match </span>t {
                 Nil =&gt; {
@@ -2146,10 +2413,17 @@
                         <span class="string">&quot;&lt;Opaque Str&gt;&quot;</span>.into()
                     }
                 }
-                Char =&gt; <span class="kw">match </span><span class="self">self</span>.get_atom().map(F::to_char) {
-                    <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(c)) =&gt; <span class="macro">format!</span>(<span class="string">&quot;\&#39;{c}\&#39;&quot;</span>),
-                    <span class="kw">_ </span>=&gt; <span class="string">&quot;&lt;Malformed Char&gt;&quot;</span>.into(),
-                },
+                Char =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = <span class="self">self
+                        </span>.get_atom()
+                        .map(|idx| store.expect_f(idx))
+                        .and_then(F::to_char)
+                    {
+                        <span class="macro">format!</span>(<span class="string">&quot;\&#39;{c}\&#39;&quot;</span>)
+                    } <span class="kw">else </span>{
+                        <span class="string">&quot;&lt;Malformed Char&gt;&quot;</span>.into()
+                    }
+                }
                 Cons =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>((list, non_nil)) = store.fetch_list(<span class="self">self</span>) {
                         <span class="kw">let </span>list = list
@@ -2169,20 +2443,28 @@
                         <span class="string">&quot;&lt;Opaque Cons&gt;&quot;</span>.into()
                     }
                 }
-                Num =&gt; <span class="kw">match </span><span class="self">self</span>.get_atom() {
-                    <span class="prelude-val">None </span>=&gt; <span class="string">&quot;&lt;Malformed Num&gt;&quot;</span>.into(),
-                    <span class="prelude-val">Some</span>(f) =&gt; {
+                Num =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = <span class="self">self</span>.get_atom().map(|idx| store.expect_f(idx)) {
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = f.to_u64() {
                             u.to_string()
                         } <span class="kw">else </span>{
                             <span class="macro">format!</span>(<span class="string">&quot;0x{}&quot;</span>, f.hex_digits())
                         }
+                    } <span class="kw">else </span>{
+                        <span class="string">&quot;&lt;Malformed Num&gt;&quot;</span>.into()
                     }
-                },
-                U64 =&gt; <span class="kw">match </span><span class="self">self</span>.get_atom().map(F::to_u64) {
-                    <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(u)) =&gt; <span class="macro">format!</span>(<span class="string">&quot;{u}u64&quot;</span>),
-                    <span class="kw">_ </span>=&gt; <span class="string">&quot;&lt;Malformed U64&gt;&quot;</span>.into(),
-                },
+                }
+                U64 =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = <span class="self">self
+                        </span>.get_atom()
+                        .map(|idx| store.expect_f(idx))
+                        .and_then(F::to_u64)
+                    {
+                        <span class="macro">format!</span>(<span class="string">&quot;{u}u64&quot;</span>)
+                    } <span class="kw">else </span>{
+                        <span class="string">&quot;&lt;Malformed U64&gt;&quot;</span>.into()
+                    }
+                }
                 Fun =&gt; <span class="kw">match </span><span class="self">self</span>.get_index3() {
                     <span class="prelude-val">None </span>=&gt; <span class="string">&quot;&lt;Malformed Fun&gt;&quot;</span>.into(),
                     <span class="prelude-val">Some</span>(idx) =&gt; {
@@ -2232,7 +2514,8 @@
                     }
                 },
                 Comm =&gt; <span class="kw">match </span><span class="self">self</span>.get_atom() {
-                    <span class="prelude-val">Some</span>(f) =&gt; {
+                    <span class="prelude-val">Some</span>(idx) =&gt; {
+                        <span class="kw">let </span>f = store.expect_f(idx);
                         <span class="kw">if </span>store.comms.get(<span class="kw-2">&amp;</span>FWrap(<span class="kw-2">*</span>f)).is_some() {
                             <span class="macro">format!</span>(<span class="string">&quot;(comm 0x{})&quot;</span>, f.hex_digits())
                         } <span class="kw">else </span>{
@@ -2296,7 +2579,7 @@
         }
     }
 
-    <span class="kw">fn </span>fmt_cont2_to_string(
+    <span class="kw">fn </span>fmt_cont2_to_string&lt;F: LurkField&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         name: <span class="kw-2">&amp;</span>str,
         field: <span class="kw-2">&amp;</span>str,
@@ -2319,7 +2602,7 @@
         }
     }
 
-    <span class="kw">fn </span>fmt_cont3_to_string(
+    <span class="kw">fn </span>fmt_cont3_to_string&lt;F: LurkField&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         name: <span class="kw-2">&amp;</span>str,
         fields: (<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str),
@@ -2344,7 +2627,7 @@
         }
     }
 
-    <span class="kw">fn </span>fmt_cont4_to_string(
+    <span class="kw">fn </span>fmt_cont4_to_string&lt;F: LurkField&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         name: <span class="kw-2">&amp;</span>str,
         fields: (<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str),
@@ -2399,8 +2682,8 @@
         <span class="macro">assert_eq!</span>((<span class="kw-2">&amp;</span>car, <span class="kw-2">&amp;</span>cdr), (<span class="kw-2">&amp;</span>nil, <span class="kw-2">&amp;</span>nil));
 
         <span class="comment">// regular cons
-        </span><span class="kw">let </span>one = Ptr::&lt;Fr&gt;::num_u64(<span class="number">1</span>);
-        <span class="kw">let </span>a = Ptr::&lt;Fr&gt;::char(<span class="string">&#39;a&#39;</span>);
+        </span><span class="kw">let </span>one = store.num_u64(<span class="number">1</span>);
+        <span class="kw">let </span>a = store.char(<span class="string">&#39;a&#39;</span>);
         <span class="kw">let </span>one_a = store.cons(one, a);
         <span class="kw">let </span>(car, cdr) = store.car_cdr(<span class="kw-2">&amp;</span>one_a).unwrap();
         <span class="macro">assert_eq!</span>((<span class="kw-2">&amp;</span>one, <span class="kw-2">&amp;</span>a), (<span class="kw-2">&amp;</span>car, <span class="kw-2">&amp;</span>cdr));
@@ -2431,8 +2714,8 @@
         <span class="macro">assert!</span>(non_nil.is_none());
 
         <span class="comment">// proper list
-        </span><span class="kw">let </span>a = Ptr::&lt;Fr&gt;::char(<span class="string">&#39;a&#39;</span>);
-        <span class="kw">let </span>b = Ptr::&lt;Fr&gt;::char(<span class="string">&#39;b&#39;</span>);
+        </span><span class="kw">let </span>a = store.char(<span class="string">&#39;a&#39;</span>);
+        <span class="kw">let </span>b = store.char(<span class="string">&#39;b&#39;</span>);
         <span class="kw">let </span>list = store.list(<span class="macro">vec!</span>[a, b]);
         <span class="macro">assert_eq!</span>(list.fmt_to_string(<span class="kw-2">&amp;</span>store, state), <span class="string">&quot;(&#39;a&#39; &#39;b&#39;)&quot;</span>);
         <span class="kw">let </span>(elts, non_nil) = store.fetch_list(<span class="kw-2">&amp;</span>list).unwrap();
@@ -2441,7 +2724,7 @@
         <span class="macro">assert!</span>(non_nil.is_none());
 
         <span class="comment">// improper list
-        </span><span class="kw">let </span>c = Ptr::&lt;Fr&gt;::char(<span class="string">&#39;c&#39;</span>);
+        </span><span class="kw">let </span>c = store.char(<span class="string">&#39;c&#39;</span>);
         <span class="kw">let </span>b_c = store.cons(b, c);
         <span class="kw">let </span>a_b_c = store.cons(a, b_c);
         <span class="kw">let </span>a_b_c_ = store.improper_list(<span class="macro">vec!</span>[a, b], c);
@@ -2458,7 +2741,7 @@
         <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>zero = Fr::zero();
         <span class="kw">let </span>zero_tag = Tag::try_from(<span class="number">0</span>).unwrap();
-        <span class="kw">let </span>foo = Ptr::Atom(zero_tag, zero);
+        <span class="kw">let </span>foo = store.intern_atom(zero_tag, zero);
 
         <span class="kw">let </span>z_foo = store.hash_ptr(<span class="kw-2">&amp;</span>foo);
         <span class="macro">assert_eq!</span>(z_foo.tag(), <span class="kw-2">&amp;</span>zero_tag);
@@ -2467,7 +2750,7 @@
         <span class="kw">let </span>comm = store.hide(zero, foo);
         <span class="macro">assert_eq!</span>(comm.tag(), <span class="kw-2">&amp;</span>Tag::Expr(ExprTag::Comm));
         <span class="macro">assert_eq!</span>(
-            comm.get_atom().unwrap(),
+            store.expect_f(comm.get_atom().unwrap()),
             <span class="kw-2">&amp;</span>store.poseidon_cache.hash3(<span class="kw-2">&amp;</span>[zero; <span class="number">3</span>])
         );
 
@@ -2491,8 +2774,8 @@
     </span><span class="kw">fn </span>test_display_opaque_knowledge() {
         <span class="comment">// bob creates a list
         </span><span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>one = Ptr::num_u64(<span class="number">1</span>);
-        <span class="kw">let </span>two = Ptr::num_u64(<span class="number">2</span>);
+        <span class="kw">let </span>one = store.num_u64(<span class="number">1</span>);
+        <span class="kw">let </span>two = store.num_u64(<span class="number">2</span>);
         <span class="kw">let </span>one_two = store.cons(one, two);
         <span class="kw">let </span>hi = store.intern_string(<span class="string">&quot;hi&quot;</span>);
         <span class="kw">let </span>z1 = store.hash_ptr(<span class="kw-2">&amp;</span>hi);
@@ -2502,9 +2785,9 @@
 
         <span class="comment">// alice uses the hashed elements of the list to show that she
         // can produce the same hash as the original z_list
-        </span><span class="kw">let </span>a1 = Ptr::opaque(z1);
-        <span class="kw">let </span>a2 = Ptr::opaque(z2);
-        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
+        </span><span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>a1 = store.opaque(z1);
+        <span class="kw">let </span>a2 = store.opaque(z2);
         <span class="kw">let </span>list1 = store.list(<span class="macro">vec!</span>[a1, a2]);
         <span class="kw">let </span>list2 = store.list(<span class="macro">vec!</span>[a2, a1]);
         <span class="kw">let </span>z_list1 = store.hash_ptr(<span class="kw-2">&amp;</span>list1);
@@ -2580,13 +2863,18 @@
     }
 
     <span class="comment">// helper function to test syntax interning roundtrip
-    </span><span class="kw">fn </span>fetch_syntax(ptr: Ptr&lt;Fr&gt;, store: <span class="kw-2">&amp;</span>Store&lt;Fr&gt;) -&gt; Syntax&lt;Fr&gt; {
+    </span><span class="kw">fn </span>fetch_syntax(ptr: Ptr, store: <span class="kw-2">&amp;</span>Store&lt;Fr&gt;) -&gt; Syntax&lt;Fr&gt; {
         <span class="kw">match </span>ptr {
-            Ptr::Atom(Tag::Expr(ExprTag::Num), f) =&gt; Syntax::Num(Pos::No, Num::Scalar(f)),
-            Ptr::Atom(Tag::Expr(ExprTag::Char), f) =&gt; Syntax::Char(Pos::No, f.to_char().unwrap()),
-            Ptr::Atom(Tag::Expr(ExprTag::U64), f) =&gt; {
-                Syntax::UInt(Pos::No, <span class="kw">crate</span>::UInt::U64(f.to_u64_unchecked()))
+            Ptr::Atom(Tag::Expr(ExprTag::Num), idx) =&gt; {
+                Syntax::Num(Pos::No, Num::Scalar(<span class="kw-2">*</span>store.expect_f(idx)))
             }
+            Ptr::Atom(Tag::Expr(ExprTag::Char), idx) =&gt; {
+                Syntax::Char(Pos::No, store.expect_f(idx).to_char().unwrap())
+            }
+            Ptr::Atom(Tag::Expr(ExprTag::U64), idx) =&gt; Syntax::UInt(
+                Pos::No,
+                <span class="kw">crate</span>::UInt::U64(store.expect_f(idx).to_u64_unchecked()),
+            ),
             Ptr::Atom(Tag::Expr(ExprTag::Sym), <span class="kw">_</span>)
             | Ptr::Atom(Tag::Expr(ExprTag::Key), <span class="kw">_</span>)
             | Ptr::Tuple2(Tag::Expr(ExprTag::Sym), <span class="kw">_</span>)
