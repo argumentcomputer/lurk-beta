@@ -30,16 +30,17 @@ pub(crate) struct ZDag<F: LurkField>(BTreeMap<ZPtr<F>, ZPtrType<F>>);
 impl<F: LurkField> ZDag<F> {
     pub(crate) fn populate_with(
         &mut self,
-        ptr: &Ptr<F>,
+        ptr: &Ptr,
         store: &Store<F>,
-        cache: &mut HashMap<Ptr<F>, ZPtr<F>>,
+        cache: &mut HashMap<Ptr, ZPtr<F>>,
     ) -> ZPtr<F> {
-        let mut recurse = |ptr: &Ptr<F>| -> ZPtr<F> {
+        let mut recurse = |ptr: &Ptr| -> ZPtr<F> {
             if let Some(z_ptr) = cache.get(ptr) {
                 *z_ptr
             } else {
                 let z_ptr = match ptr {
-                    Ptr::Atom(tag, f) => {
+                    Ptr::Atom(tag, idx) => {
+                        let f = store.expect_f(*idx);
                         let z_ptr = ZPtr::from_parts(*tag, *f);
                         self.0.insert(z_ptr, ZPtrType::Atom);
                         z_ptr
@@ -117,15 +118,17 @@ impl<F: LurkField> ZDag<F> {
         &self,
         z_ptr: &ZPtr<F>,
         store: &Store<F>,
-        cache: &mut HashMap<ZPtr<F>, Ptr<F>>,
-    ) -> Result<Ptr<F>> {
-        let mut recurse = |z_ptr: &ZPtr<F>| -> Result<Ptr<F>> {
+        cache: &mut HashMap<ZPtr<F>, Ptr>,
+    ) -> Result<Ptr> {
+        let mut recurse = |z_ptr: &ZPtr<F>| -> Result<Ptr> {
             if let Some(z_ptr) = cache.get(z_ptr) {
                 Ok(*z_ptr)
             } else {
                 let ptr = match self.get_type(z_ptr) {
                     None => bail!("Couldn't find ZPtr on ZStore"),
-                    Some(ZPtrType::Atom) => Ptr::Atom(*z_ptr.tag(), *z_ptr.value()),
+                    Some(ZPtrType::Atom) => {
+                        store.intern_atom_hydrated(*z_ptr.tag(), *z_ptr.value(), *z_ptr)
+                    }
                     Some(ZPtrType::Tuple2(z1, z2)) => {
                         let ptr1 = self.populate_store(z1, store, cache)?;
                         let ptr2 = self.populate_store(z2, store, cache)?;
@@ -242,9 +245,9 @@ impl<F: LurkField> ZStore<F> {
     #[inline]
     pub(crate) fn populate_with(
         &mut self,
-        ptr: &Ptr<F>,
+        ptr: &Ptr,
         store: &Store<F>,
-        cache: &mut HashMap<Ptr<F>, ZPtr<F>>,
+        cache: &mut HashMap<Ptr, ZPtr<F>>,
     ) -> ZPtr<F> {
         self.z_dag.populate_with(ptr, store, cache)
     }
@@ -253,8 +256,8 @@ impl<F: LurkField> ZStore<F> {
         &self,
         z_ptr: &ZPtr<F>,
         store: &Store<F>,
-        cache: &mut HashMap<ZPtr<F>, Ptr<F>>,
-    ) -> Result<Ptr<F>> {
+        cache: &mut HashMap<ZPtr<F>, Ptr>,
+    ) -> Result<Ptr> {
         self.z_dag.populate_store(z_ptr, store, cache)
     }
 }
@@ -276,7 +279,7 @@ mod tests {
     use super::{ZDag, ZStore};
 
     /// helper function that interns random data into a store
-    fn rng_interner(rng: &mut StdRng, max_depth: usize, store: &Store<Fp>) -> Ptr<Fp> {
+    fn rng_interner(rng: &mut StdRng, max_depth: usize, store: &Store<Fp>) -> Ptr {
         let rnd = rng.gen::<u64>();
         let tag = match rnd % 4 {
             0 => Tag::Expr(ExprTag::try_from((rnd % 11) as u16).unwrap()),
@@ -286,10 +289,10 @@ mod tests {
             _ => unreachable!(),
         };
         if max_depth == 0 {
-            Ptr::Atom(tag, Fp::from_u64(rnd))
+            store.intern_atom(tag, Fp::from_u64(rnd))
         } else {
             match rnd % 4 {
-                0 => Ptr::Atom(tag, Fp::from_u64(rnd)),
+                0 => store.intern_atom(tag, Fp::from_u64(rnd)),
                 1 => store.intern_2_ptrs(
                     tag,
                     rng_interner(rng, max_depth - 1, store),
@@ -340,9 +343,9 @@ mod tests {
     #[test]
     fn test_filtered_dag() {
         let store = Store::<Fp>::default();
-        let one = Ptr::num_u64(1);
-        let two = Ptr::num_u64(2);
-        let thr = Ptr::num_u64(3);
+        let one = store.num_u64(1);
+        let two = store.num_u64(2);
+        let thr = store.num_u64(3);
         let one_two = store.cons(one, two);
         let two_thr = store.cons(two, thr);
         let mut z_dag = ZDag::default();

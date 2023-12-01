@@ -12,28 +12,28 @@ use crate::{
     field::LurkField,
     num::Num as BaseNum,
     state::initial_lurk_state,
-    tag::ExprTag::{Comm, Nil, Num, Sym},
+    tag::ExprTag::{Comm, Num, Sym},
 };
 
 #[derive(Clone)]
-pub enum Val<F: LurkField> {
-    Pointer(Ptr<F>),
+pub enum Val {
+    Pointer(Ptr),
     Boolean(bool),
 }
 
-impl<F: LurkField> VarMap<Val<F>> {
-    fn get_many_ptr(&self, args: &[Var]) -> Result<Vec<Ptr<F>>> {
+impl VarMap<Val> {
+    fn get_many_ptr(&self, args: &[Var]) -> Result<Vec<Ptr>> {
         args.iter().map(|arg| self.get_ptr(arg)).collect()
     }
 
-    fn get_ptr(&self, var: &Var) -> Result<Ptr<F>> {
+    fn get_ptr(&self, var: &Var) -> Result<Ptr> {
         if let Val::Pointer(ptr) = self.get(var)? {
             return Ok(*ptr);
         }
         bail!("Expected {var} to be a pointer")
     }
 
-    fn insert_ptr(&mut self, var: Var, ptr: Ptr<F>) -> Option<Val<F>> {
+    fn insert_ptr(&mut self, var: Var, ptr: Ptr) -> Option<Val> {
         self.insert(var, Val::Pointer(ptr))
     }
 
@@ -44,7 +44,7 @@ impl<F: LurkField> VarMap<Val<F>> {
         bail!("Expected {var} to be a boolean")
     }
 
-    fn insert_bool(&mut self, var: Var, b: bool) -> Option<Val<F>> {
+    fn insert_bool(&mut self, var: Var, b: bool) -> Option<Val> {
         self.insert(var, Val::Boolean(b))
     }
 }
@@ -54,18 +54,18 @@ impl<F: LurkField> VarMap<Val<F>> {
 /// The hash preimages must have the same shape as the allocated slots for the
 /// `Func`, and the `None` values are used to fill the unused slots, which are
 /// later filled by dummy values.
-pub struct Hints<F: LurkField> {
-    pub hash4: Vec<Option<SlotData<F>>>,
-    pub hash6: Vec<Option<SlotData<F>>>,
-    pub hash8: Vec<Option<SlotData<F>>>,
-    pub commitment: Vec<Option<SlotData<F>>>,
-    pub bit_decomp: Vec<Option<SlotData<F>>>,
-    pub call_outputs: VecDeque<Vec<Ptr<F>>>,
-    pub cproc_outputs: Vec<Vec<Ptr<F>>>,
+pub struct Hints {
+    pub hash4: Vec<Option<SlotData>>,
+    pub hash6: Vec<Option<SlotData>>,
+    pub hash8: Vec<Option<SlotData>>,
+    pub commitment: Vec<Option<SlotData>>,
+    pub bit_decomp: Vec<Option<SlotData>>,
+    pub call_outputs: VecDeque<Vec<Ptr>>,
+    pub cproc_outputs: Vec<Vec<Ptr>>,
 }
 
-impl<F: LurkField> Hints<F> {
-    pub fn new_from_func(func: &Func) -> Hints<F> {
+impl Hints {
+    pub fn new_from_func(func: &Func) -> Hints {
         let slot = func.slots_count;
         let hash4 = Vec::with_capacity(slot.hash4);
         let hash6 = Vec::with_capacity(slot.hash6);
@@ -85,7 +85,7 @@ impl<F: LurkField> Hints<F> {
         }
     }
 
-    pub fn blank(func: &Func) -> Hints<F> {
+    pub fn blank(func: &Func) -> Hints {
         let slot = func.slots_count;
         let hash4 = vec![None; slot.hash4];
         let hash6 = vec![None; slot.hash6];
@@ -112,19 +112,19 @@ impl<F: LurkField> Hints<F> {
 ///
 /// This information is used to generate the witness.
 #[derive(Clone, Debug, Default)]
-pub struct Frame<F: LurkField> {
-    pub input: Vec<Ptr<F>>,
-    pub output: Vec<Ptr<F>>,
-    pub emitted: Vec<Ptr<F>>,
-    pub hints: Hints<F>,
+pub struct Frame {
+    pub input: Vec<Ptr>,
+    pub output: Vec<Ptr>,
+    pub emitted: Vec<Ptr>,
+    pub hints: Hints,
     pub blank: bool,
     pub pc: usize,
 }
 
-impl<F: LurkField> Frame<F> {
-    pub fn blank(func: &Func, pc: usize) -> Frame<F> {
-        let input = vec![Ptr::zero(Tag::Expr(Nil)); func.input_params.len()];
-        let output = vec![Ptr::zero(Tag::Expr(Nil)); func.output_size];
+impl Frame {
+    pub fn blank(func: &Func, pc: usize) -> Frame {
+        let input = vec![Ptr::dummy(); func.input_params.len()];
+        let output = vec![Ptr::dummy(); func.output_size];
         let hints = Hints::blank(func);
         Frame {
             input,
@@ -143,15 +143,15 @@ impl Block {
     /// in `circuit.rs`)
     fn run<F: LurkField, C: Coprocessor<F>>(
         &self,
-        input: &[Ptr<F>],
+        input: &[Ptr],
         store: &Store<F>,
-        mut bindings: VarMap<Val<F>>,
-        mut hints: Hints<F>,
+        mut bindings: VarMap<Val>,
+        mut hints: Hints,
         mut path: Path,
-        emitted: &mut Vec<Ptr<F>>,
+        emitted: &mut Vec<Ptr>,
         lang: &Lang<F, C>,
         pc: usize,
-    ) -> Result<(Frame<F>, Path)> {
+    ) -> Result<(Frame, Path)> {
         for op in &self.ops {
             match op {
                 Op::Cproc(out, sym, inp) => {
@@ -197,19 +197,19 @@ impl Block {
                     bindings.insert(tgt.clone(), bindings.get_cloned(src)?);
                 }
                 Op::Zero(tgt, tag) => {
-                    bindings.insert_ptr(tgt.clone(), Ptr::zero(*tag));
+                    bindings.insert_ptr(tgt.clone(), store.zero(*tag));
                 }
                 Op::Hash3Zeros(tgt, tag) => {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash3zeros));
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash3zeros_idx));
                 }
                 Op::Hash4Zeros(tgt, tag) => {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash4zeros));
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash4zeros_idx));
                 }
                 Op::Hash6Zeros(tgt, tag) => {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash6zeros));
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash6zeros_idx));
                 }
                 Op::Hash8Zeros(tgt, tag) => {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash8zeros));
+                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(*tag, store.hash8zeros_idx));
                 }
                 Op::Lit(tgt, lit) => {
                     bindings.insert_ptr(tgt.clone(), lit.to_ptr(store));
@@ -251,7 +251,8 @@ impl Block {
                     let a = bindings.get_ptr(a)?;
                     let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        Ptr::Atom(Tag::Expr(Num), f + g)
+                        let (f, g) = (store.expect_f(f), store.expect_f(g));
+                        store.intern_atom(Tag::Expr(Num), *f + *g)
                     } else {
                         bail!("`Add` only works on atoms")
                     };
@@ -261,7 +262,8 @@ impl Block {
                     let a = bindings.get_ptr(a)?;
                     let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        Ptr::Atom(Tag::Expr(Num), f - g)
+                        let (f, g) = (store.expect_f(f), store.expect_f(g));
+                        store.intern_atom(Tag::Expr(Num), *f - *g)
                     } else {
                         bail!("`Sub` only works on atoms")
                     };
@@ -271,7 +273,8 @@ impl Block {
                     let a = bindings.get_ptr(a)?;
                     let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        Ptr::Atom(Tag::Expr(Num), f * g)
+                        let (f, g) = (store.expect_f(f), store.expect_f(g));
+                        store.intern_atom(Tag::Expr(Num), *f * *g)
                     } else {
                         bail!("`Mul` only works on atoms")
                     };
@@ -281,10 +284,11 @@ impl Block {
                     let a = bindings.get_ptr(a)?;
                     let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        if g == F::ZERO {
+                        let (f, g) = (store.expect_f(f), store.expect_f(g));
+                        if g == &F::ZERO {
                             bail!("Can't divide by zero")
                         }
-                        Ptr::Atom(Tag::Expr(Num), f * g.invert().expect("not zero"))
+                        store.intern_atom(Tag::Expr(Num), *f * g.invert().expect("not zero"))
                     } else {
                         bail!("`Div` only works on numbers")
                     };
@@ -293,11 +297,19 @@ impl Block {
                 Op::Lt(tgt, a, b) => {
                     let a = bindings.get_ptr(a)?;
                     let b = bindings.get_ptr(b)?;
-                    let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
+                    let c = if let (Ptr::Atom(_, f_idx), Ptr::Atom(_, g_idx)) = (a, b) {
+                        let f = *store.expect_f(f_idx);
+                        let g = *store.expect_f(g_idx);
                         let diff = f - g;
-                        hints.bit_decomp.push(Some(SlotData::F(f + f)));
-                        hints.bit_decomp.push(Some(SlotData::F(g + g)));
-                        hints.bit_decomp.push(Some(SlotData::F(diff + diff)));
+                        hints
+                            .bit_decomp
+                            .push(Some(SlotData::F(store.intern_f(f + f).0)));
+                        hints
+                            .bit_decomp
+                            .push(Some(SlotData::F(store.intern_f(g + g).0)));
+                        hints
+                            .bit_decomp
+                            .push(Some(SlotData::F(store.intern_f(diff + diff).0)));
                         let f = BaseNum::Scalar(f);
                         let g = BaseNum::Scalar(g);
                         f < g
@@ -309,10 +321,11 @@ impl Block {
                 Op::Trunc(tgt, a, n) => {
                     assert!(*n <= 64);
                     let a = bindings.get_ptr(a)?;
-                    let c = if let Ptr::Atom(_, f) = a {
-                        hints.bit_decomp.push(Some(SlotData::F(f)));
+                    let c = if let Ptr::Atom(_, f_idx) = a {
+                        let f = *store.expect_f(f_idx);
+                        hints.bit_decomp.push(Some(SlotData::F(f_idx)));
                         let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
-                        Ptr::Atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
+                        store.intern_atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
                     } else {
                         bail!("`Trunc` only works on atoms")
                     };
@@ -322,13 +335,15 @@ impl Block {
                     let a = bindings.get_ptr(a)?;
                     let b = bindings.get_ptr(b)?;
                     let (c1, c2) = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
+                        let f = *store.expect_f(f);
+                        let g = *store.expect_f(g);
                         if g == F::ZERO {
                             bail!("Can't divide by zero")
                         }
                         let f = f.to_u64_unchecked();
                         let g = g.to_u64_unchecked();
-                        let c1 = Ptr::Atom(Tag::Expr(Num), F::from_u64(f / g));
-                        let c2 = Ptr::Atom(Tag::Expr(Num), F::from_u64(f % g));
+                        let c1 = store.intern_atom(Tag::Expr(Num), F::from_u64(f / g));
+                        let c2 = store.intern_atom(Tag::Expr(Num), F::from_u64(f % g));
                         (c1, c2)
                     } else {
                         bail!("`DivRem64` only works on atoms")
@@ -416,23 +431,31 @@ impl Block {
                 }
                 Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get_ptr(src)?;
-                    let Ptr::Atom(Tag::Expr(Num), secret) = bindings.get_ptr(sec)? else {
+                    let Ptr::Atom(Tag::Expr(Num), secret_idx) = bindings.get_ptr(sec)? else {
                         bail!("{sec} is not a numeric pointer")
                     };
+                    let secret = *store.expect_f(secret_idx);
                     let tgt_ptr = store.hide(secret, src_ptr);
-                    hints.commitment.push(Some(SlotData::FPtr(secret, src_ptr)));
+                    hints
+                        .commitment
+                        .push(Some(SlotData::FPtr(secret_idx, src_ptr)));
                     bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
                 Op::Open(tgt_secret, tgt_ptr, comm) => {
                     let Ptr::Atom(Tag::Expr(Comm), hash) = bindings.get_ptr(comm)? else {
                         bail!("{comm} is not a comm pointer")
                     };
-                    let Some((secret, ptr)) = store.open(hash) else {
+                    let hash = *store.expect_f(hash);
+                    let Some((secret, ptr)) = store.open(hash).cloned() else {
                         bail!("No committed data for hash {}", &hash.hex_digits())
                     };
-                    bindings.insert_ptr(tgt_ptr.clone(), *ptr);
-                    bindings.insert_ptr(tgt_secret.clone(), Ptr::Atom(Tag::Expr(Num), *secret));
-                    hints.commitment.push(Some(SlotData::FPtr(*secret, *ptr)))
+                    bindings.insert_ptr(tgt_ptr.clone(), ptr);
+                    bindings.insert_ptr(
+                        tgt_secret.clone(),
+                        store.intern_atom(Tag::Expr(Num), secret),
+                    );
+                    let secret_idx = store.intern_f(secret).0;
+                    hints.commitment.push(Some(SlotData::FPtr(secret_idx, ptr)))
                 }
                 Op::Unit(f) => f(),
             }
@@ -505,13 +528,13 @@ impl Block {
 impl Func {
     pub fn call<F: LurkField, C: Coprocessor<F>>(
         &self,
-        args: &[Ptr<F>],
+        args: &[Ptr],
         store: &Store<F>,
-        hints: Hints<F>,
-        emitted: &mut Vec<Ptr<F>>,
+        hints: Hints,
+        emitted: &mut Vec<Ptr>,
         lang: &Lang<F, C>,
         pc: usize,
-    ) -> Result<(Frame<F>, Path)> {
+    ) -> Result<(Frame, Path)> {
         let mut bindings = VarMap::new();
         for (i, param) in self.input_params.iter().enumerate() {
             bindings.insert_ptr(param.clone(), args[i]);
@@ -565,11 +588,11 @@ impl Func {
     #[inline]
     pub fn call_simple<F: LurkField, C: Coprocessor<F>>(
         &self,
-        args: &[Ptr<F>],
+        args: &[Ptr],
         store: &Store<F>,
         lang: &Lang<F, C>,
         pc: usize,
-    ) -> Result<Frame<F>> {
+    ) -> Result<Frame> {
         Ok(self
             .call(
                 args,

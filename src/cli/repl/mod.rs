@@ -57,14 +57,14 @@ impl Validator for InputValidator {
 }
 
 #[allow(dead_code)]
-struct Evaluation<F: LurkField> {
-    frames: Vec<Frame<F>>,
+struct Evaluation {
+    frames: Vec<Frame>,
     iterations: usize,
 }
 
-impl<F: LurkField> Evaluation<F> {
+impl Evaluation {
     #[inline]
-    fn get_result(&self) -> Option<&Ptr<F>> {
+    fn get_result(&self) -> Option<&Ptr> {
         self.frames.last().and_then(|frame| frame.output.first())
     }
 }
@@ -73,12 +73,12 @@ impl<F: LurkField> Evaluation<F> {
 pub(crate) struct Repl<F: LurkField> {
     store: Store<F>,
     state: Rc<RefCell<State>>,
-    env: Ptr<F>,
+    env: Ptr,
     lang: Arc<Lang<F, Coproc<F>>>,
     rc: usize,
     limit: usize,
     backend: Backend,
-    evaluation: Option<Evaluation<F>>,
+    evaluation: Option<Evaluation>,
     pwd_path: Utf8PathBuf,
     meta: HashMap<&'static str, MetaCmd<F>>,
 }
@@ -99,11 +99,11 @@ fn pad(a: usize, m: usize) -> usize {
 }
 
 impl<F: LurkField> Repl<F> {
-    fn get_evaluation(&self) -> &Option<Evaluation<F>> {
+    fn get_evaluation(&self) -> &Option<Evaluation> {
         &self.evaluation
     }
 
-    fn peek1(&self, args: &Ptr<F>) -> Result<Ptr<F>> {
+    fn peek1(&self, args: &Ptr) -> Result<Ptr> {
         let (first, rest) = self.store.car_cdr(args)?;
         if !rest.is_nil() {
             bail!("At most one argument is accepted")
@@ -111,7 +111,7 @@ impl<F: LurkField> Repl<F> {
         Ok(first)
     }
 
-    fn peek2(&self, args: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {
+    fn peek2(&self, args: &Ptr) -> Result<(Ptr, Ptr)> {
         let (first, rest) = self.store.car_cdr(args)?;
         let (second, rest) = self.store.car_cdr(&rest)?;
         if !rest.is_nil() {
@@ -121,7 +121,7 @@ impl<F: LurkField> Repl<F> {
     }
 
     #[inline]
-    fn get_string(&self, ptr: &Ptr<F>) -> Result<String> {
+    fn get_string(&self, ptr: &Ptr) -> Result<String> {
         self.store.fetch_string(ptr).ok_or_else(|| {
             anyhow!(
                 "Expected string. Got {}",
@@ -131,7 +131,7 @@ impl<F: LurkField> Repl<F> {
     }
 
     #[inline]
-    fn get_symbol(&self, ptr: &Ptr<F>) -> Result<Symbol> {
+    fn get_symbol(&self, ptr: &Ptr) -> Result<Symbol> {
         self.store.fetch_symbol(ptr).ok_or_else(|| {
             anyhow!(
                 "Expected symbol. Got {}",
@@ -171,10 +171,10 @@ impl Repl<F> {
     #[allow(dead_code)]
     fn proof_claim(
         store: &Store<F>,
-        exprs: (Ptr<F>, Ptr<F>),
-        envs: (Ptr<F>, Ptr<F>),
+        exprs: (Ptr, Ptr),
+        envs: (Ptr, Ptr),
         conts: ((F, F), (F, F)),
-    ) -> Ptr<F> {
+    ) -> Ptr {
         let expr_key = store.key("expr");
         let env_key = store.key("env");
         let cont_key = store.key("cont");
@@ -184,8 +184,8 @@ impl Repl<F> {
         let (expr, expr_out) = exprs;
         let (env, env_out) = envs;
         let ((cont_tag, cont_val), (cont_out_tag, cont_out_val)) = conts;
-        let cont = store.cons(Ptr::num(cont_tag), Ptr::num(cont_val));
-        let cont_out = store.cons(Ptr::num(cont_out_tag), Ptr::num(cont_out_val));
+        let cont = store.cons(store.num(cont_tag), store.num(cont_val));
+        let cont_out = store.cons(store.num(cont_out_tag), store.num(cont_out_val));
         store.list(vec![
             expr_key,
             expr,
@@ -291,7 +291,7 @@ impl Repl<F> {
         }
     }
 
-    fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
+    fn hide(&mut self, secret: F, payload: Ptr) -> Result<()> {
         let commitment = Commitment::new(Some(secret), payload, &self.store);
         let hash_str = &commitment.hash.hex_digits();
         commitment.persist()?;
@@ -331,7 +331,7 @@ impl Repl<F> {
         }
     }
 
-    fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+    fn eval_expr(&mut self, expr_ptr: Ptr) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
         let (ptrs, iterations, emitted) = evaluate_simple_with_env::<F, Coproc<F>>(
             None,
             expr_ptr,
@@ -354,8 +354,8 @@ impl Repl<F> {
 
     fn eval_expr_allowing_error_continuation(
         &mut self,
-        expr_ptr: Ptr<F>,
-    ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+        expr_ptr: Ptr,
+    ) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
         let (ptrs, iterations, emitted) = evaluate_simple_with_env::<F, Coproc<F>>(
             None,
             expr_ptr,
@@ -373,7 +373,7 @@ impl Repl<F> {
         }
     }
 
-    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize)> {
+    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr) -> Result<(Vec<Ptr>, usize)> {
         let (frames, iterations) =
             evaluate_with_env::<F, Coproc<F>>(None, expr_ptr, self.env, &self.store, self.limit)?;
         let output = frames[frames.len() - 1].output.clone();
@@ -381,20 +381,20 @@ impl Repl<F> {
         Ok((output, iterations))
     }
 
-    fn get_comm_hash(&mut self, args: &Ptr<F>) -> Result<F> {
+    fn get_comm_hash(&mut self, args: &Ptr) -> Result<&F> {
         let first = self.peek1(args)?;
         let num = self.store.intern_lurk_symbol("num");
         let expr = self.store.list(vec![num, first]);
         let (expr_io, ..) = self
             .eval_expr(expr)
             .with_context(|| "evaluating first arg")?;
-        let Ptr::Atom(Tag::Expr(ExprTag::Num), hash) = expr_io[0] else {
+        let Ptr::Atom(Tag::Expr(ExprTag::Num), hash_idx) = &expr_io[0] else {
             bail!("hash must be a number")
         };
-        Ok(hash)
+        Ok(self.store.expect_f(*hash_idx))
     }
 
-    pub(crate) fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
+    pub(crate) fn handle_non_meta(&mut self, expr_ptr: Ptr) -> Result<()> {
         let (output, iterations) = self.eval_expr_and_memoize(expr_ptr)?;
         let iterations_display = Self::pretty_iterations_display(iterations);
         match output[2].tag() {
@@ -412,7 +412,7 @@ impl Repl<F> {
         }
     }
 
-    fn handle_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
+    fn handle_meta(&mut self, expr_ptr: Ptr) -> Result<()> {
         let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
         match &self.store.fetch_sym(&car) {
             Some(symbol) => {

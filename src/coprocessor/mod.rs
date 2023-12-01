@@ -35,7 +35,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
     }
 
     /// Function for internal plumbing. Reimplementing is not recommended
-    fn evaluate_internal(&self, s: &Store<F>, ptrs: &[Ptr<F>]) -> Vec<Ptr<F>> {
+    fn evaluate_internal(&self, s: &Store<F>, ptrs: &[Ptr]) -> Vec<Ptr> {
         let arity = self.arity();
         let args = &ptrs[0..arity];
         let env = &ptrs[arity];
@@ -43,11 +43,11 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         self.evaluate(s, args, env, cont)
     }
 
-    fn evaluate(&self, s: &Store<F>, args: &[Ptr<F>], env: &Ptr<F>, cont: &Ptr<F>) -> Vec<Ptr<F>> {
+    fn evaluate(&self, s: &Store<F>, args: &[Ptr], env: &Ptr, cont: &Ptr) -> Vec<Ptr> {
         vec![self.evaluate_simple(s, args), *env, *cont]
     }
 
-    fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F>;
+    fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr]) -> Ptr;
 }
 
 /// `CoCircuit` is a trait that represents a generalized interface for coprocessors.
@@ -208,23 +208,19 @@ pub(crate) mod test {
             true
         }
 
-        fn evaluate(
-            &self,
-            s: &Store<F>,
-            args: &[Ptr<F>],
-            env: &Ptr<F>,
-            cont: &Ptr<F>,
-        ) -> Vec<Ptr<F>> {
+        fn evaluate(&self, s: &Store<F>, args: &[Ptr], env: &Ptr, cont: &Ptr) -> Vec<Ptr> {
             let Ptr::Atom(LEMTag::Expr(ExprTag::Num), a) = &args[0] else {
                 return vec![args[0], *env, s.cont_error()];
             };
+            let a = s.expect_f(*a);
             let Ptr::Atom(LEMTag::Expr(ExprTag::Num), b) = &args[1] else {
                 return vec![args[1], *env, s.cont_error()];
             };
-            vec![Ptr::num((*a * *a) + *b), *env, *cont]
+            let b = s.expect_f(*b);
+            vec![s.num((*a * *a) + *b), *env, *cont]
         }
 
-        fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+        fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr]) -> Ptr {
             unreachable!()
         }
     }
@@ -269,17 +265,11 @@ pub(crate) mod test {
             0
         }
 
-        fn evaluate(
-            &self,
-            s: &Store<F>,
-            _args: &[Ptr<F>],
-            env: &Ptr<F>,
-            _cont: &Ptr<F>,
-        ) -> Vec<Ptr<F>> {
+        fn evaluate(&self, s: &Store<F>, _args: &[Ptr], env: &Ptr, _cont: &Ptr) -> Vec<Ptr> {
             vec![s.intern_nil(), *env, s.cont_terminal()]
         }
 
-        fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+        fn evaluate_simple(&self, _s: &Store<F>, _args: &[Ptr]) -> Ptr {
             unreachable!()
         }
 

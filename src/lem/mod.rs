@@ -180,11 +180,11 @@ pub enum Lit {
 }
 
 impl Lit {
-    pub fn to_ptr<F: LurkField>(&self, store: &Store<F>) -> Ptr<F> {
+    pub fn to_ptr<F: LurkField>(&self, store: &Store<F>) -> Ptr {
         match self {
             Self::Symbol(s) => store.intern_symbol(s),
             Self::String(s) => store.intern_string(s),
-            Self::Num(num) => Ptr::num(F::from_u128(*num)),
+            Self::Num(num) => store.num(F::from_u128(*num)),
         }
     }
 }

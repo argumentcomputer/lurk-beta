@@ -31,7 +31,7 @@ impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
 
     /// And does nothing but return nil. It should probably never be used and can perhaps be eliminated,
     /// but for now it exists as an exemplar demonstrating the intended shape of enums like the default, `Coproc`.
-    fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+    fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
         s.intern_nil()
     }
 }

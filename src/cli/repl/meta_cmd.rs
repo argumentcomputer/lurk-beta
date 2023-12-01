@@ -22,7 +22,7 @@ pub(super) struct MetaCmd<F: LurkField> {
     format: &'static str,
     description: &'static [&'static str],
     example: &'static [&'static str],
-    pub(super) run: fn(repl: &mut Repl<F>, args: &Ptr<F>) -> Result<()>,
+    pub(super) run: fn(repl: &mut Repl<F>, args: &Ptr) -> Result<()>,
 }
 
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
@@ -55,7 +55,7 @@ impl MetaCmd<F> {
             "The state's env is set to the result.",
         ],
         example: &["!(def foo (lambda () 123))"],
-        run: |repl: &mut Repl<F>, args: &Ptr<F>| {
+        run: |repl: &mut Repl<F>, args: &Ptr| {
             let (first, second) = repl.peek2(args)?;
             let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
             let l = repl.store.intern_lurk_symbol("let");
@@ -262,6 +262,7 @@ impl MetaCmd<F> {
                     first_io[0].fmt_to_string(&repl.store, &repl.state.borrow())
                 )
             };
+            let secret = *repl.store.expect_f(secret);
             repl.hide(secret, second_io[0])?;
             Ok(())
         },
@@ -279,7 +280,7 @@ impl MetaCmd<F> {
             "!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
         ],
         run: |repl, args| {
-            let hash = repl.get_comm_hash(args)?;
+            let hash = *repl.get_comm_hash(args)?;
             repl.fetch(&hash, false)
         },
     };
@@ -296,7 +297,7 @@ impl MetaCmd<F> {
             "!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
         ],
         run: |repl, args| {
-            let hash = repl.get_comm_hash(args)?;
+            let hash = *repl.get_comm_hash(args)?;
             repl.fetch(&hash, true)
         },
     };
@@ -530,18 +531,18 @@ impl<F: LurkField> MetaCmd<F> {
 }
 
 impl MetaCmd<F> {
-    fn call(repl: &mut Repl<F>, args: &Ptr<F>) -> Result<()> {
+    fn call(repl: &mut Repl<F>, args: &Ptr) -> Result<()> {
         let (hash_ptr, args) = repl.store.car_cdr(args)?;
         let hash_expr = match hash_ptr.tag() {
             Tag::Expr(ExprTag::Cons) => hash_ptr,
             _ => repl.store.list(vec![hash_ptr]),
         };
-        let hash = repl.get_comm_hash(&hash_expr)?;
+        let hash = *repl.get_comm_hash(&hash_expr)?;
         if repl.store.open(hash).is_none() {
             repl.fetch(&hash, false)?;
         }
         let open = repl.store.intern_lurk_symbol("open");
-        let open_expr = repl.store.list(vec![open, Ptr::num(hash)]);
+        let open_expr = repl.store.list(vec![open, repl.store.num(hash)]);
         let (args_vec, _) = repl
             .store
             .fetch_list(&args)
@@ -582,7 +583,7 @@ impl MetaCmd<F> {
                (add 0)))",
             "!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 1)",
         ],
-        run: |repl: &mut Repl<F>, args: &Ptr<F>| {
+        run: |repl: &mut Repl<F>, args: &Ptr| {
             Self::call(repl, args)?;
             let ev = repl
                 .get_evaluation()
@@ -595,6 +596,7 @@ impl MetaCmd<F> {
             let Ptr::Atom(Tag::Expr(ExprTag::Comm), hash) = comm else {
                 bail!("Second component of a chain must be a commitment")
             };
+            let hash = *repl.store.expect_f(hash);
             // retrieve from store to persist
             let (secret, fun) = repl
                 .store
@@ -606,7 +608,7 @@ impl MetaCmd<F> {
 }
 
 impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
-    fn inspect(repl: &mut Repl<F>, args: &Ptr<F>, full: bool) -> Result<()> {
+    fn inspect(repl: &mut Repl<F>, args: &Ptr, full: bool) -> Result<()> {
         let first = repl.peek1(args)?;
         let proof_id = repl.get_string(&first)?;
         LurkProofMeta::<F>::inspect_proof(

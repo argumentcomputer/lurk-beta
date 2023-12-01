@@ -67,10 +67,10 @@ impl<F: LurkField> Coprocessor<F> for NewCoprocessor<F> {
         0
     }
 
-    fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+    fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
         let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
         // TODO: Use a custom type.
-        Ptr::num(trie.root)
+        s.num(trie.root)
     }
 
     fn has_circuit(&self) -> bool {
@@ -96,7 +96,7 @@ impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
         let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
 
         // TODO: Use a custom type.
-        let root = Ptr::num(trie.root);
+        let root = s.num(trie.root);
         let root_z_ptr = s.hash_ptr(&root);
 
         AllocatedPtr::alloc_constant(cs, root_z_ptr)
@@ -113,7 +113,7 @@ impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
         2
     }
 
-    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
 
@@ -123,7 +123,7 @@ impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
         let trie: StandardTrie<'_, F> =
             Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
 
-        Ptr::comm(trie.lookup_aux(key_scalar).unwrap())
+        s.comm(trie.lookup_aux(key_scalar).unwrap())
     }
 
     fn has_circuit(&self) -> bool {
@@ -217,7 +217,7 @@ impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
         3
     }
 
-    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
         let val_ptr = &args[2];
@@ -228,7 +228,7 @@ impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
             Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
         trie.insert(key_scalar, val_scalar).unwrap();
 
-        Ptr::num(trie.root)
+        s.num(trie.root)
     }
 
     fn has_circuit(&self) -> bool {
