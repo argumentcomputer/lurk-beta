@@ -5,6 +5,7 @@ use bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisErr
 use elsa::sync::FrozenMap;
 use ff::PrimeField;
 use nova::{supernova::NonUniformCircuit, traits::Engine};
+use once_cell::sync::OnceCell;
 use rayon::prelude::*;
 use std::sync::Arc;
 
@@ -48,7 +49,8 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     input: Option<Vec<Ptr>>,
     output: Option<Vec<Ptr>>,
     frames: Option<Vec<Frame>>,
-    cached_witness: Option<(WitnessCS<F>, Vec<AllocatedNum<F>>)>,
+    /// Cached witness and output for this `MultiFrame`
+    cached_witness: OnceCell<(WitnessCS<F>, Vec<AllocatedNum<F>>)>,
     num_frames: usize,
     folding_config: Arc<FoldingConfig<F, C>>,
     pc: usize,
@@ -404,19 +406,21 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     }
 
     fn cache_witness(&mut self, s: &Store<F>) -> Result<(), SynthesisError> {
-        let mut wcs = WitnessCS::new();
+        let _ = self.cached_witness.get_or_try_init(|| {
+            let mut wcs = WitnessCS::new();
 
-        let z_scalar = s.to_scalar_vector(self.input.as_ref().unwrap());
+            let z_scalar = s.to_scalar_vector(self.input.as_ref().unwrap());
 
-        let mut bogus_cs = WitnessCS::<F>::new();
-        let z: Vec<AllocatedNum<F>> = z_scalar
-            .iter()
-            .map(|x| AllocatedNum::alloc_infallible(&mut bogus_cs, || *x))
-            .collect::<Vec<_>>();
+            let mut bogus_cs = WitnessCS::<F>::new();
+            let z: Vec<AllocatedNum<F>> = z_scalar
+                .iter()
+                .map(|x| AllocatedNum::alloc_infallible(&mut bogus_cs, || *x))
+                .collect::<Vec<_>>();
 
-        let output = nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice())?;
-
-        self.cached_witness = Some((wcs, output));
+            let output =
+                nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice())?;
+            Ok::<_, SynthesisError>((wcs, output))
+        })?;
         Ok(())
     }
 
@@ -508,7 +512,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
             input: None,
             output: None,
             frames: None,
-            cached_witness: None,
+            cached_witness: OnceCell::new(),
             num_frames,
             folding_config,
             pc,
@@ -556,7 +560,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                         input: Some(chunk[0].input.to_vec()),
                         output: Some(output),
                         frames: Some(inner_frames),
-                        cached_witness: None,
+                        cached_witness: OnceCell::new(),
                         num_frames: reduction_count,
                         folding_config: folding_config.clone(),
                         pc: 0,
@@ -641,7 +645,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                         input: Some(input),
                         output: Some(output),
                         frames: Some(frames_to_add),
-                        cached_witness: None,
+                        cached_witness: OnceCell::new(),
                         num_frames,
                         folding_config: folding_config.clone(),
                         pc,
@@ -833,7 +837,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
         assert_eq!(self.arity(), z.len());
 
         if cs.is_witness_generator() {
-            if let Some((w, output)) = &self.cached_witness {
+            if let Some((w, output)) = self.cached_witness.get() {
                 // nothing has been inputized so far
                 assert_eq!(cs.inputs_slice(), &[F::ONE]);
                 assert_eq!(w.inputs_slice(), &[F::ONE]);
