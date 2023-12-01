@@ -403,10 +403,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         store.to_scalar_vector(io)
     }
 
-    fn compute_witness(
-        &self,
-        s: &Store<F>,
-    ) -> Result<(WitnessCS<F>, Vec<AllocatedNum<F>>), SynthesisError> {
+    fn cache_witness(&mut self, s: &Store<F>) -> Result<(), SynthesisError> {
         let mut wcs = WitnessCS::new();
 
         let z_scalar = s.to_scalar_vector(self.input.as_ref().unwrap());
@@ -414,16 +411,13 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         let mut bogus_cs = WitnessCS::<F>::new();
         let z: Vec<AllocatedNum<F>> = z_scalar
             .iter()
-            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
+            .map(|x| AllocatedNum::alloc_infallible(&mut bogus_cs, || *x))
             .collect::<Vec<_>>();
 
         let output = nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice())?;
 
-        Ok((wcs, output))
-    }
-
-    fn cached_witness(&mut self) -> &mut Option<(WitnessCS<F>, Vec<AllocatedNum<F>>)> {
-        &mut self.cached_witness
+        self.cached_witness = Some((wcs, output));
+        Ok(())
     }
 
     fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr, Ptr>>::FrameIO> {
@@ -840,8 +834,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
 
         if cs.is_witness_generator() {
             if let Some((w, output)) = &self.cached_witness {
-                // skip the first (F::ONE) input
-                cs.extend_inputs(&w.inputs_slice()[1..]);
+                // nothing has been inputized so far
+                assert_eq!(cs.inputs_slice(), &[F::ONE]);
+                assert_eq!(w.inputs_slice(), &[F::ONE]);
+                // output must have the same length as the input
+                assert_eq!(output.len(), z.len());
                 cs.extend_aux(w.aux_slice());
                 return Ok(output.clone());
             }
