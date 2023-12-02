@@ -349,8 +349,6 @@
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 
 </span><span class="doccomment">//! This module offers a connection the the backend proving engine of Lurk.
@@ -369,7 +367,6 @@
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">use </span>::nova::traits::{circuit::StepCircuit, Engine};
-<span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
 <span class="kw">use </span>bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>std::sync::Arc;
 
@@ -473,11 +470,10 @@
     <span class="doccomment">/// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
     </span><span class="kw">fn </span>precedes(<span class="kw-2">&amp;</span><span class="self">self</span>, maybe_next: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool;
 
-    <span class="doccomment">/// Populates a WitnessCS with the witness values for the given store.
-    </span><span class="kw">fn </span>compute_witness(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store) -&gt; WitnessCS&lt;F&gt;;
-
-    <span class="doccomment">/// Returns a reference to the cached witness values
-    </span><span class="kw">fn </span>cached_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WitnessCS&lt;F&gt;&gt;;
+    <span class="doccomment">/// Cache the witness internally, which can be used later during synthesis.
+    /// This function can be called in parallel to speed up the witness generation
+    /// for a series of `MultiFrameTrait` instances.
+    </span><span class="kw">fn </span>cache_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt;;
 
     <span class="doccomment">/// The output of the last frame
     </span><span class="kw">fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;&lt;<span class="self">Self</span>::EvalFrame <span class="kw">as </span>FrameLike&lt;<span class="self">Self</span>::Ptr, <span class="self">Self</span>::ContPtr&gt;&gt;::FrameIO&gt;;

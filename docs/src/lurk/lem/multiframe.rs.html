@@ -1109,6 +1109,19 @@
 <a href="#1109" id="1109">1109</a>
 <a href="#1110" id="1110">1110</a>
 <a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -1116,6 +1129,7 @@
 <span class="kw">use </span>elsa::sync::FrozenMap;
 <span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>nova::{supernova::NonUniformCircuit, traits::Engine};
+<span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>std::sync::Arc;
 
@@ -1159,7 +1173,8 @@
     input: <span class="prelude-ty">Option</span>&lt;Vec&lt;Ptr&gt;&gt;,
     output: <span class="prelude-ty">Option</span>&lt;Vec&lt;Ptr&gt;&gt;,
     frames: <span class="prelude-ty">Option</span>&lt;Vec&lt;Frame&gt;&gt;,
-    cached_witness: <span class="prelude-ty">Option</span>&lt;WitnessCS&lt;F&gt;&gt;,
+    <span class="doccomment">/// Cached witness and output for this `MultiFrame`
+    </span>cached_witness: OnceCell&lt;(WitnessCS&lt;F&gt;, Vec&lt;AllocatedNum&lt;F&gt;&gt;)&gt;,
     num_frames: usize,
     folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     pc: usize,
@@ -1514,24 +1529,23 @@
         store.to_scalar_vector(io)
     }
 
-    <span class="kw">fn </span>compute_witness(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; WitnessCS&lt;F&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>wcs = WitnessCS::new();
+    <span class="kw">fn </span>cache_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+        <span class="kw">let _ </span>= <span class="self">self</span>.cached_witness.get_or_try_init(|| {
+            <span class="kw">let </span><span class="kw-2">mut </span>wcs = WitnessCS::new();
 
-        <span class="kw">let </span>z_scalar = s.to_scalar_vector(<span class="self">self</span>.input.as_ref().unwrap());
+            <span class="kw">let </span>z_scalar = s.to_scalar_vector(<span class="self">self</span>.input.as_ref().unwrap());
 
-        <span class="kw">let </span><span class="kw-2">mut </span>bogus_cs = WitnessCS::&lt;F&gt;::new();
-        <span class="kw">let </span>z: Vec&lt;AllocatedNum&lt;F&gt;&gt; = z_scalar
-            .iter()
-            .map(|x| AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>x)).unwrap())
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+            <span class="kw">let </span><span class="kw-2">mut </span>bogus_cs = WitnessCS::&lt;F&gt;::new();
+            <span class="kw">let </span>z: Vec&lt;AllocatedNum&lt;F&gt;&gt; = z_scalar
+                .iter()
+                .map(|x| AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="kw-2">*</span>x))
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-        <span class="kw">let _ </span>= nova::traits::circuit::StepCircuit::synthesize(<span class="self">self</span>, <span class="kw-2">&amp;mut </span>wcs, z.as_slice());
-
-        wcs
-    }
-
-    <span class="kw">fn </span>cached_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WitnessCS&lt;F&gt;&gt; {
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_witness
+            <span class="kw">let </span>output =
+                nova::traits::circuit::StepCircuit::synthesize(<span class="self">self</span>, <span class="kw-2">&amp;mut </span>wcs, z.as_slice())<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, SynthesisError&gt;((wcs, output))
+        })<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;&lt;<span class="self">Self</span>::EvalFrame <span class="kw">as </span>FrameLike&lt;Ptr, Ptr&gt;&gt;::FrameIO&gt; {
@@ -1622,7 +1636,7 @@
             input: <span class="prelude-val">None</span>,
             output: <span class="prelude-val">None</span>,
             frames: <span class="prelude-val">None</span>,
-            cached_witness: <span class="prelude-val">None</span>,
+            cached_witness: OnceCell::new(),
             num_frames,
             folding_config,
             pc,
@@ -1670,7 +1684,7 @@
                         input: <span class="prelude-val">Some</span>(chunk[<span class="number">0</span>].input.to_vec()),
                         output: <span class="prelude-val">Some</span>(output),
                         frames: <span class="prelude-val">Some</span>(inner_frames),
-                        cached_witness: <span class="prelude-val">None</span>,
+                        cached_witness: OnceCell::new(),
                         num_frames: reduction_count,
                         folding_config: folding_config.clone(),
                         pc: <span class="number">0</span>,
@@ -1755,7 +1769,7 @@
                         input: <span class="prelude-val">Some</span>(input),
                         output: <span class="prelude-val">Some</span>(output),
                         frames: <span class="prelude-val">Some</span>(frames_to_add),
-                        cached_witness: <span class="prelude-val">None</span>,
+                        cached_witness: OnceCell::new(),
                         num_frames,
                         folding_config: folding_config.clone(),
                         pc,
@@ -1946,7 +1960,19 @@
     {
         <span class="macro">assert_eq!</span>(<span class="self">self</span>.arity(), z.len());
 
-        <span class="kw">let </span>n_ptrs = <span class="self">self</span>.arity() / <span class="number">2</span>;
+        <span class="kw">if </span>cs.is_witness_generator() {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>((w, output)) = <span class="self">self</span>.cached_witness.get() {
+                <span class="comment">// nothing has been inputized so far
+                </span><span class="macro">assert_eq!</span>(cs.inputs_slice(), <span class="kw-2">&amp;</span>[F::ONE]);
+                <span class="macro">assert_eq!</span>(w.inputs_slice(), <span class="kw-2">&amp;</span>[F::ONE]);
+                <span class="comment">// output must have the same length as the input
+                </span><span class="macro">assert_eq!</span>(output.len(), z.len());
+                cs.extend_aux(w.aux_slice());
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(output.clone());
+            }
+        };
+
+        <span class="kw">let </span>n_ptrs = z.len() / <span class="number">2</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>input = Vec::with_capacity(n_ptrs);
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n_ptrs {
             input.push(AllocatedPtr::from_parts(
@@ -1974,7 +2000,7 @@
             </span>}
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::with_capacity(<span class="self">self</span>.arity());
+        <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::with_capacity(z.len());
         <span class="kw">for </span>ptr <span class="kw">in </span>output_ptrs {
             output.push(ptr.tag().clone());
             output.push(ptr.hash().clone());

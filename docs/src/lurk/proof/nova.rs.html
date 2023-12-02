@@ -447,9 +447,6 @@
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -733,13 +730,10 @@
                     <span class="comment">// Skip the very first circuit&#39;s witness, so `prove_step` can begin immediately.
                     // That circuit&#39;s witness will not be cached and will just be computed on-demand.
                     </span>cc.par_iter().skip(<span class="number">1</span>).for_each(|mf| {
-                        <span class="kw">let </span>witness = {
-                            <span class="kw">let </span>mf1 = mf.lock().unwrap();
-                            mf1.compute_witness(store)
-                        };
-                        <span class="kw">let </span><span class="kw-2">mut </span>mf2 = mf.lock().unwrap();
-
-                        <span class="kw-2">*</span>mf2.cached_witness() = <span class="prelude-val">Some</span>(witness);
+                        mf.lock()
+                            .unwrap()
+                            .cache_witness(store)
+                            .expect(<span class="string">&quot;witness caching failed&quot;</span>);
                     });
                 });
 
