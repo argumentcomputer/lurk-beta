@@ -293,14 +293,16 @@ where
                     assert_eq!(reduction_count, circuit_primary.frames().unwrap().len());
 
                     let mut r_snark = recursive_snark.unwrap_or_else(|| {
-                        RecursiveSNARK::new(
+                        let recursive_snark = RecursiveSNARK::new(
                             &pp.pp,
                             &circuit_primary,
                             &circuit_secondary,
                             z0_primary,
                             &z0_secondary,
                         )
-                        .expect("Failed to construct initial recursive snark")
+                        .expect("Failed to construct initial recursive snark");
+                        recursive_snark.write_abomonated(&pp.pp).unwrap();
+                        recursive_snark
                     });
                     r_snark
                         .prove_step(&pp.pp, &circuit_primary, &circuit_secondary)

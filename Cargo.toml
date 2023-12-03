@@ -141,7 +141,7 @@ tempfile = "3.6.0"
 camino = "1.1.6"
 thiserror = "1.0.44"
 tracing = "0.1.37"
-tracing-texray = "0.2.0"
+tracing-texray = { git = "https://github.com/winston-h-zhang/tracing-texray", branch = "shim" }
 tracing-subscriber = "0.3.17"
 
 [[bin]]

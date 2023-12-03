@@ -1,64 +1,120 @@
-use lurk::{
-    field::LurkField,
-    lem::{eval::evaluate_simple, pointers::Ptr, store::Store},
-    {eval::lang::Coproc, state::State},
-};
-use pasta_curves::Fq;
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
-fn fib_expr<F: LurkField>(store: &Store<F>) -> Ptr {
+use anyhow::anyhow;
+
+use pasta_curves::pallas;
+
+use lurk::{
+    eval::lang::{Coproc, Lang},
+    field::LurkField,
+    lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
+    proof::Prover,
+    proof::{nova::NovaProver, RecursiveSNARKTrait},
+    public_parameters::{
+        instance::{Instance, Kind},
+        public_params,
+    },
+    state::State,
+};
+
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
+use tracing_texray::TeXRayLayer;
+
+fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Ptr {
     let program = r#"
 (letrec ((next (lambda (a b) (next b (+ a b))))
            (fib (next 0 1)))
   (fib))
 "#;
 
-    store.read_with_default_state(program).unwrap()
+    store.read(state, program).unwrap()
 }
 
-// The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation contains a binding of the
+// The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation will contain a binding of the
 // nth Fibonacci number to `a`.
+// means of computing it.]
 fn fib_frame(n: usize) -> usize {
     11 + 16 * n
 }
 
 // Set the limit so the last step will be filled exactly, since Lurk currently only pads terminal/error continuations.
-#[allow(dead_code)]
 fn fib_limit(n: usize, rc: usize) -> usize {
     let frame = fib_frame(n);
     rc * (frame / rc + usize::from(frame % rc != 0))
 }
 
-fn lurk_fib(store: &Store<Fq>, n: usize, _rc: usize) -> Ptr {
-    let frame_idx = fib_frame(n);
-    // let limit = fib_limit(n, rc);
-    let limit = frame_idx;
-    let fib_expr = fib_expr(store);
-
-    let (output, ..) = evaluate_simple::<Fq, Coproc<Fq>>(None, fib_expr, store, limit).unwrap();
-
-    let target_env = &output[1];
-
-    // The result is the value of the second binding (of `A`), in the target env.
-    // See relevant excerpt of execution trace below:
-    //
-    // INFO  lurk::eval > Frame: 11
-    // Expr: (NEXT B (+ A B))
-    // Env: ((B . 1) (A . 0) ((NEXT . <FUNCTION (A) (LAMBDA (B) (NEXT B (+ A B)))>)))
-    // Cont: Tail{ saved_env: (((NEXT . <FUNCTION (A) (LAMBDA (B) (NEXT B (+ A B)))>))), continuation: LetRec{var: FIB,
-    //       saved_env: (((NEXT . <FUNCTION (A) (LAMBDA (B) (NEXT B (+ A B)))>))), body: (FIB), continuation: Tail{ saved_env:
-    //       NIL, continuation: Outermost } } }
-
-    let (_, rest_bindings) = store.car_cdr(target_env).unwrap();
-    let (second_binding, _) = store.car_cdr(&rest_bindings).unwrap();
-    store.car_cdr(&second_binding).unwrap().1
+#[derive(Clone, Debug, Copy)]
+struct ProveParams {
+    fib_n: usize,
+    rc: usize,
 }
 
+fn rc_env() -> anyhow::Result<Vec<usize>> {
+    std::env::var("LURK_RC")
+        .map_err(|e| anyhow!("Reduction count env var isn't set: {e}"))
+        .and_then(|rc| {
+            let vec: anyhow::Result<Vec<usize>> = rc
+                .split(',')
+                .map(|rc| {
+                    rc.parse::<usize>()
+                        .map_err(|e| anyhow!("Failed to parse RC: {e}"))
+                })
+                .collect();
+            vec
+        })
+}
+
+fn fibonacci_prove(prove_params: ProveParams, state: &Rc<RefCell<State>>) {
+    let limit = fib_limit(prove_params.fib_n, prove_params.rc);
+    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+    let lang_rc = Arc::new(lang_pallas.clone());
+
+    // use cached public params
+    let instance = Instance::new(
+        prove_params.rc,
+        lang_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+
+    let store = Store::default();
+
+    let ptr = fib::<pasta_curves::Fq>(&store, state.clone(), prove_params.fib_n as u64);
+    let prover = NovaProver::new(prove_params.rc, lang_rc.clone());
+
+    let frames = &evaluate::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>(None, ptr, &store, limit)
+        .unwrap()
+        .0;
+    let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
+        .in_scope(|| prover.prove(&pp, frames, &store).unwrap());
+
+    let res = proof.verify(&pp, &z0, &zi, num_steps).unwrap();
+    assert!(res);
+}
+
+/// RUST_LOG=info LURK_RC=900 LURK_PERF=max-parallel-simple cargo run --release --example fibonacci --features "cuda"
 fn main() {
-    let store = &Store::<Fq>::default();
-    let n: usize = std::env::args().collect::<Vec<_>>()[1].parse().unwrap();
-    let state = State::init_lurk_state();
+    let subscriber = Registry::default()
+        .with(fmt::layer().pretty())
+        .with(EnvFilter::from_default_env())
+        .with(TeXRayLayer::new().width(120));
+    tracing::subscriber::set_global_default(subscriber).unwrap();
 
-    let fib = lurk_fib(store, n, 100);
+    let rcs = rc_env().unwrap_or_else(|_| vec![100]);
+    let batch_sizes = [249];
 
-    println!("Fib({n}) = {}", fib.fmt_to_string(store, &state));
+    let state = State::init_lurk_state().rccell();
+
+    for rc in rcs.iter() {
+        for fib_n in batch_sizes.iter() {
+            let prove_params = ProveParams {
+                fib_n: *fib_n,
+                rc: *rc,
+            };
+            fibonacci_prove(prove_params, &state);
+        }
+    }
+
+    println!("success");
 }

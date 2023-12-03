@@ -1,0 +1,423 @@
+   Compiling nova-snark v0.31.0 (https://github.com/lurk-lab/arecibo?branch=gpu-spmvm#081ec236)
+   Compiling lurk v0.2.0 (/home/paperspace/lurk-lab/lurk-rs)
+    Finished bench [optimized] target(s) in 51.51s
+Gnuplot not found, using plotters backend
+Benchmarking LEM Fibonacci Prove - rc = 900/fib/num-249-6be52158dcb6a6e9aaa57a98f3ed61236eda34a4-2023-12-03
+Benchmarking LEM Fibonacci Prove - rc = 900/fib/num-249-6be52158dcb6a6e9aaa57a98f3ed61236eda34a4-2023-12-03: Warming up for 3.0000 s
+bang!                                  14.058871297s ├─────────────────────────────────────────────────────────────────┤
+  nova::prove_recursively              13.559460311s   ├───────────────────────────────────────────────────────────────┤
+    synthesize                          1.188645467s               ├────┤
+    msm_with                            646.763319ms                     ├─┤
+    msm_with                              8.296803ms                        ┆
+    nova::RecursiveSNARK::prove_step         3.157µs                                    ┆
+    nova::RecursiveSNARK::prove_step    1.468421344s                                    ├─────┤
+      ABC_Z_2 gpu                         1.065348ms                                    ┆
+      T                                     285.53µs                                    ┆
+      msm_with                            1.888678ms                                    ┆
+      synthesize                         167.98009ms                                     │
+      msm_with                          598.465013ms                                     ├─┤
+      ABC_Z_2 gpu                       232.471522ms                                        │
+      T                                 158.225711ms                                         │
+      msm_with                           90.719212ms                                          ┆
+      msm_with                            3.391511ms                                           ┆
+    nova::RecursiveSNARK::prove_step    1.680437595s                                           ├──────┤
+      ABC_Z_2 gpu                          992.454µs                                           ┆
+      T                                    342.305µs                                           ┆
+      msm_with                           11.573673ms                                           ┆
+      synthesize                        171.267019ms                                            │
+      msm_with                          584.995401ms                                            ├─┤
+      ABC_Z_2 gpu                       262.146164ms                                               │
+      T                                 122.438793ms                                                │
+      msm_with                          291.536095ms                                                 │
+      msm_with                             3.70099ms                                                   ┆
+    nova::RecursiveSNARK::prove_step    1.656215374s                                                   ├──────┤
+      ABC_Z_2 gpu                          986.626µs                                                   ┆
+      T                                     370.85µs                                                   ┆
+      msm_with                            8.884066ms                                                   ┆
+      synthesize                        166.941186ms                                                    │
+      msm_with                          591.554233ms                                                    ├─┤
+      ABC_Z_2 gpu                       224.701749ms                                                       │
+      T                                 118.987675ms                                                        │
+      msm_with                          304.090225ms                                                         │
+      msm_with                            6.722861ms                                                           ┆
+    nova::RecursiveSNARK::prove_step    1.734597096s                                                           ├──────┤
+      ABC_Z_2 gpu                         1.021776ms                                                           ┆
+      T                                    373.347µs                                                           ┆
+      msm_with                             7.78551ms                                                           ┆
+      synthesize                        175.399077ms                                                           │
+      msm_with                          593.501181ms                                                            ├─┤
+      ABC_Z_2 gpu                       227.313557ms                                                               │
+      T                                 131.663513ms                                                                │
+      msm_with                           348.03496ms                                                                 ├┤
+      msm_with                           12.056921ms                                                                   ┆
+
+Warning: Unable to complete 10 samples in 120.0s. You may wish to increase target time to 144.5s.
+Benchmarking LEM Fibonacci Prove - rc = 900/fib/num-249-6be52158dcb6a6e9aaa57a98f3ed61236eda34a4-2023-12-03: Collecting 10 samples in estimated 144.52 s (10 iterations)
+bang!                                  10.805877111s ├─────────────────────────────────────────────────────────────────┤
+  nova::prove_recursively              10.584191721s  ├────────────────────────────────────────────────────────────────┤
+    synthesize                           539.74069ms     ├─┤
+    msm_with                            583.453343ms        ├──┤
+    msm_with                              3.428692ms            ┆
+    nova::RecursiveSNARK::prove_step    1.444231476s                           ├───────┤
+    nova::RecursiveSNARK::prove_step             0ns                           ┆
+      ABC_Z_2 gpu                         1.193887ms                           ┆
+      T                                    325.462µs                           ┆
+      msm_with                            2.011799ms                           ┆
+      synthesize                        171.181646ms                           │
+      msm_with                          605.360961ms                            ├──┤
+      ABC_Z_2 gpu                       225.784502ms                                │
+      T                                 137.479087ms                                  │
+      msm_with                           82.905827ms                                   │
+      msm_with                            3.393338ms                                    ┆
+    nova::RecursiveSNARK::prove_step    1.627222066s                                    ├────────┤
+      ABC_Z_2 gpu                          978.568µs                                    ┆
+      T                                    352.971µs                                    ┆
+      msm_with                           11.282353ms                                    ┆
+      synthesize                        171.315639ms                                    │
+      msm_with                          584.185082ms                                      ├──┤
+      ABC_Z_2 gpu                       225.131728ms                                         │
+      T                                 117.698795ms                                           │
+      msm_with                          292.566485ms                                           ├┤
+      msm_with                           11.927686ms                                              ┆
+    nova::RecursiveSNARK::prove_step     1.68804938s                                              ├────────┤
+      ABC_Z_2 gpu                          1.04778ms                                              ┆
+      T                                    361.797µs                                              ┆
+      msm_with                            10.91992ms                                              ┆
+      synthesize                        171.514872ms                                               │
+      msm_with                          588.631151ms                                                ├──┤
+      ABC_Z_2 gpu                        224.24258ms                                                   │
+      T                                 118.036735ms                                                     │
+      msm_with                          302.170518ms                                                     ├┤
+      msm_with                            7.945327ms                                                         ┆
+    nova::RecursiveSNARK::prove_step     1.72500337s                                                         ├─────────┤
+      ABC_Z_2 gpu                          985.879µs                                                         ┆
+      T                                    350.345µs                                                         ┆
+      msm_with                            7.564227ms                                                         ┆
+      synthesize                        165.770877ms                                                         │
+      msm_with                          586.096789ms                                                          ├──┤
+      ABC_Z_2 gpu                       225.867189ms                                                              │
+      T                                 148.253118ms                                                               │
+      msm_with                          348.847401ms                                                                ├┤
+      msm_with                            7.979043ms                                                                   ┆
+bang!                                  10.843780306s ├─────────────────────────────────────────────────────────────────┤
+  nova::prove_recursively              10.626857869s  ├────────────────────────────────────────────────────────────────┤
+    synthesize                          525.891774ms     ├─┤
+    msm_with                            582.782162ms        ├──┤
+    msm_with                              3.635029ms            ┆
+    nova::RecursiveSNARK::prove_step          3.94µs                            ┆
+    nova::RecursiveSNARK::prove_step    1.479914294s                            ├───────┤
+      ABC_Z_2 gpu                         1.034379ms                            ┆
+      T                                    354.246µs                            ┆
+      msm_with                            1.997894ms                            ┆
+      synthesize                        172.524957ms                            │
+      msm_with                          604.708142ms                             ├──┤
+      ABC_Z_2 gpu                       232.406138ms                                │
+      T                                 134.480936ms                                  │
+      msm_with                           90.259128ms                                   │
+      msm_with                            3.589923ms                                     ┆
+    nova::RecursiveSNARK::prove_step    1.626335599s                                     ├────────┤
+      ABC_Z_2 gpu                          997.861µs                                     ┆
+      T                                    413.684µs                                     ┆
+      msm_with                           11.505101ms                                     ┆
+      synthesize                        173.272127ms                                     │
+      msm_with                          586.142878ms                                      ├──┤
+      ABC_Z_2 gpu                        224.76411ms                                          │
+      T                                 119.323226ms                                           │
+      msm_with                          293.063837ms                                            ├┤
+      msm_with                            3.383465ms                                               ┆
+    nova::RecursiveSNARK::prove_step    1.671179613s                                               ├────────┤
+      ABC_Z_2 gpu                          957.831µs                                               ┆
+      T                                    342.401µs                                               ┆
+      msm_with                            8.578672ms                                               ┆
+      synthesize                        164.423572ms                                               │
+      msm_with                          593.132927ms                                                ├──┤
+      ABC_Z_2 gpu                       252.977969ms                                                    ├┤
+      T                                  117.35801ms                                                     │
+      msm_with                          303.537337ms                                                      ├┤
+      msm_with                           13.341002ms                                                         ┆
+    nova::RecursiveSNARK::prove_step    1.691932606s                                                         ├────────┤
+      ABC_Z_2 gpu                         1.002593ms                                                         ┆
+      T                                    356.724µs                                                         ┆
+      msm_with                            7.634842ms                                                         ┆
+      synthesize                        169.870717ms                                                         │
+      msm_with                          596.135421ms                                                          ├──┤
+      ABC_Z_2 gpu                       225.062203ms                                                              │
+      T                                 121.743178ms                                                               │
+      msm_with                          349.667162ms                                                                ├┤
+      msm_with                            5.377407ms                                                                   ┆
+bang!                                  10.847657875s ├─────────────────────────────────────────────────────────────────┤
+  nova::prove_recursively              10.617563522s  ├────────────────────────────────────────────────────────────────┤
+    synthesize                          459.182931ms     ├─┤
+    msm_with                            590.852808ms        ├──┤
+    msm_with                              4.148835ms            ┆
+    nova::RecursiveSNARK::prove_step         4.156µs                           ┆
+    nova::RecursiveSNARK::prove_step    1.488031017s                           ├───────┤
+      ABC_Z_2 gpu                          1.07841ms                           ┆
+      T                                    300.549µs                           ┆
+      msm_with                            1.808376ms                           ┆
+      synthesize                        170.539237ms                           │
+      msm_with                          602.255422ms                            ├──┤
+      ABC_Z_2 gpu                       252.491893ms                                ├┤
+      T                                  134.38153ms                                  │
+      msm_with                           85.504759ms                                  │
+      msm_with                            6.000767ms                                    ┆
+    nova::RecursiveSNARK::prove_step    1.678716987s                                    ├────────┤
+      ABC_Z_2 gpu                          993.251µs                                    ┆
+      T                                     317.43µs                                    ┆
+      msm_with                           11.753404ms                                    ┆
+      synthesize                        172.099707ms                                    │
+      msm_with                          593.399474ms                                      ├──┤
+      ABC_Z_2 gpu                        234.55776ms                                         │
+      T                                 136.065564ms                                           │
+      msm_with                          298.599578ms                                           ├┤
+      msm_with                           12.129857ms                                               ┆
+    nova::RecursiveSNARK::prove_step    1.671837373s                                               ├────────┤
+      ABC_Z_2 gpu                         1.108889ms                                               ┆
+      T                                    413.927µs                                               ┆
+      msm_with                            9.774388ms                                               ┆
+      synthesize                         167.61641ms                                               │
+      msm_with                          592.503435ms                                                ├──┤
+      ABC_Z_2 gpu                       224.593682ms                                                   │
+      T                                 147.316492ms                                                     │
+      msm_with                          307.112017ms                                                      ├┤
+      msm_with                            3.407358ms                                                         ┆
+    nova::RecursiveSNARK::prove_step    1.709432135s                                                         ├─────────┤
+      ABC_Z_2 gpu                          974.703µs                                                         ┆
+      T                                    320.013µs                                                         ┆
+      msm_with                            6.795032ms                                                         ┆
+      synthesize                        167.461546ms                                                         │
+      msm_with                          591.928945ms                                                          ├──┤
+      ABC_Z_2 gpu                       227.347127ms                                                              │
+      T                                 118.066819ms                                                               │
+      msm_with                          349.968916ms                                                                ├┤
+      msm_with                           12.442844ms                                                                   ┆
+bang!                                  10.782792075s ├─────────────────────────────────────────────────────────────────┤
+  nova::prove_recursively              10.568730958s  ├────────────────────────────────────────────────────────────────┤
+    synthesize                          529.847549ms     ├─┤
+    msm_with                            594.822795ms        ├──┤
+    msm_with                              4.421699ms            ┆
+    nova::RecursiveSNARK::prove_step         5.258µs                           ┆
+    nova::RecursiveSNARK::prove_step    1.446807526s                           ├───────┤
+      ABC_Z_2 gpu                         1.217644ms                           ┆
+      T                                    308.005µs                           ┆
+      msm_with                            2.086853ms                           ┆
+      synthesize                         166.38344ms                           │
+      msm_with                          600.680082ms                            ├──┤
+      ABC_Z_2 gpu                       227.521815ms                                │
+      T                                  135.54489ms                                 │
+      msm_with                           87.454655ms                                  │
+      msm_with                            6.826632ms                                    ┆
+    nova::RecursiveSNARK::prove_step    1.666005038s                                    ├────────┤
+      ABC_Z_2 gpu                         1.024385ms                                    ┆
+      T                                    371.516µs                                    ┆
+      msm_with                           15.646601ms                                    ┆
+      synthesize                        168.035829ms                                    │
+      msm_with                          592.887391ms                                     ├──┤
+      ABC_Z_2 gpu                         230.0759ms                                         │
+      T                                 117.788075ms                                          │
+      msm_with                          295.072657ms                                           ├┤
+      msm_with                            7.955573ms                                              ┆
+    nova::RecursiveSNARK::prove_step    1.684310686s                                              ├────────┤
+      ABC_Z_2 gpu                         1.042275ms                                              ┆
+      T                                    473.823µs                                              ┆
+      msm_with                           14.038178ms                                              ┆
+      synthesize                         172.01196ms                                               │
+      msm_with                          602.492549ms                                                ├──┤
+      ABC_Z_2 gpu                        218.76794ms                                                   │
+      T                                 132.644829ms                                                     │
+      msm_with                          309.484378ms                                                      ├┤
+      msm_with                            7.329222ms                                                         ┆
+    nova::RecursiveSNARK::prove_step    1.707043454s                                                         ├─────────┤
+      ABC_Z_2 gpu                         1.039641ms                                                         ┆
+      T                                    367.061µs                                                         ┆
+      msm_with                            6.923597ms                                                         ┆
+      synthesize                        164.889968ms                                                         │
+      msm_with                          593.042483ms                                                          ├──┤
+      ABC_Z_2 gpu                       227.319651ms                                                              │
+      T                                 123.229503ms                                                               │
+      msm_with                          348.833136ms                                                                ├┤
+      msm_with                            3.365005ms                                                                   ┆
+bang!                                  10.922242117s ├─────────────────────────────────────────────────────────────────┤
+  nova::prove_recursively               10.70330194s  ├────────────────────────────────────────────────────────────────┤
+    synthesize                          497.894389ms     ├─┤
+    msm_with                            588.142852ms        ├──┤
+    msm_with                              4.332909ms            ┆
+    nova::RecursiveSNARK::prove_step         4.025µs                           ┆
+    nova::RecursiveSNARK::prove_step     1.52706477s                           ├───────┤
+      ABC_Z_2 gpu                         1.067568ms                           ┆
+      T                                    361.956µs                           ┆
+      msm_with                             1.90417ms                           ┆
+      synthesize                        167.591946ms                           │
+      msm_with                           611.38603ms                            ├──┤
+      ABC_Z_2 gpu                       254.435098ms                                ├┤
+      T                                  134.76143ms                                  │
+      msm_with                           90.056815ms                                  │
+      msm_with                            3.746755ms                                     ┆
+    nova::RecursiveSNARK::prove_step    1.653796595s                                     ├────────┤
+      ABC_Z_2 gpu                          985.414µs                                     ┆
+      T                                    380.209µs                                     ┆
+      msm_with                           11.301124ms                                     ┆
+      synthesize                        169.456691ms                                     │
+      msm_with                          586.870481ms                                      ├──┤
+      ABC_Z_2 gpu                       224.746874ms                                         │
+      T                                 117.401766ms                                           │
+      msm_with                          295.659218ms                                           ├┤
+      msm_with                           12.648595ms                                               ┆
+    nova::RecursiveSNARK::prove_step    1.704643932s                                               ├────────┤
+      ABC_Z_2 gpu                           981.21µs                                               ┆
+      T                                    723.203µs                                               ┆
+      msm_with                           10.098668ms                                               ┆
+      synthesize                        167.045817ms                                               │
+      msm_with                          599.188918ms                                                ├──┤
+      ABC_Z_2 gpu                       256.993897ms                                                    ├┤
+      T                                 130.744596ms                                                     │
+      msm_with                          311.493464ms                                                      ├┤
+      msm_with                            11.88999ms                                                         ┆
+    nova::RecursiveSNARK::prove_step    1.686967414s                                                         ├────────┤
+      ABC_Z_2 gpu                         1.021842ms                                                         ┆
+      T                                    405.014µs                                                         ┆
+      msm_with                             6.96206ms                                                         ┆
+      synthesize                         170.45183ms                                                         │
+      msm_with                          591.820481ms                                                          ├──┤
+      ABC_Z_2 gpu                       223.828237ms                                                              │
+      T                                 123.010583ms                                                               │
+      msm_with                          351.676972ms                                                                ├┤
+      msm_with                            7.775664ms                                                                   ┆
+bang!                                  10.803975565s ├─────────────────────────────────────────────────────────────────┤
+  nova::prove_recursively              10.587471774s  ├────────────────────────────────────────────────────────────────┤
+    synthesize                          500.654941ms     ├─┤
+    msm_with                            600.302478ms        ├──┤
+    msm_with                               8.73291ms            ┆
+    nova::RecursiveSNARK::prove_step         5.987µs                           ┆
+    nova::RecursiveSNARK::prove_step    1.455812143s                           ├───────┤
+      ABC_Z_2 gpu                         1.085329ms                           ┆
+      T                                    292.113µs                           ┆
+      msm_with                            1.858564ms                           ┆
+      synthesize                        166.213026ms                            │
+      msm_with                          604.950035ms                             ├──┤
+      ABC_Z_2 gpu                        254.75345ms                                ├┤
+      T                                 133.481892ms                                  │
+      msm_with                            83.63971ms                                   │
+      msm_with                            3.427896ms                                    ┆
+    nova::RecursiveSNARK::prove_step    1.663161711s                                    ├────────┤
+      ABC_Z_2 gpu                          1.03629ms                                    ┆
+      T                                     360.77µs                                     ┆
+      msm_with                           11.418822ms                                     ┆
+      synthesize                        165.211908ms                                     │
+      msm_with                          594.461636ms                                      ├──┤
+      ABC_Z_2 gpu                       228.866366ms                                         │
+      T                                 118.358969ms                                           │
+      msm_with                          298.281879ms                                            ├┤
+      msm_with                            8.385681ms                                               ┆
+    nova::RecursiveSNARK::prove_step    1.657210885s                                               ├────────┤
+      ABC_Z_2 gpu                         1.034385ms                                               ┆
+      T                                    356.423µs                                               ┆
+      msm_with                           14.818828ms                                               ┆
+      synthesize                        168.231112ms                                               │
+      msm_with                          597.750827ms                                                ├──┤
+      ABC_Z_2 gpu                       228.262791ms                                                    │
+      T                                 118.714438ms                                                     │
+      msm_with                           311.09063ms                                                      ├┤
+      msm_with                            3.925347ms                                                         ┆
+    nova::RecursiveSNARK::prove_step    1.693746484s                                                         ├─────────┤
+      ABC_Z_2 gpu                         1.064288ms                                                         ┆
+      T                                    387.208µs                                                         ┆
+      msm_with                            7.367587ms                                                         ┆
+      synthesize                        167.342576ms                                                         │
+      msm_with                          597.284778ms                                                          ├──┤
+      ABC_Z_2 gpu                       231.168894ms                                                              │
+      T                                 120.343019ms                                                               │
+      msm_with                          354.299667ms                                                                ├┤
+      msm_with                            4.524708ms                                                                   ┆
+bang!                                  10.802311279s ├─────────────────────────────────────────────────────────────────┤
+  nova::prove_recursively              10.586019547s  ├────────────────────────────────────────────────────────────────┤
+    synthesize                          492.142647ms     ├─┤
+    msm_with                            598.400508ms        ├──┤
+    msm_with                              6.087977ms            ┆
+    nova::RecursiveSNARK::prove_step          4.77µs                           ┆
+    nova::RecursiveSNARK::prove_step    1.472671047s                           ├───────┤
+      ABC_Z_2 gpu                         1.099025ms                           ┆
+      T                                    285.687µs                           ┆
+      msm_with                            1.814855ms                           ┆
+      synthesize                        165.276549ms                           │
+      msm_with                          603.888891ms                            ├──┤
+      ABC_Z_2 gpu                       222.518714ms                                │
+      T                                 150.533468ms                                 │
+      msm_with                           87.788246ms                                  │
+      msm_with                             8.23804ms                                    ┆
+    nova::RecursiveSNARK::prove_step    1.653286795s                                    ├────────┤
+      ABC_Z_2 gpu                         1.073344ms                                    ┆
+      T                                    391.078µs                                    ┆
+      msm_with                           12.181656ms                                    ┆
+      synthesize                         167.03981ms                                    │
+      msm_with                          597.770899ms                                     ├──┤
+      ABC_Z_2 gpu                       230.798521ms                                         │
+      T                                 119.346516ms                                          │
+      msm_with                          304.003464ms                                           ├┤
+      msm_with                            7.996586ms                                              ┆
+    nova::RecursiveSNARK::prove_step     1.70286381s                                              ├─────────┤
+      ABC_Z_2 gpu                         1.100077ms                                              ┆
+      T                                    411.998µs                                              ┆
+      msm_with                             9.00238ms                                              ┆
+      synthesize                         169.61511ms                                              │
+      msm_with                          599.230615ms                                               ├──┤
+      ABC_Z_2 gpu                       252.104165ms                                                   ├┤
+      T                                 129.669358ms                                                     │
+      msm_with                           306.60169ms                                                     ├┤
+      msm_with                            3.538908ms                                                         ┆
+    nova::RecursiveSNARK::prove_step    1.739583805s                                                         ├─────────┤
+      ABC_Z_2 gpu                         1.052592ms                                                         ┆
+      T                                    356.642µs                                                         ┆
+      msm_with                            7.513695ms                                                         ┆
+      synthesize                         169.32372ms                                                         │
+      msm_with                          601.090791ms                                                          ├──┤
+      ABC_Z_2 gpu                       232.532109ms                                                              │
+      T                                 145.458982ms                                                               │
+      msm_with                          354.575316ms                                                                ├┤
+      msm_with                            3.434813ms                                                                   ┆
+bang!                                  10.839306782s ├─────────────────────────────────────────────────────────────────┤
+  nova::prove_recursively              10.619723697s  ├────────────────────────────────────────────────────────────────┤
+    synthesize                          574.199073ms     ├──┤
+    msm_with                             596.07687ms        ├──┤
+    msm_with                               6.77368ms            ┆
+    nova::RecursiveSNARK::prove_step         3.727µs                           ┆
+    nova::RecursiveSNARK::prove_step    1.455325052s                           ├───────┤
+      ABC_Z_2 gpu                         1.106313ms                           ┆
+      T                                    283.341µs                           ┆
+      msm_with                            1.865177ms                           ┆
+      synthesize                        166.284668ms                           │
+      msm_with                          603.852222ms                            ├──┤
+      ABC_Z_2 gpu                       229.413848ms                                │
+      T                                 133.463205ms                                  │
+      msm_with                           83.955552ms                                  │
+      msm_with                            3.884178ms                                    ┆
+    nova::RecursiveSNARK::prove_step    1.676229078s                                    ├────────┤
+      ABC_Z_2 gpu                         1.055709ms                                    ┆
+      T                                     387.59µs                                    ┆
+      msm_with                           11.718842ms                                    ┆
+      synthesize                        167.100108ms                                    │
+      msm_with                          601.574719ms                                      ├──┤
+      ABC_Z_2 gpu                       228.970988ms                                         │
+      T                                 129.966367ms                                           │
+      msm_with                          295.950572ms                                           ├┤
+      msm_with                           11.858141ms                                               ┆
+    nova::RecursiveSNARK::prove_step    1.636946685s                                               ├────────┤
+      ABC_Z_2 gpu                         1.137962ms                                               ┆
+      T                                    432.589µs                                               ┆
+      msm_with                            10.61467ms                                               ┆
+      synthesize                        163.528472ms                                               │
+      msm_with                          598.231272ms                                                ├──┤
+      ABC_Z_2 gpu                        220.38739ms                                                    │
+      T                                 114.829477ms                                                     │
+      msm_with                          305.017683ms                                                      ├┤
+      msm_with                            4.836768ms                                                         ┆
+    nova::RecursiveSNARK::prove_step    1.736369402s                                                         ├─────────┤
+      ABC_Z_2 gpu                         1.023292ms                                                         ┆
+      T                                    357.265µs                                                         ┆
+      msm_with                            8.192814ms                                                         ┆
+      synthesize                        169.798131ms                                                         │
+      msm_with                          598.514128ms                                                          ├──┤
+      ABC_Z_2 gpu                       234.530602ms                                                              │
+      T                                 131.742496ms                                                               │
+      msm_with                          352.663951ms                                                                ├┤
+      msm_with                             8.18482ms                                                                   ┆
