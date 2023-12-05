@@ -1010,29 +1010,17 @@ impl Ptr {
                 Fun => match self.get_index3() {
                     None => "<Malformed Fun>".into(),
                     Some(idx) => {
-                        if let Some((arg, bod, _)) = store.fetch_3_ptrs(idx) {
-                            match bod.tag() {
+                        if let Some((vars, body, ..)) = store.fetch_3_ptrs(idx) {
+                            match vars.tag() {
                                 Tag::Expr(Nil) => {
-                                    format!(
-                                        "<FUNCTION ({}) {}>",
-                                        arg.fmt_to_string(store, state),
-                                        bod.fmt_to_string(store, state)
-                                    )
+                                    format!("<FUNCTION () {}>", body.fmt_to_string(store, state))
                                 }
                                 Tag::Expr(Cons) => {
-                                    if let Some(idx) = bod.get_index2() {
-                                        if let Some((bod, _)) = store.fetch_2_ptrs(idx) {
-                                            format!(
-                                                "<FUNCTION ({}) {}>",
-                                                arg.fmt_to_string(store, state),
-                                                bod.fmt_to_string(store, state)
-                                            )
-                                        } else {
-                                            "<Opaque Fun>".into()
-                                        }
-                                    } else {
-                                        "<Malformed Fun>".into()
-                                    }
+                                    format!(
+                                        "<FUNCTION {} {}>",
+                                        vars.fmt_to_string(store, state),
+                                        body.fmt_to_string(store, state)
+                                    )
                                 }
                                 _ => "<Malformed Fun>".into(),
                             }

@@ -1142,11 +1142,10 @@ fn evaluate_zero_arg_lambda() {
     }
     {
         let expected = {
-            let arg = s.intern_user_symbol("x");
+            let args = s.list(vec![s.intern_user_symbol("x")]);
             let num = s.num_u64(123);
-            let body = s.list(vec![num]);
             let env = s.intern_nil();
-            s.intern_fun(arg, body, env)
+            s.intern_fun(args, num, env)
         };
 
         // One arg expected but zero supplied.
