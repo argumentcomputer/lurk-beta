@@ -110,10 +110,23 @@ fn main() {
 
     println!("Verify took {:?}", verify_end);
 
+    println!("Compressing proof..");
+    let compress_start = Instant::now();
+    let compressed_proof = proof.compress(&pp).unwrap();
+    let compress_end = compress_start.elapsed();
+
+    println!("Compression took {:?}", compress_end);
+
+    let compressed_verify_start = Instant::now();
+    let res = compressed_proof.verify(&pp, &z0, &zi).unwrap();
+    let compressed_verify_end = compressed_verify_start.elapsed();
+
+    println!("Final verification took {:?}", compressed_verify_end);
+
     if res {
         println!(
-            "Congratulations! You proved and verified a NIVC SHA256 hash calculation in {:?} time!",
-            pp_end + proof_end + verify_end
+            "Congratulations! You proved, verified, compressed, and verified (again!) an NIVC SHA256 hash calculation in {:?} time!",
+            verify_end + proof_end + verify_end + compress_end
         );
     }
 }
