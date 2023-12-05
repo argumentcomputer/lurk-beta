@@ -276,9 +276,7 @@ where
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
             Self::Recursive(p) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
-            Self::Compressed(p, _) => {
-                p.verify(&pp.pp, &pp.vk, z0_primary.to_vec(), z0_secondary)?
-            }
+            Self::Compressed(p, _) => p.verify(&pp.pp, &pp.vk, z0_primary, &z0_secondary)?,
         };
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == &zi_secondary_verified)
