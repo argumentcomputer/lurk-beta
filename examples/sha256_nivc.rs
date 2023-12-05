@@ -105,7 +105,7 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    let res = proof.verify(&pp, &z0, &zi, last_circuit_index).unwrap();
+    assert!(proof.verify(&pp, &z0, &zi, last_circuit_index).unwrap());
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {:?}", verify_end);
@@ -118,7 +118,9 @@ fn main() {
     println!("Compression took {:?}", compress_end);
 
     let compressed_verify_start = Instant::now();
-    let res = compressed_proof.verify(&pp, &z0, &zi).unwrap();
+    let res = compressed_proof
+        .verify(&pp, &z0, &zi, last_circuit_index)
+        .unwrap();
     let compressed_verify_end = compressed_verify_start.elapsed();
 
     println!("Final verification took {:?}", compressed_verify_end);
