@@ -16,7 +16,6 @@ use nova::{
     CircuitShape, CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
 };
 use pasta_curves::pallas;
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
     marker::PhantomData,
@@ -280,7 +279,7 @@ where
                 s.spawn(|_| {
                     // Skip the very first circuit's witness, so `prove_step` can begin immediately.
                     // That circuit's witness will not be cached and will just be computed on-demand.
-                    cc.par_iter().skip(1).for_each(|mf| {
+                    cc.iter().skip(1).for_each(|mf| {
                         mf.lock()
                             .unwrap()
                             .cache_witness(store)
