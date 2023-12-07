@@ -235,57 +235,39 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
 
         // Allocate the preimage because the image depends on it
         let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
-
-        match slot_data {
-            SlotData::PtrVec(ptr_vec) => {
-                let mut component_idx = 0;
-                for ptr in ptr_vec {
+        slot_data
+            .vals
+            .iter()
+            .enumerate()
+            .for_each(|(component_idx, val)| match val {
+                Val::Pointer(ptr) => {
                     let z_ptr = store.hash_ptr(ptr);
-
                     // allocate pointer tag
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        cs.namespace(|| format!("component {component_idx} tag slot {slot}")),
                         || z_ptr.tag_field(),
                     ));
-
-                    component_idx += 1;
-
                     // allocate pointer hash
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        cs.namespace(|| format!("component {component_idx} hash slot {slot}")),
                         || *z_ptr.value(),
                     ));
-
-                    component_idx += 1;
                 }
-            }
-            SlotData::FPtr(f, ptr) => {
-                let f = store.expect_f(*f);
-                let z_ptr = store.hash_ptr(ptr);
-                // allocate first component
-                preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                    cs.namespace(|| format!("component 0 slot {slot}")),
-                    || *f,
-                ));
-                // allocate second component
-                preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                    cs.namespace(|| format!("component 1 slot {slot}")),
-                    || z_ptr.tag_field(),
-                ));
-                // allocate third component
-                preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                    cs.namespace(|| format!("component 2 slot {slot}")),
-                    || *z_ptr.value(),
-                ));
-            }
-            SlotData::F(a) => {
-                let a = store.expect_f(*a);
-                preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                    cs.namespace(|| format!("component 0 slot {slot}")),
-                    || *a,
-                ));
-            }
-        }
+                Val::Num(f) => {
+                    let f = store.expect_f(*f);
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        || *f,
+                    ));
+                }
+                Val::Boolean(b) => {
+                    let f = if *b { F::ONE } else { F::ZERO };
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        || f,
+                    ));
+                }
+            });
 
         // Allocate the image by calling the arithmetic function according
         // to the slot type

@@ -2,8 +2,12 @@ use anyhow::{anyhow, bail, Result};
 use std::collections::VecDeque;
 
 use super::{
-    path::Path, pointers::Ptr, slot::SlotData, store::Store, var_map::VarMap, Block, Ctrl, Func,
-    Op, Tag, Var,
+    path::Path,
+    pointers::Ptr,
+    slot::{SlotData, Val},
+    store::Store,
+    var_map::VarMap,
+    Block, Ctrl, Func, Op, Tag, Var,
 };
 
 use crate::{
@@ -14,12 +18,6 @@ use crate::{
     state::initial_lurk_state,
     tag::ExprTag::{Comm, Num, Sym},
 };
-
-#[derive(Clone)]
-pub enum Val {
-    Pointer(Ptr),
-    Boolean(bool),
-}
 
 impl VarMap<Val> {
     fn get_many_ptr(&self, args: &[Var]) -> Result<Vec<Ptr>> {
@@ -301,15 +299,15 @@ impl Block {
                         let f = *store.expect_f(f_idx);
                         let g = *store.expect_f(g_idx);
                         let diff = f - g;
-                        hints
-                            .bit_decomp
-                            .push(Some(SlotData::F(store.intern_f(f + f).0)));
-                        hints
-                            .bit_decomp
-                            .push(Some(SlotData::F(store.intern_f(g + g).0)));
-                        hints
-                            .bit_decomp
-                            .push(Some(SlotData::F(store.intern_f(diff + diff).0)));
+                        hints.bit_decomp.push(Some(SlotData {
+                            vals: vec![Val::Num(store.intern_f(f + f).0)],
+                        }));
+                        hints.bit_decomp.push(Some(SlotData {
+                            vals: vec![Val::Num(store.intern_f(g + g).0)],
+                        }));
+                        hints.bit_decomp.push(Some(SlotData {
+                            vals: vec![Val::Num(store.intern_f(diff + diff).0)],
+                        }));
                         let f = BaseNum::Scalar(f);
                         let g = BaseNum::Scalar(g);
                         f < g
@@ -323,7 +321,9 @@ impl Block {
                     let a = bindings.get_ptr(a)?;
                     let c = if let Ptr::Atom(_, f_idx) = a {
                         let f = *store.expect_f(f_idx);
-                        hints.bit_decomp.push(Some(SlotData::F(f_idx)));
+                        hints.bit_decomp.push(Some(SlotData {
+                            vals: vec![Val::Num(f_idx)],
+                        }));
                         let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                         store.intern_atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
                     } else {
@@ -360,14 +360,16 @@ impl Block {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
-                    hints.hash4.push(Some(SlotData::PtrVec(preimg_ptrs)));
+                    let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
+                    hints.hash4.push(Some(SlotData { vals }));
                 }
                 Op::Cons3(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
                     let tgt_ptr =
                         store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
-                    hints.hash6.push(Some(SlotData::PtrVec(preimg_ptrs)));
+                    let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
+                    hints.hash6.push(Some(SlotData { vals }));
                 }
                 Op::Cons4(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
@@ -379,7 +381,8 @@ impl Block {
                         preimg_ptrs[3],
                     );
                     bindings.insert_ptr(img.clone(), tgt_ptr);
-                    hints.hash8.push(Some(SlotData::PtrVec(preimg_ptrs)));
+                    let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
+                    hints.hash8.push(Some(SlotData { vals }));
                 }
                 Op::Decons2(preimg, img) => {
                     let img_ptr = bindings.get_ptr(img)?;
@@ -393,9 +396,8 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), *ptr);
                     }
-                    hints
-                        .hash4
-                        .push(Some(SlotData::PtrVec(preimg_ptrs.to_vec())));
+                    let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
+                    hints.hash4.push(Some(SlotData { vals }));
                 }
                 Op::Decons3(preimg, img) => {
                     let img_ptr = bindings.get_ptr(img)?;
@@ -409,9 +411,8 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), *ptr);
                     }
-                    hints
-                        .hash6
-                        .push(Some(SlotData::PtrVec(preimg_ptrs.to_vec())));
+                    let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
+                    hints.hash6.push(Some(SlotData { vals }));
                 }
                 Op::Decons4(preimg, img) => {
                     let img_ptr = bindings.get_ptr(img)?;
@@ -425,9 +426,8 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), *ptr);
                     }
-                    hints
-                        .hash8
-                        .push(Some(SlotData::PtrVec(preimg_ptrs.to_vec())));
+                    let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
+                    hints.hash8.push(Some(SlotData { vals }));
                 }
                 Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get_ptr(src)?;
@@ -436,9 +436,8 @@ impl Block {
                     };
                     let secret = *store.expect_f(secret_idx);
                     let tgt_ptr = store.hide(secret, src_ptr);
-                    hints
-                        .commitment
-                        .push(Some(SlotData::FPtr(secret_idx, src_ptr)));
+                    let vals = vec![Val::Num(secret_idx), Val::Pointer(src_ptr)];
+                    hints.commitment.push(Some(SlotData { vals }));
                     bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
                 Op::Open(tgt_secret, tgt_ptr, comm) => {
@@ -455,7 +454,8 @@ impl Block {
                         store.intern_atom(Tag::Expr(Num), secret),
                     );
                     let secret_idx = store.intern_f(secret).0;
-                    hints.commitment.push(Some(SlotData::FPtr(secret_idx, ptr)))
+                    let vals = vec![Val::Num(secret_idx), Val::Pointer(ptr)];
+                    hints.commitment.push(Some(SlotData { vals }));
                 }
                 Op::Unit(f) => f(),
             }

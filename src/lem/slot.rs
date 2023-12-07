@@ -233,16 +233,27 @@ impl Block {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum Val {
+    Pointer(Ptr),
+    Num(usize),
+    Boolean(bool),
+}
+
 /// Holds data to feed the slots
 #[derive(Clone, Debug)]
-pub enum SlotData {
-    /// A sequence of pointers, holding hashing preimages
-    PtrVec(Vec<Ptr>),
-    /// An element of the finite field (cached in a `Store`) and a `Ptr` for
-    /// commitments
-    FPtr(usize, Ptr),
-    /// An element of the finite field (cached in a `Store`) for bit decompositions
-    F(usize),
+pub struct SlotData {
+    pub vals: Vec<Val>,
+}
+
+impl SlotData {
+    pub(crate) fn size(&self) -> usize {
+        self.vals.iter().fold(0, |acc, val| match val {
+            Val::Pointer(..) => acc + 2,
+            Val::Num(..) => acc + 1,
+            Val::Boolean(..) => acc + 1,
+        })
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -266,14 +277,7 @@ impl SlotType {
     }
 
     pub(crate) fn is_compatible(&self, slot_data: &SlotData) -> bool {
-        matches!(
-            (self, slot_data),
-            (Self::Hash4, SlotData::PtrVec(..))
-                | (Self::Hash6, SlotData::PtrVec(..))
-                | (Self::Hash8, SlotData::PtrVec(..))
-                | (Self::Commitment, SlotData::FPtr(..))
-                | (Self::BitDecomp, SlotData::F(..))
-        )
+        slot_data.size() == self.preimg_size()
     }
 }
 
