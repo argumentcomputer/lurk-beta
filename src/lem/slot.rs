@@ -234,6 +234,9 @@ impl Block {
 }
 
 #[derive(Clone, Debug)]
+/// The values a variable can take. `Num`s are pure field elements, much like `Ptr::Atom`,
+/// but missing the tag. `Boolean`s are also field elements, but they are guaranteed to be
+/// constrained to take only 0 or 1 values.
 pub enum Val {
     Pointer(Ptr),
     Num(usize),
@@ -247,11 +250,13 @@ pub struct SlotData {
 }
 
 impl SlotData {
+    /// Size of the slot data in number of field elements
     pub(crate) fn size(&self) -> usize {
         self.vals.iter().fold(0, |acc, val| match val {
+            // Pointers are tag/hash pairs
             Val::Pointer(..) => acc + 2,
-            Val::Num(..) => acc + 1,
-            Val::Boolean(..) => acc + 1,
+            // Numbers and booleans are single field elements
+            Val::Num(..) | Val::Boolean(..) => acc + 1,
         })
     }
 }
