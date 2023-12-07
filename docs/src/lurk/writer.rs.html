@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/writer.rs`."><title>writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/writer.rs`."><title>writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -420,8 +420,8 @@
     <span class="kw">fn </span>fmt&lt;W: io::Write&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State, w: <span class="kw-2">&amp;mut </span>W) -&gt; io::Result&lt;()&gt;;
     <span class="kw">fn </span>fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
-        <span class="self">self</span>.fmt(store, state, <span class="kw-2">&amp;mut </span>out).expect(<span class="string">&quot;preallocated&quot;</span>);
-        String::from_utf8(out).expect(<span class="string">&quot;I know it&quot;</span>)
+        <span class="self">self</span>.fmt(store, state, <span class="kw-2">&amp;mut </span>out).expect(<span class="string">"preallocated"</span>);
+        String::from_utf8(out).expect(<span class="string">"I know it"</span>)
     }
 
     <span class="kw">fn </span>simple_fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String {
@@ -433,21 +433,21 @@
     <span class="kw">fn </span>fmt&lt;W: io::Write&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State, w: <span class="kw-2">&amp;mut </span>W) -&gt; io::Result&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.is_opaque() {
             <span class="comment">// This should never fail.
-            </span><span class="macro">write!</span>(w, <span class="string">&quot;&lt;Opaque &quot;</span>)<span class="question-mark">?</span>;
-            <span class="macro">write!</span>(w, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>.tag)<span class="question-mark">?</span>;
+            </span><span class="macro">write!</span>(w, <span class="string">"&lt;Opaque "</span>)<span class="question-mark">?</span>;
+            <span class="macro">write!</span>(w, <span class="string">"{:?}"</span>, <span class="self">self</span>.tag)<span class="question-mark">?</span>;
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = store.hash_expr(<span class="self">self</span>) {
-                <span class="macro">write!</span>(w, <span class="string">&quot; &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">" "</span>)<span class="question-mark">?</span>;
                 <span class="kw">crate</span>::expr::Expression::Num(<span class="kw">crate</span>::num::Num::Scalar(<span class="kw-2">*</span>x.value()))
                     .fmt(store, state, w)<span class="question-mark">?</span>;
             }
-            <span class="macro">write!</span>(w, <span class="string">&quot;&gt;&quot;</span>)
+            <span class="macro">write!</span>(w, <span class="string">"&gt;"</span>)
         } <span class="kw">else if let </span><span class="prelude-val">Some</span>(expr) = store.fetch(<span class="self">self</span>) {
             expr.fmt(store, state, w)
         } <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::Other,
-                <span class="string">&quot;Cannot find expression pointer&quot;</span>,
+                <span class="string">"Cannot find expression pointer"</span>,
             ))
         }
     }
@@ -460,14 +460,14 @@
         } <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::Other,
-                <span class="string">&quot;Cannot find continuation pointer&quot;</span>,
+                <span class="string">"Cannot find continuation pointer"</span>,
             ))
         }
     }
 }
 
 <span class="kw">fn </span>write_symbol&lt;W: io::Write&gt;(w: <span class="kw-2">&amp;mut </span>W, sym: Symbol, state: <span class="kw-2">&amp;</span>State) -&gt; io::Result&lt;()&gt; {
-    <span class="macro">write!</span>(w, <span class="string">&quot;{}&quot;</span>, state.fmt_to_string(<span class="kw-2">&amp;</span>SymbolRef::new(sym)))
+    <span class="macro">write!</span>(w, <span class="string">"{}"</span>, state.fmt_to_string(<span class="kw-2">&amp;</span>SymbolRef::new(sym)))
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Write&lt;F&gt; <span class="kw">for </span>Expression&lt;F&gt; {
@@ -477,34 +477,34 @@
         };
 
         <span class="kw">match </span><span class="self">self </span>{
-            Nil =&gt; <span class="macro">write!</span>(w, <span class="string">&quot;nil&quot;</span>),
+            Nil =&gt; <span class="macro">write!</span>(w, <span class="string">"nil"</span>),
             RootSym =&gt; write_symbol(w, Symbol::root_sym(), state),
             RootKey =&gt; write_symbol(w, Symbol::root_key(), state),
             Sym(car, cdr) =&gt; {
-                <span class="kw">let </span>head = store.fetch_string(car).expect(<span class="string">&quot;missing symbol head&quot;</span>);
-                <span class="kw">let </span>tail = store.fetch_sym(cdr).expect(<span class="string">&quot;missing symbol tail&quot;</span>);
+                <span class="kw">let </span>head = store.fetch_string(car).expect(<span class="string">"missing symbol head"</span>);
+                <span class="kw">let </span>tail = store.fetch_sym(cdr).expect(<span class="string">"missing symbol tail"</span>);
                 write_symbol(w, tail.extend(<span class="kw-2">&amp;</span>[head]), state)
             }
             Key(car, cdr) =&gt; {
-                <span class="kw">let </span>head = store.fetch_string(car).expect(<span class="string">&quot;missing keyword head&quot;</span>);
-                <span class="kw">let </span><span class="kw-2">mut </span>tail = store.fetch_sym(cdr).expect(<span class="string">&quot;missing keyword tail&quot;</span>);
+                <span class="kw">let </span>head = store.fetch_string(car).expect(<span class="string">"missing keyword head"</span>);
+                <span class="kw">let </span><span class="kw-2">mut </span>tail = store.fetch_sym(cdr).expect(<span class="string">"missing keyword tail"</span>);
                 tail.set_as_keyword();
                 write_symbol(w, tail.extend(<span class="kw-2">&amp;</span>[head]), state)
             }
-            EmptyStr =&gt; <span class="macro">write!</span>(w, <span class="string">&quot;\&quot;\&quot;&quot;</span>),
+            EmptyStr =&gt; <span class="macro">write!</span>(w, <span class="string">"\"\""</span>),
             Str(car, cdr) =&gt; {
-                <span class="kw">let </span>head = store.fetch_char(car).expect(<span class="string">&quot;missing string head&quot;</span>);
-                <span class="kw">let </span>tail = store.fetch_string(cdr).expect(<span class="string">&quot;missing string tail&quot;</span>);
-                <span class="macro">write!</span>(w, <span class="string">&quot;\&quot;{head}{tail}\&quot;&quot;</span>)
+                <span class="kw">let </span>head = store.fetch_char(car).expect(<span class="string">"missing string head"</span>);
+                <span class="kw">let </span>tail = store.fetch_string(cdr).expect(<span class="string">"missing string tail"</span>);
+                <span class="macro">write!</span>(w, <span class="string">"\"{head}{tail}\""</span>)
             }
             Fun(arg, body, _closed_env) =&gt; {
                 <span class="kw">let </span>is_zero_arg = <span class="kw-2">*</span>arg == <span class="macro">lurk_sym_ptr!</span>(store, dummy);
                 <span class="kw">let </span>arg = store.fetch(arg).unwrap();
-                <span class="macro">write!</span>(w, <span class="string">&quot;&lt;FUNCTION (&quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"&lt;FUNCTION ("</span>)<span class="question-mark">?</span>;
                 <span class="kw">if </span>!is_zero_arg {
                     arg.fmt(store, state, w)<span class="question-mark">?</span>;
                 }
-                <span class="macro">write!</span>(w, <span class="string">&quot;) &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">") "</span>)<span class="question-mark">?</span>;
 
                 <span class="comment">//Assume body is a single-element cons, ignore the cdr
                 </span><span class="kw">match </span>store.fetch(body).unwrap() {
@@ -516,36 +516,36 @@
                         <span class="macro">lurk_sym_ptr!</span>(store, nil).fmt(store, state, w)<span class="question-mark">?</span>;
                     }
                     <span class="kw">_ </span>=&gt; {
-                        <span class="macro">panic!</span>(<span class="string">&quot;Function body was neither a Cons nor Nil&quot;</span>);
+                        <span class="macro">panic!</span>(<span class="string">"Function body was neither a Cons nor Nil"</span>);
                     }
                 }
-                <span class="macro">write!</span>(w, <span class="string">&quot;&gt;&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">"&gt;"</span>)
             }
-            Num(n) =&gt; <span class="macro">write!</span>(w, <span class="string">&quot;{n}&quot;</span>),
+            Num(n) =&gt; <span class="macro">write!</span>(w, <span class="string">"{n}"</span>),
             Thunk(f) =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Thunk{{ value: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Thunk{{ value: "</span>)<span class="question-mark">?</span>;
                 f.value.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; =&gt; cont: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">" =&gt; cont: "</span>)<span class="question-mark">?</span>;
                 f.continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;}}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">"}}"</span>)
             }
             Cons(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;(&quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"("</span>)<span class="question-mark">?</span>;
                 <span class="self">self</span>.print_tail(store, state, w)
             }
             Comm(secret, payload) =&gt; {
                 <span class="comment">// This requires a run-time coercion.
-                // Consider implementing the equivalent of CL&#39;s #. reader macro to let this happen at read-time.
-                </span><span class="macro">write!</span>(w, <span class="string">&quot;(comm &quot;</span>)<span class="question-mark">?</span>;
+                // Consider implementing the equivalent of CL's #. reader macro to let this happen at read-time.
+                </span><span class="macro">write!</span>(w, <span class="string">"(comm "</span>)<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = ZExpr::Comm(<span class="kw-2">*</span>secret, store.hash_expr(payload).unwrap())
                     .z_ptr(<span class="kw-2">&amp;</span>store.poseidon_cache);
                 Num(<span class="kw">crate</span>::num::Num::Scalar(c.<span class="number">1</span>)).fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;)&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">")"</span>)
             }
             Char(c) =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;&#39;{c}&#39;&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">"'{c}'"</span>)
             }
-            UInt(n) =&gt; <span class="macro">write!</span>(w, <span class="string">&quot;{n}u64&quot;</span>),
+            UInt(n) =&gt; <span class="macro">write!</span>(w, <span class="string">"{n}u64"</span>),
         }
     }
 }
@@ -558,7 +558,7 @@
         w: <span class="kw-2">&amp;mut </span>W,
     ) -&gt; io::Result&lt;()&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            Expression::Nil =&gt; <span class="macro">write!</span>(w, <span class="string">&quot;)&quot;</span>),
+            Expression::Nil =&gt; <span class="macro">write!</span>(w, <span class="string">")"</span>),
             Expression::Cons(car, cdr) =&gt; {
                 <span class="kw">let </span>car = store.fetch(car);
                 <span class="kw">let </span>cdr = store.fetch(cdr);
@@ -566,38 +566,38 @@
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(car) = car {
                         car.fmt(store, state, w)
                     } <span class="kw">else </span>{
-                        <span class="macro">write!</span>(w, <span class="string">&quot;&lt;Opaque&gt;&quot;</span>)
+                        <span class="macro">write!</span>(w, <span class="string">"&lt;Opaque&gt;"</span>)
                     }
                 };
                 <span class="kw">let </span>fmt_cdr = |store, w: <span class="kw-2">&amp;mut </span>W| {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(cdr) = <span class="kw-2">&amp;</span>cdr {
                         cdr.fmt(store, state, w)
                     } <span class="kw">else </span>{
-                        <span class="macro">write!</span>(w, <span class="string">&quot;&lt;Opaque&gt;&quot;</span>)
+                        <span class="macro">write!</span>(w, <span class="string">"&lt;Opaque&gt;"</span>)
                     }
                 };
 
                 <span class="kw">match </span>cdr {
                     <span class="prelude-val">Some</span>(Expression::Nil) =&gt; {
                         fmt_car(store, w)<span class="question-mark">?</span>;
-                        <span class="macro">write!</span>(w, <span class="string">&quot;)&quot;</span>)
+                        <span class="macro">write!</span>(w, <span class="string">")"</span>)
                     }
                     <span class="prelude-val">Some</span>(Expression::Cons(<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; {
                         fmt_car(store, w)<span class="question-mark">?</span>;
-                        <span class="macro">write!</span>(w, <span class="string">&quot; &quot;</span>)<span class="question-mark">?</span>;
+                        <span class="macro">write!</span>(w, <span class="string">" "</span>)<span class="question-mark">?</span>;
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(cdr) = cdr {
                             cdr.print_tail(store, state, w)
                         } <span class="kw">else </span>{
-                            <span class="macro">write!</span>(w, <span class="string">&quot;&lt;Opaque Tail&gt;&quot;</span>)
+                            <span class="macro">write!</span>(w, <span class="string">"&lt;Opaque Tail&gt;"</span>)
                         }
                     }
                     <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
                         fmt_car(store, w)<span class="question-mark">?</span>;
-                        <span class="macro">write!</span>(w, <span class="string">&quot; . &quot;</span>)<span class="question-mark">?</span>;
+                        <span class="macro">write!</span>(w, <span class="string">" . "</span>)<span class="question-mark">?</span>;
                         fmt_cdr(store, w)<span class="question-mark">?</span>;
-                        <span class="macro">write!</span>(w, <span class="string">&quot;)&quot;</span>)
+                        <span class="macro">write!</span>(w, <span class="string">")"</span>)
                     }
-                    <span class="prelude-val">None </span>=&gt; <span class="macro">write!</span>(w, <span class="string">&quot;&lt;Opaque&gt;&quot;</span>),
+                    <span class="prelude-val">None </span>=&gt; <span class="macro">write!</span>(w, <span class="string">"&lt;Opaque&gt;"</span>),
                 }
             }
             expr =&gt; expr.fmt(store, state, w),
@@ -608,71 +608,71 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; Write&lt;F&gt; <span class="kw">for </span>Continuation&lt;F&gt; {
     <span class="kw">fn </span>fmt&lt;W: io::Write&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State, w: <span class="kw-2">&amp;mut </span>W) -&gt; io::Result&lt;()&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            Continuation::Outermost =&gt; <span class="macro">write!</span>(w, <span class="string">&quot;Outermost&quot;</span>),
+            Continuation::Outermost =&gt; <span class="macro">write!</span>(w, <span class="string">"Outermost"</span>),
             Continuation::Call0 {
                 saved_env,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Call0{{ saved_env: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Call0{{ saved_env: "</span>)<span class="question-mark">?</span>;
                 saved_env.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
             Continuation::Call {
                 unevaled_arg,
                 saved_env,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Call{{ unevaled_arg: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Call{{ unevaled_arg: "</span>)<span class="question-mark">?</span>;
                 unevaled_arg.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, saved_env: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", saved_env: "</span>)<span class="question-mark">?</span>;
                 saved_env.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, continuation: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", continuation: "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
             Continuation::Call2 {
                 function,
                 saved_env,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Call2{{ function: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Call2{{ function: "</span>)<span class="question-mark">?</span>;
                 function.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, saved_env: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", saved_env: "</span>)<span class="question-mark">?</span>;
                 saved_env.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, continuation: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", continuation: "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
             Continuation::Tail {
                 saved_env,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Tail{{ saved_env: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Tail{{ saved_env: "</span>)<span class="question-mark">?</span>;
                 saved_env.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, continuation: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", continuation: "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
-            Continuation::Error =&gt; <span class="macro">write!</span>(w, <span class="string">&quot;Error&quot;</span>),
+            Continuation::Error =&gt; <span class="macro">write!</span>(w, <span class="string">"Error"</span>),
             Continuation::Lookup {
                 saved_env,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Lookup{{ saved_env: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Lookup{{ saved_env: "</span>)<span class="question-mark">?</span>;
                 saved_env.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
             Continuation::Unop {
                 operator,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Unop{{ operator: {operator}, continuation: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Unop{{ operator: {operator}, continuation: "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
             Continuation::Binop {
                 operator,
@@ -680,35 +680,35 @@
                 unevaled_args,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Binop{{ operator: &quot;</span>)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;{operator}, unevaled_args: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Binop{{ operator: "</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"{operator}, unevaled_args: "</span>)<span class="question-mark">?</span>;
                 unevaled_args.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, saved_env: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", saved_env: "</span>)<span class="question-mark">?</span>;
                 saved_env.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, continuation: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", continuation: "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
             Continuation::Binop2 {
                 operator,
                 evaled_arg,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Binop2{{ operator: {operator}, evaled_arg: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Binop2{{ operator: {operator}, evaled_arg: "</span>)<span class="question-mark">?</span>;
                 evaled_arg.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, continuation: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", continuation: "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
             Continuation::If {
                 unevaled_args,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;If{{ unevaled_args: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"If{{ unevaled_args: "</span>)<span class="question-mark">?</span>;
                 unevaled_args.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, continuation: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", continuation: "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
             Continuation::Let {
                 var,
@@ -716,15 +716,15 @@
                 saved_env,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Let{{ var: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"Let{{ var: "</span>)<span class="question-mark">?</span>;
                 var.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, body: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", body: "</span>)<span class="question-mark">?</span>;
                 body.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, saved_env: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", saved_env: "</span>)<span class="question-mark">?</span>;
                 saved_env.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, continuation: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", continuation: "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
             Continuation::LetRec {
                 var,
@@ -732,26 +732,26 @@
                 body,
                 continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;LetRec{{var: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"LetRec{{var: "</span>)<span class="question-mark">?</span>;
                 var.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, saved_env: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", saved_env: "</span>)<span class="question-mark">?</span>;
                 saved_env.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, body: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", body: "</span>)<span class="question-mark">?</span>;
                 body.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;, continuation: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">", continuation: "</span>)<span class="question-mark">?</span>;
                 continuation.fmt(store, state, w)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot; }}&quot;</span>)
+                <span class="macro">write!</span>(w, <span class="string">" }}"</span>)
             }
-            Continuation::Dummy =&gt; <span class="macro">write!</span>(w, <span class="string">&quot;Dummy&quot;</span>),
-            Continuation::Terminal =&gt; <span class="macro">write!</span>(w, <span class="string">&quot;Terminal&quot;</span>),
+            Continuation::Dummy =&gt; <span class="macro">write!</span>(w, <span class="string">"Dummy"</span>),
+            Continuation::Terminal =&gt; <span class="macro">write!</span>(w, <span class="string">"Terminal"</span>),
             Continuation::Emit {
                 continuation: _continuation,
             } =&gt; {
-                <span class="macro">write!</span>(w, <span class="string">&quot;Emit&quot;</span>)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(w, <span class="string">&quot;&lt;CONTINUATION&gt;&quot;</span>) <span class="comment">// Omit continuation for clarity when logging and using output.
-                                            // write!(w, &quot; {{ continuation: &quot;)?;
+                <span class="macro">write!</span>(w, <span class="string">"Emit"</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(w, <span class="string">"&lt;CONTINUATION&gt;"</span>) <span class="comment">// Omit continuation for clarity when logging and using output.
+                                            // write!(w, " {{ continuation: ")?;
                                             // continuation.fmt(store, state, w)?;
-                                            // write!(w, &quot; }}&quot;)
+                                            // write!(w, " }}")
             </span>}
         }
     }
@@ -769,8 +769,8 @@
         <span class="kw">let </span>s = Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>state = <span class="kw-2">&amp;mut </span>State::init_lurk_state();
         <span class="kw">let </span>nil = <span class="macro">lurk_sym_ptr!</span>(s, nil);
-        <span class="kw">let </span>x = s.user_sym(<span class="string">&quot;x&quot;</span>);
-        state.intern(<span class="string">&quot;x&quot;</span>);
+        <span class="kw">let </span>x = s.user_sym(<span class="string">"x"</span>);
+        state.intern(<span class="string">"x"</span>);
         <span class="kw">let </span>lambda = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>s, lambda);
         <span class="kw">let </span>val = s.num(<span class="number">123</span>);
         <span class="kw">let </span>lambda_args = s.cons(x, nil);
@@ -781,7 +781,7 @@
         <span class="kw">let </span>expr = s.cons(whole_lambda, lambda_arguments);
         <span class="kw">let </span>output = expr.fmt_to_string(<span class="kw-2">&amp;</span>s, state);
 
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;((lambda (x) x) 123)&quot;</span>.to_string(), output);
+        <span class="macro">assert_eq!</span>(<span class="string">"((lambda (x) x) 123)"</span>.to_string(), output);
     }
 
     <span class="attr">#[test]
@@ -789,23 +789,23 @@
         <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>num = store.num(<span class="number">5</span>);
         <span class="kw">let </span>res = num.fmt_to_string(<span class="kw-2">&amp;</span>store, initial_lurk_state());
-        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>res, <span class="kw-2">&amp;</span><span class="string">&quot;5&quot;</span>);
+        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>res, <span class="kw-2">&amp;</span><span class="string">"5"</span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_print_char() {
         <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>char = store.intern_char(<span class="string">&#39;a&#39;</span>);
+        <span class="kw">let </span>char = store.intern_char(<span class="string">'a'</span>);
         <span class="kw">let </span>res = char.fmt_to_string(<span class="kw-2">&amp;</span>store, initial_lurk_state());
-        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>res, <span class="kw-2">&amp;</span><span class="string">&quot;&#39;a&#39;&quot;</span>);
+        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>res, <span class="kw-2">&amp;</span><span class="string">"'a'"</span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_print_keyword() {
         <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>foo_key_ptr = store.intern_symbol(<span class="kw-2">&amp;</span>Symbol::key_from_vec(<span class="macro">vec!</span>[<span class="string">&quot;foo&quot;</span>.into()]));
+        <span class="kw">let </span>foo_key_ptr = store.intern_symbol(<span class="kw-2">&amp;</span>Symbol::key_from_vec(<span class="macro">vec!</span>[<span class="string">"foo"</span>.into()]));
         <span class="kw">let </span>foo_key_str = foo_key_ptr.fmt_to_string(<span class="kw-2">&amp;</span>store, initial_lurk_state());
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;:foo&quot;</span>, foo_key_str);
+        <span class="macro">assert_eq!</span>(<span class="string">":foo"</span>, foo_key_str);
     }
 }
 </code></pre></div></section></main></body></html>

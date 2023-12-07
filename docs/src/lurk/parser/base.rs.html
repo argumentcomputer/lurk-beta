@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/parser/base.rs`."><title>base.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/parser/base.rs`."><title>base.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -262,31 +262,31 @@
 }
 
 <span class="kw">impl </span>LitBase {
-    <span class="kw">pub fn </span>parse_code&lt;F: LurkField&gt;(i: Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, <span class="self">Self</span>&gt; {
+    <span class="kw">pub fn </span>parse_code&lt;F: LurkField&gt;(i: Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, <span class="self">Self</span>&gt; {
         alt((
-            value(<span class="self">Self</span>::Bin, tag(<span class="string">&quot;b&quot;</span>)),
-            value(<span class="self">Self</span>::Oct, tag(<span class="string">&quot;o&quot;</span>)),
-            value(<span class="self">Self</span>::Dec, tag(<span class="string">&quot;d&quot;</span>)),
-            value(<span class="self">Self</span>::Hex, tag(<span class="string">&quot;x&quot;</span>)),
+            value(<span class="self">Self</span>::Bin, tag(<span class="string">"b"</span>)),
+            value(<span class="self">Self</span>::Oct, tag(<span class="string">"o"</span>)),
+            value(<span class="self">Self</span>::Dec, tag(<span class="string">"d"</span>)),
+            value(<span class="self">Self</span>::Hex, tag(<span class="string">"x"</span>)),
         ))(i)
     }
 
     <span class="doccomment">/// Get the code corresponding to the base algorithm.
     </span><span class="kw">pub fn </span>code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; char {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Bin =&gt; <span class="string">&#39;b&#39;</span>,
-            <span class="self">Self</span>::Oct =&gt; <span class="string">&#39;o&#39;</span>,
-            <span class="self">Self</span>::Dec =&gt; <span class="string">&#39;d&#39;</span>,
-            <span class="self">Self</span>::Hex =&gt; <span class="string">&#39;x&#39;</span>,
+            <span class="self">Self</span>::Bin =&gt; <span class="string">'b'</span>,
+            <span class="self">Self</span>::Oct =&gt; <span class="string">'o'</span>,
+            <span class="self">Self</span>::Dec =&gt; <span class="string">'d'</span>,
+            <span class="self">Self</span>::Hex =&gt; <span class="string">'x'</span>,
         }
     }
 
     <span class="kw">pub fn </span>base_digits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Bin =&gt; <span class="string">&quot;01&quot;</span>,
-            <span class="self">Self</span>::Oct =&gt; <span class="string">&quot;01234567&quot;</span>,
-            <span class="self">Self</span>::Dec =&gt; <span class="string">&quot;0123456789&quot;</span>,
-            <span class="self">Self</span>::Hex =&gt; <span class="string">&quot;0123456789abcdef&quot;</span>,
+            <span class="self">Self</span>::Bin =&gt; <span class="string">"01"</span>,
+            <span class="self">Self</span>::Oct =&gt; <span class="string">"01234567"</span>,
+            <span class="self">Self</span>::Dec =&gt; <span class="string">"0123456789"</span>,
+            <span class="self">Self</span>::Hex =&gt; <span class="string">"0123456789abcdef"</span>,
         }
     }
 
@@ -308,7 +308,7 @@
         base_x::encode(<span class="self">self</span>.base_digits(), input.as_ref())
     }
 
-    <span class="kw">pub fn </span>decode&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, input: Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, Vec&lt;u8&gt;&gt; {
+    <span class="kw">pub fn </span>decode&lt;<span class="lifetime">'a</span>, F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, input: Span&lt;<span class="lifetime">'a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'a</span>, F, Vec&lt;u8&gt;&gt; {
         <span class="kw">let </span>(i, o) = input.split_at_position_complete(|x| !<span class="self">self</span>.is_digit(x))<span class="question-mark">?</span>;
         <span class="kw">match </span>base_x::decode(<span class="self">self</span>.base_digits(), o.fragment()) {
             <span class="prelude-val">Ok</span>(bytes) =&gt; <span class="prelude-val">Ok</span>((i, bytes)),
@@ -322,16 +322,16 @@
 
 <span class="macro">macro_rules! </span>define_parse_digits {
     (<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$base</span>:ident, <span class="macro-nonterminal">$digit_str</span>:expr, <span class="macro-nonterminal">$digits_str</span>:expr, <span class="macro-nonterminal">$map_fn</span>:expr) =&gt; {
-        <span class="kw">pub fn </span><span class="macro-nonterminal">$name</span>&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, String&gt; {
-            <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
+        <span class="kw">pub fn </span><span class="macro-nonterminal">$name</span>&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, String&gt; {
+            <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
                 <span class="kw">let </span>(i, d) = context(<span class="macro-nonterminal">$digit_str</span>, satisfy(|x| LitBase::<span class="macro-nonterminal">$base</span>.is_digit(x)))(from)<span class="question-mark">?</span>;
                 <span class="kw">let </span>(i, ds) = context(
                     <span class="macro-nonterminal">$digits_str</span>,
-                    take_till(|x| !(LitBase::<span class="macro-nonterminal">$base</span>.is_digit(x) || x == <span class="string">&#39;_&#39;</span>)),
+                    take_till(|x| !(LitBase::<span class="macro-nonterminal">$base</span>.is_digit(x) || x == <span class="string">'_'</span>)),
                 )(i)<span class="question-mark">?</span>;
                 <span class="kw">let </span>ds: String = core::iter::once(d)
                     .chain((<span class="kw-2">*</span>ds.fragment()).to_owned().chars())
-                    .filter(|x| <span class="kw-2">*</span>x != <span class="string">&#39;_&#39;</span>)
+                    .filter(|x| <span class="kw-2">*</span>x != <span class="string">'_'</span>)
                     .map(<span class="macro-nonterminal">$map_fn</span>)
                     .collect();
                 <span class="prelude-val">Ok</span>((i, ds))
@@ -343,34 +343,34 @@
 <span class="macro">define_parse_digits!</span>(
     parse_bin_digits,
     Bin,
-    <span class="string">&quot;binary digit&quot;</span>,
-    <span class="string">&quot;binary digits&quot;</span>,
+    <span class="string">"binary digit"</span>,
+    <span class="string">"binary digits"</span>,
     |x| x
 );
-<span class="macro">define_parse_digits!</span>(parse_oct_digits, Oct, <span class="string">&quot;octal digit&quot;</span>, <span class="string">&quot;octal digits&quot;</span>, |x| x);
+<span class="macro">define_parse_digits!</span>(parse_oct_digits, Oct, <span class="string">"octal digit"</span>, <span class="string">"octal digits"</span>, |x| x);
 <span class="macro">define_parse_digits!</span>(
     parse_dec_digits,
     Dec,
-    <span class="string">&quot;decimal digit&quot;</span>,
-    <span class="string">&quot;decimal digits&quot;</span>,
+    <span class="string">"decimal digit"</span>,
+    <span class="string">"decimal digits"</span>,
     |x| x
 );
 <span class="macro">define_parse_digits!</span>(
     parse_hex_digits,
     Hex,
-    <span class="string">&quot;hexadecimal digit&quot;</span>,
-    <span class="string">&quot;hexadecimal digits&quot;</span>,
+    <span class="string">"hexadecimal digit"</span>,
+    <span class="string">"hexadecimal digits"</span>,
     |x| x.to_ascii_lowercase()
 );
 
-<span class="kw">pub fn </span>parse_litbase_code&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, LitBase&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
+<span class="kw">pub fn </span>parse_litbase_code&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, LitBase&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
         map_parse_err(
             alt((
-                value(LitBase::Bin, tag(<span class="string">&quot;b&quot;</span>)),
-                value(LitBase::Oct, tag(<span class="string">&quot;o&quot;</span>)),
-                value(LitBase::Dec, tag(<span class="string">&quot;d&quot;</span>)),
-                value(LitBase::Hex, tag(<span class="string">&quot;x&quot;</span>)),
+                value(LitBase::Bin, tag(<span class="string">"b"</span>)),
+                value(LitBase::Oct, tag(<span class="string">"o"</span>)),
+                value(LitBase::Dec, tag(<span class="string">"d"</span>)),
+                value(LitBase::Hex, tag(<span class="string">"x"</span>)),
             ))(from),
             |<span class="kw">_</span>| ParseError::new(from, ParseErrorKind::UnknownBaseCode),
         )
@@ -380,8 +380,8 @@
 <span class="attr">#[allow(clippy::type_complexity)]
 </span><span class="kw">pub fn </span>parse_litbase_digits&lt;F: LurkField&gt;(
     base: LitBase,
-) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, String&gt;&gt; {
-    Box::new(<span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| <span class="kw">match </span>base {
+) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, String&gt;&gt; {
+    Box::new(<span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| <span class="kw">match </span>base {
         LitBase::Bin =&gt; parse_bin_digits()(from),
         LitBase::Oct =&gt; parse_oct_digits()(from),
         LitBase::Dec =&gt; parse_dec_digits()(from),
@@ -391,9 +391,9 @@
 
 <span class="kw">pub fn </span>parse_litbase_be_bytes&lt;F: LurkField&gt;(
     base: LitBase,
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Vec&lt;u8&gt;&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
-        <span class="kw">let </span>(i, o): (Span&lt;<span class="lifetime">&#39;_</span>&gt;, String) = parse_litbase_digits(base)(from)<span class="question-mark">?</span>;
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, Vec&lt;u8&gt;&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
+        <span class="kw">let </span>(i, o): (Span&lt;<span class="lifetime">'_</span>&gt;, String) = parse_litbase_digits(base)(from)<span class="question-mark">?</span>;
         <span class="kw">match </span>base_x::decode(base.base_digits(), <span class="kw-2">&amp;</span>o) {
             <span class="prelude-val">Ok</span>(bytes) =&gt; <span class="prelude-val">Ok</span>((i, bytes)),
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(nom::Err::Error(ParseError::new(
@@ -406,8 +406,8 @@
 
 <span class="kw">pub fn </span>parse_litbase_le_bytes&lt;F: LurkField&gt;(
     base: LitBase,
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Vec&lt;u8&gt;&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, Vec&lt;u8&gt;&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
         <span class="kw">let </span>(i, bytes) = parse_litbase_be_bytes(base)(from)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((i, bytes.into_iter().rev().collect()))
     }
@@ -420,27 +420,27 @@
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="kw">fn </span>test_parse&lt;<span class="lifetime">&#39;a</span>, P&gt;(<span class="kw-2">mut </span>p: P, i: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, expected: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;)
+    <span class="kw">fn </span>test_parse&lt;<span class="lifetime">'a</span>, P&gt;(<span class="kw-2">mut </span>p: P, i: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, expected: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;)
     <span class="kw">where
-        </span>P: Parser&lt;Span&lt;<span class="lifetime">&#39;a</span>&gt;, Vec&lt;u8&gt;, ParseError&lt;Span&lt;<span class="lifetime">&#39;a</span>&gt;, Fr&gt;&gt;,
+        </span>P: Parser&lt;Span&lt;<span class="lifetime">'a</span>&gt;, Vec&lt;u8&gt;, ParseError&lt;Span&lt;<span class="lifetime">'a</span>&gt;, Fr&gt;&gt;,
     {
-        <span class="kw">match </span>(expected, p.parse(Span::&lt;<span class="lifetime">&#39;a</span>&gt;::new(i))) {
+        <span class="kw">match </span>(expected, p.parse(Span::&lt;<span class="lifetime">'a</span>&gt;::new(i))) {
             (<span class="prelude-val">Some</span>(expected), <span class="prelude-val">Ok</span>((_i, x))) <span class="kw">if </span>x == expected =&gt; (),
             (<span class="prelude-val">Some</span>(expected), <span class="prelude-val">Ok</span>((i, x))) =&gt; {
-                <span class="macro">println!</span>(<span class="string">&quot;input: {i:?}&quot;</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;expected: {expected:?}&quot;</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;detected: {x:?}&quot;</span>);
-                <span class="macro">unreachable!</span>(<span class="string">&quot;unexpected parse result&quot;</span>)
+                <span class="macro">println!</span>(<span class="string">"input: {i:?}"</span>);
+                <span class="macro">println!</span>(<span class="string">"expected: {expected:?}"</span>);
+                <span class="macro">println!</span>(<span class="string">"detected: {x:?}"</span>);
+                <span class="macro">unreachable!</span>(<span class="string">"unexpected parse result"</span>)
             }
             (<span class="prelude-val">Some</span>(..), <span class="prelude-val">Err</span>(e)) =&gt; {
-                <span class="macro">println!</span>(<span class="string">&quot;{e}&quot;</span>);
-                <span class="macro">unreachable!</span>(<span class="string">&quot;unexpected parse result&quot;</span>)
+                <span class="macro">println!</span>(<span class="string">"{e}"</span>);
+                <span class="macro">unreachable!</span>(<span class="string">"unexpected parse result"</span>)
             }
             (<span class="prelude-val">None</span>, <span class="prelude-val">Ok</span>((i, x))) =&gt; {
-                <span class="macro">println!</span>(<span class="string">&quot;input: {i:?}&quot;</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;expected parse error&quot;</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;detected: {x:?}&quot;</span>);
-                <span class="macro">unreachable!</span>(<span class="string">&quot;unexpected parse result&quot;</span>)
+                <span class="macro">println!</span>(<span class="string">"input: {i:?}"</span>);
+                <span class="macro">println!</span>(<span class="string">"expected parse error"</span>);
+                <span class="macro">println!</span>(<span class="string">"detected: {x:?}"</span>);
+                <span class="macro">unreachable!</span>(<span class="string">"unexpected parse result"</span>)
             }
             (<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(_e)) =&gt; (),
         }
@@ -450,12 +450,12 @@
     </span><span class="kw">fn </span>unit_parse_litbase_bytes_endianesss() {
         test_parse(
             parse_litbase_le_bytes::&lt;Fr&gt;(LitBase::Hex),
-            <span class="string">&quot;1234567890&quot;</span>,
+            <span class="string">"1234567890"</span>,
             <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">0x90</span>, <span class="number">0x78</span>, <span class="number">0x56</span>, <span class="number">0x34</span>, <span class="number">0x12</span>]),
         );
         test_parse(
             parse_litbase_be_bytes::&lt;Fr&gt;(LitBase::Hex),
-            <span class="string">&quot;1234567890&quot;</span>,
+            <span class="string">"1234567890"</span>,
             <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">0x12</span>, <span class="number">0x34</span>, <span class="number">0x56</span>, <span class="number">0x78</span>, <span class="number">0x90</span>]),
         )
     }

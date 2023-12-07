@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1855,9 +1855,9 @@
 
 <span class="kw">static </span>EVAL_STEP: OnceCell&lt;Func&gt; = OnceCell::new();
 
-<span class="doccomment">/// Cached version of Lurk&#39;s default step function (IVC, no coprocessors)
+<span class="doccomment">/// Cached version of Lurk's default step function (IVC, no coprocessors)
 </span><span class="attr">#[inline]
-</span><span class="kw">pub fn </span>eval_step() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Func {
+</span><span class="kw">pub fn </span>eval_step() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Func {
     EVAL_STEP.get_or_init(|| make_eval_step(<span class="kw-2">&amp;</span>[], <span class="bool-val">true</span>))
 }
 
@@ -1871,12 +1871,12 @@
         Ptr::Tuple2(Tag::Expr(Cproc), idx) =&gt; {
             <span class="kw">let </span>(cproc, <span class="kw">_</span>) = store
                 .fetch_2_ptrs(<span class="kw-2">*</span>idx)
-                .expect(<span class="string">&quot;Coprocessor expression is not interned&quot;</span>);
+                .expect(<span class="string">"Coprocessor expression is not interned"</span>);
             <span class="kw">let </span>cproc_sym = store
                 .fetch_symbol(cproc)
-                .expect(<span class="string">&quot;Coprocessor expression is not interned&quot;</span>);
+                .expect(<span class="string">"Coprocessor expression is not interned"</span>);
             lang.get_index_by_symbol(<span class="kw-2">&amp;</span>cproc_sym)
-                .expect(<span class="string">&quot;Coprocessor not found&quot;</span>)
+                .expect(<span class="string">"Coprocessor not found"</span>)
                 + <span class="number">1
         </span>}
         <span class="kw">_ </span>=&gt; <span class="number">0</span>,
@@ -1897,7 +1897,7 @@
     } <span class="kw">else </span>{
         cprocs_run
             .get(pc - <span class="number">1</span>)
-            .expect(<span class="string">&quot;Program counter outside range&quot;</span>)
+            .expect(<span class="string">"Program counter outside range"</span>)
     };
     <span class="macro">assert_eq!</span>(func.input_params.len(), input.len());
     <span class="kw">let </span>preimages = Hints::new_from_func(func);
@@ -1923,7 +1923,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>pc = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>frames = <span class="macro">vec!</span>[];
     <span class="kw">let </span><span class="kw-2">mut </span>iterations = <span class="number">0</span>;
-    <span class="macro">tracing::info!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span>log_fmt(<span class="number">0</span>, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>[], store));
+    <span class="macro">tracing::info!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span>log_fmt(<span class="number">0</span>, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>[], store));
     <span class="kw">for _ in </span><span class="number">0</span>..limit {
         <span class="kw">let </span><span class="kw-2">mut </span>emitted = <span class="macro">vec!</span>[];
         <span class="kw">let </span>(frame, must_break) =
@@ -1931,7 +1931,7 @@
 
         iterations += <span class="number">1</span>;
         input = frame.output.clone();
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span>log_fmt(iterations, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>emitted, store));
+        <span class="macro">tracing::info!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span>log_fmt(iterations, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>emitted, store));
         <span class="kw">let </span>expr = frame.output[<span class="number">0</span>];
         frames.push(frame);
 
@@ -1943,7 +1943,7 @@
     <span class="prelude-val">Ok</span>((frames, iterations))
 }
 
-<span class="doccomment">/// Faster version of `build_frames` that doesn&#39;t accumulate frames
+<span class="doccomment">/// Faster version of `build_frames` that doesn't accumulate frames
 </span><span class="kw">fn </span>traverse_frames&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     lurk_step: <span class="kw-2">&amp;</span>Func,
     cprocs_run: <span class="kw-2">&amp;</span>[Func],
@@ -1981,13 +1981,13 @@
     <span class="kw">let </span>state = initial_lurk_state();
     <span class="kw">let </span>log_fmt = |i: usize, inp: <span class="kw-2">&amp;</span>[Ptr], emit: <span class="kw-2">&amp;</span>[Ptr], store: <span class="kw-2">&amp;</span>Store&lt;F&gt;| {
         <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="macro">format!</span>(
-            <span class="string">&quot;Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}&quot;</span>,
+            <span class="string">"Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}"</span>,
             inp[<span class="number">0</span>].fmt_to_string(store, state),
             inp[<span class="number">1</span>].fmt_to_string(store, state),
             inp[<span class="number">2</span>].fmt_to_string(store, state)
         );
         <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = emit.first() {
-            out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;\n\tEmtd: {}&quot;</span>, ptr.fmt_to_string(store, state)));
+            out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"\n\tEmtd: {}"</span>, ptr.fmt_to_string(store, state)));
         }
         out
     };
@@ -2064,14 +2064,14 @@
     evaluate_simple_with_env(func_lang, expr, store.intern_nil(), store, limit)
 }
 
-<span class="kw">pub struct </span>EvalConfig&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
-    lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;,
+<span class="kw">pub struct </span>EvalConfig&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+    lang: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Lang&lt;F, C&gt;,
     folding_mode: FoldingMode,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; EvalConfig&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; EvalConfig&lt;<span class="lifetime">'a</span>, F, C&gt; {
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>new_ivc(lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new_ivc(lang: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             lang,
             folding_mode: FoldingMode::IVC,
@@ -2079,7 +2079,7 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>new_nivc(lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new_nivc(lang: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             lang,
             folding_mode: FoldingMode::NIVC,
@@ -2097,15 +2097,15 @@
     }
 }
 
-<span class="doccomment">/// Creates a LEM `Func` corresponding to Lurk&#39;s step function from a `Lang`.
+<span class="doccomment">/// Creates a LEM `Func` corresponding to Lurk's step function from a `Lang`.
 /// The `ivc` flag tells whether the generated step function is used for IVC or
 /// NIVC. In the IVC case, the step function is capable of reducing calls to the
 /// coprocessors present in `Lang` and their circuit will go in the circuit of
-/// the step function. In the NIVC case, the step function won&#39;t be able to reduce
+/// the step function. In the NIVC case, the step function won't be able to reduce
 /// calls to coprocessors and sets up a loop via the `Expr::Cproc` tag, meaning
 /// that the reduction must be done from outside.
 </span><span class="kw">pub fn </span>make_eval_step_from_config&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
-    ec: <span class="kw-2">&amp;</span>EvalConfig&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
+    ec: <span class="kw-2">&amp;</span>EvalConfig&lt;<span class="lifetime">'_</span>, F, C&gt;,
 ) -&gt; Func {
     make_eval_step(
         <span class="kw-2">&amp;</span>ec.lang
@@ -2130,11 +2130,11 @@
     })
 }
 
-<span class="doccomment">/// Simpler version of `car_cdr` that doesn&#39;t deconstruct strings to save some
+<span class="doccomment">/// Simpler version of `car_cdr` that doesn't deconstruct strings to save some
 /// constraints
 </span><span class="kw">fn </span>car_cdr() -&gt; Func {
     <span class="macro">func!</span>(car_cdr(xs): <span class="number">2 </span>=&gt; {
-        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">match </span>xs.tag {
             Expr::Nil =&gt; {
@@ -2148,21 +2148,21 @@
     })
 }
 
-<span class="doccomment">/// This `Func` is used to call a standalone coprocessor out of the Lurk&#39;s step
+<span class="doccomment">/// This `Func` is used to call a standalone coprocessor out of the Lurk's step
 /// function. It checks whether the coprocessor expression corresponds to the
-/// right coprocessor. If it doesn&#39;t, evaluation will error and the circuit
+/// right coprocessor. If it doesn't, evaluation will error and the circuit
 /// becomes unsatisfiable. If it does, destructure the list of arguments and
 /// call the coprocessor.
 ///
 /// `run_cproc` is meant to be used in the context of NIVC, when the circuit for
-/// each coprocessor is detached from Lurk&#39;s universal circuit.
+/// each coprocessor is detached from Lurk's universal circuit.
 ///
 /// The following is a LEM pseudo-code for what this function implements:
 ///
 /// ```ignore
 /// run_cproc(cproc, env, cont): 3 {
 ///     let err: Cont::Error = HASH_8_ZEROS;
-///     let nil = Symbol(&quot;nil&quot;);
+///     let nil = Symbol("nil");
 ///     let nil = cast(nil, Expr::Nil);
 ///     match cproc.tag {
 ///         Expr::Cproc =&gt; {
@@ -2201,22 +2201,22 @@
 /// ```
 </span><span class="kw">fn </span>run_cproc(cproc_sym: Symbol, arity: usize) -&gt; Func {
     <span class="kw">let </span>evaluated_args = <span class="kw">if </span>arity == <span class="number">0 </span>{
-        Var::new(<span class="string">&quot;_evaluated_args&quot;</span>)
+        Var::new(<span class="string">"_evaluated_args"</span>)
     } <span class="kw">else </span>{
-        Var::new(<span class="string">&quot;evaluated_args&quot;</span>)
+        Var::new(<span class="string">"evaluated_args"</span>)
     };
-    <span class="kw">let </span>expr = Var::new(<span class="string">&quot;expr&quot;</span>);
-    <span class="kw">let </span>env = Var::new(<span class="string">&quot;env&quot;</span>);
-    <span class="kw">let </span>cont = Var::new(<span class="string">&quot;cont&quot;</span>);
-    <span class="kw">let </span>nil = Var::new(<span class="string">&quot;nil&quot;</span>);
-    <span class="kw">let </span>is_nil = Var::new(<span class="string">&quot;is_nil&quot;</span>);
-    <span class="kw">let </span>cproc = Var::new(<span class="string">&quot;cproc&quot;</span>);
-    <span class="kw">let </span>cproc_name = Var::new(<span class="string">&quot;cproc_name&quot;</span>);
+    <span class="kw">let </span>expr = Var::new(<span class="string">"expr"</span>);
+    <span class="kw">let </span>env = Var::new(<span class="string">"env"</span>);
+    <span class="kw">let </span>cont = Var::new(<span class="string">"cont"</span>);
+    <span class="kw">let </span>nil = Var::new(<span class="string">"nil"</span>);
+    <span class="kw">let </span>is_nil = Var::new(<span class="string">"is_nil"</span>);
+    <span class="kw">let </span>cproc = Var::new(<span class="string">"cproc"</span>);
+    <span class="kw">let </span>cproc_name = Var::new(<span class="string">"cproc_name"</span>);
     <span class="kw">let </span>cproc_out = <span class="macro">vec!</span>[expr.clone(), env.clone(), cont.clone()];
     <span class="kw">let </span>func_out = <span class="macro">vec!</span>[expr, env.clone(), cont.clone()];
     <span class="kw">let </span>err_block = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(evaluated_args_cp, env, err)));
     <span class="kw">let </span><span class="kw-2">mut </span>cproc_inp = (<span class="number">0</span>..arity)
-        .map(|i| Var(<span class="macro">format!</span>(<span class="string">&quot;x{i}&quot;</span>).into()))
+        .map(|i| Var(<span class="macro">format!</span>(<span class="string">"x{i}"</span>).into()))
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
     cproc_inp.push(env.clone());
     cproc_inp.push(cont.clone());
@@ -2245,7 +2245,7 @@
     <span class="kw">if </span>arity &gt; <span class="number">0 </span>{
         <span class="kw">let </span>ops = <span class="macro">vec!</span>[
             Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
-            Op::Copy(Var::new(<span class="string">&quot;evaluated_args_cp&quot;</span>), evaluated_args.clone()),
+            Op::Copy(Var::new(<span class="string">"evaluated_args_cp"</span>), evaluated_args.clone()),
         ];
         block = Block {
             ops,
@@ -2269,14 +2269,14 @@
         } <span class="kw">else </span>{
             <span class="macro">vec!</span>[
                 <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS),
-                <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
+                <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>)),
                 <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
             ]
         },
         ctrl: Ctrl::match_tag(cproc.clone(), <span class="macro">vec!</span>[(Tag::Expr(Cproc), block)], <span class="prelude-val">None</span>),
     };
     <span class="kw">let </span>func_inp = <span class="macro">vec!</span>[cproc, env, cont];
-    Func::new(<span class="string">&quot;run_cproc&quot;</span>.into(), func_inp, <span class="number">3</span>, block).unwrap()
+    Func::new(<span class="string">"run_cproc"</span>.into(), func_inp, <span class="number">3</span>, block).unwrap()
 }
 
 <span class="doccomment">/// Creates the `Func`s used to call coprocessors in the NIVC scenario. Each
@@ -2297,9 +2297,9 @@
 ///
 /// ```ignore
 /// is_cproc(head): 1 {
-///     let nil = Symbol(&quot;nil&quot;);
+///     let nil = Symbol("nil");
 ///     let nil = cast(nil, Expr::Nil);
-///     let t = Symbol(&quot;t&quot;);
+///     let t = Symbol("t");
 ///     match symbol head {
 ///         // one arm for each coprocessor in the `Lang`
 ///         ... =&gt; {
@@ -2312,16 +2312,16 @@
 </span><span class="kw">fn </span>is_cproc(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)]) -&gt; Func {
     <span class="kw">if </span>cprocs.is_empty() {
         <span class="macro">func!</span>(is_cproc(_head): <span class="number">1 </span>=&gt; {
-            <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+            <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
             <span class="kw">let </span>nil = cast(nil, Expr::Nil);
             <span class="kw">return </span>(nil);
         })
     } <span class="kw">else </span>{
-        <span class="kw">let </span>head = Var::new(<span class="string">&quot;head&quot;</span>);
+        <span class="kw">let </span>head = Var::new(<span class="string">"head"</span>);
         <span class="kw">let </span>ops = <span class="macro">vec!</span>[
-            <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>)),
             <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
-            <span class="macro">op!</span>(<span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>t = Symbol(<span class="string">"t"</span>)),
         ];
         <span class="kw">let </span>match_symbol_cases = cprocs
             .iter()
@@ -2329,7 +2329,7 @@
             .collect();
         <span class="kw">let </span>def = <span class="prelude-val">Some</span>(Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(nil))));
         <span class="kw">let </span>ctrl = Ctrl::match_symbol(head.clone(), match_symbol_cases, def);
-        Func::new(<span class="string">&quot;is_cproc&quot;</span>.into(), <span class="macro">vec!</span>[head], <span class="number">1</span>, Block { ops, ctrl }).unwrap()
+        Func::new(<span class="string">"is_cproc"</span>.into(), <span class="macro">vec!</span>[head], <span class="number">1</span>, Block { ops, ctrl }).unwrap()
     }
 }
 
@@ -2337,7 +2337,7 @@
 /// arguments according to its arity and then calls it.
 ///
 /// `match_and_run_cproc` is meant to be used in the context of IVC, when the
-/// circuit for each coprocessor goes within Lurk&#39;s universal circuit.
+/// circuit for each coprocessor goes within Lurk's universal circuit.
 ///
 /// Bonus: destructuring the list of arguments for the coprocessors share
 /// allocated slots
@@ -2347,11 +2347,11 @@
 /// ```ignore
 /// match_and_run_cproc(cproc_name, evaluated_args, env, cont): 4 {
 ///     let err: Cont::Error = HASH_8_ZEROS;
-///     let nil = Symbol(&quot;nil&quot;);
+///     let nil = Symbol("nil");
 ///     let nil = cast(nil, Expr::Nil);
-///     let makethunk = Symbol(&quot;make-thunk&quot;);
-///     let errctrl = Symbol(&quot;error&quot;);
-///     let ret = Symbol(&quot;return&quot;);
+///     let makethunk = Symbol("make-thunk");
+///     let errctrl = Symbol("error");
+///     let ret = Symbol("return");
 ///     match symbol cproc_name {
 ///         x =&gt; {
 ///             // `n` is the arity of the coprocessor `x`
@@ -2390,19 +2390,19 @@
 /// ```
 </span><span class="kw">fn </span>match_and_run_cproc(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)]) -&gt; Func {
     <span class="kw">let </span>max_arity = cprocs.iter().fold(<span class="number">0</span>, |acc, (<span class="kw">_</span>, a)| acc.max(<span class="kw-2">*</span>a));
-    <span class="kw">let </span>cproc_name = Var::new(<span class="string">&quot;cproc_name&quot;</span>);
+    <span class="kw">let </span>cproc_name = Var::new(<span class="string">"cproc_name"</span>);
     <span class="kw">let </span>evaluated_args = <span class="kw">if </span>max_arity == <span class="number">0 </span>{
-        Var::new(<span class="string">&quot;_evaluated_args&quot;</span>)
+        Var::new(<span class="string">"_evaluated_args"</span>)
     } <span class="kw">else </span>{
-        Var::new(<span class="string">&quot;evaluated_args&quot;</span>)
+        Var::new(<span class="string">"evaluated_args"</span>)
     };
-    <span class="kw">let </span>expr = Var::new(<span class="string">&quot;expr&quot;</span>);
-    <span class="kw">let </span>env = Var::new(<span class="string">&quot;env&quot;</span>);
-    <span class="kw">let </span>cont = Var::new(<span class="string">&quot;cont&quot;</span>);
-    <span class="kw">let </span>nil = Var::new(<span class="string">&quot;nil&quot;</span>);
-    <span class="kw">let </span>is_nil = Var::new(<span class="string">&quot;is_nil&quot;</span>);
+    <span class="kw">let </span>expr = Var::new(<span class="string">"expr"</span>);
+    <span class="kw">let </span>env = Var::new(<span class="string">"env"</span>);
+    <span class="kw">let </span>cont = Var::new(<span class="string">"cont"</span>);
+    <span class="kw">let </span>nil = Var::new(<span class="string">"nil"</span>);
+    <span class="kw">let </span>is_nil = Var::new(<span class="string">"is_nil"</span>);
     <span class="kw">let </span>cproc_out = <span class="macro">vec!</span>[expr.clone(), env.clone(), cont.clone()];
-    <span class="kw">let </span>func_out = <span class="macro">vec!</span>[expr, env.clone(), cont.clone(), Var::new(<span class="string">&quot;makethunk&quot;</span>)];
+    <span class="kw">let </span>func_out = <span class="macro">vec!</span>[expr, env.clone(), cont.clone(), Var::new(<span class="string">"makethunk"</span>)];
     <span class="kw">let </span>err_block = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(evaluated_args_cp, env, err, errctrl)));
     <span class="kw">let </span>err_block_from_cproc = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(expr, env, err, errctrl)));
     <span class="kw">let </span>ret_block_from_cproc = Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(expr, env, cont, ret)));
@@ -2419,7 +2419,7 @@
         <span class="kw">let </span>cproc = <span class="kw-2">*</span>cproc;
         <span class="kw">let </span>arity = <span class="kw-2">*</span>arity;
         <span class="kw">let </span><span class="kw-2">mut </span>cproc_inp = (<span class="number">0</span>..arity)
-            .map(|i| Var(<span class="macro">format!</span>(<span class="string">&quot;x{i}&quot;</span>).into()))
+            .map(|i| Var(<span class="macro">format!</span>(<span class="string">"x{i}"</span>).into()))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         cproc_inp.push(env.clone());
         cproc_inp.push(cont.clone());
@@ -2452,7 +2452,7 @@
         <span class="kw">if </span>arity &gt; <span class="number">0 </span>{
             <span class="kw">let </span>ops = <span class="macro">vec!</span>[
                 Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
-                Op::Copy(Var::new(<span class="string">&quot;evaluated_args_cp&quot;</span>), evaluated_args.clone()),
+                Op::Copy(Var::new(<span class="string">"evaluated_args_cp"</span>), evaluated_args.clone()),
             ];
             block = Block {
                 ops,
@@ -2466,22 +2466,22 @@
     <span class="kw">let </span>ops = <span class="kw">if </span>max_arity == <span class="number">0 </span>{
         <span class="macro">vec!</span>[
             <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS),
-            <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>)),
-            <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>)),
-            <span class="macro">op!</span>(<span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">"make-thunk"</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">"error"</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>ret = Symbol(<span class="string">"return"</span>)),
         ]
     } <span class="kw">else </span>{
         <span class="macro">vec!</span>[
             <span class="macro">op!</span>(<span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS),
-            <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>)),
-            <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>)),
-            <span class="macro">op!</span>(<span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>)),
-            <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>makethunk = Symbol(<span class="string">"make-thunk"</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>errctrl = Symbol(<span class="string">"error"</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>ret = Symbol(<span class="string">"return"</span>)),
+            <span class="macro">op!</span>(<span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>)),
             <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
         ]
     };
     Func::new(
-        <span class="string">&quot;match_and_run_cproc&quot;</span>.into(),
+        <span class="string">"match_and_run_cproc"</span>.into(),
         func_inp,
         <span class="number">4</span>,
         Block { ops, ctrl },
@@ -2504,8 +2504,8 @@
     <span class="kw">let </span>extract_arg = <span class="macro">func!</span>(extract_arg(args): <span class="number">2 </span>=&gt; {
         <span class="kw">match </span>args.tag {
             Expr::Nil =&gt; {
-                <span class="kw">let </span>dummy = Symbol(<span class="string">&quot;dummy&quot;</span>);
-                <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+                <span class="kw">let </span>dummy = Symbol(<span class="string">"dummy"</span>);
+                <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
                 <span class="kw">let </span>nil = cast(nil, Expr::Nil);
                 <span class="kw">return </span>(dummy, nil)
             }
@@ -2527,61 +2527,61 @@
     });
     <span class="kw">let </span>choose_let_cont = <span class="macro">func!</span>(choose_let_cont(head, var, env, expanded, cont): <span class="number">1 </span>=&gt; {
         <span class="kw">match </span>symbol head {
-            <span class="string">&quot;let&quot; </span>=&gt; {
+            <span class="string">"let" </span>=&gt; {
                 <span class="kw">let </span>cont: Cont::Let = cons4(var, env, expanded, cont);
                 <span class="kw">return </span>(cont)
             }
-            <span class="string">&quot;letrec&quot; </span>=&gt; {
+            <span class="string">"letrec" </span>=&gt; {
                 <span class="kw">let </span>cont: Cont::LetRec = cons4(var, env, expanded, cont);
                 <span class="kw">return </span>(cont)
             }
         }
     });
     <span class="kw">let </span>get_unop = <span class="macro">func!</span>(get_unop(head): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">match </span>symbol head {
-            <span class="string">&quot;car&quot; </span>=&gt; {
+            <span class="string">"car" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Car;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;cdr&quot; </span>=&gt; {
+            <span class="string">"cdr" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Cdr;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;commit&quot; </span>=&gt; {
+            <span class="string">"commit" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Commit;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;num&quot; </span>=&gt; {
+            <span class="string">"num" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Num;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;u64&quot; </span>=&gt; {
+            <span class="string">"u64" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::U64;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;comm&quot; </span>=&gt; {
+            <span class="string">"comm" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Comm;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;char&quot; </span>=&gt; {
+            <span class="string">"char" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Char;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;open&quot; </span>=&gt; {
+            <span class="string">"open" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Open;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;secret&quot; </span>=&gt; {
+            <span class="string">"secret" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Secret;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;atom&quot; </span>=&gt; {
+            <span class="string">"atom" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Atom;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;emit&quot; </span>=&gt; {
+            <span class="string">"emit" </span>=&gt; {
                 <span class="kw">let </span>op: Op1::Emit;
                 <span class="kw">return </span>(op);
             }
@@ -2589,62 +2589,62 @@
         <span class="kw">return </span>(nil)
     });
     <span class="kw">let </span>get_binop = <span class="macro">func!</span>(get_binop(head): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">match </span>symbol head {
-            <span class="string">&quot;cons&quot; </span>=&gt; {
+            <span class="string">"cons" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Cons;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;strcons&quot; </span>=&gt; {
+            <span class="string">"strcons" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::StrCons;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;hide&quot; </span>=&gt; {
+            <span class="string">"hide" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Hide;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;+&quot; </span>=&gt; {
+            <span class="string">"+" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Sum;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;-&quot; </span>=&gt; {
+            <span class="string">"-" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Diff;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;*&quot; </span>=&gt; {
+            <span class="string">"*" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Product;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;/&quot; </span>=&gt; {
+            <span class="string">"/" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Quotient;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;%&quot; </span>=&gt; {
+            <span class="string">"%" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Modulo;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;=&quot; </span>=&gt; {
+            <span class="string">"=" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::NumEqual;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;eq&quot; </span>=&gt; {
+            <span class="string">"eq" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Equal;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;&lt;&quot; </span>=&gt; {
+            <span class="string">"&lt;" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Less;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;&gt;&quot; </span>=&gt; {
+            <span class="string">"&gt;" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::Greater;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;&lt;=&quot; </span>=&gt; {
+            <span class="string">"&lt;=" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::LessEqual;
                 <span class="kw">return </span>(op);
             }
-            <span class="string">&quot;&gt;=&quot; </span>=&gt; {
+            <span class="string">"&gt;=" </span>=&gt; {
                 <span class="kw">let </span>op: Op2::GreaterEqual;
                 <span class="kw">return </span>(op);
             }
@@ -2652,7 +2652,7 @@
         <span class="kw">return </span>(nil)
     });
     <span class="kw">let </span>make_call = <span class="macro">func!</span>(make_call(head, rest, env, cont): <span class="number">4 </span>=&gt; {
-        <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
+        <span class="kw">let </span>ret = Symbol(<span class="string">"return"</span>);
         <span class="kw">let </span>foo: Expr::Nil;
         <span class="kw">match </span>rest.tag {
             Expr::Nil =&gt; {
@@ -2667,7 +2667,7 @@
                         <span class="kw">return </span>(head, env, cont, ret)
                     }
                 };
-                <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+                <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
                 <span class="kw">let </span>nil = cast(nil, Expr::Nil);
                 <span class="kw">let </span>expanded_inner0: Expr::Cons = cons2(arg, nil);
                 <span class="kw">let </span>expanded_inner: Expr::Cons = cons2(head, expanded_inner0);
@@ -2686,17 +2686,17 @@
         <span class="kw">let </span>acc = or(head_is_fun, head_is_cons);
         <span class="kw">let </span>acc = or(acc, head_is_thunk);
         <span class="kw">if </span>acc {
-            <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
+            <span class="kw">let </span>t = Symbol(<span class="string">"t"</span>);
             <span class="kw">return </span>(t)
         }
-        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">return </span>(nil)
     });
     <span class="kw">let </span>is_cproc = is_cproc(cprocs);
 
     <span class="macro">func!</span>(reduce(expr, env, cont): <span class="number">4 </span>=&gt; {
-        <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
+        <span class="kw">let </span>ret = Symbol(<span class="string">"return"</span>);
         <span class="kw">let </span>term: Cont::Terminal = HASH_8_ZEROS;
         <span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS;
         <span class="kw">let </span>cproc: Expr::Cproc;
@@ -2709,7 +2709,7 @@
         <span class="kw">if </span>acc_ret {
             <span class="kw">return </span>(expr, env, cont, ret)
         }
-        <span class="kw">let </span>apply = Symbol(<span class="string">&quot;apply-continuation&quot;</span>);
+        <span class="kw">let </span>apply = Symbol(<span class="string">"apply-continuation"</span>);
         <span class="kw">let </span>thunk: Expr::Thunk;
         <span class="kw">let </span>sym: Expr::Sym;
         <span class="kw">let </span>cons: Expr::Cons;
@@ -2722,9 +2722,9 @@
         <span class="kw">if </span>!acc_not_apply {
             <span class="kw">return </span>(expr, env, cont, apply)
         }
-        <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
-        <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
-        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>errctrl = Symbol(<span class="string">"error"</span>);
+        <span class="kw">let </span>t = Symbol(<span class="string">"t"</span>);
+        <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>foo: Expr::Nil;
 
@@ -2808,13 +2808,13 @@
                 <span class="kw">let </span>rest_is_cons = eq_tag(rest, expr);
                 <span class="kw">let </span>rest_is_nil_or_cons = or(rest_is_nil, rest_is_cons);
                 <span class="kw">if </span>!rest_is_nil_or_cons {
-                    <span class="comment">// rest&#39;s tag can only be Nil or Cons
+                    <span class="comment">// rest's tag can only be Nil or Cons
                     </span><span class="kw">return </span>(expr, env, err, errctrl);
                 }
                 <span class="kw">match </span>head.tag {
                     Expr::Sym =&gt; {
-                        <span class="kw">let </span>let_sym = Symbol(<span class="string">&quot;let&quot;</span>);
-                        <span class="kw">let </span>letrec_sym = Symbol(<span class="string">&quot;letrec&quot;</span>);
+                        <span class="kw">let </span>let_sym = Symbol(<span class="string">"let"</span>);
+                        <span class="kw">let </span>letrec_sym = Symbol(<span class="string">"letrec"</span>);
                         <span class="kw">let </span>head_is_let_sym = eq_val(head, let_sym);
                         <span class="kw">let </span>head_is_letrec_sym = eq_val(head, letrec_sym);
                         <span class="kw">let </span>head_is_let_or_letrec_sym = or(head_is_let_sym, head_is_letrec_sym);
@@ -2855,7 +2855,7 @@
                             <span class="kw">return </span>(expr, env, err, errctrl)
                         }
                         <span class="kw">match </span>symbol head {
-                            <span class="string">&quot;lambda&quot; </span>=&gt; {
+                            <span class="string">"lambda" </span>=&gt; {
                                 <span class="kw">let </span>(args, body) = car_cdr(rest);
                                 <span class="kw">let </span>(arg, cdr_args) = extract_arg(args);
 
@@ -2876,7 +2876,7 @@
                                 };
                                 <span class="kw">return </span>(expr, env, err, errctrl)
                             }
-                            <span class="string">&quot;quote&quot; </span>=&gt; {
+                            <span class="string">"quote" </span>=&gt; {
                                 <span class="kw">let </span>(quoted, end) = car_cdr(rest);
 
                                 <span class="kw">match </span>end.tag {
@@ -2886,7 +2886,7 @@
                                 };
                                 <span class="kw">return </span>(expr, env, err, errctrl)
                             }
-                            <span class="string">&quot;begin&quot; </span>=&gt; {
+                            <span class="string">"begin" </span>=&gt; {
                                 <span class="kw">let </span>(arg1, more) = car_cdr(rest);
                                 <span class="kw">match </span>more.tag {
                                     Expr::Nil =&gt; {
@@ -2897,7 +2897,7 @@
                                 <span class="kw">let </span>cont: Cont::Binop = cons4(op, env, more, cont);
                                 <span class="kw">return </span>(arg1, env, cont, ret)
                             }
-                            <span class="string">&quot;eval&quot; </span>=&gt; {
+                            <span class="string">"eval" </span>=&gt; {
                                 <span class="kw">match </span>rest.tag {
                                     Expr::Nil =&gt; {
                                         <span class="kw">return </span>(expr, env, err, errctrl)
@@ -2915,7 +2915,7 @@
                                 <span class="kw">let </span>cont: Cont::Binop = cons4(op, env, more, cont);
                                 <span class="kw">return </span>(arg1, env, cont, ret)
                             }
-                            <span class="string">&quot;if&quot; </span>=&gt; {
+                            <span class="string">"if" </span>=&gt; {
                                 <span class="kw">let </span>(condition, more) = car_cdr(rest);
                                 <span class="kw">match </span>more.tag {
                                     Expr::Nil =&gt; {
@@ -2925,7 +2925,7 @@
                                 <span class="kw">let </span>cont: Cont::If = cons4(more, cont, foo, foo);
                                 <span class="kw">return </span>(condition, env, cont, ret)
                             }
-                            <span class="string">&quot;current-env&quot; </span>=&gt; {
+                            <span class="string">"current-env" </span>=&gt; {
                                 <span class="kw">match </span>rest.tag {
                                     Expr::Nil =&gt; {
                                         <span class="kw">return </span>(env, env, cont, apply)
@@ -3002,7 +3002,7 @@
 /// * In the IVC context, just return the `Func` that does the coprocessor matching,
 /// argument list destructuring and coprocessor call
 /// * In the NIVC context, build an expression tagged as `Cproc`, setting up an
-/// infinite loop in Lurk&#39;s step&#39;s `reduce`
+/// infinite loop in Lurk's step's `reduce`
 ///
 /// Note: to break out of the (intended) NIVC loop, choose the correct coprocessor
 /// from outside, which is supposed to know how to reduce such expression.
@@ -3010,14 +3010,14 @@
     <span class="kw">if </span>cprocs.is_empty() {
         <span class="macro">func!</span>(no_cproc_error(cproc_name, _evaluated_args, env, _cont): <span class="number">4 </span>=&gt; {
             <span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS;
-            <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
+            <span class="kw">let </span>errctrl = Symbol(<span class="string">"error"</span>);
             <span class="kw">return </span>(cproc_name, env, err, errctrl);
         })
     } <span class="kw">else if </span>ivc {
         match_and_run_cproc(cprocs)
     } <span class="kw">else </span>{
         <span class="macro">func!</span>(setup_cproc_loop(cproc_name, evaluated_args, env, cont): <span class="number">4 </span>=&gt; {
-            <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
+            <span class="kw">let </span>ret = Symbol(<span class="string">"return"</span>);
             <span class="comment">// setup loop
             </span><span class="kw">let </span>cproc: Expr::Cproc = cons2(cproc_name, evaluated_args);
             <span class="kw">return </span>(cproc, env, cont, ret);
@@ -3039,7 +3039,7 @@
     });
 
     <span class="kw">let </span>extend_rec = <span class="macro">func!</span>(extend_rec(env, var, result): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>sym: Expr::Sym;
         <span class="kw">let </span>(binding_or_env, rest) = car_cdr(env);
@@ -3049,12 +3049,12 @@
         <span class="kw">let </span>var_or_binding_is_nil = eq_tag(var_or_binding, nil);
         <span class="kw">let </span>var_or_binding_is_sym_or_nil = or(var_or_binding_is_sym, var_or_binding_is_nil);
         <span class="kw">if </span>var_or_binding_is_sym_or_nil {
-            <span class="comment">// It&#39;s a var, so we are extending a simple env with a recursive env.
+            <span class="comment">// It's a var, so we are extending a simple env with a recursive env.
             </span><span class="kw">let </span>list: Expr::Cons = cons2(binding, nil);
             <span class="kw">let </span>res: Expr::Cons = cons2(list, env);
             <span class="kw">return </span>(res)
         }
-        <span class="comment">// It&#39;s a binding, so we are extending a recursive env.
+        <span class="comment">// It's a binding, so we are extending a recursive env.
         </span><span class="kw">let </span>cons2: Expr::Cons = cons2(binding, binding_or_env);
         <span class="kw">let </span>res: Expr::Cons = cons2(cons2, rest);
         <span class="kw">return </span>(res)
@@ -3062,7 +3062,7 @@
     <span class="comment">// Returns 0u64 if both arguments are U64, 0 (num) if the arguments are some kind of number (either U64 or Num),
     // and nil otherwise
     </span><span class="kw">let </span>args_num_type = <span class="macro">func!</span>(args_num_type(arg1, arg2): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">match </span>arg1.tag {
             Expr::Num =&gt; {
@@ -3097,8 +3097,8 @@
     <span class="kw">let </span>choose_cproc_call = choose_cproc_call(cprocs, ivc);
     <span class="macro">func!</span>(apply_cont(result, env, cont, ctrl): <span class="number">4 </span>=&gt; {
         <span class="kw">match </span>symbol ctrl {
-            <span class="string">&quot;apply-continuation&quot; </span>=&gt; {
-                <span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>);
+            <span class="string">"apply-continuation" </span>=&gt; {
+                <span class="kw">let </span>makethunk = Symbol(<span class="string">"make-thunk"</span>);
                 <span class="kw">let </span>lookup: Cont::Lookup;
                 <span class="kw">let </span>tail: Cont::Tail;
                 <span class="kw">let </span>cont_is_lookup = eq_tag(cont, lookup);
@@ -3109,12 +3109,12 @@
                     <span class="kw">return </span>(result, saved_env, continuation, makethunk)
                 }
 
-                <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
-                <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
-                <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
-                <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+                <span class="kw">let </span>errctrl = Symbol(<span class="string">"error"</span>);
+                <span class="kw">let </span>ret = Symbol(<span class="string">"return"</span>);
+                <span class="kw">let </span>t = Symbol(<span class="string">"t"</span>);
+                <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
                 <span class="kw">let </span>nil = cast(nil, Expr::Nil);
-                <span class="kw">let </span>empty_str = String(<span class="string">&quot;&quot;</span>);
+                <span class="kw">let </span>empty_str = String(<span class="string">""</span>);
                 <span class="kw">let </span>zero = Num(<span class="number">0</span>);
                 <span class="kw">let </span>foo: Expr::Nil;
                 <span class="kw">let </span>char: Expr::Char;
@@ -3135,7 +3135,7 @@
                             Expr::Fun =&gt; {
                                 <span class="kw">let </span>(arg, body, closed_env) = decons3(result);
                                 <span class="kw">match </span>symbol arg {
-                                    <span class="string">&quot;dummy&quot; </span>=&gt; {
+                                    <span class="string">"dummy" </span>=&gt; {
                                         <span class="kw">match </span>body.tag {
                                             Expr::Nil =&gt; {
                                                 <span class="kw">return </span>(result, env, err, errctrl)
@@ -3172,7 +3172,7 @@
                             Expr::Fun =&gt; {
                                 <span class="kw">let </span>(arg, body, closed_env) = decons3(function);
                                 <span class="kw">match </span>symbol arg {
-                                    <span class="string">&quot;dummy&quot; </span>=&gt; {
+                                    <span class="string">"dummy" </span>=&gt; {
                                         <span class="kw">return </span>(result, env, err, errctrl)
                                     }
                                 };
@@ -3344,7 +3344,7 @@
                                         <span class="kw">return </span>(arg2, saved_env, continuation, ret)
                                     }
                                 };
-                                <span class="kw">let </span>begin = Symbol(<span class="string">&quot;begin&quot;</span>);
+                                <span class="kw">let </span>begin = Symbol(<span class="string">"begin"</span>);
                                 <span class="kw">let </span>begin_again: Expr::Cons = cons2(begin, unevaled_args);
                                 <span class="kw">return </span>(begin_again, saved_env, continuation, ctrl)
                             }
@@ -3596,7 +3596,7 @@
 <span class="kw">fn </span>make_thunk() -&gt; Func {
     <span class="macro">func!</span>(make_thunk(expr, env, cont, ctrl): <span class="number">3 </span>=&gt; {
         <span class="kw">match </span>symbol ctrl {
-            <span class="string">&quot;make-thunk&quot; </span>=&gt; {
+            <span class="string">"make-thunk" </span>=&gt; {
                 <span class="kw">match </span>cont.tag {
                     Cont::Tail =&gt; {
                         <span class="kw">let </span>(saved_env, saved_cont, _foo, _foo) = decons4(cont);

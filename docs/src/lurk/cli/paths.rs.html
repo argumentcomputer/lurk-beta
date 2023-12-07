@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/paths.rs`."><title>paths.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/paths.rs`."><title>paths.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -97,47 +97,47 @@
 <span class="kw">use </span><span class="kw">crate</span>::cli::config::cli_config;
 <span class="kw">use </span><span class="kw">crate</span>::public_parameters::disk_cache::public_params_dir;
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">fn </span>home_dir() -&gt; Utf8PathBuf {
-    Utf8PathBuf::from_path_buf(home::home_dir().expect(<span class="string">&quot;missing home directory&quot;</span>))
-        .expect(<span class="string">&quot;path contains invalid Unicode&quot;</span>)
+    Utf8PathBuf::from_path_buf(home::home_dir().expect(<span class="string">"missing home directory"</span>))
+        .expect(<span class="string">"path contains invalid Unicode"</span>)
 }
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">pub fn </span>lurk_default_dir() -&gt; Utf8PathBuf {
-    home_dir().join(Utf8Path::new(<span class="string">&quot;.lurk&quot;</span>))
+    home_dir().join(Utf8Path::new(<span class="string">".lurk"</span>))
 }
 
-<span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+<span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
 </span><span class="kw">pub fn </span>lurk_default_dir() -&gt; Utf8PathBuf {
-    Utf8PathBuf::from(<span class="string">&quot;.lurk&quot;</span>)
+    Utf8PathBuf::from(<span class="string">".lurk"</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proofs_default_dir() -&gt; Utf8PathBuf {
-    lurk_default_dir().join(<span class="string">&quot;proofs&quot;</span>)
+    lurk_default_dir().join(<span class="string">"proofs"</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commits_default_dir() -&gt; Utf8PathBuf {
-    lurk_default_dir().join(<span class="string">&quot;commits&quot;</span>)
+    lurk_default_dir().join(<span class="string">"commits"</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>circom_default_dir() -&gt; Utf8PathBuf {
-    lurk_default_dir().join(<span class="string">&quot;circom&quot;</span>)
+    lurk_default_dir().join(<span class="string">"circom"</span>)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proofs_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proofs_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Utf8PathBuf {
     <span class="kw-2">&amp;</span>cli_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>).proofs_dir
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commits_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commits_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Utf8PathBuf {
     <span class="kw-2">&amp;</span>cli_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>).commits_dir
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>circom_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>circom_dir() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Utf8PathBuf {
     <span class="kw-2">&amp;</span>cli_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>).circom_dir
 }
 
-<span class="kw">fn </span>lurk_leaf_dirs() -&gt; [<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf; <span class="number">4</span>] {
+<span class="kw">fn </span>lurk_leaf_dirs() -&gt; [<span class="kw-2">&amp;</span><span class="lifetime">'static </span>Utf8PathBuf; <span class="number">4</span>] {
     [
         proofs_dir(),
         commits_dir(),
@@ -158,26 +158,26 @@
 
 <span class="comment">// Not currently configurable
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>repl_history() -&gt; Utf8PathBuf {
-    lurk_default_dir().join(Utf8Path::new(<span class="string">&quot;repl-history&quot;</span>))
+    lurk_default_dir().join(Utf8Path::new(<span class="string">"repl-history"</span>))
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commitment_path(name: <span class="kw-2">&amp;</span>str) -&gt; Utf8PathBuf {
-    commits_dir().join(Utf8Path::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{name}.commit&quot;</span>)))
+    commits_dir().join(Utf8Path::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{name}.commit"</span>)))
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proof_path(name: <span class="kw-2">&amp;</span>str) -&gt; Utf8PathBuf {
     proofs_dir()
         .join(Utf8Path::new(name))
-        .with_extension(<span class="string">&quot;proof&quot;</span>)
+        .with_extension(<span class="string">"proof"</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proof_meta_path(name: <span class="kw-2">&amp;</span>str) -&gt; Utf8PathBuf {
     proofs_dir()
         .join(Utf8Path::new(name))
-        .with_extension(<span class="string">&quot;meta&quot;</span>)
+        .with_extension(<span class="string">"meta"</span>)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>circom_binary_path() -&gt; Utf8PathBuf {
-    circom_dir().join(<span class="string">&quot;circom&quot;</span>)
+    circom_dir().join(<span class="string">"circom"</span>)
 }
 </code></pre></div></section></main></body></html>

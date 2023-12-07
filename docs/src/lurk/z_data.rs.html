@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/z_data.rs`."><title>z_data.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/z_data.rs`."><title>z_data.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -322,7 +322,7 @@
 
 </span><span class="kw">use </span>std::fmt::Display;
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>anyhow::anyhow;
@@ -351,7 +351,7 @@
 ///     ZData::Atom(vec![0x02, 0x03]),
 /// ]);
 ///
-/// assert_eq!(data.to_string(), &quot;[c:[a:01], [a:02, 03]]&quot;);
+/// assert_eq!(data.to_string(), "[c:[a:01], [a:02, 03]]");
 /// ```
 </span><span class="attr">#[derive(PartialEq, Eq, Debug, Clone)]
 </span><span class="kw">pub enum </span>ZData {
@@ -362,27 +362,27 @@
 }
 
 <span class="kw">impl </span>Display <span class="kw">for </span>ZData {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;[&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"["</span>)<span class="question-mark">?</span>;
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Atom(xs) =&gt; {
                 <span class="kw">let </span>xs_str = xs
                     .iter()
-                    .map(|x| <span class="macro">format!</span>(<span class="string">&quot;{:02x?}&quot;</span>, x))
+                    .map(|x| <span class="macro">format!</span>(<span class="string">"{:02x?}"</span>, x))
                     .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-                    .join(<span class="string">&quot;, &quot;</span>);
-                <span class="macro">write!</span>(f, <span class="string">&quot;a:{xs_str}&quot;</span>)<span class="question-mark">?</span>;
+                    .join(<span class="string">", "</span>);
+                <span class="macro">write!</span>(f, <span class="string">"a:{xs_str}"</span>)<span class="question-mark">?</span>;
             }
             <span class="self">Self</span>::Cell(xs) =&gt; {
                 <span class="kw">let </span>xs_str = xs
                     .iter()
-                    .map(|x| <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, x))
+                    .map(|x| <span class="macro">format!</span>(<span class="string">"{}"</span>, x))
                     .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-                    .join(<span class="string">&quot;, &quot;</span>);
-                <span class="macro">write!</span>(f, <span class="string">&quot;c:{xs_str}&quot;</span>)<span class="question-mark">?</span>;
+                    .join(<span class="string">", "</span>);
+                <span class="macro">write!</span>(f, <span class="string">"c:{xs_str}"</span>)<span class="question-mark">?</span>;
             }
         }
-        <span class="macro">write!</span>(f, <span class="string">&quot;]&quot;</span>)<span class="question-mark">?</span>;
+        <span class="macro">write!</span>(f, <span class="string">"]"</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -403,7 +403,7 @@
         x.to_le_bytes()[..<span class="self">Self</span>::byte_count(x) <span class="kw">as </span>usize].to_vec()
     }
 
-    <span class="doccomment">/// Returns the `usize` that&#39;s represented by a little endian byte array.
+    <span class="doccomment">/// Returns the `usize` that's represented by a little endian byte array.
     ///
     /// On 32-bit systems, the input must not be longer than 4. On 64-bit systems,
     /// the input size limit is 8.
@@ -474,11 +474,11 @@
     ///
     /// # Errors
     ///
-    /// This function errors if the input bytes don&#39;t correspond to a valid serialization of ZData
+    /// This function errors if the input bytes don't correspond to a valid serialization of ZData
     </span><span class="kw">pub fn </span>from_bytes(i: <span class="kw-2">&amp;</span>[u8]) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="kw">match </span><span class="self">Self</span>::from_bytes_aux(i).finish() {
             <span class="prelude-val">Ok</span>((<span class="kw">_</span>, x)) =&gt; <span class="prelude-val">Ok</span>(x),
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;Error parsing light data: {:?}&quot;</span>, e)),
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"Error parsing light data: {:?}"</span>, e)),
         }
     }
 
@@ -516,7 +516,7 @@
     }
 }
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">impl </span>Arbitrary <span class="kw">for </span>ZData {
     <span class="kw">type </span>Parameters = ();
     <span class="kw">type </span>Strategy = BoxedStrategy&lt;<span class="self">Self</span>&gt;;
@@ -560,10 +560,10 @@
     </span><span class="kw">fn </span>unit_z_data_bytes() {
         <span class="kw">let </span>test = |zd: ZData, xs: Vec&lt;u8&gt;| {
             <span class="kw">let </span>ser = zd.to_bytes();
-            <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, ser);
+            <span class="macro">println!</span>(<span class="string">"{:?}"</span>, ser);
             <span class="macro">assert_eq!</span>(ser, xs);
-            <span class="kw">let </span>de = ZData::from_bytes(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;invalid zdata&quot;</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, de);
+            <span class="kw">let </span>de = ZData::from_bytes(<span class="kw-2">&amp;</span>ser).expect(<span class="string">"invalid zdata"</span>);
+            <span class="macro">println!</span>(<span class="string">"{:?}"</span>, de);
             <span class="macro">assert_eq!</span>(zd, de);
         };
         test(ZData::Atom(<span class="macro">vec!</span>[]), <span class="macro">vec!</span>[<span class="number">0b0000_0000</span>]);
@@ -609,9 +609,9 @@
         <span class="attr">#[test]
         </span><span class="kw">fn </span>prop_z_data_bytes(x <span class="kw">in </span>any::&lt;ZData&gt;()) {
             <span class="kw">let </span>ser = x.to_bytes();
-            <span class="kw">let </span>de  = ZData::from_bytes(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZData&quot;</span>);
-            <span class="macro">eprintln!</span>(<span class="string">&quot;x {}&quot;</span>, x);
-            <span class="macro">eprintln!</span>(<span class="string">&quot;ser {:?}&quot;</span>, ser);
+            <span class="kw">let </span>de  = ZData::from_bytes(<span class="kw-2">&amp;</span>ser).expect(<span class="string">"read ZData"</span>);
+            <span class="macro">eprintln!</span>(<span class="string">"x {}"</span>, x);
+            <span class="macro">eprintln!</span>(<span class="string">"ser {:?}"</span>, ser);
             <span class="macro">assert_eq!</span>(x, de)
         }
     }

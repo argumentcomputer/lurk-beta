@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/parser/string.rs`."><title>string.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/parser/string.rs`."><title>string.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -296,14 +296,14 @@
 <span class="doccomment">/// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
 /// hexadecimal numerals. We will combine this later with parse_escaped_char
 /// to parse sequences like \u{00AC}.
-</span><span class="kw">pub fn </span>parse_unicode&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, char&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;a</span>&gt;| {
+</span><span class="kw">pub fn </span>parse_unicode&lt;<span class="lifetime">'a</span>, F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'a</span>, F, char&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'a</span>&gt;| {
         <span class="kw">let </span>(i, hex) = preceded(
-            char(<span class="string">&#39;u&#39;</span>),
+            char(<span class="string">'u'</span>),
             delimited(
-                char(<span class="string">&#39;{&#39;</span>),
+                char(<span class="string">'{'</span>),
                 take_while_m_n(<span class="number">1</span>, <span class="number">6</span>, |c: char| c.is_ascii_hexdigit()),
-                char(<span class="string">&#39;}&#39;</span>),
+                char(<span class="string">'}'</span>),
             ),
         )(from)<span class="question-mark">?</span>;
         <span class="kw">let </span>hex: String = (<span class="kw-2">*</span>hex.fragment()).to_string();
@@ -318,23 +318,23 @@
 }
 
 <span class="doccomment">/// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
-</span><span class="kw">pub fn </span>parse_escaped_char&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;(
+</span><span class="kw">pub fn </span>parse_escaped_char&lt;<span class="lifetime">'a</span>, F: LurkField&gt;(
     delim: char,
-    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, char&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;a</span>&gt;| {
-        <span class="kw">let </span>(i, <span class="kw">_</span>) = char(<span class="string">&#39;\\&#39;</span>)(from)<span class="question-mark">?</span>;
+    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'a</span>, F, char&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'a</span>&gt;| {
+        <span class="kw">let </span>(i, <span class="kw">_</span>) = char(<span class="string">'\\'</span>)(from)<span class="question-mark">?</span>;
         <span class="kw">let </span>(i, esc) = alt((
             parse_unicode(),
-            value(<span class="string">&#39;\n&#39;</span>, char(<span class="string">&#39;n&#39;</span>)),
-            value(<span class="string">&#39;\r&#39;</span>, char(<span class="string">&#39;r&#39;</span>)),
-            value(<span class="string">&#39;\t&#39;</span>, char(<span class="string">&#39;t&#39;</span>)),
-            value(<span class="string">&#39;\u{08}&#39;</span>, char(<span class="string">&#39;b&#39;</span>)),
-            value(<span class="string">&#39;\u{0C}&#39;</span>, char(<span class="string">&#39;f&#39;</span>)),
-            value(<span class="string">&#39;\\&#39;</span>, char(<span class="string">&#39;\\&#39;</span>)),
-            value(<span class="string">&#39;/&#39;</span>, char(<span class="string">&#39;/&#39;</span>)),
-            value(<span class="string">&#39;&quot;&#39;</span>, char(<span class="string">&#39;&quot;&#39;</span>)),
-            value(<span class="string">&#39;\&#39;&#39;</span>, char(<span class="string">&#39;\&#39;&#39;</span>)),
+            value(<span class="string">'\n'</span>, char(<span class="string">'n'</span>)),
+            value(<span class="string">'\r'</span>, char(<span class="string">'r'</span>)),
+            value(<span class="string">'\t'</span>, char(<span class="string">'t'</span>)),
+            value(<span class="string">'\u{08}'</span>, char(<span class="string">'b'</span>)),
+            value(<span class="string">'\u{0C}'</span>, char(<span class="string">'f'</span>)),
+            value(<span class="string">'\\'</span>, char(<span class="string">'\\'</span>)),
+            value(<span class="string">'/'</span>, char(<span class="string">'/'</span>)),
+            value(<span class="string">'"'</span>, char(<span class="string">'"'</span>)),
+            value(<span class="string">'\''</span>, char(<span class="string">'\''</span>)),
             value(delim, char(delim)),
             one_of(must_escape),
         ))(i)<span class="question-mark">?</span>;
@@ -344,27 +344,27 @@
 
 <span class="doccomment">/// Parse a backslash, followed by any amount of whitespace. This is used
 /// later to discard any escaped whitespace.
-</span><span class="kw">pub fn </span>parse_escaped_whitespace&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;(
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, Span&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;a</span>&gt;| preceded(char(<span class="string">&#39;\\&#39;</span>), multispace1)(from)
+</span><span class="kw">pub fn </span>parse_escaped_whitespace&lt;<span class="lifetime">'a</span>, F: LurkField&gt;(
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'a</span>, F, Span&lt;<span class="lifetime">'a</span>&gt;&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'a</span>&gt;| preceded(char(<span class="string">'\\'</span>), multispace1)(from)
 }
 
-<span class="comment">///// Parse a non-empty block of text that doesn&#39;t include \ or delim
-</span><span class="kw">pub fn </span>parse_literal&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;(
+<span class="comment">///// Parse a non-empty block of text that doesn't include \ or delim
+</span><span class="kw">pub fn </span>parse_literal&lt;<span class="lifetime">'a</span>, F: LurkField&gt;(
     delim: char,
     whitespace: bool,
-    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, Span&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;a</span>&gt;| {
+    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'a</span>, F, Span&lt;<span class="lifetime">'a</span>&gt;&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'a</span>&gt;| {
         <span class="kw">let </span><span class="kw-2">mut </span>s = String::from(must_escape);
         s.push(delim);
-        s.push(<span class="string">&#39;\\&#39;</span>);
+        s.push(<span class="string">'\\'</span>);
         <span class="kw">if </span>!whitespace {
             <span class="kw">for </span>c <span class="kw">in </span><span class="kw">crate</span>::parser::LURK_WHITESPACE {
                 s.push(c);
             }
         }
-        <span class="kw">let </span><span class="kw-2">mut </span>p = verify(is_not(<span class="kw-2">&amp;*</span>s), |s: <span class="kw-2">&amp;</span>Span&lt;<span class="lifetime">&#39;a</span>&gt;| !s.fragment().is_empty());
+        <span class="kw">let </span><span class="kw-2">mut </span>p = verify(is_not(<span class="kw-2">&amp;*</span>s), |s: <span class="kw-2">&amp;</span>Span&lt;<span class="lifetime">'a</span>&gt;| !s.fragment().is_empty());
         p(from)
     }
 }
@@ -373,20 +373,20 @@
 /// a non-empty Literal (a series of non-escaped characters), a single
 /// parsed escaped character, or a block of escaped whitespace.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-</span><span class="kw">pub enum </span>StringFragment&lt;<span class="lifetime">&#39;a</span>&gt; {
-    Literal(Span&lt;<span class="lifetime">&#39;a</span>&gt;),
+</span><span class="kw">pub enum </span>StringFragment&lt;<span class="lifetime">'a</span>&gt; {
+    Literal(Span&lt;<span class="lifetime">'a</span>&gt;),
     EscapedChar(char),
     EscapedWS,
 }
 
 <span class="doccomment">/// Combine parse_literal, parse_escaped_whitespace, and parse_escaped_char
 /// into a StringFragment.
-</span><span class="kw">pub fn </span>parse_fragment&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;(
+</span><span class="kw">pub fn </span>parse_fragment&lt;<span class="lifetime">'a</span>, F: LurkField&gt;(
     delim: char,
     whitespace: bool,
-    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, StringFragment&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;a</span>&gt;| {
+    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'a</span>, F, StringFragment&lt;<span class="lifetime">'a</span>&gt;&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'a</span>&gt;| {
         <span class="kw">if </span>whitespace {
             alt((
                 map(
@@ -416,12 +416,12 @@
 
 <span class="doccomment">/// Parse a non-empty string. Use a loop of parse_fragment and push all of the fragments
 /// into an output string.
-</span><span class="kw">pub fn </span>parse_string_inner1&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;(
+</span><span class="kw">pub fn </span>parse_string_inner1&lt;<span class="lifetime">'a</span>, F: LurkField&gt;(
     delim: char,
     whitespace: bool,
-    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, String&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;a</span>&gt;| {
+    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'a</span>, F, String&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'a</span>&gt;| {
         fold_many1(
             parse_fragment(delim, whitespace, must_escape),
             String::new,
@@ -439,12 +439,12 @@
 
 <span class="doccomment">/// Parse a string. Use a loop of parse_fragment and push all of the fragments
 /// into an output string.
-</span><span class="kw">pub fn </span>parse_string_inner&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;(
+</span><span class="kw">pub fn </span>parse_string_inner&lt;<span class="lifetime">'a</span>, F: LurkField&gt;(
     delim: char,
     whitespace: bool,
-    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, String&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;a</span>&gt;| {
+    must_escape: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'a</span>, F, String&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'a</span>&gt;| {
         fold_many0(
             parse_fragment(delim, whitespace, must_escape),
             String::new,
@@ -461,13 +461,13 @@
 }
 
 <span class="doccomment">/// Parse a string with the outer delimiter characters
-</span><span class="kw">pub fn </span>parse_string&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;(
+</span><span class="kw">pub fn </span>parse_string&lt;<span class="lifetime">'a</span>, F: LurkField&gt;(
     delim: char,
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, String&gt; {
-    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;a</span>&gt;| {
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'a</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'a</span>, F, String&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'a</span>&gt;| {
         delimited(
             char(delim),
-            parse_string_inner(delim, <span class="bool-val">true</span>, <span class="string">&quot;&quot;</span>),
+            parse_string_inner(delim, <span class="bool-val">true</span>, <span class="string">""</span>),
             char(delim),
         )(from)
     }
@@ -479,27 +479,27 @@
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="kw">fn </span>test_parse&lt;<span class="lifetime">&#39;a</span>, P&gt;(<span class="kw-2">mut </span>p: P, i: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, expected: <span class="prelude-ty">Option</span>&lt;String&gt;)
+    <span class="kw">fn </span>test_parse&lt;<span class="lifetime">'a</span>, P&gt;(<span class="kw-2">mut </span>p: P, i: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, expected: <span class="prelude-ty">Option</span>&lt;String&gt;)
     <span class="kw">where
-        </span>P: Parser&lt;Span&lt;<span class="lifetime">&#39;a</span>&gt;, String, ParseError&lt;Span&lt;<span class="lifetime">&#39;a</span>&gt;, Fr&gt;&gt;,
+        </span>P: Parser&lt;Span&lt;<span class="lifetime">'a</span>&gt;, String, ParseError&lt;Span&lt;<span class="lifetime">'a</span>&gt;, Fr&gt;&gt;,
     {
         <span class="kw">match </span>(expected, p.parse(Span::new(i))) {
             (<span class="prelude-val">Some</span>(expected), <span class="prelude-val">Ok</span>((_i, x))) <span class="kw">if </span>x == expected =&gt; (),
             (<span class="prelude-val">Some</span>(expected), <span class="prelude-val">Ok</span>((i, x))) =&gt; {
-                <span class="macro">println!</span>(<span class="string">&quot;input: {i:?}&quot;</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;expected: {expected:?}&quot;</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;detected: {x:?}&quot;</span>);
-                <span class="macro">unreachable!</span>(<span class="string">&quot;unexpected parse result&quot;</span>)
+                <span class="macro">println!</span>(<span class="string">"input: {i:?}"</span>);
+                <span class="macro">println!</span>(<span class="string">"expected: {expected:?}"</span>);
+                <span class="macro">println!</span>(<span class="string">"detected: {x:?}"</span>);
+                <span class="macro">unreachable!</span>(<span class="string">"unexpected parse result"</span>)
             }
             (<span class="prelude-val">Some</span>(..), <span class="prelude-val">Err</span>(e)) =&gt; {
-                <span class="macro">println!</span>(<span class="string">&quot;{e}&quot;</span>);
-                <span class="macro">unreachable!</span>(<span class="string">&quot;unexpected parse result&quot;</span>)
+                <span class="macro">println!</span>(<span class="string">"{e}"</span>);
+                <span class="macro">unreachable!</span>(<span class="string">"unexpected parse result"</span>)
             }
             (<span class="prelude-val">None</span>, <span class="prelude-val">Ok</span>((i, x))) =&gt; {
-                <span class="macro">println!</span>(<span class="string">&quot;input: {i:?}&quot;</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;expected parse error&quot;</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;detected: {x:?}&quot;</span>);
-                <span class="macro">unreachable!</span>(<span class="string">&quot;unexpected parse result&quot;</span>)
+                <span class="macro">println!</span>(<span class="string">"input: {i:?}"</span>);
+                <span class="macro">println!</span>(<span class="string">"expected parse error"</span>);
+                <span class="macro">println!</span>(<span class="string">"detected: {x:?}"</span>);
+                <span class="macro">unreachable!</span>(<span class="string">"unexpected parse result"</span>)
             }
             (<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(_e)) =&gt; (),
         }
@@ -507,42 +507,42 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>unit_parse_string() {
-        test_parse(parse_string(<span class="string">&#39;&quot;&#39;</span>), <span class="string">&quot;\&quot;foo\&quot;&quot;</span>, <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;foo&quot;</span>)));
-        test_parse(parse_string(<span class="string">&#39;&quot;&#39;</span>), <span class="string">&quot;\&quot;\&quot;&quot;</span>, <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;&quot;</span>)));
+        test_parse(parse_string(<span class="string">'"'</span>), <span class="string">"\"foo\""</span>, <span class="prelude-val">Some</span>(String::from(<span class="string">"foo"</span>)));
+        test_parse(parse_string(<span class="string">'"'</span>), <span class="string">"\"\""</span>, <span class="prelude-val">Some</span>(String::from(<span class="string">""</span>)));
         test_parse(
-            parse_string_inner(<span class="string">&#39;&quot;&#39;</span>, <span class="bool-val">true</span>, <span class="string">&quot;&quot;</span>),
-            <span class="string">&quot;&quot;</span>,
-            <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;&quot;</span>)),
+            parse_string_inner(<span class="string">'"'</span>, <span class="bool-val">true</span>, <span class="string">""</span>),
+            <span class="string">""</span>,
+            <span class="prelude-val">Some</span>(String::from(<span class="string">""</span>)),
         );
         test_parse(
-            parse_string_inner(<span class="string">&#39;&quot;&#39;</span>, <span class="bool-val">true</span>, <span class="string">&quot;&quot;</span>),
-            <span class="string">&quot; &quot;</span>,
-            <span class="prelude-val">Some</span>(String::from(<span class="string">&quot; &quot;</span>)),
+            parse_string_inner(<span class="string">'"'</span>, <span class="bool-val">true</span>, <span class="string">""</span>),
+            <span class="string">" "</span>,
+            <span class="prelude-val">Some</span>(String::from(<span class="string">" "</span>)),
         );
         test_parse(
-            parse_string_inner(<span class="string">&#39;&quot;&#39;</span>, <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>),
-            <span class="string">&quot; &quot;</span>,
-            <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;&quot;</span>)),
+            parse_string_inner(<span class="string">'"'</span>, <span class="bool-val">false</span>, <span class="string">""</span>),
+            <span class="string">" "</span>,
+            <span class="prelude-val">Some</span>(String::from(<span class="string">""</span>)),
         );
         test_parse(
-            parse_string_inner(<span class="string">&#39;&quot;&#39;</span>, <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>),
-            <span class="string">&quot;a&quot;</span>,
-            <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;a&quot;</span>)),
+            parse_string_inner(<span class="string">'"'</span>, <span class="bool-val">false</span>, <span class="string">""</span>),
+            <span class="string">"a"</span>,
+            <span class="prelude-val">Some</span>(String::from(<span class="string">"a"</span>)),
         );
         test_parse(
-            parse_string_inner(<span class="string">&#39;&quot;&#39;</span>, <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>),
-            <span class="string">&quot;a &quot;</span>,
-            <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;a&quot;</span>)),
+            parse_string_inner(<span class="string">'"'</span>, <span class="bool-val">false</span>, <span class="string">""</span>),
+            <span class="string">"a "</span>,
+            <span class="prelude-val">Some</span>(String::from(<span class="string">"a"</span>)),
         );
         test_parse(
-            parse_string_inner(<span class="string">&#39;&quot;&#39;</span>, <span class="bool-val">true</span>, <span class="string">&quot;&quot;</span>),
-            <span class="string">&quot;a &quot;</span>,
-            <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;a &quot;</span>)),
+            parse_string_inner(<span class="string">'"'</span>, <span class="bool-val">true</span>, <span class="string">""</span>),
+            <span class="string">"a "</span>,
+            <span class="prelude-val">Some</span>(String::from(<span class="string">"a "</span>)),
         );
         test_parse(
-            parse_string_inner(<span class="string">&#39;.&#39;</span>, <span class="bool-val">false</span>, <span class="string">&quot;)&quot;</span>),
-            <span class="string">&quot;b)&quot;</span>,
-            <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;b&quot;</span>)),
+            parse_string_inner(<span class="string">'.'</span>, <span class="bool-val">false</span>, <span class="string">")"</span>),
+            <span class="string">"b)"</span>,
+            <span class="prelude-val">Some</span>(String::from(<span class="string">"b"</span>)),
         );
     }
 }

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -198,20 +198,20 @@
 
 <span class="doccomment">/// Gets the `CLI_CONFIG` settings. If uninitialized, sets the global variable
 /// in the following order (greatest to least precedence):
-/// - `settings` map if provided, e.g. with key (&quot;proofs&quot;, &quot;$HOME/lurk-rs/proofs&quot;)
+/// - `settings` map if provided, e.g. with key ("proofs", "$HOME/lurk-rs/proofs")
 ///   This contains any CLI args, set e.g. by `lurk --proofs-dir /path/to/proofs_dir`
 /// - Env var per setting, e.g. `LURK_PROOFS_DIR`
 /// - Config file, which also has a configurable location (see `lurk_config_file()`),
 ///   and has the following syntax for e.g. TOML:
 ///   ```toml
-///   proofs_dir = &quot;/path/to/proofs_dir&quot;
+///   proofs_dir = "/path/to/proofs_dir"
 ///   ```
 ///   Other file formats are supported by the `config` crate, but only TOML is tested
 /// - Default values, e.g. `$HOME/.lurk/proofs`
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cli_config(
     config_file: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Utf8PathBuf&gt;,
     settings: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span>str, String&gt;&gt;,
-) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>CliSettings {
+) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>CliSettings {
     LURK_CONFIG
         .set(Settings::from_config(lurk_config_file(config_file), settings).unwrap_or_default())
         .unwrap_or(());
@@ -222,7 +222,7 @@
 
 <span class="doccomment">/// Contains the CLI configuration settings
 </span><span class="comment">// NOTE: Config settings share the same file for both the Lurk library and the CLI.
-// It&#39;s good practice to avoid duplication of shared settings like `public_params_dir`
+// It's good practice to avoid duplication of shared settings like `public_params_dir`
 // in downstream configs like these to prevent conflicts.
 </span><span class="attr">#[derive(Debug, Deserialize)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CliSettings {
@@ -250,13 +250,13 @@
         cli_settings: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span>str, String&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ConfigError&gt; {
         <span class="kw">let </span>(proofs, commits, circom, backend, field, rc, limit) = (
-            <span class="string">&quot;proofs_dir&quot;</span>,
-            <span class="string">&quot;commits_dir&quot;</span>,
-            <span class="string">&quot;circom_dir&quot;</span>,
-            <span class="string">&quot;backend&quot;</span>,
-            <span class="string">&quot;field&quot;</span>,
-            <span class="string">&quot;rc&quot;</span>,
-            <span class="string">&quot;limit&quot;</span>,
+            <span class="string">"proofs_dir"</span>,
+            <span class="string">"commits_dir"</span>,
+            <span class="string">"circom_dir"</span>,
+            <span class="string">"backend"</span>,
+            <span class="string">"field"</span>,
+            <span class="string">"rc"</span>,
+            <span class="string">"limit"</span>,
         );
         Config::builder()
             .set_default(proofs, proofs_default_dir().to_string())<span class="question-mark">?
@@ -268,7 +268,7 @@
             </span>.set_default(limit, <span class="number">100_000_000</span>)<span class="question-mark">?
             </span>.add_source(File::with_name(config_file.as_str()).required(<span class="bool-val">false</span>))
             <span class="comment">// Then overwrite with any `LURK` environment variables
-            </span>.add_source(Environment::with_prefix(<span class="string">&quot;LURK&quot;</span>))
+            </span>.add_source(Environment::with_prefix(<span class="string">"LURK"</span>))
             <span class="comment">// TODO: Derive config::Source for `cli_settings` and use `add_source` instead
             </span>.set_override_option(proofs, cli_settings.and_then(|s| s.get(proofs).map(|v| v.to_owned())))<span class="question-mark">?
             </span>.set_override_option(commits, cli_settings.and_then(|s| s.get(commits).map(|v| v.to_owned())))<span class="question-mark">?
@@ -310,42 +310,42 @@
     <span class="comment">// Tests a generic config file with identical syntax to that used in `CLI_CONFIG`
     </span><span class="attr">#[test]
     </span><span class="kw">fn </span>test_config_cli() {
-        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
+        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">"tmp"</span>).tempdir().unwrap();
         <span class="kw">let </span>tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
-        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">&quot;lurk.toml&quot;</span>);
-        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">&quot;public_params&quot;</span>).into_string();
-        <span class="kw">let </span>proofs_dir = tmp_dir.join(<span class="string">&quot;proofs&quot;</span>).into_string();
-        <span class="kw">let </span>commits_dir = tmp_dir.join(<span class="string">&quot;commits&quot;</span>).into_string();
-        <span class="kw">let </span>circom_dir = tmp_dir.join(<span class="string">&quot;circom&quot;</span>).into_string();
-        <span class="kw">let </span>backend = <span class="string">&quot;Nova&quot;</span>;
-        <span class="kw">let </span>field = <span class="string">&quot;Pallas&quot;</span>;
+        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">"lurk.toml"</span>);
+        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">"public_params"</span>).into_string();
+        <span class="kw">let </span>proofs_dir = tmp_dir.join(<span class="string">"proofs"</span>).into_string();
+        <span class="kw">let </span>commits_dir = tmp_dir.join(<span class="string">"commits"</span>).into_string();
+        <span class="kw">let </span>circom_dir = tmp_dir.join(<span class="string">"circom"</span>).into_string();
+        <span class="kw">let </span>backend = <span class="string">"Nova"</span>;
+        <span class="kw">let </span>field = <span class="string">"Pallas"</span>;
         <span class="kw">let </span>rc = <span class="number">100</span>;
         <span class="kw">let </span>limit = <span class="number">100_000</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>config_file = std::fs::File::create(config_dir.clone()).unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"public_params_dir = \"{public_params_dir}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;proofs_dir = \&quot;{proofs_dir}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"proofs_dir = \"{proofs_dir}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;commits_dir = \&quot;{commits_dir}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"commits_dir = \"{commits_dir}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;circom_dir = \&quot;{circom_dir}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"circom_dir = \"{circom_dir}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;backend = \&quot;{backend}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"backend = \"{backend}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;field = \&quot;{field}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"field = \"{field}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;rc = {rc}\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"rc = {rc}\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;limit = {limit}\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"limit = {limit}\n"</span>).as_bytes())
             .unwrap();
 
         <span class="kw">let </span>cli_config = CliSettings::from_config(<span class="kw-2">&amp;</span>config_dir, <span class="prelude-val">None</span>).unwrap();

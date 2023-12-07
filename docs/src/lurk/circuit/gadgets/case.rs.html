@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/case.rs`."><title>case.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/case.rs`."><title>case.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -767,25 +767,25 @@
 
 <span class="doccomment">/// Initialized map entry for a fixed `key` with
 /// an allocated `value` computed at runtime.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CaseClause&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CaseClause&lt;<span class="lifetime">'a</span>, F: LurkField&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) key: F,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedNum&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) value: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AllocatedNum&lt;F&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; CaseClause&lt;<span class="lifetime">&#39;a</span>, F&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(key: F, value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedNum&lt;F&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField&gt; CaseClause&lt;<span class="lifetime">'a</span>, F&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(key: F, value: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AllocatedNum&lt;F&gt;) -&gt; <span class="self">Self </span>{
         CaseClause { key, value }
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField + Debug&gt; Debug <span class="kw">for </span>CaseClause&lt;<span class="lifetime">&#39;_</span>, F&gt; {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        f.debug_struct(<span class="string">&quot;CaseClause&quot;</span>)
-            .field(<span class="string">&quot;key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.key)
+<span class="kw">impl</span>&lt;F: LurkField + Debug&gt; Debug <span class="kw">for </span>CaseClause&lt;<span class="lifetime">'_</span>, F&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"CaseClause"</span>)
+            .field(<span class="string">"key"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.key)
             .field(
-                <span class="string">&quot;value&quot;</span>,
+                <span class="string">"value"</span>,
                 <span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                    <span class="string">&quot;AllocatedNum {{ value: {:?}, variable: {:?} }}&quot;</span>,
+                    <span class="string">"AllocatedNum {{ value: {:?}, variable: {:?} }}"</span>,
                     <span class="self">self</span>.value.get_value(),
                     <span class="self">self</span>.value.get_variable()
                 ),
@@ -798,12 +798,12 @@
 An allocated `selected_key` supposedly equal to one of the fixed keys
 in the list of allocated map entries defined in `clauses`.
 */
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CaseConstraint&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CaseConstraint&lt;<span class="lifetime">'a</span>, F: LurkField&gt; {
     selected_key: AllocatedNum&lt;F&gt;,
-    clauses: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[CaseClause&lt;<span class="lifetime">&#39;a</span>, F&gt;],
+    clauses: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[CaseClause&lt;<span class="lifetime">'a</span>, F&gt;],
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; CaseConstraint&lt;<span class="lifetime">&#39;_</span>, F&gt; {
+<span class="kw">impl</span>&lt;F: LurkField&gt; CaseConstraint&lt;<span class="lifetime">'_</span>, F&gt; {
     <span class="comment">/*
     This function returns not only the result of selection, but also the
     selector, a vector of selection bits, where exactly one bit is 1, and
@@ -816,7 +816,7 @@ in the list of allocated map entries defined in `clauses`.
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedNum&lt;F&gt;, Vec&lt;AllocatedBit&gt;), SynthesisError&gt; {
         <span class="comment">// Allocate one bit per clause, called selection bit. This creates
         // constraints enforcing that each bit is 0 or 1. In fact, the
-        // &#39;selected&#39; clause will have selection bit = 1 while the others
+        // 'selected' clause will have selection bit = 1 while the others
         // are 0. This will be confirmed/enforced by later constraints.
         </span><span class="kw">let </span><span class="kw-2">mut </span>selector = Vec::with_capacity(<span class="self">self</span>.clauses.len());
         <span class="comment">// check each key is only included once
@@ -834,17 +834,17 @@ in the list of allocated map entries defined in `clauses`.
                 <span class="bool-val">false
             </span>};
             selector.push(AllocatedBit::alloc(
-                cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;selection bit {i}&quot;</span>)),
+                cs.namespace(|| <span class="macro">format!</span>(<span class="string">"selection bit {i}"</span>)),
                 <span class="prelude-val">Some</span>(is_selected),
             )<span class="question-mark">?</span>);
         }
 
         <span class="comment">// We add up all bits. If the result is 1, then it means
         // there is exactly one bit equal 1, while others are 0.
-        // This guarantees we don&#39;t have repeated selected keys.
+        // This guarantees we don't have repeated selected keys.
         // ( ∑ᵢ 1 ⋅ selectorᵢ ) * ( 1 ) = ( 1 )
         </span>cs.enforce(
-            || <span class="string">&quot;exactly one selector is 1&quot;</span>,
+            || <span class="string">"exactly one selector is 1"</span>,
             |lc| {
                 selector
                     .iter()
@@ -857,7 +857,7 @@ in the list of allocated map entries defined in `clauses`.
         <span class="comment">// Apply selection.
         // ( ∑ᵢ keyᵢ ⋅ selectorᵢ ) * (1) = selected_key
         </span>cs.enforce(
-            || <span class="string">&quot;selection vector dot keys = selected&quot;</span>,
+            || <span class="string">"selection vector dot keys = selected"</span>,
             |lc| {
                 selector
                     .iter()
@@ -878,7 +878,7 @@ in the list of allocated map entries defined in `clauses`.
 
         <span class="comment">// result ← ∑ᵢ  selectorᵢ ⋅ valueᵢ
         </span><span class="kw">let </span>result = selector_dot_product(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;extract result&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"extract result"</span>),
             <span class="kw-2">&amp;</span>selector,
             values.as_slice(),
             zero,
@@ -903,7 +903,7 @@ Returns ∑ᵢ  selector[i] ⋅ value_vector[i].
 
     <span class="kw">for </span>(i, (bit, value)) <span class="kw">in </span>selector.iter().zip(value_vector).enumerate() {
         <span class="kw">let </span>allocated_prod = pick(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;allocated_prod {i}&quot;</span>)),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"allocated_prod {i}"</span>)),
             <span class="kw-2">&amp;</span>Boolean::Is(bit.clone()),
             value,
             zero,
@@ -915,10 +915,10 @@ Returns ∑ᵢ  selector[i] ⋅ value_vector[i].
             computed_result += prod;
         };
     }
-    <span class="kw">let </span>result = AllocatedNum::&lt;F&gt;::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;result&quot;</span>), || <span class="prelude-val">Ok</span>(computed_result))<span class="question-mark">?</span>;
+    <span class="kw">let </span>result = AllocatedNum::&lt;F&gt;::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"result"</span>), || <span class="prelude-val">Ok</span>(computed_result))<span class="question-mark">?</span>;
 
     cs.enforce(
-        || <span class="string">&quot;sum of products&quot;</span>,
+        || <span class="string">"sum of products"</span>,
         |lc| {
             all_products
                 .iter()
@@ -939,7 +939,7 @@ returns the default.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>multi_case&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     selected: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
-    cases: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, F&gt;]],
+    cases: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">'_</span>, F&gt;]],
     defaults: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;],
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedNum&lt;F&gt;&gt;, SynthesisError&gt; {
@@ -955,7 +955,7 @@ returns the default.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>multi_case_aux&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     selected: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
-    cases: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, F&gt;]],
+    cases: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">'_</span>, F&gt;]],
     defaults: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;],
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, Boolean), SynthesisError&gt; {
@@ -1000,7 +1000,7 @@ returns the default.
 
             <span class="comment">// new_acc ← x = acc * (clause.key[i] - selected)
             </span><span class="kw">let </span>new_acc = AllocatedNum::alloc(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;acc {}, case {i}&quot;</span>, i + <span class="number">1</span>)),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"acc {}, case {i}"</span>, i + <span class="number">1</span>)),
                 || {
                     <span class="kw">if </span>selected_present {
                         <span class="prelude-val">Ok</span>(x)
@@ -1012,7 +1012,7 @@ returns the default.
 
             <span class="comment">// acc * ( clause.key - selected ) = new_acc
             </span>cs.enforce(
-                || <span class="macro">format!</span>(<span class="string">&quot;acc * (clause-{i}.key - selected) = new_acc, case {i}&quot;</span>),
+                || <span class="macro">format!</span>(<span class="string">"acc * (clause-{i}.key - selected) = new_acc, case {i}"</span>),
                 |lc| lc + acc.get_variable(),
                 |<span class="kw">_</span>| Boolean::Constant(<span class="bool-val">true</span>).lc(CS::one(), clause.key) - selected.get_variable(),
                 |lc| lc + new_acc.get_variable(),
@@ -1023,12 +1023,12 @@ returns the default.
 
         <span class="comment">// acc = ∏ᵢ (clause[i].key - selected)
         // Therefore acc is zero if and only if some key was selected.
-        </span><span class="kw">let </span>is_selected = alloc_is_zero(cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;is_selected, case {i}&quot;</span>)), <span class="kw-2">&amp;</span>acc)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>is_selected = alloc_is_zero(cs.namespace(|| <span class="macro">format!</span>(<span class="string">"is_selected, case {i}"</span>)), <span class="kw-2">&amp;</span>acc)<span class="question-mark">?</span>;
 
         <span class="comment">// If no selection matched, use a dummy key so constraints are met.
         // We will actually return the default value, though.
         </span><span class="kw">let </span>dummy_key = c[<span class="number">0</span>].key;
-        <span class="kw">let </span>selected_key = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;default key&quot;</span>), || {
+        <span class="kw">let </span>selected_key = AllocatedNum::alloc(cs.namespace(|| <span class="string">"default key"</span>), || {
             <span class="kw">if </span>any_selected {
                 selected
                     .get_value()
@@ -1046,13 +1046,13 @@ returns the default.
         };
         <span class="kw">let </span>zero = <span class="kw-2">&amp;</span>g.false_num;
         <span class="kw">let </span>(enforced_result, selector) =
-            cc.enforce_selection(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;case {i}&quot;</span>)), zero)<span class="question-mark">?</span>;
+            cc.enforce_selection(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"case {i}"</span>)), zero)<span class="question-mark">?</span>;
 
         <span class="comment">// If no selection matched, choose the default value
         </span><span class="kw">let </span>is_default = is_selected.not();
 
         result.push(pick(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;maybe default, case {i}&quot;</span>)),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"maybe default, case {i}"</span>)),
             <span class="kw-2">&amp;</span>is_default,
             default,
             <span class="kw-2">&amp;</span>enforced_result,
@@ -1067,7 +1067,7 @@ returns the default.
     </span><span class="kw">for </span>(i, (c, default)) <span class="kw">in </span>cases.iter().zip(defaults).enumerate().skip(<span class="number">1</span>) {
         <span class="comment">// Ensure key ordering actually matches
         </span><span class="kw">for </span>(j, case) <span class="kw">in </span>c.iter().enumerate() {
-            <span class="macro">debug_assert_eq!</span>(case.key, cases[<span class="number">0</span>][j].key, <span class="string">&quot;Key ordering mismatch {i}:{j}&quot;</span>);
+            <span class="macro">debug_assert_eq!</span>(case.key, cases[<span class="number">0</span>][j].key, <span class="string">"Key ordering mismatch {i}:{j}"</span>);
         }
 
         <span class="kw">let </span>values = c
@@ -1077,13 +1077,13 @@ returns the default.
 
         <span class="kw">let </span>zero = <span class="kw-2">&amp;</span>g.false_num;
         <span class="kw">let </span>next_enforced_value = selector_dot_product(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;extract result, case {i}&quot;</span>)),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"extract result, case {i}"</span>)),
             <span class="kw-2">&amp;</span>selector,
             <span class="kw-2">&amp;</span>values,
             zero,
         )<span class="question-mark">?</span>;
         result.push(pick(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;maybe default, case {i}&quot;</span>)),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"maybe default, case {i}"</span>)),
             <span class="kw-2">&amp;</span>is_default,
             default,
             <span class="kw-2">&amp;</span>next_enforced_value,
@@ -1112,17 +1112,17 @@ returns the default.
 
         <span class="kw">let </span>x = Fr::from(<span class="number">123</span>);
         <span class="kw">let </span>y = Fr::from(<span class="number">124</span>);
-        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected&quot;</span>), || x);
-        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val0&quot;</span>), || Fr::from(<span class="number">666</span>));
-        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val1&quot;</span>), || Fr::from(<span class="number">777</span>));
+        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected"</span>), || x);
+        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val0"</span>), || Fr::from(<span class="number">666</span>));
+        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val1"</span>), || Fr::from(<span class="number">777</span>));
         <span class="kw">let </span>default =
-            AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default_v&quot;</span>), || Fr::from(<span class="number">999</span>));
+            AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default_v"</span>), || Fr::from(<span class="number">999</span>));
 
         {
             <span class="kw">let </span>clauses = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(y, <span class="kw-2">&amp;</span>val1)];
 
             <span class="kw">let </span>result = multi_case(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case"</span>),
                 <span class="kw-2">&amp;</span>selected,
                 <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>clauses],
                 <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>default],
@@ -1139,10 +1139,10 @@ returns the default.
             <span class="kw">let </span>clauses = [CaseClause::new(y, <span class="kw-2">&amp;</span>val0)];
 
             <span class="kw">let </span>default_chosen =
-                AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;default chosen&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">999</span>)))
+                AllocatedNum::alloc(cs.namespace(|| <span class="string">"default chosen"</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">999</span>)))
                     .unwrap();
             <span class="kw">let </span>result = multi_case(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;default case&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"default case"</span>),
                 <span class="kw-2">&amp;</span>selected,
                 <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>clauses],
                 <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>default_chosen],
@@ -1165,26 +1165,26 @@ returns the default.
         <span class="kw">let </span>x = Fr::from(<span class="number">123</span>);
         <span class="kw">let </span>y = Fr::from(<span class="number">124</span>);
         <span class="kw">let </span>z = Fr::from(<span class="number">125</span>);
-        <span class="kw">let </span>selected0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected0&quot;</span>), || x);
-        <span class="kw">let </span>selected1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected1&quot;</span>), || z);
-        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val0&quot;</span>), || Fr::from(<span class="number">666</span>));
-        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val1&quot;</span>), || Fr::from(<span class="number">777</span>));
-        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val2&quot;</span>), || Fr::from(<span class="number">700</span>));
+        <span class="kw">let </span>selected0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected0"</span>), || x);
+        <span class="kw">let </span>selected1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected1"</span>), || z);
+        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val0"</span>), || Fr::from(<span class="number">666</span>));
+        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val1"</span>), || Fr::from(<span class="number">777</span>));
+        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val2"</span>), || Fr::from(<span class="number">700</span>));
         <span class="kw">let </span>default_vec = [
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default0&quot;</span>), || Fr::from(<span class="number">999</span>)),
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default1&quot;</span>), || Fr::from(<span class="number">998</span>)),
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default2&quot;</span>), || Fr::from(<span class="number">997</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default0"</span>), || Fr::from(<span class="number">999</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default1"</span>), || Fr::from(<span class="number">998</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default2"</span>), || Fr::from(<span class="number">997</span>)),
         ];
 
         {
             <span class="kw">let </span>clauses0 = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(y, <span class="kw-2">&amp;</span>val1)];
             <span class="kw">let </span>clauses1 = [CaseClause::new(x, <span class="kw-2">&amp;</span>val1), CaseClause::new(y, <span class="kw-2">&amp;</span>val0)];
             <span class="kw">let </span>clauses2 = [CaseClause::new(x, <span class="kw-2">&amp;</span>val2), CaseClause::new(y, <span class="kw-2">&amp;</span>val0)];
-            <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">3</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1, <span class="kw-2">&amp;</span>clauses2];
+            <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">'_</span>, Fr&gt;]; <span class="number">3</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1, <span class="kw-2">&amp;</span>clauses2];
 
             <span class="comment">// Test regular multicase, select first clause
             </span><span class="kw">let </span><span class="kw-2">mut </span>result = multi_case(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case 0&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case 0"</span>),
                 <span class="kw-2">&amp;</span>selected0,
                 <span class="kw-2">&amp;</span>clauses_vec,
                 <span class="kw-2">&amp;</span>default_vec,
@@ -1199,7 +1199,7 @@ returns the default.
 
             <span class="comment">// Test regular multicase, select default
             </span>result = multi_case(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case 1&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case 1"</span>),
                 <span class="kw-2">&amp;</span>selected1,
                 <span class="kw-2">&amp;</span>clauses_vec,
                 <span class="kw-2">&amp;</span>default_vec,
@@ -1236,24 +1236,24 @@ returns the default.
 
         <span class="kw">let </span>x = Fr::from(<span class="number">123</span>);
         <span class="kw">let </span>z = Fr::from(<span class="number">125</span>);
-        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected&quot;</span>), || z);
-        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val0&quot;</span>), || Fr::from(<span class="number">666</span>));
-        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val1&quot;</span>), || Fr::from(<span class="number">777</span>));
-        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val2&quot;</span>), || Fr::from(<span class="number">700</span>));
+        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected"</span>), || z);
+        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val0"</span>), || Fr::from(<span class="number">666</span>));
+        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val1"</span>), || Fr::from(<span class="number">777</span>));
+        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val2"</span>), || Fr::from(<span class="number">700</span>));
 
         <span class="kw">let </span>default_vec = [
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default0&quot;</span>), || Fr::from(<span class="number">999</span>)),
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default1&quot;</span>), || Fr::from(<span class="number">998</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default0"</span>), || Fr::from(<span class="number">999</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default1"</span>), || Fr::from(<span class="number">998</span>)),
         ];
 
         <span class="kw">let </span>clauses0 = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(x, <span class="kw-2">&amp;</span>val1)];
         <span class="kw">let </span>clauses1 = [CaseClause::new(x, <span class="kw-2">&amp;</span>val2), CaseClause::new(x, <span class="kw-2">&amp;</span>val0)];
 
         <span class="comment">// Test repeated keys
-        </span><span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        </span><span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">'_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="kw">let _ </span>= multi_case(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case"</span>),
             <span class="kw-2">&amp;</span>selected,
             <span class="kw-2">&amp;</span>invalid_clauses_vec,
             <span class="kw-2">&amp;</span>default_vec,
@@ -1264,9 +1264,9 @@ returns the default.
 
     <span class="attr">#[test]
     #[cfg(debug_assertions)]
-    #[should_panic(expected = <span class="string">&quot;assertion `left == right` failed&quot;</span>)]
+    #[should_panic(expected = <span class="string">"assertion `left == right` failed"</span>)]
     </span><span class="kw">fn </span>multicase_negative2() {
-        <span class="comment">// Test invalid multicase (keys ording doesn&#39;t match)
+        <span class="comment">// Test invalid multicase (keys ording doesn't match)
         </span><span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>g = GlobalAllocations::new(<span class="kw-2">&amp;mut </span>cs, s).unwrap();
@@ -1274,25 +1274,25 @@ returns the default.
         <span class="kw">let </span>x = Fr::from(<span class="number">123</span>);
         <span class="kw">let </span>y = Fr::from(<span class="number">124</span>);
         <span class="kw">let </span>z = Fr::from(<span class="number">125</span>);
-        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected&quot;</span>), || z);
-        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val0&quot;</span>), || Fr::from(<span class="number">666</span>));
-        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val1&quot;</span>), || Fr::from(<span class="number">777</span>));
-        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val2&quot;</span>), || Fr::from(<span class="number">700</span>));
+        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected"</span>), || z);
+        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val0"</span>), || Fr::from(<span class="number">666</span>));
+        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val1"</span>), || Fr::from(<span class="number">777</span>));
+        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val2"</span>), || Fr::from(<span class="number">700</span>));
 
         <span class="kw">let </span>default_vec = [
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default0&quot;</span>), || Fr::from(<span class="number">999</span>)),
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default1&quot;</span>), || Fr::from(<span class="number">998</span>)),
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default2&quot;</span>), || Fr::from(<span class="number">997</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default0"</span>), || Fr::from(<span class="number">999</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default1"</span>), || Fr::from(<span class="number">998</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default2"</span>), || Fr::from(<span class="number">997</span>)),
         ];
 
         <span class="kw">let </span>clauses0 = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(y, <span class="kw-2">&amp;</span>val1)];
         <span class="kw">let </span>clauses1 = [CaseClause::new(y, <span class="kw-2">&amp;</span>val2), CaseClause::new(x, <span class="kw-2">&amp;</span>val0)];
 
-        <span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        <span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">'_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="comment">// Test keys ordering
         </span><span class="kw">let _ </span>= multi_case(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case"</span>),
             <span class="kw-2">&amp;</span>selected,
             <span class="kw-2">&amp;</span>invalid_clauses_vec,
             <span class="kw-2">&amp;</span>default_vec,
@@ -1304,7 +1304,7 @@ returns the default.
     #[cfg(debug_assertions)]
     #[should_panic]
     </span><span class="kw">fn </span>multicase_negative3() {
-        <span class="comment">// Test invalid multicase (clauses sizes doesn&#39;t match)
+        <span class="comment">// Test invalid multicase (clauses sizes doesn't match)
         </span><span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>g = GlobalAllocations::new(<span class="kw-2">&amp;mut </span>cs, s).unwrap();
@@ -1312,28 +1312,28 @@ returns the default.
         <span class="kw">let </span>x = Fr::from(<span class="number">123</span>);
         <span class="kw">let </span>y = Fr::from(<span class="number">124</span>);
         <span class="kw">let </span>z = Fr::from(<span class="number">125</span>);
-        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected&quot;</span>), || z);
-        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val0&quot;</span>), || Fr::from(<span class="number">666</span>));
-        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val1&quot;</span>), || Fr::from(<span class="number">777</span>));
-        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val2&quot;</span>), || Fr::from(<span class="number">700</span>));
+        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected"</span>), || z);
+        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val0"</span>), || Fr::from(<span class="number">666</span>));
+        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val1"</span>), || Fr::from(<span class="number">777</span>));
+        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val2"</span>), || Fr::from(<span class="number">700</span>));
 
         <span class="kw">let </span>default_vec = [
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default0&quot;</span>), || Fr::from(<span class="number">999</span>)),
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default1&quot;</span>), || Fr::from(<span class="number">998</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default0"</span>), || Fr::from(<span class="number">999</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default1"</span>), || Fr::from(<span class="number">998</span>)),
         ];
 
         <span class="kw">let </span>clauses0 = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(y, <span class="kw-2">&amp;</span>val1)];
-        <span class="kw">let </span>clauses1: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">3</span>] = [
+        <span class="kw">let </span>clauses1: [CaseClause&lt;<span class="lifetime">'_</span>, Fr&gt;; <span class="number">3</span>] = [
             CaseClause::new(x, <span class="kw-2">&amp;</span>val2),
             CaseClause::new(y, <span class="kw-2">&amp;</span>val2),
             CaseClause::new(x, <span class="kw-2">&amp;</span>val0),
         ];
 
         <span class="comment">// Test invalid clauses sizes
-        </span><span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        </span><span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">'_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="kw">let _ </span>= multi_case(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case"</span>),
             <span class="kw-2">&amp;</span>selected,
             <span class="kw-2">&amp;</span>invalid_clauses_vec,
             <span class="kw-2">&amp;</span>default_vec,
@@ -1343,7 +1343,7 @@ returns the default.
 
     <span class="attr">#[test]
     #[cfg(debug_assertions)]
-    #[should_panic(expected = <span class="string">&quot;assertion failed: !cases.is_empty()&quot;</span>)]
+    #[should_panic(expected = <span class="string">"assertion failed: !cases.is_empty()"</span>)]
     </span><span class="kw">fn </span>multicase_negative4() {
         <span class="comment">// Test invalid multicase (empty clauses)
         </span><span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
@@ -1351,14 +1351,14 @@ returns the default.
         <span class="kw">let </span>g = GlobalAllocations::new(<span class="kw-2">&amp;mut </span>cs, s).unwrap();
 
         <span class="kw">let </span>x = Fr::from(<span class="number">123</span>);
-        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected&quot;</span>), || x);
+        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected"</span>), || x);
         <span class="kw">let </span>default_vec = [
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default0&quot;</span>), || Fr::from(<span class="number">999</span>)),
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default1&quot;</span>), || Fr::from(<span class="number">998</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default0"</span>), || Fr::from(<span class="number">999</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default1"</span>), || Fr::from(<span class="number">998</span>)),
         ];
 
         <span class="kw">let _ </span>= multi_case(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case"</span>),
             <span class="kw-2">&amp;</span>selected,
             <span class="kw-2">&amp;</span>[],
             <span class="kw-2">&amp;</span>default_vec,
@@ -1377,21 +1377,21 @@ returns the default.
 
         <span class="kw">let </span>x = Fr::from(<span class="number">123</span>);
         <span class="kw">let </span>y = Fr::from(<span class="number">124</span>);
-        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected&quot;</span>), || x);
-        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val0&quot;</span>), || Fr::from(<span class="number">666</span>));
-        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val1&quot;</span>), || Fr::from(<span class="number">777</span>));
-        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val2&quot;</span>), || Fr::from(<span class="number">700</span>));
+        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected"</span>), || x);
+        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val0"</span>), || Fr::from(<span class="number">666</span>));
+        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val1"</span>), || Fr::from(<span class="number">777</span>));
+        <span class="kw">let </span>val2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val2"</span>), || Fr::from(<span class="number">700</span>));
         <span class="kw">let </span>clauses0 = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(y, <span class="kw-2">&amp;</span>val1)];
         <span class="kw">let </span>clauses1 = [
             CaseClause::new(x, <span class="kw-2">&amp;</span>val2),
             CaseClause::new(y, <span class="kw-2">&amp;</span>val2),
             CaseClause::new(x, <span class="kw-2">&amp;</span>val0),
         ];
-        <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">'_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="comment">// Test invalid, empty defaults
         </span><span class="kw">let _ </span>= multi_case(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case"</span>),
             <span class="kw-2">&amp;</span>selected,
             <span class="kw-2">&amp;</span>clauses_vec,
             <span class="kw-2">&amp;</span>[],
@@ -1410,20 +1410,20 @@ returns the default.
 
         <span class="kw">let </span>x = Fr::from(<span class="number">123</span>);
         <span class="kw">let </span>y = Fr::from(<span class="number">124</span>);
-        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected&quot;</span>), || x);
-        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val0&quot;</span>), || Fr::from(<span class="number">666</span>));
-        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val1&quot;</span>), || Fr::from(<span class="number">777</span>));
+        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected"</span>), || x);
+        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val0"</span>), || Fr::from(<span class="number">666</span>));
+        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val1"</span>), || Fr::from(<span class="number">777</span>));
         <span class="kw">let </span>default_vec = [
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default0&quot;</span>), || Fr::from(<span class="number">999</span>)),
-            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default1&quot;</span>), || Fr::from(<span class="number">998</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default0"</span>), || Fr::from(<span class="number">999</span>)),
+            <span class="kw-2">&amp;</span>AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default1"</span>), || Fr::from(<span class="number">998</span>)),
         ];
         <span class="kw">let </span>clauses0 = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(y, <span class="kw-2">&amp;</span>val1)];
         <span class="kw">let </span>clauses1 = [];
-        <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">'_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="comment">// Test invalid, empty clauses.
         </span><span class="kw">let _ </span>= multi_case(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case"</span>),
             <span class="kw-2">&amp;</span>selected,
             <span class="kw-2">&amp;</span>clauses_vec,
             <span class="kw-2">&amp;</span>default_vec,
@@ -1441,24 +1441,24 @@ returns the default.
 
         <span class="kw">let </span>x = Fr::from(<span class="number">123</span>);
         <span class="kw">let </span>y = Fr::from(<span class="number">124</span>);
-        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;selected&quot;</span>), || x);
-        <span class="kw">let </span>_selected_blank = AllocatedNum::alloc(cs_blank.namespace(|| <span class="string">&quot;selected&quot;</span>), || {
+        <span class="kw">let </span>selected = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"selected"</span>), || x);
+        <span class="kw">let </span>_selected_blank = AllocatedNum::alloc(cs_blank.namespace(|| <span class="string">"selected"</span>), || {
             <span class="prelude-val">Err</span>(SynthesisError::AssignmentMissing)
         })
         .unwrap();
-        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val0&quot;</span>), || Fr::from(<span class="number">666</span>));
-        <span class="kw">let </span>val0_blank = AllocatedNum::alloc(cs_blank.namespace(|| <span class="string">&quot;val0&quot;</span>), || {
+        <span class="kw">let </span>val0 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val0"</span>), || Fr::from(<span class="number">666</span>));
+        <span class="kw">let </span>val0_blank = AllocatedNum::alloc(cs_blank.namespace(|| <span class="string">"val0"</span>), || {
             <span class="prelude-val">Err</span>(SynthesisError::AssignmentMissing)
         })
         .unwrap();
-        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;val1&quot;</span>), || Fr::from(<span class="number">777</span>));
-        <span class="kw">let </span>val1_blank = AllocatedNum::alloc(cs_blank.namespace(|| <span class="string">&quot;val1&quot;</span>), || {
+        <span class="kw">let </span>val1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"val1"</span>), || Fr::from(<span class="number">777</span>));
+        <span class="kw">let </span>val1_blank = AllocatedNum::alloc(cs_blank.namespace(|| <span class="string">"val1"</span>), || {
             <span class="prelude-val">Err</span>(SynthesisError::AssignmentMissing)
         })
         .unwrap();
         <span class="kw">let </span>default =
-            AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;default_v&quot;</span>), || Fr::from(<span class="number">999</span>));
-        <span class="kw">let </span>default_blank = AllocatedNum::alloc(cs_blank.namespace(|| <span class="string">&quot;default_v&quot;</span>), || {
+            AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"default_v"</span>), || Fr::from(<span class="number">999</span>));
+        <span class="kw">let </span>default_blank = AllocatedNum::alloc(cs_blank.namespace(|| <span class="string">"default_v"</span>), || {
             <span class="prelude-val">Err</span>(SynthesisError::AssignmentMissing)
         })
         .unwrap();
@@ -1467,7 +1467,7 @@ returns the default.
             <span class="kw">let </span>clauses = [CaseClause::new(x, <span class="kw-2">&amp;</span>val0), CaseClause::new(y, <span class="kw-2">&amp;</span>val1)];
 
             <span class="kw">let </span>result = multi_case(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"selected case"</span>),
                 <span class="kw-2">&amp;</span>selected,
                 <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>clauses],
                 <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>default],
@@ -1486,7 +1486,7 @@ returns the default.
             ];
 
             <span class="kw">let </span>_result = multi_case(
-                <span class="kw-2">&amp;mut </span>cs_blank.namespace(|| <span class="string">&quot;selected case&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs_blank.namespace(|| <span class="string">"selected case"</span>),
                 <span class="kw-2">&amp;</span>selected,
                 <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>clauses_blank],
                 <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>default_blank],

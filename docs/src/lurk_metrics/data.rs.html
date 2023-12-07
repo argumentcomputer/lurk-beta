@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lurk-metrics/src/data.rs`."><title>data.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk_metrics" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lurk-metrics/src/data.rs`."><title>data.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk_metrics" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -175,14 +175,14 @@
 <span class="kw">use </span>metrics::Key;
 <span class="kw">use </span>tracing::info;
 
-<span class="kw">pub const </span>METRICS_TARGET_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;lurk::metrics&quot;</span>;
+<span class="kw">pub const </span>METRICS_TARGET_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"lurk::metrics"</span>;
 
 <span class="doccomment">/// A map of metrics data
 </span><span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Metrics(HashMap&lt;Key, Metric&gt;);
 
 <span class="kw">impl </span>Metrics {
-    <span class="doccomment">/// Get a mutable reference to a metric, creating it if it doesn&#39;t already exist in the map
+    <span class="doccomment">/// Get a mutable reference to a metric, creating it if it doesn't already exist in the map
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, typ: MetricType, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="kw-2">&amp;mut </span>Metric {
         <span class="kw">if </span>!<span class="self">self</span>.<span class="number">0</span>.contains_key(key) {
             <span class="self">self</span>.<span class="number">0</span>.insert(key.clone(), Metric::new(typ));
@@ -214,16 +214,16 @@
                 String::new()
             } <span class="kw">else </span>{
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;[{}]&quot;</span>,
+                    <span class="string">"[{}]"</span>,
                     key.labels()
-                        .map(|label| <span class="macro">format!</span>(<span class="string">&quot;{}={}&quot;</span>, label.key(), label.value()))
+                        .map(|label| <span class="macro">format!</span>(<span class="string">"{}={}"</span>, label.key(), label.value()))
                         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-                        .join(<span class="string">&quot;,&quot;</span>)
+                        .join(<span class="string">","</span>)
                 )
             };
             <span class="macro">info!</span>(
                 target: METRICS_TARGET_NAME,
-                <span class="string">&quot;{}{}: {}&quot;</span>,
+                <span class="string">"{}{}: {}"</span>,
                 key.name(),
                 labels,
                 metric,
@@ -271,7 +271,7 @@
                 inner.n += <span class="number">1</span>;
             }
             Metric::Gauge(_inner) =&gt; {
-                <span class="macro">panic!</span>(<span class="string">&quot;increment gauge values are not supported&quot;</span>);
+                <span class="macro">panic!</span>(<span class="string">"increment gauge values are not supported"</span>);
             }
             Metric::Histogram(inner) =&gt; {
                 inner.saturating_record(value);
@@ -281,12 +281,12 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: f64) {
         <span class="kw">match </span><span class="self">self </span>{
-            Metric::Counter(_inner) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;set counter values are not supported&quot;</span>),
+            Metric::Counter(_inner) =&gt; <span class="macro">panic!</span>(<span class="string">"set counter values are not supported"</span>),
             Metric::Gauge(inner) =&gt; {
                 inner.sum = value;
                 inner.n = <span class="number">1</span>;
             }
-            Metric::Histogram(_inner) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;set histogram values are not supported&quot;</span>),
+            Metric::Histogram(_inner) =&gt; <span class="macro">panic!</span>(<span class="string">"set histogram values are not supported"</span>),
         }
     }
 
@@ -303,24 +303,24 @@
             (Metric::Histogram(me), Metric::Histogram(other)) =&gt; {
                 me.add(other).unwrap();
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;can&#39;t aggregate different types&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"can't aggregate different types"</span>),
         }
     }
 }
 
 <span class="kw">impl </span>Display <span class="kw">for </span>Metric {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
             Metric::Counter(inner) =&gt; {
                 <span class="kw">if </span>inner.sum == inner.n {
-                    f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}&quot;</span>, inner.sum))
+                    f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}"</span>, inner.sum))
                 } <span class="kw">else </span>{
-                    f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{} (n={})&quot;</span>, inner.sum, inner.n))
+                    f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{} (n={})"</span>, inner.sum, inner.n))
                 }
             }
-            Metric::Gauge(inner) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{} (n={})&quot;</span>, inner.sum, inner.n)),
+            Metric::Gauge(inner) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{} (n={})"</span>, inner.sum, inner.n)),
             Metric::Histogram(inner) =&gt; f.write_fmt(<span class="macro">format_args!</span>(
-                <span class="string">&quot;n={}: min={} p10={} p50={} avg={:.2} p90={} p99={} p99.9={} max={}&quot;</span>,
+                <span class="string">"n={}: min={} p10={} p50={} avg={:.2} p90={} p99={} p99.9={} max={}"</span>,
                 inner.len(),
                 inner.min(),
                 inner.value_at_quantile(<span class="number">0.1</span>),

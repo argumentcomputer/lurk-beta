@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/z_data/z_expr.rs`."><title>z_expr.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/z_data/z_expr.rs`."><title>z_expr.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -206,13 +206,13 @@
 <a href="#206" id="206">206</a>
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>lurk_macros::serde_test;
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span><span class="kw">crate</span>::field::FWrap;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::hash::PoseidonCache;
@@ -226,7 +226,7 @@
 
 <span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(
-    not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
+    not(target_arch = <span class="string">"wasm32"</span>),
     serde_test(types(pasta_curves::pallas::Scalar), zdata(<span class="bool-val">true</span>))
 )]
 </span><span class="doccomment">/// A `ZExpr` is the content-addressed representation of a Lurk expression, which enables
@@ -260,28 +260,28 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; std::fmt::Display <span class="kw">for </span>ZExpr&lt;F&gt; {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            ZExpr::Nil =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;nil&quot;</span>),
-            ZExpr::Cons(x, y) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;({x} . {y})&quot;</span>),
-            ZExpr::Str(x, y) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(str {x} {y})&quot;</span>),
-            ZExpr::Sym(x, y) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(sym {x} {y})&quot;</span>),
-            ZExpr::Key(x, y) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(key {x} {y})&quot;</span>),
+            ZExpr::Nil =&gt; <span class="macro">write!</span>(f, <span class="string">"nil"</span>),
+            ZExpr::Cons(x, y) =&gt; <span class="macro">write!</span>(f, <span class="string">"({x} . {y})"</span>),
+            ZExpr::Str(x, y) =&gt; <span class="macro">write!</span>(f, <span class="string">"(str {x} {y})"</span>),
+            ZExpr::Sym(x, y) =&gt; <span class="macro">write!</span>(f, <span class="string">"(sym {x} {y})"</span>),
+            ZExpr::Key(x, y) =&gt; <span class="macro">write!</span>(f, <span class="string">"(key {x} {y})"</span>),
             ZExpr::Comm(ff, x) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">&quot;(comm {} {})&quot;</span>, ff.trimmed_hex_digits(), x)
+                <span class="macro">write!</span>(f, <span class="string">"(comm {} {})"</span>, ff.trimmed_hex_digits(), x)
             }
-            ZExpr::EmptyStr =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;emptystr&quot;</span>),
-            ZExpr::RootSym =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;rootsym&quot;</span>),
-            ZExpr::RootKey =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;rootkey&quot;</span>),
-            ZExpr::Thunk(val, cont) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(thunk {val} {cont})&quot;</span>),
+            ZExpr::EmptyStr =&gt; <span class="macro">write!</span>(f, <span class="string">"emptystr"</span>),
+            ZExpr::RootSym =&gt; <span class="macro">write!</span>(f, <span class="string">"rootsym"</span>),
+            ZExpr::RootKey =&gt; <span class="macro">write!</span>(f, <span class="string">"rootkey"</span>),
+            ZExpr::Thunk(val, cont) =&gt; <span class="macro">write!</span>(f, <span class="string">"(thunk {val} {cont})"</span>),
             ZExpr::Fun {
                 arg,
                 body,
                 closed_env,
-            } =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(fun {arg} {body} {closed_env})&quot;</span>),
-            ZExpr::Char(x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(char {x})&quot;</span>),
-            ZExpr::Num(x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(num  {x:?})&quot;</span>),
-            ZExpr::UInt(x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(uint {x})&quot;</span>),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"(fun {arg} {body} {closed_env})"</span>),
+            ZExpr::Char(x) =&gt; <span class="macro">write!</span>(f, <span class="string">"(char {x})"</span>),
+            ZExpr::Num(x) =&gt; <span class="macro">write!</span>(f, <span class="string">"(num  {x:?})"</span>),
+            ZExpr::UInt(x) =&gt; <span class="macro">write!</span>(f, <span class="string">"(uint {x})"</span>),
         }
     }
 }
@@ -339,7 +339,7 @@
         }
     }
 
-    <span class="doccomment">/// Constructs a `ZExpr` by fetching `ptr`&#39;s expression from the store and hashing it
+    <span class="doccomment">/// Constructs a `ZExpr` by fetching `ptr`'s expression from the store and hashing it
     </span><span class="kw">pub fn </span>from_ptr(store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">match </span>ptr.tag {
             ExprTag::Nil =&gt; <span class="prelude-val">Some</span>(ZExpr::Nil),
@@ -379,12 +379,12 @@
                     store.hash_cont(<span class="kw-2">&amp;</span>thunk.continuation)<span class="question-mark">?</span>,
                 ))
             }),
-            ExprTag::Cproc =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Lurk Alpha doesn&#39;t produce such expressions&quot;</span>),
+            ExprTag::Cproc =&gt; <span class="macro">unreachable!</span>(<span class="string">"Lurk Alpha doesn't produce such expressions"</span>),
         }
     }
 }
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">impl</span>&lt;F: LurkField&gt; Arbitrary <span class="kw">for </span>ZExpr&lt;F&gt; {
     <span class="kw">type </span>Parameters = ();
     <span class="kw">type </span>Strategy = BoxedStrategy&lt;<span class="self">Self</span>&gt;;

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/z_data/serde/de.rs`."><title>de.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/z_data/serde/de.rs`."><title>de.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -546,35 +546,35 @@
 <span class="kw">use </span><span class="kw">crate</span>::z_data::serde::SerdeError;
 <span class="kw">use </span><span class="kw">crate</span>::z_data::ZData;
 
-<span class="kw">pub fn </span>from_z_data&lt;<span class="lifetime">&#39;a</span>, T&gt;(z: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ZData) -&gt; <span class="prelude-ty">Result</span>&lt;T, SerdeError&gt;
+<span class="kw">pub fn </span>from_z_data&lt;<span class="lifetime">'a</span>, T&gt;(z: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ZData) -&gt; <span class="prelude-ty">Result</span>&lt;T, SerdeError&gt;
 <span class="kw">where
-    </span>T: Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;,
+    </span>T: Deserialize&lt;<span class="lifetime">'a</span>&gt;,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>deserializer = Deserializer::from_z_data(z);
     T::deserialize(<span class="kw-2">&amp;mut </span>deserializer)
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>Deserializer&lt;<span class="lifetime">&#39;de</span>&gt; {
-    input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;de </span>ZData,
+</span><span class="kw">pub struct </span>Deserializer&lt;<span class="lifetime">'de</span>&gt; {
+    input: <span class="kw-2">&amp;</span><span class="lifetime">'de </span>ZData,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserializer&lt;<span class="lifetime">&#39;de</span>&gt; {
-    <span class="kw">pub fn </span>from_z_data(input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;de </span>ZData) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserializer&lt;<span class="lifetime">'de</span>&gt; {
+    <span class="kw">pub fn </span>from_z_data(input: <span class="kw-2">&amp;</span><span class="lifetime">'de </span>ZData) -&gt; <span class="self">Self </span>{
         Deserializer { input }
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, <span class="lifetime">&#39;a</span>&gt; de::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Deserializer&lt;<span class="lifetime">&#39;de</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>, <span class="lifetime">'a</span>&gt; de::Deserializer&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Deserializer&lt;<span class="lifetime">'de</span>&gt; {
     <span class="kw">type </span>Error = SerdeError;
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_any&lt;V&gt;(<span class="self">self</span>, _visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="prelude-val">Err</span>(SerdeError::Function(<span class="macro">format!</span>(
-            <span class="string">&quot;Function not supported: {}&quot;</span>,
+            <span class="string">"Function not supported: {}"</span>,
             <span class="self">self</span>.input
         )))
     }
@@ -582,25 +582,25 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_bool&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) <span class="kw">if </span>x.len() == <span class="number">1 </span>=&gt; <span class="kw">match </span>x[<span class="number">0</span>] {
                 <span class="number">0u8 </span>=&gt; visitor.visit_bool(<span class="bool-val">false</span>),
                 <span class="number">1u8 </span>=&gt; visitor.visit_bool(<span class="bool-val">true</span>),
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected bool, got: {err}&quot;</span>))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected bool, got: {err}"</span>))),
             },
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected bool, got: {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected bool, got: {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_i8&lt;V&gt;(<span class="self">self</span>, _visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-            <span class="string">&quot;Unsigned integers not supported: {}&quot;</span>,
+            <span class="string">"Unsigned integers not supported: {}"</span>,
             <span class="self">self</span>.input
         )))
     }
@@ -608,10 +608,10 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_i16&lt;V&gt;(<span class="self">self</span>, _visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-            <span class="string">&quot;Unsigned integers not supported: {}&quot;</span>,
+            <span class="string">"Unsigned integers not supported: {}"</span>,
             <span class="self">self</span>.input
         )))
     }
@@ -619,20 +619,20 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_i32&lt;V&gt;(<span class="self">self</span>, _visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-            <span class="string">&quot;Unsigned integers not supported: {}&quot;</span>,
+            <span class="string">"Unsigned integers not supported: {}"</span>,
             <span class="self">self</span>.input
         )))
     }
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_i64&lt;V&gt;(<span class="self">self</span>, _visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-            <span class="string">&quot;Unsigned integers not supported: {}&quot;</span>,
+            <span class="string">"Unsigned integers not supported: {}"</span>,
             <span class="self">self</span>.input
         )))
     }
@@ -640,63 +640,63 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_u8&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) <span class="kw">if </span>x.len() == <span class="number">1 </span>=&gt; visitor.visit_u8(x[<span class="number">0</span>]),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u8, got: {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected u8, got: {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_u16&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) <span class="kw">if </span>x.len() == <span class="number">2 </span>=&gt; {
                 <span class="kw">let </span>a: [u8; <span class="number">2</span>] = x.clone().try_into().unwrap();
                 visitor.visit_u16(u16::from_le_bytes(a))
             }
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u16, got: {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected u16, got: {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_u32&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) <span class="kw">if </span>x.len() == <span class="number">4 </span>=&gt; {
                 <span class="kw">let </span>a: [u8; <span class="number">4</span>] = x.clone().try_into().unwrap();
                 visitor.visit_u32(u32::from_le_bytes(a))
             }
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u32: got {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected u32: got {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_u64&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) <span class="kw">if </span>x.len() == <span class="number">8 </span>=&gt; {
                 <span class="kw">let </span>a: [u8; <span class="number">8</span>] = x.clone().try_into().unwrap();
                 visitor.visit_u64(u64::from_le_bytes(a))
             }
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u64: got {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected u64: got {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_f32&lt;V&gt;(<span class="self">self</span>, _visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-            <span class="string">&quot;Floats not supported: {}&quot;</span>,
+            <span class="string">"Floats not supported: {}"</span>,
             <span class="self">self</span>.input
         )))
     }
@@ -704,10 +704,10 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_f64&lt;V&gt;(<span class="self">self</span>, _visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-            <span class="string">&quot;Floats not supported: {}&quot;</span>,
+            <span class="string">"Floats not supported: {}"</span>,
             <span class="self">self</span>.input
         )))
     }
@@ -715,20 +715,20 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_char&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">let </span>num = u32::deserialize(<span class="self">self</span>)
-            .map_err(|e| SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected char: {}&quot;</span>, e)))<span class="question-mark">?</span>;
+            .map_err(|e| SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected char: {}"</span>, e)))<span class="question-mark">?</span>;
         <span class="kw">match </span>char::from_u32(num) {
             <span class="prelude-val">Some</span>(a) =&gt; visitor.visit_char(a),
-            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;failed to get char from: {num}&quot;</span>))),
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"failed to get char from: {num}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_str&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>v: Vec&lt;char&gt; = <span class="macro">vec!</span>[];
         <span class="kw">match </span><span class="self">self</span>.input {
@@ -739,12 +739,12 @@
                             v.push(char::deserialize(<span class="kw-2">&amp;mut </span>Deserializer::from_z_data(zd))<span class="question-mark">?</span>)
                         }
                         err =&gt; {
-                            <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected string, got: {err}&quot;</span>)))
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected string, got: {err}"</span>)))
                         }
                     }
                 }
             }
-            err =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected string, got: {err}&quot;</span>))),
+            err =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected string, got: {err}"</span>))),
         }
         visitor.visit_str(<span class="kw-2">&amp;</span>v.into_iter().collect::&lt;String&gt;())
     }
@@ -752,7 +752,7 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_string&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="self">self</span>.deserialize_str(visitor)
     }
@@ -760,18 +760,18 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_bytes&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) =&gt; visitor.visit_bytes(x),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected bytes, got: {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected bytes, got: {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_byte_buf&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="self">self</span>.deserialize_bytes(visitor)
     }
@@ -779,16 +779,16 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_option&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) =&gt; <span class="kw">match </span>x.as_slice() {
                 [] =&gt; visitor.visit_none(),
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Option, got: {err:?}&quot;</span>))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected Option, got: {err:?}"</span>))),
             },
             ZData::Cell(xs) =&gt; <span class="kw">match </span>xs.as_slice() {
                 [a] =&gt; visitor.visit_some(<span class="kw-2">&amp;mut </span>Deserializer::from_z_data(a)),
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Option, got: {err:?}&quot;</span>))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected Option, got: {err:?}"</span>))),
             },
         }
     }
@@ -796,25 +796,25 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_unit&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) =&gt; <span class="kw">match </span>x.as_slice() {
                 [] =&gt; visitor.visit_none(),
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Unit (), got: {err:?}&quot;</span>))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected Unit (), got: {err:?}"</span>))),
             },
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Unit (), got: {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected Unit (), got: {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_unit_struct&lt;V&gt;(
         <span class="self">self</span>,
-        _name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+        _name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
         visitor: V,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="self">self</span>.deserialize_unit(visitor)
     }
@@ -822,11 +822,11 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_newtype_struct&lt;V&gt;(
         <span class="self">self</span>,
-        _name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+        _name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
         visitor: V,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         visitor.visit_newtype_struct(<span class="self">self</span>)
     }
@@ -834,18 +834,18 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_seq&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Cell(xs) =&gt; visitor.visit_seq(SeqAccess::new(xs, <span class="number">0</span>)),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected sequence, got: {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected sequence, got: {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_tuple&lt;V&gt;(<span class="self">self</span>, _len: usize, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="self">self</span>.deserialize_seq(visitor)
     }
@@ -853,12 +853,12 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_tuple_struct&lt;V&gt;(
         <span class="self">self</span>,
-        _name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+        _name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
         _len: usize,
         visitor: V,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="self">self</span>.deserialize_seq(visitor)
     }
@@ -866,23 +866,23 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_map&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Cell(xs) =&gt; visitor.visit_map(MapAccess::new(xs)),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected map, got: {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected map, got: {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_struct&lt;V&gt;(
         <span class="self">self</span>,
-        _name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-        fields: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
+        _name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+        fields: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str],
         visitor: V,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="self">self</span>.deserialize_tuple(fields.len(), visitor)
     }
@@ -890,12 +890,12 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_enum&lt;V&gt;(
         <span class="self">self</span>,
-        _name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-        variants: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
+        _name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+        variants: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str],
         visitor: V,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Cell(xs) <span class="kw">if </span>!xs.is_empty() =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>xs[<span class="number">0</span>] {
@@ -903,16 +903,16 @@
                     <span class="kw">let </span>variant = String::from(variants[idx_vec[<span class="number">0</span>] <span class="kw">as </span>usize]);
                     visitor.visit_enum(Enum::new(<span class="self">self</span>, variant, <span class="number">1</span>))
                 }
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected enum, got: {err}&quot;</span>))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected enum, got: {err}"</span>))),
             },
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected enum, got: {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected enum, got: {err}"</span>))),
         }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_identifier&lt;V&gt;(<span class="self">self</span>, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="self">self</span>.deserialize_str(visitor)
     }
@@ -920,10 +920,10 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>deserialize_ignored_any&lt;V&gt;(<span class="self">self</span>, _visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="prelude-val">Err</span>(SerdeError::Function(<span class="macro">format!</span>(
-            <span class="string">&quot;Function not supported: {}&quot;</span>,
+            <span class="string">"Function not supported: {}"</span>,
             <span class="self">self</span>.input
         )))
     }
@@ -934,23 +934,23 @@
     </span>}
 }
 
-<span class="kw">struct </span>SeqAccess&lt;<span class="lifetime">&#39;a</span>&gt; {
-    vec: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[ZData],
+<span class="kw">struct </span>SeqAccess&lt;<span class="lifetime">'a</span>&gt; {
+    vec: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ZData],
     index: usize,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; SeqAccess&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">fn </span>new(vec: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[ZData], index: usize) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; SeqAccess&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">fn </span>new(vec: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ZData], index: usize) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ vec, index }
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; de::SeqAccess&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>SeqAccess&lt;<span class="lifetime">&#39;de</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; de::SeqAccess&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>SeqAccess&lt;<span class="lifetime">'de</span>&gt; {
     <span class="kw">type </span>Error = SerdeError;
 
     <span class="kw">fn </span>next_element_seed&lt;T&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, seed: T) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;T::Value&gt;, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>T: de::DeserializeSeed&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>T: de::DeserializeSeed&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">if </span><span class="self">self</span>.index &gt;= <span class="self">self</span>.vec.len() {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
@@ -962,23 +962,23 @@
     }
 }
 
-<span class="kw">struct </span>MapAccess&lt;<span class="lifetime">&#39;a</span>&gt; {
-    vec: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[ZData],
+<span class="kw">struct </span>MapAccess&lt;<span class="lifetime">'a</span>&gt; {
+    vec: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ZData],
     index: usize,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; MapAccess&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">fn </span>new(vec: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[ZData]) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; MapAccess&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">fn </span>new(vec: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ZData]) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ vec, index: <span class="number">0 </span>}
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; de::MapAccess&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>MapAccess&lt;<span class="lifetime">&#39;de</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; de::MapAccess&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>MapAccess&lt;<span class="lifetime">'de</span>&gt; {
     <span class="kw">type </span>Error = SerdeError;
 
     <span class="kw">fn </span>next_key_seed&lt;K&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, seed: K) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;K::Value&gt;, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>K: de::DeserializeSeed&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>K: de::DeserializeSeed&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">if </span><span class="self">self</span>.index &gt;= <span class="self">self</span>.vec.len() {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
@@ -991,10 +991,10 @@
 
     <span class="kw">fn </span>next_value_seed&lt;V&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, seed: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: de::DeserializeSeed&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: de::DeserializeSeed&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">if </span><span class="self">self</span>.index &gt;= <span class="self">self</span>.vec.len() {
-            <span class="prelude-val">Err</span>(SerdeError::Type(<span class="string">&quot;Invalid index&quot;</span>.into()))
+            <span class="prelude-val">Err</span>(SerdeError::Type(<span class="string">"Invalid index"</span>.into()))
         } <span class="kw">else </span>{
             <span class="kw">let </span>value = seed.deserialize(<span class="kw-2">&amp;mut </span>Deserializer::from_z_data(<span class="kw-2">&amp;</span><span class="self">self</span>.vec[<span class="self">self</span>.index]))<span class="question-mark">?</span>;
             <span class="self">self</span>.index += <span class="number">1</span>;
@@ -1003,27 +1003,27 @@
     }
 }
 
-<span class="kw">struct </span>Enum&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;de</span>&gt; {
-    de: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+<span class="kw">struct </span>Enum&lt;<span class="lifetime">'a</span>, <span class="lifetime">'de</span>&gt; {
+    de: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Deserializer&lt;<span class="lifetime">'de</span>&gt;,
     variant: String,
     index: usize,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;de</span>&gt; Enum&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;de</span>&gt; {
-    <span class="kw">fn </span>new(de: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;, variant: String, index: usize) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'de</span>&gt; Enum&lt;<span class="lifetime">'a</span>, <span class="lifetime">'de</span>&gt; {
+    <span class="kw">fn </span>new(de: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Deserializer&lt;<span class="lifetime">'de</span>&gt;, variant: String, index: usize) -&gt; <span class="self">Self </span>{
         Enum { de, variant, index }
     }
 }
 
 <span class="comment">// `EnumAccess` is provided to the `Visitor` to give it the ability to determine
 // which variant of the enum is supposed to be deserialized.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, <span class="lifetime">&#39;a</span>&gt; de::EnumAccess&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Enum&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;de</span>&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'de</span>, <span class="lifetime">'a</span>&gt; de::EnumAccess&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>Enum&lt;<span class="lifetime">'a</span>, <span class="lifetime">'de</span>&gt; {
     <span class="kw">type </span>Error = SerdeError;
     <span class="kw">type </span>Variant = <span class="self">Self</span>;
 
     <span class="kw">fn </span>variant_seed&lt;V&gt;(<span class="self">self</span>, seed: V) -&gt; <span class="prelude-ty">Result</span>&lt;(V::Value, <span class="self">Self</span>::Variant), <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: de::DeserializeSeed&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: de::DeserializeSeed&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">let </span>variant = <span class="self">self</span>.variant.clone().into_deserializer();
         <span class="kw">let </span>val = seed.deserialize(variant)<span class="question-mark">?</span>;
@@ -1033,7 +1033,7 @@
 
 <span class="comment">// `VariantAccess` is provided to the `Visitor` to give it the ability to see
 // the content of the single variant that it decided to deserialize.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, <span class="lifetime">&#39;a</span>&gt; de::VariantAccess&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Enum&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;de</span>&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'de</span>, <span class="lifetime">'a</span>&gt; de::VariantAccess&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>Enum&lt;<span class="lifetime">'a</span>, <span class="lifetime">'de</span>&gt; {
     <span class="kw">type </span>Error = SerdeError;
 
     <span class="kw">fn </span>unit_variant(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt; {
@@ -1042,13 +1042,13 @@
 
     <span class="kw">fn </span>newtype_variant_seed&lt;T&gt;(<span class="self">self</span>, seed: T) -&gt; <span class="prelude-ty">Result</span>&lt;T::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>T: de::DeserializeSeed&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>T: de::DeserializeSeed&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>newtype = <span class="kw">match </span><span class="self">self</span>.de.input {
             ZData::Cell(xs) <span class="kw">if </span>xs.len() &gt; <span class="number">1 </span>=&gt; Deserializer::from_z_data(<span class="kw-2">&amp;</span>xs[<span class="number">1</span>]),
             err =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-                    <span class="string">&quot;expected newtype variant, got: {err}&quot;
+                    <span class="string">"expected newtype variant, got: {err}"
                 </span>)))
             }
         };
@@ -1057,21 +1057,21 @@
 
     <span class="kw">fn </span>tuple_variant&lt;V&gt;(<span class="self">self</span>, _len: usize, visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">match </span><span class="self">self</span>.de.input {
             ZData::Cell(xs) =&gt; visitor.visit_seq(SeqAccess::new(xs, <span class="self">self</span>.index)),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected sequence, got: {err}&quot;</span>))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">"expected sequence, got: {err}"</span>))),
         }
     }
 
     <span class="kw">fn </span>struct_variant&lt;V&gt;(
         <span class="self">self</span>,
-        fields: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
+        fields: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str],
         visitor: V,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;V::Value, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>V: Visitor&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>V: Visitor&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="self">self</span>.tuple_variant(fields.len(), visitor)
     }

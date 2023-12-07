@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -699,11 +699,11 @@
 <span class="kw">use </span><span class="kw">super</span>::Repl;
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>MetaCmd&lt;F: LurkField&gt; {
-    name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-    summary: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-    format: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-    description: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
-    example: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
+    name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+    summary: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+    format: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+    description: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str],
+    example: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str],
     <span class="kw">pub</span>(<span class="kw">super</span>) run: <span class="kw">fn</span>(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;,
 }
 
@@ -711,17 +711,17 @@
 
 </span><span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>LOAD: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;load&quot;</span>,
-        summary: <span class="string">&quot;Load lurk expressions from a file.&quot;</span>,
-        format: <span class="string">&quot;!(load &lt;string&gt;)&quot;</span>,
+        name: <span class="string">"load"</span>,
+        summary: <span class="string">"Load lurk expressions from a file."</span>,
+        format: <span class="string">"!(load &lt;string&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(load \&quot;my_file.lurk\&quot;)&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">"!(load \"my_file.lurk\")"</span>],
         run: |repl, args| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">if let </span><span class="prelude-val">Some</span>(path) = repl.store.fetch_string(<span class="kw-2">&amp;</span>first) {
                 repl.load_file(<span class="kw-2">&amp;</span>repl.pwd_path.join(path), <span class="bool-val">false</span>)
             } <span class="kw">else </span>{
-                <span class="macro">bail!</span>(<span class="string">&quot;Argument of `load` must be a string.&quot;</span>)
+                <span class="macro">bail!</span>(<span class="string">"Argument of `load` must be a string."</span>)
             }
         },
     };
@@ -729,26 +729,26 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>DEF: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;def&quot;</span>,
-        summary: <span class="string">&quot;Extends env with a non-recursive binding.&quot;</span>,
-        format: <span class="string">&quot;!(def &lt;binding&gt; &lt;body&gt;)&quot;</span>,
+        name: <span class="string">"def"</span>,
+        summary: <span class="string">"Extends env with a non-recursive binding."</span>,
+        format: <span class="string">"!(def &lt;binding&gt; &lt;body&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;Gets macroexpanded to this: (let ((foo (lambda () 123))) (current-env))&quot;</span>,
-            <span class="string">&quot;The state&#39;s env is set to the result.&quot;</span>,
+            <span class="string">"Gets macroexpanded to this: (let ((foo (lambda () 123))) (current-env))"</span>,
+            <span class="string">"The state's env is set to the result."</span>,
         ],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(def foo (lambda () 123))&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">"!(def foo (lambda () 123))"</span>],
         run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr| {
             <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>new_name = first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow());
-            <span class="kw">let </span>l = repl.store.intern_lurk_symbol(<span class="string">&quot;let&quot;</span>);
-            <span class="kw">let </span>current_env = repl.store.intern_lurk_symbol(<span class="string">&quot;current-env&quot;</span>);
+            <span class="kw">let </span>l = repl.store.intern_lurk_symbol(<span class="string">"let"</span>);
+            <span class="kw">let </span>current_env = repl.store.intern_lurk_symbol(<span class="string">"current-env"</span>);
             <span class="kw">let </span>binding = repl.store.list(<span class="macro">vec!</span>[first, second]);
             <span class="kw">let </span>bindings = repl.store.list(<span class="macro">vec!</span>[binding]);
             <span class="kw">let </span>current_env_call = repl.store.list(<span class="macro">vec!</span>[current_env]);
             <span class="kw">let </span>expanded = repl.store.list(<span class="macro">vec!</span>[l, bindings, current_env_call]);
             <span class="kw">let </span>(expanded_io, ..) = repl.eval_expr(expanded)<span class="question-mark">?</span>;
             repl.env = expanded_io[<span class="number">0</span>];
-            <span class="macro">println!</span>(<span class="string">&quot;{new_name}&quot;</span>);
+            <span class="macro">println!</span>(<span class="string">"{new_name}"</span>);
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -756,29 +756,29 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>DEFREC: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;defrec&quot;</span>,
-        summary: <span class="string">&quot;Extends the env with a recursive binding.&quot;</span>,
-        format: <span class="string">&quot;!(defrec &lt;binding&gt; &lt;body&gt;)&quot;</span>,
+        name: <span class="string">"defrec"</span>,
+        summary: <span class="string">"Extends the env with a recursive binding."</span>,
+        format: <span class="string">"!(defrec &lt;binding&gt; &lt;body&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;Gets macroexpanded to this: (letrec ((foo (lambda () 123))) (current-env))&quot;</span>,
-            <span class="string">&quot;The state&#39;s env is set ot the result.&quot;</span>,
+            <span class="string">"Gets macroexpanded to this: (letrec ((foo (lambda () 123))) (current-env))"</span>,
+            <span class="string">"The state's env is set ot the result."</span>,
         ],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))&quot;</span>,
-            <span class="string">&quot;(sum &#39;(1 2 3))&quot;</span>,
+            <span class="string">"!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))"</span>,
+            <span class="string">"(sum '(1 2 3))"</span>,
         ],
         run: |repl, args| {
             <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>new_name = first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow());
-            <span class="kw">let </span>l = repl.store.intern_lurk_symbol(<span class="string">&quot;letrec&quot;</span>);
-            <span class="kw">let </span>current_env = repl.store.intern_lurk_symbol(<span class="string">&quot;current-env&quot;</span>);
+            <span class="kw">let </span>l = repl.store.intern_lurk_symbol(<span class="string">"letrec"</span>);
+            <span class="kw">let </span>current_env = repl.store.intern_lurk_symbol(<span class="string">"current-env"</span>);
             <span class="kw">let </span>binding = repl.store.list(<span class="macro">vec!</span>[first, second]);
             <span class="kw">let </span>bindings = repl.store.list(<span class="macro">vec!</span>[binding]);
             <span class="kw">let </span>current_env_call = repl.store.list(<span class="macro">vec!</span>[current_env]);
             <span class="kw">let </span>expanded = repl.store.list(<span class="macro">vec!</span>[l, bindings, current_env_call]);
             <span class="kw">let </span>(expanded_io, ..) = repl.eval_expr(expanded)<span class="question-mark">?</span>;
             repl.env = expanded_io[<span class="number">0</span>];
-            <span class="macro">println!</span>(<span class="string">&quot;{new_name}&quot;</span>);
+            <span class="macro">println!</span>(<span class="string">"{new_name}"</span>);
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -786,17 +786,17 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>ASSERT: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;assert&quot;</span>,
-        summary: <span class="string">&quot;Assert that an expression evaluates to true.&quot;</span>,
-        format: <span class="string">&quot;!(assert &lt;expr&gt;)&quot;</span>,
+        name: <span class="string">"assert"</span>,
+        summary: <span class="string">"Assert that an expression evaluates to true."</span>,
+        format: <span class="string">"!(assert &lt;expr&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(assert t)&quot;</span>, <span class="string">&quot;!(assert (eq 3 (+ 1 2)))&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">"!(assert t)"</span>, <span class="string">"!(assert (eq 3 (+ 1 2)))"</span>],
         run: |repl, args| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
             <span class="kw">if </span>first_io[<span class="number">0</span>].is_nil() {
                 <span class="macro">eprintln!</span>(
-                    <span class="string">&quot;`assert` failed. {} evaluates to nil&quot;</span>,
+                    <span class="string">"`assert` failed. {} evaluates to nil"</span>,
                     first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
                 );
                 process::exit(<span class="number">1</span>);
@@ -808,23 +808,23 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>ASSERT_EQ: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;assert-eq&quot;</span>,
-        summary: <span class="string">&quot;Assert that two expressions evaluate to the same value.&quot;</span>,
-        format: <span class="string">&quot;!(assert-eq &lt;expr&gt; &lt;expr&gt;)&quot;</span>,
+        name: <span class="string">"assert-eq"</span>,
+        summary: <span class="string">"Assert that two expressions evaluate to the same value."</span>,
+        format: <span class="string">"!(assert-eq &lt;expr&gt; &lt;expr&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(assert-eq 3 (+ 1 2))&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">"!(assert-eq 3 (+ 1 2))"</span>],
         run: |repl, args| {
             <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
-                .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)<span class="question-mark">?</span>;
+                .with_context(|| <span class="string">"evaluating first arg"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>(second_io, ..) = repl
                 .eval_expr(second)
-                .with_context(|| <span class="string">&quot;evaluating second arg&quot;</span>)<span class="question-mark">?</span>;
+                .with_context(|| <span class="string">"evaluating second arg"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io_expr, second_io_expr) = (<span class="kw-2">&amp;</span>first_io[<span class="number">0</span>], <span class="kw-2">&amp;</span>second_io[<span class="number">0</span>]);
             <span class="kw">if </span>!repl.store.ptr_eq(first_io_expr, second_io_expr) {
                 <span class="macro">eprintln!</span>(
-                    <span class="string">&quot;`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}&quot;</span>,
+                    <span class="string">"`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}"</span>,
                     first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
                     second.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
                     first_io_expr.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
@@ -840,30 +840,30 @@
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>ASSERT_EMITTED: MetaCmd&lt;F&gt; = MetaCmd {
         name:
-            <span class="string">&quot;assert-emitted&quot;</span>,
+            <span class="string">"assert-emitted"</span>,
         summary:
-            <span class="string">&quot;Assert that the evaluation of an expr emits values&quot;</span>,
+            <span class="string">"Assert that the evaluation of an expr emits values"</span>,
         format:
-            <span class="string">&quot;!(assert-emitted &lt;expr&gt; &lt;expr&gt;)&quot;</span>,
+            <span class="string">"!(assert-emitted &lt;expr&gt; &lt;expr&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;Assert that the list of values in the first &lt;expr&gt; are emitted by the validation of the second &lt;expr&gt;.&quot;</span>,
+            <span class="string">"Assert that the list of values in the first &lt;expr&gt; are emitted by the validation of the second &lt;expr&gt;."</span>,
         ],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(assert-emitted &#39;(1 2) (begin (emit 1) (emit 2)))&quot;
+            <span class="string">"!(assert-emitted '(1 2) (begin (emit 1) (emit 2)))"
         </span>],
         run: |repl, args| {
             <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
-                .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)<span class="question-mark">?</span>;
+                .with_context(|| <span class="string">"evaluating first arg"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>(.., emitted) = repl
                 .eval_expr(second)
-                .with_context(|| <span class="string">&quot;evaluating second arg&quot;</span>)<span class="question-mark">?</span>;
+                .with_context(|| <span class="string">"evaluating second arg"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>(<span class="kw-2">mut </span>first_emitted, <span class="kw-2">mut </span>rest_emitted) = repl.store.car_cdr(<span class="kw-2">&amp;</span>first_io[<span class="number">0</span>])<span class="question-mark">?</span>;
             <span class="kw">for </span>(i, elem) <span class="kw">in </span>emitted.iter().enumerate() {
                 <span class="kw">if </span>elem != <span class="kw-2">&amp;</span>first_emitted {
                     <span class="macro">eprintln!</span>(
-                        <span class="string">&quot;`assert-emitted` failed at position {i}. Expected {}, but found {}.&quot;</span>,
+                        <span class="string">"`assert-emitted` failed at position {i}. Expected {}, but found {}."</span>,
                         first_emitted.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
                         elem.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
                     );
@@ -878,17 +878,17 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>ASSERT_ERROR: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;assert-error&quot;</span>,
-        summary: <span class="string">&quot;Assert that a evaluation of &lt;expr&gt; fails.&quot;</span>,
-        format: <span class="string">&quot;!(assert-error &lt;expr&gt;)&quot;</span>,
+        name: <span class="string">"assert-error"</span>,
+        summary: <span class="string">"Assert that a evaluation of &lt;expr&gt; fails."</span>,
+        format: <span class="string">"!(assert-error &lt;expr&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(assert-error (1 1))&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">"!(assert-error (1 1))"</span>],
         run: |repl, args| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr_allowing_error_continuation(first)<span class="question-mark">?</span>;
             <span class="kw">if </span>first_io[<span class="number">2</span>].tag() != <span class="kw-2">&amp;</span>Tag::Cont(ContTag::Error) {
                 <span class="macro">eprintln!</span>(
-                    <span class="string">&quot;`assert-error` failed. {} doesn&#39;t result on evaluation error.&quot;</span>,
+                    <span class="string">"`assert-error` failed. {} doesn't result on evaluation error."</span>,
                     first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
                 );
                 process::exit(<span class="number">1</span>);
@@ -901,15 +901,15 @@
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>COMMIT: MetaCmd&lt;F&gt; = MetaCmd {
         name:
-            <span class="string">&quot;commit&quot;</span>,
+            <span class="string">"commit"</span>,
         summary:
-            <span class="string">&quot;Compute the commitment of &lt;expr&gt;.&quot;</span>,
+            <span class="string">"Compute the commitment of &lt;expr&gt;."</span>,
         format:
-            <span class="string">&quot;!(commit &lt;expr&gt;)&quot;</span>,
+            <span class="string">"!(commit &lt;expr&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;(let ((n (open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25))) (* (car n) (cdr n)))&quot;</span>,
+            <span class="string">"!(commit '(13 . 21))"</span>,
+            <span class="string">"(let ((n (open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25))) (* (car n) (cdr n)))"</span>,
         ],
         run: |repl, args| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
@@ -921,26 +921,26 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>HIDE: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;hide&quot;</span>,
-        summary: <span class="string">&quot;Return and persist the commitment of &lt;exp&gt; using secret &lt;secret&gt;.&quot;</span>,
-        format: <span class="string">&quot;!(hide &lt;secret&gt; &lt;expr&gt;)&quot;</span>,
+        name: <span class="string">"hide"</span>,
+        summary: <span class="string">"Return and persist the commitment of &lt;exp&gt; using secret &lt;secret&gt;."</span>,
+        format: <span class="string">"!(hide &lt;secret&gt; &lt;expr&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(hide 12345 &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))&quot;</span>,
-            <span class="string">&quot;(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)&quot;</span>,
+            <span class="string">"!(hide 12345 '(13 . 21))"</span>,
+            <span class="string">"(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))"</span>,
+            <span class="string">"(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)"</span>,
         ],
         run: |repl, args| {
             <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
-                .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)<span class="question-mark">?</span>;
+                .with_context(|| <span class="string">"evaluating first arg"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>(second_io, ..) = repl
                 .eval_expr(second)
-                .with_context(|| <span class="string">&quot;evaluating second arg&quot;</span>)<span class="question-mark">?</span>;
+                .with_context(|| <span class="string">"evaluating second arg"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>Ptr::Atom(Tag::Expr(ExprTag::Num), secret) = first_io[<span class="number">0</span>] <span class="kw">else </span>{
                 <span class="macro">bail!</span>(
-                    <span class="string">&quot;Secret must be a number. Got {}&quot;</span>,
+                    <span class="string">"Secret must be a number. Got {}"</span>,
                     first_io[<span class="number">0</span>].fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
                 )
             };
@@ -953,13 +953,13 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>FETCH: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;fetch&quot;</span>,
-        summary: <span class="string">&quot;Add data from a commitment to the repl store.&quot;</span>,
-        format: <span class="string">&quot;!(fetch &lt;commitment&gt;)&quot;</span>,
+        name: <span class="string">"fetch"</span>,
+        summary: <span class="string">"Add data from a commitment to the repl store."</span>,
+        format: <span class="string">"!(fetch &lt;commitment&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
+            <span class="string">"!(commit '(13 . 21))"</span>,
+            <span class="string">"!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)"</span>,
         ],
         run: |repl, args| {
             <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(args)<span class="question-mark">?</span>;
@@ -970,13 +970,13 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>OPEN: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;open&quot;</span>,
-        summary: <span class="string">&quot;Open a commitment.&quot;</span>,
-        format: <span class="string">&quot;!(open &lt;commitment&gt;)&quot;</span>,
+        name: <span class="string">"open"</span>,
+        summary: <span class="string">"Open a commitment."</span>,
+        format: <span class="string">"!(open &lt;commitment&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
+            <span class="string">"!(commit '(13 . 21))"</span>,
+            <span class="string">"!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)"</span>,
         ],
         run: |repl, args| {
             <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(args)<span class="question-mark">?</span>;
@@ -987,11 +987,11 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; MetaCmd&lt;F&gt; {
     <span class="kw">const </span>CLEAR: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;clear&quot;</span>,
-        summary: <span class="string">&quot;Reset the current environment to be empty.&quot;</span>,
-        format: <span class="string">&quot;!(clear)&quot;</span>,
+        name: <span class="string">"clear"</span>,
+        summary: <span class="string">"Reset the current environment to be empty."</span>,
+        format: <span class="string">"!(clear)"</span>,
         description: <span class="kw-2">&amp;</span>[],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(def a 1)&quot;</span>, <span class="string">&quot;(current-env)&quot;</span>, <span class="string">&quot;!(clear)&quot;</span>, <span class="string">&quot;(current-env)&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">"!(def a 1)"</span>, <span class="string">"(current-env)"</span>, <span class="string">"!(clear)"</span>, <span class="string">"(current-env)"</span>],
         run: |repl, _args| {
             repl.env = repl.store.intern_nil();
             <span class="prelude-val">Ok</span>(())
@@ -1001,11 +1001,11 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>SET_ENV: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;set-env&quot;</span>,
-        summary: <span class="string">&quot;Set the env to the result of evaluating the first argument.&quot;</span>,
-        format: <span class="string">&quot;!(set-env &lt;expr&gt;)&quot;</span>,
+        name: <span class="string">"set-env"</span>,
+        summary: <span class="string">"Set the env to the result of evaluating the first argument."</span>,
+        format: <span class="string">"!(set-env &lt;expr&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(set-env &#39;((a . 1) (b . 2)))&quot;</span>, <span class="string">&quot;a&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">"!(set-env '((a . 1) (b . 2)))"</span>, <span class="string">"a"</span>],
         run: |repl, args| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
@@ -1018,18 +1018,18 @@
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>PROVE: MetaCmd&lt;F&gt; = MetaCmd {
         name:
-            <span class="string">&quot;prove&quot;</span>,
+            <span class="string">"prove"</span>,
         summary:
-            <span class="string">&quot;Evaluate and prove &lt;expr&gt;&quot;</span>,
+            <span class="string">"Evaluate and prove &lt;expr&gt;"</span>,
         format:
-            <span class="string">&quot;!(prove &lt;expr&gt;)&quot;</span>,
+            <span class="string">"!(prove &lt;expr&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;Persist the proof and prints the proof id.&quot;</span>,
+            <span class="string">"Persist the proof and prints the proof id."</span>,
         ],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
-            <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
-            <span class="string">&quot;!(open 0x002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf)&quot;</span>,
+            <span class="string">"!(prove '(1 2 3))"</span>,
+            <span class="string">"!(verify \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")"</span>,
+            <span class="string">"!(open 0x002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf)"</span>,
         ],
         run: |repl, args| {
             <span class="kw">if </span>!args.is_nil() {
@@ -1046,19 +1046,19 @@
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">const </span>VERIFY: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;verify&quot;</span>,
-        summary: <span class="string">&quot;Verify a proof&quot;</span>,
-        format: <span class="string">&quot;!(verify &lt;string&gt;)&quot;</span>,
-        description: <span class="kw-2">&amp;</span>[<span class="string">&quot;Verify proof key &lt;string&gt; and print the result.&quot;</span>],
+        name: <span class="string">"verify"</span>,
+        summary: <span class="string">"Verify a proof"</span>,
+        format: <span class="string">"!(verify &lt;string&gt;)"</span>,
+        description: <span class="kw-2">&amp;</span>[<span class="string">"Verify proof key &lt;string&gt; and print the result."</span>],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
-            <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\&quot;)&quot;</span>,
-            <span class="string">&quot;!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)&quot;</span>,
+            <span class="string">"!(prove '(1 2 3))"</span>,
+            <span class="string">"!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")"</span>,
+            <span class="string">"!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)"</span>,
         ],
         run: |repl, args| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>proof_id = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
-            LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">&#39;_</span>, <span class="kw">_</span>, Coproc&lt;F&gt;&gt;&gt;::verify_proof(
+            LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">'_</span>, <span class="kw">_</span>, Coproc&lt;F&gt;&gt;&gt;::verify_proof(
                 <span class="kw-2">&amp;</span>proof_id,
             )
         }
@@ -1067,20 +1067,20 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; MetaCmd&lt;F&gt; {
     <span class="kw">const </span>DEFPACKAGE: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;defpackage&quot;</span>,
-        summary: <span class="string">&quot;Add a package to the state.&quot;</span>,
-        format: <span class="string">&quot;!(defpackage &lt;string|symbol&gt;)&quot;</span>,
+        name: <span class="string">"defpackage"</span>,
+        summary: <span class="string">"Add a package to the state."</span>,
+        format: <span class="string">"!(defpackage &lt;string|symbol&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(defpackage abc)&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">"!(defpackage abc)"</span>],
         run: |repl, args| {
             <span class="comment">// TODO: handle args
             </span><span class="kw">let </span>(name, _args) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>name = <span class="kw">match </span>name.tag() {
                 Tag::Expr(ExprTag::Str) =&gt; repl.state.borrow_mut().intern(repl.get_string(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>),
                 Tag::Expr(ExprTag::Sym) =&gt; repl.get_symbol(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>.into(),
-                <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Package name must be a string or a symbol&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"Package name must be a string or a symbol"</span>),
             };
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, repl.state.borrow().fmt_to_string(<span class="kw-2">&amp;</span>name));
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, repl.state.borrow().fmt_to_string(<span class="kw-2">&amp;</span>name));
             <span class="kw">let </span>package = Package::new(name);
             repl.state.borrow_mut().add_package(package);
             <span class="prelude-val">Ok</span>(())
@@ -1090,9 +1090,9 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; MetaCmd&lt;F&gt; {
     <span class="kw">const </span>IMPORT: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;import&quot;</span>,
-        summary: <span class="string">&quot;Import a single or several packages.&quot;</span>,
-        format: <span class="string">&quot;!(import &lt;string|package&gt; ...)&quot;</span>,
+        name: <span class="string">"import"</span>,
+        summary: <span class="string">"Import a single or several packages."</span>,
+        format: <span class="string">"!(import &lt;string|package&gt; ...)"</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[],
         run: |repl, args| {
@@ -1123,16 +1123,16 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; MetaCmd&lt;F&gt; {
     <span class="kw">const </span>IN_PACKAGE: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;in-package&quot;</span>,
-        summary: <span class="string">&quot;set the current package.&quot;</span>,
-        format: <span class="string">&quot;!(in-package &lt;string|symbol&gt;)&quot;</span>,
+        name: <span class="string">"in-package"</span>,
+        summary: <span class="string">"set the current package."</span>,
+        format: <span class="string">"!(in-package &lt;string|symbol&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(defpackage abc)&quot;</span>,
-            <span class="string">&quot;!(in-package abc)&quot;</span>,
-            <span class="string">&quot;!(def two (.lurk.+ 1 1))&quot;</span>,
-            <span class="string">&quot;!(in-package .lurk.user)&quot;</span>,
-            <span class="string">&quot;(.lurk.user.abc.two)&quot;</span>,
+            <span class="string">"!(defpackage abc)"</span>,
+            <span class="string">"!(in-package abc)"</span>,
+            <span class="string">"!(def two (.lurk.+ 1 1))"</span>,
+            <span class="string">"!(in-package .lurk.user)"</span>,
+            <span class="string">"(.lurk.user.abc.two)"</span>,
         ],
         run: |repl, args| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
@@ -1149,7 +1149,7 @@
                         .set_current_package(package_name.into())
                 }
                 <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(
-                    <span class="string">&quot;Expected string or symbol. Got {}&quot;</span>,
+                    <span class="string">"Expected string or symbol. Got {}"</span>,
                     first.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
                 ),
             }
@@ -1159,14 +1159,14 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; MetaCmd&lt;F&gt; {
     <span class="kw">const </span>HELP: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;help&quot;</span>,
-        summary: <span class="string">&quot;Print help message.&quot;</span>,
-        format: <span class="string">&quot;!(help &lt;string|symbol&gt;)&quot;</span>,
+        name: <span class="string">"help"</span>,
+        summary: <span class="string">"Print help message."</span>,
+        format: <span class="string">"!(help &lt;string|symbol&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;Without arguments it prints a summary of all available commands.&quot;</span>,
-            <span class="string">&quot;Otherwise the full help for the command in the first argument is printed.&quot;</span>,
+            <span class="string">"Without arguments it prints a summary of all available commands."</span>,
+            <span class="string">"Otherwise the full help for the command in the first argument is printed."</span>,
         ],
-        example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(help)&quot;</span>, <span class="string">&quot;!(help verify)&quot;</span>, <span class="string">&quot;!(help \&quot;load\&quot;)&quot;</span>],
+        example: <span class="kw-2">&amp;</span>[<span class="string">"!(help)"</span>, <span class="string">"!(help verify)"</span>, <span class="string">"!(help \"load\")"</span>],
         run: |repl, args| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">match </span>first.tag() {
@@ -1181,12 +1181,12 @@
                 }
                 Tag::Expr(ExprTag::Nil) =&gt; {
                     <span class="kw">use </span>itertools::Itertools;
-                    <span class="macro">println!</span>(<span class="string">&quot;Available commands:&quot;</span>);
+                    <span class="macro">println!</span>(<span class="string">"Available commands:"</span>);
                     <span class="kw">for </span>(<span class="kw">_</span>, i) <span class="kw">in </span>MetaCmd::cmds().iter().sorted_by_key(|x| x.<span class="number">0</span>) {
-                        <span class="macro">println!</span>(<span class="string">&quot;  {} - {}&quot;</span>, i.name, i.summary);
+                        <span class="macro">println!</span>(<span class="string">"  {} - {}"</span>, i.name, i.summary);
                     }
                 }
-                <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;The optional argument of `help` must be a string or symbol&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"The optional argument of `help` must be a string or symbol"</span>),
             }
             <span class="prelude-val">Ok</span>(())
         },
@@ -1195,19 +1195,19 @@
     <span class="kw">fn </span>meta_help(cmd: <span class="kw-2">&amp;</span>str) {
         <span class="kw">match </span>MetaCmd::cmds().get(cmd) {
             <span class="prelude-val">Some</span>(i) =&gt; {
-                <span class="macro">println!</span>(<span class="string">&quot;{} - {}&quot;</span>, i.name, i.summary);
+                <span class="macro">println!</span>(<span class="string">"{} - {}"</span>, i.name, i.summary);
                 <span class="kw">for </span><span class="kw-2">&amp;</span>e <span class="kw">in </span>i.description.iter() {
-                    <span class="macro">println!</span>(<span class="string">&quot;  {}&quot;</span>, e);
+                    <span class="macro">println!</span>(<span class="string">"  {}"</span>, e);
                 }
-                <span class="macro">println!</span>(<span class="string">&quot;  Usage: {}&quot;</span>, i.format);
+                <span class="macro">println!</span>(<span class="string">"  Usage: {}"</span>, i.format);
                 <span class="kw">if </span>!i.example.is_empty() {
-                    <span class="macro">println!</span>(<span class="string">&quot;  Example:&quot;</span>);
+                    <span class="macro">println!</span>(<span class="string">"  Example:"</span>);
                 }
                 <span class="kw">for </span><span class="kw-2">&amp;</span>e <span class="kw">in </span>i.example.iter() {
-                    <span class="macro">println!</span>(<span class="string">&quot;    {}&quot;</span>, e);
+                    <span class="macro">println!</span>(<span class="string">"    {}"</span>, e);
                 }
             }
-            <span class="prelude-val">None </span>=&gt; <span class="macro">println!</span>(<span class="string">&quot;unknown command {}&quot;</span>, cmd),
+            <span class="prelude-val">None </span>=&gt; <span class="macro">println!</span>(<span class="string">"unknown command {}"</span>, cmd),
         }
     }
 }
@@ -1223,12 +1223,12 @@
         <span class="kw">if </span>repl.store.open(hash).is_none() {
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
         }
-        <span class="kw">let </span>open = repl.store.intern_lurk_symbol(<span class="string">&quot;open&quot;</span>);
+        <span class="kw">let </span>open = repl.store.intern_lurk_symbol(<span class="string">"open"</span>);
         <span class="kw">let </span>open_expr = repl.store.list(<span class="macro">vec!</span>[open, repl.store.num(hash)]);
         <span class="kw">let </span>(args_vec, <span class="kw">_</span>) = repl
             .store
             .fetch_list(<span class="kw-2">&amp;</span>args)
-            .expect(<span class="string">&quot;data must have been interned&quot;</span>);
+            .expect(<span class="string">"data must have been interned"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>expr_vec = Vec::with_capacity(args_vec.len() + <span class="number">1</span>);
         expr_vec.push(open_expr);
         expr_vec.extend(args_vec);
@@ -1236,13 +1236,13 @@
     }
 
     <span class="kw">const </span>CALL: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;call&quot;</span>,
-        summary: <span class="string">&quot;Open a functional commitment then apply arguments to it&quot;</span>,
-        format: <span class="string">&quot;!(call &lt;hash&gt; &lt;args&gt;)&quot;</span>,
+        name: <span class="string">"call"</span>,
+        summary: <span class="string">"Open a functional commitment then apply arguments to it"</span>,
+        format: <span class="string">"!(call &lt;hash&gt; &lt;args&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;(commit (lambda (x) x))&quot;</span>,
-            <span class="string">&quot;!(call 0x39a14e7823d7af7275e83f0cb74f80ca4217c6c6930761b0bbd6879b123dbbc2 0)&quot;</span>,
+            <span class="string">"(commit (lambda (x) x))"</span>,
+            <span class="string">"!(call 0x39a14e7823d7af7275e83f0cb74f80ca4217c6c6930761b0bbd6879b123dbbc2 0)"</span>,
         ],
         run: <span class="self">Self</span>::call,
     };
@@ -1250,40 +1250,40 @@
 
 <span class="kw">impl </span>MetaCmd&lt;F&gt; {
     <span class="kw">const </span>CHAIN: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;chain&quot;</span>,
-        summary: <span class="string">&quot;Chain a functional commitment by applying the provided arguments to it&quot;</span>,
-        format: <span class="string">&quot;!(chain &lt;hash&gt; &lt;args&gt;)&quot;</span>,
+        name: <span class="string">"chain"</span>,
+        summary: <span class="string">"Chain a functional commitment by applying the provided arguments to it"</span>,
+        format: <span class="string">"!(chain &lt;hash&gt; &lt;args&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;Chain a functional commitment by applying the provided arguments to it.&quot;</span>,
-            <span class="string">&quot;The chained function must return a pair whose first component is the actual result&quot;</span>,
-            <span class="string">&quot;  and the second is a commitment to the next function&quot;</span>,
+            <span class="string">"Chain a functional commitment by applying the provided arguments to it."</span>,
+            <span class="string">"The chained function must return a pair whose first component is the actual result"</span>,
+            <span class="string">"  and the second is a commitment to the next function"</span>,
         ],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(commit (letrec ((add (lambda (counter x)
+            <span class="string">"!(commit (letrec ((add (lambda (counter x)
                        (let ((counter (+ counter x)))
                          (cons counter (commit (add counter)))))))
-               (add 0)))&quot;</span>,
-            <span class="string">&quot;!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 1)&quot;</span>,
+               (add 0)))"</span>,
+            <span class="string">"!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 1)"</span>,
         ],
         run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, args: <span class="kw-2">&amp;</span>Ptr| {
             <span class="self">Self</span>::call(repl, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>ev = repl
                 .get_evaluation()
                 .as_ref()
-                .expect(<span class="string">&quot;evaluation must have been set&quot;</span>);
+                .expect(<span class="string">"evaluation must have been set"</span>);
             <span class="kw">let </span>result = ev
                 .get_result()
-                .expect(<span class="string">&quot;evaluation result must have been set&quot;</span>);
+                .expect(<span class="string">"evaluation result must have been set"</span>);
             <span class="kw">let </span>(<span class="kw">_</span>, comm) = repl.store.car_cdr(result)<span class="question-mark">?</span>;
             <span class="kw">let </span>Ptr::Atom(Tag::Expr(ExprTag::Comm), hash) = comm <span class="kw">else </span>{
-                <span class="macro">bail!</span>(<span class="string">&quot;Second component of a chain must be a commitment&quot;</span>)
+                <span class="macro">bail!</span>(<span class="string">"Second component of a chain must be a commitment"</span>)
             };
             <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.store.expect_f(hash);
             <span class="comment">// retrieve from store to persist
             </span><span class="kw">let </span>(secret, fun) = repl
                 .store
                 .open(hash)
-                .expect(<span class="string">&quot;data must have been committed&quot;</span>);
+                .expect(<span class="string">"data must have been committed"</span>);
             repl.hide(<span class="kw-2">*</span>secret, <span class="kw-2">*</span>fun)
         },
     };
@@ -1301,13 +1301,13 @@
     }
 
     <span class="kw">const </span>INSPECT: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;inspect&quot;</span>,
-        summary: <span class="string">&quot;Print part of a proof claim&quot;</span>,
-        format: <span class="string">&quot;!(inspect &lt;string&gt;)&quot;</span>,
+        name: <span class="string">"inspect"</span>,
+        summary: <span class="string">"Print part of a proof claim"</span>,
+        format: <span class="string">"!(inspect &lt;string&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
-            <span class="string">&quot;!(inspect \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
+            <span class="string">"!(prove '(1 2 3))"</span>,
+            <span class="string">"!(inspect \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")"</span>,
         ],
         run: |repl, args| {
             <span class="self">Self</span>::inspect(repl, args, <span class="bool-val">false</span>)
@@ -1317,13 +1317,13 @@
 
 <span class="kw">impl</span>&lt;F: LurkField + DeserializeOwned&gt; MetaCmd&lt;F&gt; {
     <span class="kw">const </span>INSPECT_FULL: MetaCmd&lt;F&gt; = MetaCmd {
-        name: <span class="string">&quot;inspect-full&quot;</span>,
-        summary: <span class="string">&quot;Print a proof claim&quot;</span>,
-        format: <span class="string">&quot;!(inspect-full &lt;string&gt;)&quot;</span>,
+        name: <span class="string">"inspect-full"</span>,
+        summary: <span class="string">"Print a proof claim"</span>,
+        format: <span class="string">"!(inspect-full &lt;string&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
-            <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
-            <span class="string">&quot;!(inspect-full \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
+            <span class="string">"!(prove '(1 2 3))"</span>,
+            <span class="string">"!(inspect-full \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")"</span>,
         ],
         run: |repl, args| {
             <span class="self">Self</span>::inspect(repl, args, <span class="bool-val">true</span>)
@@ -1358,7 +1358,7 @@
         MetaCmd::INSPECT_FULL,
     ];
 
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>cmds() -&gt; std::collections::HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, MetaCmd&lt;F&gt;&gt; {
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>cmds() -&gt; std::collections::HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, MetaCmd&lt;F&gt;&gt; {
         HashMap::from(<span class="self">Self</span>::CMDS.map(|x| (x.name, x)))
     }
 }

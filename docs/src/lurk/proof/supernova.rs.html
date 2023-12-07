@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/supernova.rs`."><title>supernova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/supernova.rs`."><title>supernova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -457,10 +457,10 @@
 
 <span class="doccomment">/// Generates the running claim params for the SuperNova proving system.
 </span><span class="kw">pub fn </span>public_params&lt;
-    <span class="lifetime">&#39;a</span>,
+    <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
 &gt;(
     rc: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
@@ -483,7 +483,7 @@
 
 <span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
-</span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
+</span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
@@ -491,28 +491,28 @@
     <span class="doccomment">/// A proof for the intermediate steps of a recursive computation
     </span>Recursive(Box&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;&gt;&gt;),
     <span class="doccomment">/// A proof for the final step of a recursive computation
-    </span><span class="comment">// Compressed(Box&lt;CompressedSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1&lt;&#39;a, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;),
-    </span>Compressed(PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(C, M)&gt;),
+    </span><span class="comment">// Compressed(Box&lt;CompressedSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1&lt;'a, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;),
+    </span>Compressed(PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(C, M)&gt;),
 }
 
 <span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>SuperNovaProver&lt;
-    <span class="lifetime">&#39;a</span>,
+    <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
 &gt; {
     <span class="doccomment">/// The number of small-step reductions performed in each recursive step of
     /// the primary Lurk circuit.
     </span>reduction_count: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     folding_mode: FoldingMode,
-    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M&gt;,
+    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>M&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
-    SuperNovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
+    SuperNovaProver&lt;<span class="lifetime">'a</span>, F, C, M&gt;
 {
     <span class="doccomment">/// Create a new SuperNovaProver with a reduction count and a `Lang`
     </span><span class="attr">#[inline]
@@ -527,11 +527,11 @@
 }
 
 <span class="kw">impl</span>&lt;
-        <span class="lifetime">&#39;a</span>,
+        <span class="lifetime">'a</span>,
         F: CurveCycleEquipped,
         C: Coprocessor&lt;F&gt;,
-        M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
-    &gt; RecursiveSNARKTrait&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt; <span class="kw">for </span>Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
+        M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+    &gt; RecursiveSNARKTrait&lt;<span class="lifetime">'a</span>, F, C, M&gt; <span class="kw">for </span>Proof&lt;<span class="lifetime">'a</span>, F, C, M&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
@@ -546,12 +546,12 @@
 
     <span class="kw">type </span>ErrorType = SuperNovaError;
 
-    <span class="attr">#[tracing::instrument(skip_all, name = <span class="string">&quot;supernova::prove_recursively&quot;</span>)]
+    <span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"supernova::prove_recursively"</span>)]
     </span><span class="kw">fn </span>prove_recursively(
         pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
         z0: <span class="kw-2">&amp;</span>[F],
         steps: Vec&lt;M&gt;,
-        _store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>&lt;M&gt;::Store,
+        _store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>&lt;M&gt;::Store,
         _reduction_count: usize,
         _lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, usize), ProofError&gt; {
@@ -563,10 +563,10 @@
         <span class="kw">let </span><span class="kw-2">mut </span>last_circuit_index = <span class="number">0</span>;
 
         <span class="kw">for </span>(i, step) <span class="kw">in </span>steps.iter().enumerate() {
-            <span class="macro">info!</span>(<span class="string">&quot;prove_recursively, step {i}&quot;</span>);
+            <span class="macro">info!</span>(<span class="string">"prove_recursively, step {i}"</span>);
 
             <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark = recursive_snark_option.clone().unwrap_or_else(|| {
-                <span class="macro">info!</span>(<span class="string">&quot;RecursiveSnark::new {i}&quot;</span>);
+                <span class="macro">info!</span>(<span class="string">"RecursiveSnark::new {i}"</span>);
                 RecursiveSNARK::new(
                     <span class="kw-2">&amp;</span>pp.pp,
                     step,
@@ -578,7 +578,7 @@
                 .unwrap()
             });
 
-            <span class="macro">info!</span>(<span class="string">&quot;prove_step {i}&quot;</span>);
+            <span class="macro">info!</span>(<span class="string">"prove_step {i}"</span>);
 
             recursive_snark
                 .prove_step(<span class="kw-2">&amp;</span>pp.pp, step, <span class="kw-2">&amp;</span>step.secondary_circuit())
@@ -592,7 +592,7 @@
         <span class="comment">// This probably should be made unnecessary.
         </span><span class="prelude-val">Ok</span>((
             <span class="self">Self</span>::Recursive(Box::new(
-                recursive_snark_option.expect(<span class="string">&quot;RecursiveSNARK missing&quot;</span>),
+                recursive_snark_option.expect(<span class="string">"RecursiveSNARK missing"</span>),
             )),
             last_circuit_index,
         ))
@@ -625,18 +625,18 @@
 }
 
 <span class="kw">impl</span>&lt;
-        <span class="lifetime">&#39;a</span>,
+        <span class="lifetime">'a</span>,
         F: CurveCycleEquipped,
         C: Coprocessor&lt;F&gt;,
-        M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
-    &gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt; <span class="kw">for </span>SuperNovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
+        M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+    &gt; Prover&lt;<span class="lifetime">'a</span>, F, C, M&gt; <span class="kw">for </span>SuperNovaProver&lt;<span class="lifetime">'a</span>, F, C, M&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F, M&gt;;
-    <span class="kw">type </span>ProveOutput = (Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;, usize);
-    <span class="kw">type </span>RecursiveSnark = Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;;
+    <span class="kw">type </span>ProveOutput = (Proof&lt;<span class="lifetime">'a</span>, F, C, M&gt;, usize);
+    <span class="kw">type </span>RecursiveSnark = Proof&lt;<span class="lifetime">'a</span>, F, C, M&gt;;
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
@@ -662,11 +662,11 @@
 /// NIVC configuration becomes more flexible.
 </span><span class="kw">pub enum </span>FoldingConfig&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
     <span class="comment">// TODO: maybe (lang, reduction_count) should be a common struct.
-    </span><span class="doccomment">/// IVC: a single circuit implementing the `Lang`&#39;s reduction will be used
+    </span><span class="doccomment">/// IVC: a single circuit implementing the `Lang`'s reduction will be used
     /// for every folding step
     </span>IVC(Arc&lt;Lang&lt;F, C&gt;&gt;, usize),
     <span class="doccomment">/// NIVC: each folding step will use one of a fixed set of circuits which
-    /// together implement the `Lang`&#39;s reduction.
+    /// together implement the `Lang`'s reduction.
     </span>NIVC(Arc&lt;Lang&lt;F, C&gt;&gt;, usize),
 }
 
@@ -713,10 +713,10 @@
 /// Note: For now, we use ad-hoc circuit cache keys.
 /// See: [crate::public_parameters::instance]
 </span><span class="kw">pub fn </span>circuit_cache_key&lt;
-    <span class="lifetime">&#39;a</span>,
+    <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
 &gt;(
     rc: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
@@ -736,10 +736,10 @@
 <span class="doccomment">/// Collects all the cache keys of supernova instance. We need all of them to compute
 /// a cache key for the digest of the [PublicParams] of the supernova instance.
 </span><span class="kw">pub fn </span>circuit_cache_keys&lt;
-    <span class="lifetime">&#39;a</span>,
+    <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
 &gt;(
     rc: usize,
     lang: <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt;,

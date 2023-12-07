@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/circuit.rs`."><title>circuit.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/circuit.rs`."><title>circuit.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1587,35 +1587,17 @@
 <a href="#1587" id="1587">1587</a>
 <a href="#1588" id="1588">1588</a>
 <a href="#1589" id="1589">1589</a>
-<a href="#1590" id="1590">1590</a>
-<a href="#1591" id="1591">1591</a>
-<a href="#1592" id="1592">1592</a>
-<a href="#1593" id="1593">1593</a>
-<a href="#1594" id="1594">1594</a>
-<a href="#1595" id="1595">1595</a>
-<a href="#1596" id="1596">1596</a>
-<a href="#1597" id="1597">1597</a>
-<a href="#1598" id="1598">1598</a>
-<a href="#1599" id="1599">1599</a>
-<a href="#1600" id="1600">1600</a>
-<a href="#1601" id="1601">1601</a>
-<a href="#1602" id="1602">1602</a>
-<a href="#1603" id="1603">1603</a>
-<a href="#1604" id="1604">1604</a>
-<a href="#1605" id="1605">1605</a>
-<a href="#1606" id="1606">1606</a>
-<a href="#1607" id="1607">1607</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
 //! that it can be used with Nova folding to prove evaluations of Lurk expressions.
 //!
-//! ### &quot;Concrete&quot; and &quot;virtual&quot; paths
+//! ### "Concrete" and "virtual" paths
 //!
 //! Control statements such as matches introduce branching, meaning execution can
 //! follow different paths depending on a value. The real path of execution for
 //! a particular instance we call the *concrete path*. The other paths which are
-//! not followed we call *virtual paths*. A mechanism to &quot;relax&quot; the constraints
+//! not followed we call *virtual paths*. A mechanism to "relax" the constraints
 //! for the virtual paths while also properly enforcing the correctness for what
 //! happens on the concrete path is thus needed.
 //!
@@ -1624,7 +1606,7 @@
 //! is true iff `B` is true. In other words, `B` is irrelevant if `A` is false,
 //! which is the behavior we want for the virtual paths.
 //!
-//! With that in mind, we can keep track of booleans that tell us whether we&#39;re
+//! With that in mind, we can keep track of booleans that tell us whether we're
 //! on a concrete or a virtual path and use such booleans as the premises to build
 //! the constraints we care about with implication gadgets.
 
@@ -1697,7 +1679,7 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; GlobalAllocator&lt;F&gt; {
     <span class="doccomment">/// Checks if the allocation for a numeric variable has already been cached.
-    /// If so, don&#39;t do anything. Otherwise, allocate and cache it.
+    /// If so, don't do anything. Otherwise, allocate and cache it.
     </span><span class="kw">pub fn </span>new_const&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, f: F) {
         <span class="self">self</span>.<span class="number">0
             </span>.entry(FWrap(f))
@@ -1770,7 +1752,7 @@
         <span class="kw">if let </span>AllocatedVal::Pointer(ptr) = <span class="self">self</span>.get(var)<span class="question-mark">? </span>{
             <span class="kw">return </span><span class="prelude-val">Ok</span>(ptr);
         }
-        <span class="macro">bail!</span>(<span class="string">&quot;Expected {var} to be a pointer&quot;</span>)
+        <span class="macro">bail!</span>(<span class="string">"Expected {var} to be a pointer"</span>)
     }
 
     <span class="kw">fn </span>insert_ptr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var: Var, ptr: AllocatedPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;AllocatedVal&lt;F&gt;&gt; {
@@ -1781,7 +1763,7 @@
         <span class="kw">if let </span>AllocatedVal::Boolean(b) = <span class="self">self</span>.get(var)<span class="question-mark">? </span>{
             <span class="kw">return </span><span class="prelude-val">Ok</span>(b);
         }
-        <span class="macro">bail!</span>(<span class="string">&quot;Expected {var} to be a boolean&quot;</span>)
+        <span class="macro">bail!</span>(<span class="string">"Expected {var} to be a boolean"</span>)
     }
 
     <span class="kw">fn </span>insert_bool(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var: Var, b: Boolean) -&gt; <span class="prelude-ty">Option</span>&lt;AllocatedVal&lt;F&gt;&gt; {
@@ -1795,7 +1777,7 @@
     preallocated_preimg: Vec&lt;AllocatedNum&lt;F&gt;&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedVal&lt;F&gt;&gt; {
-    <span class="kw">let </span>cs = cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;image for slot {slot}&quot;</span>));
+    <span class="kw">let </span>cs = cs.namespace(|| <span class="macro">format!</span>(<span class="string">"image for slot {slot}"</span>));
     <span class="kw">let </span>preallocated_img = {
         <span class="kw">match </span>slot.typ {
             SlotType::Hash4 =&gt; AllocatedVal::Number(hash_poseidon(
@@ -1842,57 +1824,39 @@
 
         <span class="comment">// Allocate the preimage because the image depends on it
         </span><span class="kw">let </span><span class="kw-2">mut </span>preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
-
-        <span class="kw">match </span>slot_data {
-            SlotData::PtrVec(ptr_vec) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>component_idx = <span class="number">0</span>;
-                <span class="kw">for </span>ptr <span class="kw">in </span>ptr_vec {
+        slot_data
+            .vals
+            .iter()
+            .enumerate()
+            .for_each(|(component_idx, val)| <span class="kw">match </span>val {
+                Val::Pointer(ptr) =&gt; {
                     <span class="kw">let </span>z_ptr = store.hash_ptr(ptr);
-
                     <span class="comment">// allocate pointer tag
                     </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component {component_idx} slot {slot}&quot;</span>)),
+                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">"component {component_idx} tag slot {slot}"</span>)),
                         || z_ptr.tag_field(),
                     ));
-
-                    component_idx += <span class="number">1</span>;
-
                     <span class="comment">// allocate pointer hash
                     </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component {component_idx} slot {slot}&quot;</span>)),
+                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">"component {component_idx} hash slot {slot}"</span>)),
                         || <span class="kw-2">*</span>z_ptr.value(),
                     ));
-
-                    component_idx += <span class="number">1</span>;
                 }
-            }
-            SlotData::FPtr(f, ptr) =&gt; {
-                <span class="kw">let </span>f = store.expect_f(<span class="kw-2">*</span>f);
-                <span class="kw">let </span>z_ptr = store.hash_ptr(ptr);
-                <span class="comment">// allocate first component
-                </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                    cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component 0 slot {slot}&quot;</span>)),
-                    || <span class="kw-2">*</span>f,
-                ));
-                <span class="comment">// allocate second component
-                </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                    cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component 1 slot {slot}&quot;</span>)),
-                    || z_ptr.tag_field(),
-                ));
-                <span class="comment">// allocate third component
-                </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                    cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component 2 slot {slot}&quot;</span>)),
-                    || <span class="kw-2">*</span>z_ptr.value(),
-                ));
-            }
-            SlotData::F(a) =&gt; {
-                <span class="kw">let </span>a = store.expect_f(<span class="kw-2">*</span>a);
-                preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                    cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component 0 slot {slot}&quot;</span>)),
-                    || <span class="kw-2">*</span>a,
-                ));
-            }
-        }
+                Val::Num(f) =&gt; {
+                    <span class="kw">let </span>f = store.expect_f(<span class="kw-2">*</span>f);
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">"component {component_idx} slot {slot}"</span>)),
+                        || <span class="kw-2">*</span>f,
+                    ));
+                }
+                Val::Boolean(b) =&gt; {
+                    <span class="kw">let </span>f = <span class="kw">if </span><span class="kw-2">*</span>b { F::ONE } <span class="kw">else </span>{ F::ZERO };
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">"component {component_idx} slot {slot}"</span>)),
+                        || f,
+                    ));
+                }
+            });
 
         <span class="comment">// Allocate the image by calling the arithmetic function according
         // to the slot type
@@ -1904,7 +1868,7 @@
         <span class="kw">let </span>preallocated_preimg: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..slot_type.preimg_size())
             .map(|component_idx| {
                 AllocatedNum::alloc_infallible(
-                    cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component {component_idx} slot {slot}&quot;</span>)),
+                    cs.namespace(|| <span class="macro">format!</span>(<span class="string">"component {component_idx} slot {slot}"</span>)),
                     || F::ZERO,
                 )
             })
@@ -1927,7 +1891,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;&gt; {
     <span class="macro">assert!</span>(
         slots_data.len() == num_slots,
-        <span class="string">&quot;collected preimages not equal to the number of available slots&quot;
+        <span class="string">"collected preimages not equal to the number of available slots"
     </span>);
 
     <span class="kw">let </span><span class="kw-2">mut </span>preallocations = Vec::with_capacity(num_slots);
@@ -2087,19 +2051,19 @@
     }
 }
 
-<span class="kw">struct </span>RecursiveContext&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
-    lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;,
-    store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
-    global_allocator: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>GlobalAllocator&lt;F&gt;,
-    hash4_slots: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
-    hash6_slots: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
-    hash8_slots: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
-    commitment_slots: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
-    bit_decomp_slots: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
+<span class="kw">struct </span>RecursiveContext&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+    lang: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Lang&lt;F, C&gt;,
+    store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
+    global_allocator: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>GlobalAllocator&lt;F&gt;,
+    hash4_slots: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
+    hash6_slots: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
+    hash8_slots: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
+    commitment_slots: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
+    bit_decomp_slots: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
     blank: bool,
-    call_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VecDeque&lt;Vec&lt;Ptr&gt;&gt;,
+    call_outputs: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VecDeque&lt;Vec&lt;Ptr&gt;&gt;,
     call_idx: usize,
-    cproc_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[Vec&lt;Ptr&gt;],
+    cproc_outputs: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[Vec&lt;Ptr&gt;],
 }
 
 <span class="kw">fn </span>synthesize_block&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, C: Coprocessor&lt;F&gt;&gt;(
@@ -2109,11 +2073,11 @@
     next_slot: <span class="kw-2">&amp;mut </span>SlotsCounter,
     bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
     preallocated_outputs: <span class="kw-2">&amp;</span>Vec&lt;AllocatedPtr&lt;F&gt;&gt;,
-    ctx: <span class="kw-2">&amp;mut </span>RecursiveContext&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>RecursiveContext&lt;<span class="lifetime">'_</span>, F, C&gt;,
     <span class="kw-2">mut </span>cproc_idx: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">for </span>(op_idx, op) <span class="kw">in </span>block.ops.iter().enumerate() {
-        <span class="kw">let </span><span class="kw-2">mut </span>cs = cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;op {op_idx}&quot;</span>));
+        <span class="kw">let </span><span class="kw-2">mut </span>cs = cs.namespace(|| <span class="macro">format!</span>(<span class="string">"op {op_idx}"</span>));
 
         <span class="macro">macro_rules! </span>cons_helper {
             ( <span class="macro-nonterminal">$img</span>: expr, <span class="macro-nonterminal">$tag</span>: expr, <span class="macro-nonterminal">$preimg</span>: expr, <span class="macro-nonterminal">$slot</span>: expr ) =&gt; {
@@ -2125,7 +2089,7 @@
                     SlotType::Hash4 =&gt; <span class="kw-2">&amp;</span>ctx.hash4_slots[next_slot.consume_hash4()],
                     SlotType::Hash6 =&gt; <span class="kw-2">&amp;</span>ctx.hash6_slots[next_slot.consume_hash6()],
                     SlotType::Hash8 =&gt; <span class="kw-2">&amp;</span>ctx.hash8_slots[next_slot.consume_hash8()],
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Invalid slot type for cons_helper macro&quot;</span>),
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Invalid slot type for cons_helper macro"</span>),
                 };
 
                 <span class="comment">// For each component of the preimage, add implication constraints
@@ -2134,24 +2098,24 @@
                     <span class="kw">let </span>var = <span class="kw-2">&amp;</span><span class="macro-nonterminal">$preimg</span>[i];
                     <span class="kw">let </span>ptr_idx = <span class="number">2 </span>* i;
                     implies_equal(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;implies equal {var}.tag pos {i}&quot;</span>)),
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {var}.tag pos {i}"</span>)),
                         not_dummy,
                         allocated_ptr.tag(),
                         <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx], <span class="comment">// tag index
                     </span>);
                     implies_equal(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;implies equal {var}.hash pos {i}&quot;</span>)),
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {var}.hash pos {i}"</span>)),
                         not_dummy,
                         allocated_ptr.hash(),
                         <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx + <span class="number">1</span>], <span class="comment">// hash index
                     </span>);
                 }
 
-                <span class="comment">// Allocate the image tag if it hasn&#39;t been allocated before,
+                <span class="comment">// Allocate the image tag if it hasn't been allocated before,
                 // create the full image pointer and add it to bound allocations
                 </span><span class="kw">let </span>img_tag = ctx.global_allocator.get_tag_cloned(<span class="macro-nonterminal">$tag</span>)<span class="question-mark">?</span>;
                 <span class="kw">let </span>AllocatedVal::Number(img_hash) = preallocated_img_hash <span class="kw">else </span>{
-                    <span class="macro">bail!</span>(<span class="string">&quot;Expected number&quot;</span>)
+                    <span class="macro">bail!</span>(<span class="string">"Expected number"</span>)
                 };
                 <span class="kw">let </span>img_ptr = AllocatedPtr::from_parts(img_tag, img_hash.clone());
                 bound_allocations.insert_ptr(<span class="macro-nonterminal">$img</span>, img_ptr);
@@ -2168,15 +2132,15 @@
                     SlotType::Hash4 =&gt; <span class="kw-2">&amp;</span>ctx.hash4_slots[next_slot.consume_hash4()],
                     SlotType::Hash6 =&gt; <span class="kw-2">&amp;</span>ctx.hash6_slots[next_slot.consume_hash6()],
                     SlotType::Hash8 =&gt; <span class="kw-2">&amp;</span>ctx.hash8_slots[next_slot.consume_hash8()],
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Invalid slot type for decons_helper macro&quot;</span>),
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Invalid slot type for decons_helper macro"</span>),
                 };
 
                 <span class="comment">// Add the implication constraint for the image
                 </span><span class="kw">let </span>AllocatedVal::Number(img_hash) = preallocated_img_hash <span class="kw">else </span>{
-                    <span class="macro">bail!</span>(<span class="string">&quot;Expected number&quot;</span>)
+                    <span class="macro">bail!</span>(<span class="string">"Expected number"</span>)
                 };
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;implies equal {}.hash&quot;</span>, <span class="macro-nonterminal">$img</span>)),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, <span class="macro-nonterminal">$img</span>)),
                     not_dummy,
                     allocated_img.hash(),
                     img_hash,
@@ -2199,12 +2163,12 @@
                 <span class="kw">let </span>cproc = ctx
                     .lang
                     .lookup_by_sym(sym)
-                    .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;Coprocessor for {sym} not found&quot;</span>))<span class="question-mark">?</span>;
+                    .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">"Coprocessor for {sym} not found"</span>))<span class="question-mark">?</span>;
                 <span class="kw">let </span>not_dummy_and_not_blank = not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) &amp;&amp; !ctx.blank;
                 <span class="kw">let </span>collected_z_ptrs = <span class="kw">if </span>not_dummy_and_not_blank {
                     <span class="kw">let </span>collected_ptrs = <span class="kw-2">&amp;</span>ctx.cproc_outputs[cproc_idx];
                     <span class="kw">if </span>out.len() != collected_ptrs.len() {
-                        <span class="macro">bail!</span>(<span class="string">&quot;Incompatible output length for coprocessor {sym}&quot;</span>)
+                        <span class="macro">bail!</span>(<span class="string">"Incompatible output length for coprocessor {sym}"</span>)
                     }
                     collected_ptrs
                         .iter()
@@ -2214,18 +2178,18 @@
                     <span class="macro">vec!</span>[ZPtr::dummy(); out.len()]
                 };
                 <span class="kw">if </span>cproc.has_circuit() {
-                    <span class="comment">// call the coprocessor&#39;s synthesize and then make sure that
+                    <span class="comment">// call the coprocessor's synthesize and then make sure that
                     // the output matches the data collected during interpretation
                     </span><span class="kw">let </span>inp_ptrs = bound_allocations.get_many_ptr(inp)<span class="question-mark">?</span>;
                     <span class="kw">let </span>synthesize_output = cproc.synthesize_internal(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;Coprocessor {sym}&quot;</span>)),
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"Coprocessor {sym}"</span>)),
                         ctx.global_allocator,
                         ctx.store,
                         not_dummy,
                         <span class="kw-2">&amp;</span>inp_ptrs,
                     )<span class="question-mark">?</span>;
                     <span class="kw">if </span>out.len() != synthesize_output.len() {
-                        <span class="macro">bail!</span>(<span class="string">&quot;Incompatible output length for coprocessor {sym}&quot;</span>)
+                        <span class="macro">bail!</span>(<span class="string">"Incompatible output length for coprocessor {sym}"</span>)
                     }
                     <span class="kw">for </span>((i, var), ptr) <span class="kw">in </span>out.iter().enumerate().zip(synthesize_output) {
                         <span class="kw">if </span>not_dummy_and_not_blank {
@@ -2233,7 +2197,7 @@
                             <span class="kw">if </span>ptr.tag().get_value() != <span class="prelude-val">Some</span>(z_ptr.tag_field())
                                 || ptr.hash().get_value() != <span class="prelude-val">Some</span>(<span class="kw-2">*</span>z_ptr.value())
                             {
-                                <span class="macro">bail!</span>(<span class="string">&quot;Mismatch between evaluate and synthesize outputs for coprocessor {sym} (pointer {i})&quot;</span>)
+                                <span class="macro">bail!</span>(<span class="string">"Mismatch between evaluate and synthesize outputs for coprocessor {sym} (pointer {i})"</span>)
                             }
                         }
                         bound_allocations.insert(var.clone(), AllocatedVal::Pointer(ptr));
@@ -2242,11 +2206,11 @@
                     <span class="comment">// just move on with the data that was collected from interpretation
                     </span><span class="kw">for </span>((i, var), z_ptr) <span class="kw">in </span>out.iter().enumerate().zip(collected_z_ptrs) {
                         <span class="kw">let </span>allocated_tag = AllocatedNum::alloc_infallible(
-                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;tag for pointer {i} from cproc {sym}&quot;</span>)),
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"tag for pointer {i} from cproc {sym}"</span>)),
                             || z_ptr.tag_field(),
                         );
                         <span class="kw">let </span>allocated_hash = AllocatedNum::alloc_infallible(
-                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;hash for pointer {i} from cproc {sym}&quot;</span>)),
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"hash for pointer {i} from cproc {sym}"</span>)),
                             || <span class="kw-2">*</span>z_ptr.value(),
                         );
                         bound_allocations.insert(
@@ -2264,7 +2228,7 @@
                 <span class="comment">// Allocate the output pointers that the `func` will return to.
                 // These should be unconstrained as of yet, and will be constrained
                 // by the return statements inside `func`.
-                // Note that, because there&#39;s currently no way of deferring giving
+                // Note that, because there's currently no way of deferring giving
                 // a value to the allocated nums to be filled later, we must either
                 // add the results of the call to the witness, or recompute them.
                 </span><span class="kw">let </span>not_dummy_and_not_blank = not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) &amp;&amp; !ctx.blank;
@@ -2282,7 +2246,7 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>output_ptrs = Vec::with_capacity(out.len());
                 <span class="kw">for </span>(z_ptr, var) <span class="kw">in </span>output_z_ptrs.into_iter().zip(out.iter()) {
                     <span class="kw">let </span>ptr = AllocatedPtr::alloc_infallible(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;var: {var}&quot;</span>)),
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"var: {var}"</span>)),
                         || z_ptr,
                     );
                     bound_allocations.insert_ptr(var.clone(), ptr.clone());
@@ -2292,13 +2256,13 @@
                 </span><span class="kw">let </span>args = bound_allocations.get_many_ptr(inp)<span class="question-mark">?</span>;
                 <span class="comment">// These are the input parameters (formal variables)
                 </span><span class="kw">let </span>param_list = func.input_params.iter();
-                <span class="comment">// Now we bind the `Func`&#39;s input parameters to the arguments in the call.
+                <span class="comment">// Now we bind the `Func`'s input parameters to the arguments in the call.
                 </span>param_list.zip(args.into_iter()).for_each(|(param, arg)| {
                     bound_allocations.insert_ptr(param.clone(), arg);
                 });
                 <span class="comment">// Finally, we synthesize the circuit for the function body
                 </span>synthesize_block(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;call&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"call"</span>),
                     <span class="kw-2">&amp;</span>func.body,
                     not_dummy,
                     next_slot,
@@ -2380,7 +2344,7 @@
                 <span class="kw">let </span>b = bound_allocations.get_ptr(b)<span class="question-mark">?</span>;
                 <span class="kw">let </span>a_num = a.tag();
                 <span class="kw">let </span>b_num = b.tag();
-                <span class="kw">let </span>eq = alloc_equal(cs.namespace(|| <span class="string">&quot;equal_tag&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>eq = alloc_equal(cs.namespace(|| <span class="string">"equal_tag"</span>), a_num, b_num)<span class="question-mark">?</span>;
                 bound_allocations.insert_bool(tgt.clone(), eq);
             }
             Op::EqVal(tgt, a, b) =&gt; {
@@ -2388,7 +2352,7 @@
                 <span class="kw">let </span>b = bound_allocations.get_ptr(b)<span class="question-mark">?</span>;
                 <span class="kw">let </span>a_num = a.hash();
                 <span class="kw">let </span>b_num = b.hash();
-                <span class="kw">let </span>eq = alloc_equal(cs.namespace(|| <span class="string">&quot;equal_val&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>eq = alloc_equal(cs.namespace(|| <span class="string">"equal_val"</span>), a_num, b_num)<span class="question-mark">?</span>;
                 bound_allocations.insert_bool(tgt.clone(), eq);
             }
             Op::Not(tgt, a) =&gt; {
@@ -2398,13 +2362,13 @@
             Op::And(tgt, a, b) =&gt; {
                 <span class="kw">let </span>a = bound_allocations.get_bool(a)<span class="question-mark">?</span>;
                 <span class="kw">let </span>b = bound_allocations.get_bool(b)<span class="question-mark">?</span>;
-                <span class="kw">let </span>c = Boolean::and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;and&quot;</span>), a, b)<span class="question-mark">?</span>;
+                <span class="kw">let </span>c = Boolean::and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"and"</span>), a, b)<span class="question-mark">?</span>;
                 bound_allocations.insert_bool(tgt.clone(), c);
             }
             Op::Or(tgt, a, b) =&gt; {
                 <span class="kw">let </span>a = bound_allocations.get_bool(a)<span class="question-mark">?</span>;
                 <span class="kw">let </span>b = bound_allocations.get_bool(b)<span class="question-mark">?</span>;
-                <span class="kw">let </span>c = or(cs.namespace(|| <span class="string">&quot;or&quot;</span>), a, b)<span class="question-mark">?</span>;
+                <span class="kw">let </span>c = or(cs.namespace(|| <span class="string">"or"</span>), a, b)<span class="question-mark">?</span>;
                 bound_allocations.insert_bool(tgt.clone(), c);
             }
             Op::Add(tgt, a, b) =&gt; {
@@ -2412,7 +2376,7 @@
                 <span class="kw">let </span>b = bound_allocations.get_ptr(b)<span class="question-mark">?</span>;
                 <span class="kw">let </span>a_num = a.hash();
                 <span class="kw">let </span>b_num = b.hash();
-                <span class="kw">let </span>c_num = a_num.add(cs.namespace(|| <span class="string">&quot;add&quot;</span>), b_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>c_num = a_num.add(cs.namespace(|| <span class="string">"add"</span>), b_num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>tag = ctx.global_allocator.get_tag_cloned(<span class="kw-2">&amp;</span>Num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
@@ -2422,7 +2386,7 @@
                 <span class="kw">let </span>b = bound_allocations.get_ptr(b)<span class="question-mark">?</span>;
                 <span class="kw">let </span>a_num = a.hash();
                 <span class="kw">let </span>b_num = b.hash();
-                <span class="kw">let </span>c_num = sub(cs.namespace(|| <span class="string">&quot;sub&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>c_num = sub(cs.namespace(|| <span class="string">"sub"</span>), a_num, b_num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>tag = ctx.global_allocator.get_tag_cloned(<span class="kw-2">&amp;</span>Num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
@@ -2432,7 +2396,7 @@
                 <span class="kw">let </span>b = bound_allocations.get_ptr(b)<span class="question-mark">?</span>;
                 <span class="kw">let </span>a_num = a.hash();
                 <span class="kw">let </span>b_num = b.hash();
-                <span class="kw">let </span>c_num = mul(cs.namespace(|| <span class="string">&quot;mul&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>c_num = mul(cs.namespace(|| <span class="string">"mul"</span>), a_num, b_num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>tag = ctx.global_allocator.get_tag_cloned(<span class="kw-2">&amp;</span>Num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
@@ -2443,17 +2407,17 @@
                 <span class="kw">let </span>a_num = a.hash();
                 <span class="kw">let </span>b_num = b.hash();
 
-                <span class="kw">let </span>b_is_zero = <span class="kw-2">&amp;</span>alloc_is_zero(cs.namespace(|| <span class="string">&quot;b_is_zero&quot;</span>), b_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>b_is_zero = <span class="kw-2">&amp;</span>alloc_is_zero(cs.namespace(|| <span class="string">"b_is_zero"</span>), b_num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>one = ctx.global_allocator.get_const(F::ONE)<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>divisor = pick(
-                    cs.namespace(|| <span class="string">&quot;maybe-dummy divisor&quot;</span>),
+                    cs.namespace(|| <span class="string">"maybe-dummy divisor"</span>),
                     b_is_zero,
                     one,
                     b_num,
                 )<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>quotient = div(cs.namespace(|| <span class="string">&quot;quotient&quot;</span>), a_num, <span class="kw-2">&amp;</span>divisor)<span class="question-mark">?</span>;
+                <span class="kw">let </span>quotient = div(cs.namespace(|| <span class="string">"quotient"</span>), a_num, <span class="kw-2">&amp;</span>divisor)<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>tag = ctx.global_allocator.get_tag_cloned(<span class="kw-2">&amp;</span>Num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, quotient);
@@ -2469,42 +2433,42 @@
                 // Retrieve a, b, a-b
                 </span><span class="kw">let </span>a_num = bound_allocations.get_ptr(a)<span class="question-mark">?</span>.hash();
                 <span class="kw">let </span>b_num = bound_allocations.get_ptr(b)<span class="question-mark">?</span>.hash();
-                <span class="kw">let </span>diff = sub(cs.namespace(|| <span class="string">&quot;diff&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>diff = sub(cs.namespace(|| <span class="string">"diff"</span>), a_num, b_num)<span class="question-mark">?</span>;
                 <span class="comment">// Double a, b, a-b
-                </span><span class="kw">let </span>double_a = a_num.add(cs.namespace(|| <span class="string">&quot;double_a&quot;</span>), a_num)<span class="question-mark">?</span>;
-                <span class="kw">let </span>double_b = b_num.add(cs.namespace(|| <span class="string">&quot;double_b&quot;</span>), b_num)<span class="question-mark">?</span>;
-                <span class="kw">let </span>double_diff = diff.add(cs.namespace(|| <span class="string">&quot;double_diff&quot;</span>), <span class="kw-2">&amp;</span>diff)<span class="question-mark">?</span>;
+                </span><span class="kw">let </span>double_a = a_num.add(cs.namespace(|| <span class="string">"double_a"</span>), a_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>double_b = b_num.add(cs.namespace(|| <span class="string">"double_b"</span>), b_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>double_diff = diff.add(cs.namespace(|| <span class="string">"double_diff"</span>), <span class="kw-2">&amp;</span>diff)<span class="question-mark">?</span>;
                 <span class="comment">// Get slot allocated preimages/bits for the double of a, b, a-b
                 </span><span class="kw">let </span>(double_a_preimg, double_a_bits) =
                     <span class="kw-2">&amp;</span>ctx.bit_decomp_slots[next_slot.consume_bit_decomp()];
                 <span class="kw">let </span>AllocatedVal::Bits(double_a_bits) = double_a_bits <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>)
+                    <span class="macro">panic!</span>(<span class="string">"Expected bits"</span>)
                 };
                 <span class="kw">let </span>(double_b_preimg, double_b_bits) =
                     <span class="kw-2">&amp;</span>ctx.bit_decomp_slots[next_slot.consume_bit_decomp()];
                 <span class="kw">let </span>AllocatedVal::Bits(double_b_bits) = double_b_bits <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>)
+                    <span class="macro">panic!</span>(<span class="string">"Expected bits"</span>)
                 };
                 <span class="kw">let </span>(double_diff_preimg, double_diff_bits) =
                     <span class="kw-2">&amp;</span>ctx.bit_decomp_slots[next_slot.consume_bit_decomp()];
                 <span class="kw">let </span>AllocatedVal::Bits(double_diff_bits) = double_diff_bits <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>)
+                    <span class="macro">panic!</span>(<span class="string">"Expected bits"</span>)
                 };
                 <span class="comment">// Check that the slot allocated preimages are the double of a, b, a-b
                 </span>implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal for a_preimg&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal for a_preimg"</span>),
                     not_dummy,
                     <span class="kw-2">&amp;</span>double_a,
                     <span class="kw-2">&amp;</span>double_a_preimg[<span class="number">0</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal for b_preimg&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal for b_preimg"</span>),
                     not_dummy,
                     <span class="kw-2">&amp;</span>double_b,
                     <span class="kw-2">&amp;</span>double_b_preimg[<span class="number">0</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal for diff_preimg&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal for diff_preimg"</span>),
                     not_dummy,
                     <span class="kw-2">&amp;</span>double_diff,
                     <span class="kw-2">&amp;</span>double_diff_preimg[<span class="number">0</span>],
@@ -2517,17 +2481,17 @@
 
                 <span class="comment">// Two numbers have the same sign if both are negative or both are positive, i.e.
                 </span><span class="kw">let </span>same_sign =
-                    Boolean::xor(cs.namespace(|| <span class="string">&quot;same_sign&quot;</span>), a_is_negative, b_is_negative)<span class="question-mark">?</span>.not();
+                    Boolean::xor(cs.namespace(|| <span class="string">"same_sign"</span>), a_is_negative, b_is_negative)<span class="question-mark">?</span>.not();
 
                 <span class="comment">// Finally, a &lt; b iff (same_sign &amp;&amp; diff &lt; 0) || (!same_sign &amp;&amp; a &lt; 0)
                 </span><span class="kw">let </span>and1 =
-                    Boolean::and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;and1&quot;</span>), <span class="kw-2">&amp;</span>same_sign, diff_is_negative)<span class="question-mark">?</span>;
+                    Boolean::and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"and1"</span>), <span class="kw-2">&amp;</span>same_sign, diff_is_negative)<span class="question-mark">?</span>;
                 <span class="kw">let </span>and2 = Boolean::and(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;and2&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"and2"</span>),
                     <span class="kw-2">&amp;</span>same_sign.not(),
                     a_is_negative,
                 )<span class="question-mark">?</span>;
-                <span class="kw">let </span>lt = or(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;or&quot;</span>), <span class="kw-2">&amp;</span>and1, <span class="kw-2">&amp;</span>and2)<span class="question-mark">?</span>;
+                <span class="kw">let </span>lt = or(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"or"</span>), <span class="kw-2">&amp;</span>and1, <span class="kw-2">&amp;</span>and2)<span class="question-mark">?</span>;
                 bound_allocations.insert_bool(tgt.clone(), lt.clone());
             }
             Op::Trunc(tgt, a, n) =&gt; {
@@ -2536,16 +2500,16 @@
                 <span class="kw">let </span>(preallocated_preimg, trunc_bits) =
                     <span class="kw-2">&amp;</span>ctx.bit_decomp_slots[next_slot.consume_bit_decomp()];
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal component trunc&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal component trunc"</span>),
                     not_dummy,
                     a.hash(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>],
                 );
                 <span class="kw">let </span>AllocatedVal::Bits(trunc_bits) = trunc_bits <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>)
+                    <span class="macro">panic!</span>(<span class="string">"Expected bits"</span>)
                 };
                 <span class="kw">let </span>trunc_bits = <span class="kw-2">&amp;</span>trunc_bits[<span class="number">0</span>..<span class="kw-2">*</span>n <span class="kw">as </span>usize];
-                <span class="kw">let </span>trunc = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;trunc&quot;</span>), || {
+                <span class="kw">let </span>trunc = AllocatedNum::alloc(cs.namespace(|| <span class="string">"trunc"</span>), || {
                     <span class="kw">let </span>b = <span class="kw">if </span><span class="kw-2">*</span>n &lt; <span class="number">64 </span>{ (<span class="number">1 </span>&lt;&lt; <span class="kw-2">*</span>n) - <span class="number">1 </span>} <span class="kw">else </span>{ u64::MAX };
                     a.hash()
                         .get_value()
@@ -2553,7 +2517,7 @@
                         .ok_or(SynthesisError::AssignmentMissing)
                 })<span class="question-mark">?</span>;
                 implies_pack(
-                    cs.namespace(|| <span class="string">&quot;implies_trunc&quot;</span>),
+                    cs.namespace(|| <span class="string">"implies_trunc"</span>),
                     not_dummy,
                     trunc_bits,
                     <span class="kw-2">&amp;</span>trunc,
@@ -2577,16 +2541,16 @@
                     })
                 });
                 <span class="kw">let </span>div =
-                    AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;div&quot;</span>), || div_rem.unwrap().<span class="number">0</span>);
+                    AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"div"</span>), || div_rem.unwrap().<span class="number">0</span>);
                 <span class="kw">let </span>rem =
-                    AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;rem&quot;</span>), || div_rem.unwrap().<span class="number">1</span>);
+                    AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"rem"</span>), || div_rem.unwrap().<span class="number">1</span>);
 
-                <span class="kw">let </span>diff = sub(cs.namespace(|| <span class="string">&quot;diff for slot {slot}&quot;</span>), b, <span class="kw-2">&amp;</span>rem)<span class="question-mark">?</span>;
-                implies_u64(cs.namespace(|| <span class="string">&quot;div_u64&quot;</span>), not_dummy, <span class="kw-2">&amp;</span>div)<span class="question-mark">?</span>;
-                implies_u64(cs.namespace(|| <span class="string">&quot;rem_u64&quot;</span>), not_dummy, <span class="kw-2">&amp;</span>rem)<span class="question-mark">?</span>;
-                implies_u64(cs.namespace(|| <span class="string">&quot;diff_u64&quot;</span>), not_dummy, <span class="kw-2">&amp;</span>diff)<span class="question-mark">?</span>;
+                <span class="kw">let </span>diff = sub(cs.namespace(|| <span class="string">"diff for slot {slot}"</span>), b, <span class="kw-2">&amp;</span>rem)<span class="question-mark">?</span>;
+                implies_u64(cs.namespace(|| <span class="string">"div_u64"</span>), not_dummy, <span class="kw-2">&amp;</span>div)<span class="question-mark">?</span>;
+                implies_u64(cs.namespace(|| <span class="string">"rem_u64"</span>), not_dummy, <span class="kw-2">&amp;</span>rem)<span class="question-mark">?</span>;
+                implies_u64(cs.namespace(|| <span class="string">"diff_u64"</span>), not_dummy, <span class="kw-2">&amp;</span>diff)<span class="question-mark">?</span>;
 
-                enforce_product_and_sum(<span class="kw-2">&amp;mut </span>cs, || <span class="string">&quot;enforce a = b * div + rem&quot;</span>, b, <span class="kw-2">&amp;</span>div, <span class="kw-2">&amp;</span>rem, a);
+                enforce_product_and_sum(<span class="kw-2">&amp;mut </span>cs, || <span class="string">"enforce a = b * div + rem"</span>, b, <span class="kw-2">&amp;</span>div, <span class="kw-2">&amp;</span>rem, a);
                 <span class="kw">let </span>tag = ctx.global_allocator.get_tag_cloned(<span class="kw-2">&amp;</span>Num)<span class="question-mark">?</span>;
                 <span class="kw">let </span>div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
                 <span class="kw">let </span>rem_ptr = AllocatedPtr::from_parts(tag, rem);
@@ -2601,28 +2565,28 @@
                 <span class="kw">let </span>(preallocated_preimg, hash) =
                     <span class="kw-2">&amp;</span>ctx.commitment_slots[next_slot.consume_commitment()];
                 <span class="kw">let </span>AllocatedVal::Number(hash) = hash <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Excepted number&quot;</span>)
+                    <span class="macro">panic!</span>(<span class="string">"Excepted number"</span>)
                 };
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal secret.tag&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal secret.tag"</span>),
                     not_dummy,
                     sec.tag(),
                     sec_tag,
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal secret.hash&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal secret.hash"</span>),
                     not_dummy,
                     sec.hash(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal payload.tag&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal payload.tag"</span>),
                     not_dummy,
                     pay.tag(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">1</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal payload.hash&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal payload.hash"</span>),
                     not_dummy,
                     pay.hash(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">2</span>],
@@ -2637,16 +2601,16 @@
                     <span class="kw-2">&amp;</span>ctx.commitment_slots[next_slot.consume_commitment()];
                 <span class="kw">let </span>comm_tag = ctx.global_allocator.get_const(Comm.to_field())<span class="question-mark">?</span>;
                 <span class="kw">let </span>AllocatedVal::Number(com_hash) = com_hash <span class="kw">else </span>{
-                    <span class="macro">panic!</span>(<span class="string">&quot;Excepted number&quot;</span>)
+                    <span class="macro">panic!</span>(<span class="string">"Excepted number"</span>)
                 };
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal comm.tag&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal comm.tag"</span>),
                     not_dummy,
                     comm.tag(),
                     comm_tag,
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal comm.hash &quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal comm.hash "</span>),
                     not_dummy,
                     comm.hash(),
                     com_hash,
@@ -2668,7 +2632,7 @@
                                 cases: <span class="kw-2">&amp;</span>[(F, <span class="kw-2">&amp;</span>Block)],
                                 def: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Box&lt;Block&gt;&gt;,
                                 bound_allocations: <span class="kw-2">&amp;mut </span>VarMap&lt;AllocatedVal&lt;F&gt;&gt;,
-                                ctx: <span class="kw-2">&amp;mut </span>RecursiveContext&lt;<span class="lifetime">&#39;_</span>, F, C&gt;|
+                                ctx: <span class="kw-2">&amp;mut </span>RecursiveContext&lt;<span class="lifetime">'_</span>, F, C&gt;|
      -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;SlotsCounter&gt;&gt; {
         <span class="comment">// * One `Boolean` for each case
         // * Maybe one `Boolean` for the default case
@@ -2684,13 +2648,13 @@
                     .map(|matched_f| not_dummy &amp;&amp; <span class="kw-2">&amp;</span>matched_f == f)
             });
             <span class="kw">let </span>not_dummy_and_has_match = Boolean::Is(AllocatedBit::alloc(
-                cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{i}.allocated_bit&quot;</span>)),
+                cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{i}.allocated_bit"</span>)),
                 not_dummy_and_has_match_bool,
             )<span class="question-mark">?</span>);
 
             <span class="comment">// If `not_dummy_and_has_match` is true, then we enforce a match
             </span>implies_equal_const(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{i}.implies_equal_const&quot;</span>)),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{i}.implies_equal_const"</span>)),
                 <span class="kw-2">&amp;</span>not_dummy_and_has_match,
                 matched,
                 <span class="kw-2">*</span>f,
@@ -2700,7 +2664,7 @@
 
             <span class="kw">let </span><span class="kw-2">mut </span>branch_slot = <span class="kw-2">*</span>next_slot;
             synthesize_block(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{i}&quot;</span>)),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{i}"</span>)),
                 block,
                 <span class="kw-2">&amp;</span>not_dummy_and_has_match,
                 <span class="kw-2">&amp;mut </span>branch_slot,
@@ -2720,7 +2684,7 @@
                 </span>acc.and_then(|acc| b.get_value().map(|b| acc &amp;&amp; !b))
             });
             <span class="kw">let </span>is_default = Boolean::Is(AllocatedBit::alloc(
-                cs.namespace(|| <span class="string">&quot;_.allocated_bit&quot;</span>),
+                cs.namespace(|| <span class="string">"_.allocated_bit"</span>),
                 is_default_bool,
             )<span class="question-mark">?</span>);
 
@@ -2728,7 +2692,7 @@
                 <span class="comment">// if the default path was taken, then there can be no tag in `cases`
                 // that equals the tag of the pointer being matched on
                 </span>implies_unequal_const(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{i}.implies_unequal_const&quot;</span>)),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{i}.implies_unequal_const"</span>)),
                     <span class="kw-2">&amp;</span>is_default,
                     matched,
                     <span class="kw-2">*</span>f,
@@ -2736,7 +2700,7 @@
             }
 
             synthesize_block(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;_&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"_"</span>),
                 def,
                 <span class="kw-2">&amp;</span>is_default,
                 next_slot,
@@ -2752,9 +2716,9 @@
 
         <span class="comment">// Now we need to enforce that exactly one path was taken. We do that by enforcing
         // that the sum of the previously collected `Boolean`s is one. But, of course, this
-        // is irrelevant if we&#39;re on a virtual path and thus we use an implication gadget.
+        // is irrelevant if we're on a virtual path and thus we use an implication gadget.
         </span>enforce_selector_with_premise(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce_selector_with_premise&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"enforce_selector_with_premise"</span>),
             not_dummy,
             <span class="kw-2">&amp;</span>selector,
         );
@@ -2768,7 +2732,7 @@
                 <span class="kw">let </span>allocated_ptr = bound_allocations.get_ptr(return_var)<span class="question-mark">?</span>;
 
                 allocated_ptr.implies_ptr_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;implies_ptr_equal {return_var} pos {i}&quot;</span>)),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies_ptr_equal {return_var} pos {i}"</span>)),
                     not_dummy,
                     <span class="kw-2">&amp;</span>preallocated_outputs[i],
                 );
@@ -2777,15 +2741,15 @@
         }
         Ctrl::If(b, true_block, false_block) =&gt; {
             <span class="kw">let </span>b = bound_allocations.get_bool(b)<span class="question-mark">?</span>;
-            <span class="kw">let </span>b_not_dummy = Boolean::and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;b and not_dummy&quot;</span>), b, not_dummy)<span class="question-mark">?</span>;
+            <span class="kw">let </span>b_not_dummy = Boolean::and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"b and not_dummy"</span>), b, not_dummy)<span class="question-mark">?</span>;
             <span class="kw">let </span>not_b_not_dummy = Boolean::and(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;not_b and not_dummy&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"not_b and not_dummy"</span>),
                 <span class="kw-2">&amp;</span>b.not(),
                 not_dummy,
             )<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>branch_slot = <span class="kw-2">*</span>next_slot;
             synthesize_block(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;if_eq.true&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"if_eq.true"</span>),
                 true_block,
                 <span class="kw-2">&amp;</span>b_not_dummy,
                 <span class="kw-2">&amp;mut </span>branch_slot,
@@ -2795,7 +2759,7 @@
                 cproc_idx,
             )<span class="question-mark">?</span>;
             synthesize_block(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;if_eq.false&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"if_eq.false"</span>),
                 false_block,
                 <span class="kw-2">&amp;</span>not_b_not_dummy,
                 next_slot,
@@ -2837,10 +2801,10 @@
                 ctx,
             )<span class="question-mark">?</span>;
 
-            <span class="comment">// Now we enforce `MatchSymbol`&#39;s tag
+            <span class="comment">// Now we enforce `MatchSymbol`'s tag
             </span><span class="kw">let </span>sym_tag = ctx.global_allocator.get_const(Sym.to_field())<span class="question-mark">?</span>;
             implies_equal(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;implies equal {match_var}.tag&quot;</span>)),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {match_var}.tag"</span>)),
                 not_dummy,
                 match_var_ptr.tag(),
                 sym_tag,
@@ -2878,7 +2842,7 @@
         <span class="kw">for </span>(i, ptr) <span class="kw">in </span>frame.output.iter().enumerate() {
             <span class="kw">let </span>zptr = store.hash_ptr(ptr);
             output.push(AllocatedPtr::alloc_infallible(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;var: output[{}]&quot;</span>, i)),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"var: output[{}]"</span>, i)),
                 || zptr,
             ));
         }
@@ -2897,7 +2861,7 @@
             <span class="kw">let </span>param = <span class="kw-2">&amp;</span><span class="self">self</span>.input_params[i];
             <span class="kw">let </span>zptr = store.hash_ptr(ptr);
             <span class="kw">let </span>ptr = AllocatedPtr::alloc_infallible(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;var: {param}&quot;</span>)),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"var: {param}"</span>)),
                 || zptr,
             );
             bound_allocations.insert_ptr(param.clone(), ptr);
@@ -3034,7 +2998,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Computes the number of constraints that `synthesize` should create. It&#39;s
+    <span class="doccomment">/// Computes the number of constraints that `synthesize` should create. It's
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
     </span><span class="kw">pub fn </span>num_constraints&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; usize {
@@ -3134,7 +3098,7 @@
                     | Op::Decons2(..)
                     | Op::Decons3(..)
                     | Op::Decons4(..) =&gt; {
-                        <span class="comment">// one constraint for the image&#39;s hash
+                        <span class="comment">// one constraint for the image's hash
                         </span>num_constraints += <span class="number">1</span>;
                     }
                     Op::Hide(..) =&gt; {

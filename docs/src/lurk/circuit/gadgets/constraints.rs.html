@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/constraints.rs`."><title>constraints.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/constraints.rs`."><title>constraints.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1393,7 +1393,7 @@
 
     <span class="comment">// popcount * 1 = sum
     </span>cs.enforce(
-        || <span class="string">&quot;popcount&quot;</span>,
+        || <span class="string">"popcount"</span>,
         |<span class="kw">_</span>| popcount,
         |lc| lc + CS::one(),
         |lc| lc + sum,
@@ -1438,7 +1438,7 @@
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">64 </span>{
         <span class="kw">let </span>b = a_u64 &amp; <span class="number">1</span>;
         <span class="kw">let </span>b_bool = Boolean::Is(AllocatedBit::alloc(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;b.{i}&quot;</span>)),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"b.{i}"</span>)),
             <span class="prelude-val">Some</span>(b == <span class="number">1</span>),
         )<span class="question-mark">?</span>);
         bits.push(b_bool);
@@ -1448,7 +1448,7 @@
 
     <span class="comment">// premise -&gt; a = sum(bits)
     </span>implies_pack(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;u64 bit decomposition check&quot;</span>),
+        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"u64 bit decomposition check"</span>),
         premise,
         <span class="kw-2">&amp;</span>bits,
         a,
@@ -1474,7 +1474,7 @@
     <span class="kw">let </span>premise_lc = |<span class="kw">_</span>| premise.lc(CS::one(), F::ONE);
     <span class="kw">let </span>zero = |lc| lc;
 
-    cs.enforce(|| <span class="string">&quot;pack&quot;</span>, diff, premise_lc, zero);
+    cs.enforce(|| <span class="string">"pack"</span>, diff, premise_lc, zero);
 }
 
 <span class="doccomment">/// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
@@ -1507,7 +1507,7 @@
     a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     b: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>res = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;sub_num&quot;</span>), || {
+    <span class="kw">let </span>res = AllocatedNum::alloc(cs.namespace(|| <span class="string">"sub_num"</span>), || {
         <span class="kw">let </span><span class="kw-2">mut </span>tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
         tmp.sub_assign(<span class="kw-2">&amp;</span>b.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>);
 
@@ -1515,7 +1515,7 @@
     })<span class="question-mark">?</span>;
 
     <span class="comment">// a - b = res
-    </span>enforce_difference(<span class="kw-2">&amp;mut </span>cs, || <span class="string">&quot;subtraction constraint&quot;</span>, a, b, <span class="kw-2">&amp;</span>res);
+    </span>enforce_difference(<span class="kw-2">&amp;mut </span>cs, || <span class="string">"subtraction constraint"</span>, a, b, <span class="kw-2">&amp;</span>res);
 
     <span class="prelude-val">Ok</span>(res)
 }
@@ -1573,7 +1573,7 @@
     a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     b: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>res = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;mul_num&quot;</span>), || {
+    <span class="kw">let </span>res = AllocatedNum::alloc(cs.namespace(|| <span class="string">"mul_num"</span>), || {
         <span class="kw">let </span><span class="kw-2">mut </span>tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
         tmp.mul_assign(<span class="kw-2">&amp;</span>b.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>);
 
@@ -1581,7 +1581,7 @@
     })<span class="question-mark">?</span>;
 
     <span class="comment">// a * b = res
-    </span>product(<span class="kw-2">&amp;mut </span>cs, || <span class="string">&quot;multiplication constraint&quot;</span>, a, b, <span class="kw-2">&amp;</span>res);
+    </span>product(<span class="kw-2">&amp;mut </span>cs, || <span class="string">"multiplication constraint"</span>, a, b, <span class="kw-2">&amp;</span>res);
 
     <span class="prelude-val">Ok</span>(res)
 }
@@ -1591,7 +1591,7 @@
     a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     b: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>res = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;div_num&quot;</span>), || {
+    <span class="kw">let </span>res = AllocatedNum::alloc(cs.namespace(|| <span class="string">"div_num"</span>), || {
         <span class="kw">let </span><span class="kw-2">mut </span>tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
         <span class="kw">let </span>inv = (b.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>).invert();
 
@@ -1604,7 +1604,7 @@
     })<span class="question-mark">?</span>;
 
     <span class="comment">// a = b * res
-    </span>product(<span class="kw-2">&amp;mut </span>cs, || <span class="string">&quot;division constraint&quot;</span>, <span class="kw-2">&amp;</span>res, b, a);
+    </span>product(<span class="kw-2">&amp;mut </span>cs, || <span class="string">"division constraint"</span>, <span class="kw-2">&amp;</span>res, b, a);
 
     <span class="prelude-val">Ok</span>(res)
 }
@@ -1629,7 +1629,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>new_state = Vec::with_capacity(half_size);
         <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..half_size {
             new_state.push(pick(
-                cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;pick {i}, {j}&quot;</span>)),
+                cs.namespace(|| <span class="macro">format!</span>(<span class="string">"pick {i}, {j}"</span>)),
                 bit,
                 <span class="kw-2">&amp;</span>state[half_size + j],
                 <span class="kw-2">&amp;</span>state[j],
@@ -1649,7 +1649,7 @@
     a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     b: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>c = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;pick result&quot;</span>), || {
+    <span class="kw">let </span>c = AllocatedNum::alloc(cs.namespace(|| <span class="string">"pick result"</span>), || {
         <span class="kw">if </span>condition
             .get_value()
             .ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?
@@ -1663,7 +1663,7 @@
     <span class="comment">// Constrain (b - a) * condition = (b - c), ensuring c = a iff
     // condition is true, otherwise c = b.
     </span>cs.enforce(
-        || <span class="string">&quot;pick&quot;</span>,
+        || <span class="string">"pick"</span>,
         |lc| lc + b.get_variable() - a.get_variable(),
         |<span class="kw">_</span>| condition.lc(CS::one(), F::ONE),
         |lc| lc + b.get_variable() - c.get_variable(),
@@ -1679,7 +1679,7 @@
     a: F,
     b: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>c = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;pick result&quot;</span>), || {
+    <span class="kw">let </span>c = AllocatedNum::alloc(cs.namespace(|| <span class="string">"pick result"</span>), || {
         <span class="kw">if </span>condition
             .get_value()
             .ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?
@@ -1693,7 +1693,7 @@
     <span class="comment">// Constrain (b - a) * condition = (b - c), ensuring c = a iff
     // condition is true, otherwise c = b.
     </span>cs.enforce(
-        || <span class="string">&quot;pick&quot;</span>,
+        || <span class="string">"pick"</span>,
         |lc| lc + (b, CS::one()) - (a, CS::one()),
         |<span class="kw">_</span>| condition.lc(CS::one(), F::ONE),
         |lc| lc + (b, CS::one()) - c.get_variable(),
@@ -1708,7 +1708,7 @@
     <span class="kw-2">mut </span>cs: CS,
     bit: <span class="kw-2">&amp;</span>Boolean,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;Allocate num&quot;</span>), || {
+    <span class="kw">let </span>num = AllocatedNum::alloc(cs.namespace(|| <span class="string">"Allocate num"</span>), || {
         <span class="kw">if </span>bit.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">? </span>{
             <span class="prelude-val">Ok</span>(F::ONE)
         } <span class="kw">else </span>{
@@ -1718,7 +1718,7 @@
 
     <span class="comment">// Constrain (bit) * 1 = num, ensuring bit = num
     </span>cs.enforce(
-        || <span class="string">&quot;Bit is equal to Num&quot;</span>,
+        || <span class="string">"Bit is equal to Num"</span>,
         |<span class="kw">_</span>| bit.lc(CS::one(), F::ONE),
         |lc| lc + CS::one(),
         |lc| lc + num.get_variable(),
@@ -1737,12 +1737,12 @@
 
     <span class="comment">// Difference between `a` and `b`. This will be zero if `a` and `b` are equal.
     // result = (a == b)
-    </span><span class="kw">let </span>result = AllocatedBit::alloc(cs.namespace(|| <span class="string">&quot;a = b&quot;</span>), equal)<span class="question-mark">?</span>;
+    </span><span class="kw">let </span>result = AllocatedBit::alloc(cs.namespace(|| <span class="string">"a = b"</span>), equal)<span class="question-mark">?</span>;
 
     <span class="comment">// result * (a - b) = 0
     // This means that at least one of result or a - b is zero.
     </span>cs.enforce(
-        || <span class="string">&quot;result or diff is 0&quot;</span>,
+        || <span class="string">"result or diff is 0"</span>,
         |lc| lc + result.get_variable(),
         |lc| lc + a.get_variable() - b.get_variable(),
         |lc| lc,
@@ -1750,7 +1750,7 @@
 
     <span class="comment">// Inverse of `a - b`, if it exists, otherwise one.
     </span><span class="kw">let </span>q = cs.alloc(
-        || <span class="string">&quot;q&quot;</span>,
+        || <span class="string">"q"</span>,
         || {
             <span class="kw">let </span>a_val = a.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
             <span class="kw">let </span>b_val = b.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
@@ -1768,7 +1768,7 @@
     <span class="comment">// (a - b + result) * q = 1.
     // This enforces that diff and result are not both 0.
     </span>cs.enforce(
-        || <span class="string">&quot;(a - b + result) * q = 1&quot;</span>,
+        || <span class="string">"(a - b + result) * q = 1"</span>,
         |lc| lc + a.get_variable() - b.get_variable() + result.get_variable(),
         |lc| lc + q,
         |lc| lc + CS::one(),
@@ -1791,15 +1791,15 @@
     <span class="kw">let </span>equal = a.get_value().map(|x| x == b);
 
     <span class="comment">// Difference between `a` and `b`. This will be zero if `a` and `b` are equal.
-    </span><span class="kw">let </span>diff = a.get_value().map(|x| x - b); <span class="comment">//sub(cs.namespace(|| &quot;a - b&quot;), a, b)?;
+    </span><span class="kw">let </span>diff = a.get_value().map(|x| x - b); <span class="comment">//sub(cs.namespace(|| "a - b"), a, b)?;
 
     // result = (a == b)
-    </span><span class="kw">let </span>result = AllocatedBit::alloc(cs.namespace(|| <span class="string">&quot;a = b&quot;</span>), equal)<span class="question-mark">?</span>;
+    </span><span class="kw">let </span>result = AllocatedBit::alloc(cs.namespace(|| <span class="string">"a = b"</span>), equal)<span class="question-mark">?</span>;
 
     <span class="comment">// result * diff = 0
     // This means that at least one of result or diff is zero.
     </span>cs.enforce(
-        || <span class="string">&quot;result or diff is 0&quot;</span>,
+        || <span class="string">"result or diff is 0"</span>,
         |lc| lc + result.get_variable(),
         |lc| lc + a.get_variable() - (b, CS::one()),
         |lc| lc,
@@ -1807,7 +1807,7 @@
 
     <span class="comment">// Inverse of `diff`, if it exists, otherwise one.
     </span><span class="kw">let </span>q = cs.alloc(
-        || <span class="string">&quot;q&quot;</span>,
+        || <span class="string">"q"</span>,
         || {
             <span class="kw">let </span>tmp0 = diff.ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp1 = tmp0.invert();
@@ -1823,7 +1823,7 @@
     <span class="comment">// ((a - b) + result) * q = 1.
     // This enforces that diff (a - b) and result are not both 0.
     </span>cs.enforce(
-        || <span class="string">&quot;((a-b) + result) * q = 1&quot;</span>,
+        || <span class="string">"((a-b) + result) * q = 1"</span>,
         |lc| lc + a.get_variable() - (b, CS::one()) + result.get_variable(),
         |lc| lc + q,
         |lc| lc + CS::one(),
@@ -1855,12 +1855,12 @@
     <span class="kw">let </span>is_zero = num_value.map(|n| n == F::ZERO);
 
     <span class="comment">// result = (x == 0)
-    </span><span class="kw">let </span>result = AllocatedBit::alloc(cs.namespace(|| <span class="string">&quot;x = 0&quot;</span>), is_zero)<span class="question-mark">?</span>;
+    </span><span class="kw">let </span>result = AllocatedBit::alloc(cs.namespace(|| <span class="string">"x = 0"</span>), is_zero)<span class="question-mark">?</span>;
 
     <span class="comment">// result * x = 0
     // This means that at least one of result or x is zero.
     </span>cs.enforce(
-        || <span class="string">&quot;result or x is 0&quot;</span>,
+        || <span class="string">"result or x is 0"</span>,
         |lc| lc + result.get_variable(),
         |<span class="kw">_</span>| num.lc(F::ONE),
         |lc| lc,
@@ -1868,7 +1868,7 @@
 
     <span class="comment">// Inverse of `x`, if it exists, otherwise one.
     </span><span class="kw">let </span>q = cs.alloc(
-        || <span class="string">&quot;q&quot;</span>,
+        || <span class="string">"q"</span>,
         || {
             <span class="kw">let </span>tmp = x.invert();
             <span class="kw">if </span>tmp.is_some().into() {
@@ -1882,7 +1882,7 @@
     <span class="comment">// (x + result) * q = 1.
     // This enforces that x and result are not both 0.
     </span>cs.enforce(
-        || <span class="string">&quot;(x + result) * q = 1&quot;</span>,
+        || <span class="string">"(x + result) * q = 1"</span>,
         |<span class="kw">_</span>| num.lc(F::ONE) + result.get_variable(),
         |lc| lc + q,
         |lc| lc + CS::one(),
@@ -1910,7 +1910,7 @@
 
     <span class="comment">// implication * premise = premise
     </span>cs.enforce(
-        || <span class="string">&quot;implication&quot;</span>,
+        || <span class="string">"implication"</span>,
         implication_lc,
         |<span class="kw">_</span>| premise_b,
         |<span class="kw">_</span>| premise_c,
@@ -1930,7 +1930,7 @@
 ) {
     <span class="kw">let </span>premise_a = premise.lc(CS::one(), F::ONE);
     <span class="comment">// premise * implication = zero
-    </span>cs.enforce(|| <span class="string">&quot;implication&quot;</span>, |<span class="kw">_</span>| premise_a, implication_lc, |lc| lc);
+    </span>cs.enforce(|| <span class="string">"implication"</span>, |<span class="kw">_</span>| premise_a, implication_lc, |lc| lc);
 }
 
 <span class="doccomment">/// Adds a constraint to CS, enforcing that the number of true bits in `Boolean` vector `v`
@@ -1996,7 +1996,7 @@
     // only when `premise = 1`; otherwise the constraint is trivially satisfied
     // for `c = 0`
     </span><span class="kw">let </span>q = cs.alloc(
-        || <span class="string">&quot;q&quot;</span>,
+        || <span class="string">"q"</span>,
         || {
             <span class="kw">let </span>premise = premise
                 .get_value()
@@ -2019,7 +2019,7 @@
     <span class="kw">let </span>implication_lc = |lc| lc + a.get_variable() - b.get_variable();
     <span class="kw">let </span>premise = |<span class="kw">_</span>| premise.lc(CS::one(), F::ONE);
 
-    cs.enforce(|| <span class="string">&quot;implication&quot;</span>, maybe_inverse, implication_lc, premise);
+    cs.enforce(|| <span class="string">"implication"</span>, maybe_inverse, implication_lc, premise);
     <span class="prelude-val">Ok</span>(())
 }
 
@@ -2036,7 +2036,7 @@
     // only when `premise = 1`; otherwise the constraint is trivially satisfied
     // for `c = 0`
     </span><span class="kw">let </span>q = cs.alloc(
-        || <span class="string">&quot;q&quot;</span>,
+        || <span class="string">"q"</span>,
         || {
             <span class="kw">let </span>premise = premise
                 .get_value()
@@ -2058,7 +2058,7 @@
     <span class="kw">let </span>implication_lc = |lc| lc + a.get_variable() - (b, CS::one());
     <span class="kw">let </span>premise = |<span class="kw">_</span>| premise.lc(CS::one(), F::ONE);
 
-    cs.enforce(|| <span class="string">&quot;implication&quot;</span>, maybe_inverse, implication_lc, premise);
+    cs.enforce(|| <span class="string">"implication"</span>, maybe_inverse, implication_lc, premise);
     <span class="prelude-val">Ok</span>(())
 }
 
@@ -2079,7 +2079,7 @@
     b: <span class="kw-2">&amp;</span>Boolean,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
     <span class="prelude-val">Ok</span>(Boolean::not(<span class="kw-2">&amp;</span>Boolean::and(
-        cs.namespace(|| <span class="string">&quot;not and (not a) (not b)&quot;</span>),
+        cs.namespace(|| <span class="string">"not and (not a) (not b)"</span>),
         <span class="kw-2">&amp;</span>Boolean::not(a),
         <span class="kw-2">&amp;</span>Boolean::not(b),
     )<span class="question-mark">?</span>))
@@ -2088,9 +2088,9 @@
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>must_be_simple_bit(x: <span class="kw-2">&amp;</span>Boolean) -&gt; AllocatedBit {
     <span class="kw">match </span>x {
-        Boolean::Constant(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected a non-constant Boolean.&quot;</span>),
+        Boolean::Constant(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Expected a non-constant Boolean."</span>),
         Boolean::Is(b) =&gt; b.clone(),
-        Boolean::Not(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected a non-negated Boolean.&quot;</span>),
+        Boolean::Not(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Expected a non-negated Boolean."</span>),
     }
 }
 
@@ -2114,9 +2114,9 @@
 
             <span class="kw">let </span>test_a_b = |a, b| {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                <span class="kw">let </span>a_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;a_num&quot;</span>), || a);
-                <span class="kw">let </span>b_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;b_num&quot;</span>), || b);
-                enforce_equal(<span class="kw-2">&amp;mut </span>cs, || <span class="string">&quot;enforce equal&quot;</span>, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
+                <span class="kw">let </span>a_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"a_num"</span>), || a);
+                <span class="kw">let </span>b_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"b_num"</span>), || b);
+                enforce_equal(<span class="kw-2">&amp;mut </span>cs, || <span class="string">"enforce equal"</span>, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
                 <span class="macro">assert_eq!</span>(cs.is_satisfied(), a==b);
             };
 
@@ -2132,8 +2132,8 @@
 
             <span class="kw">let </span>test_num = |n: u64| {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;zero&quot;</span>), || Fr::from(n));
-                enforce_equal_zero(<span class="kw-2">&amp;mut </span>cs, || <span class="string">&quot;enforce equal zero&quot;</span>, <span class="kw-2">&amp;</span>num);
+                <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"zero"</span>), || Fr::from(n));
+                enforce_equal_zero(<span class="kw-2">&amp;mut </span>cs, || <span class="string">"enforce equal zero"</span>, <span class="kw-2">&amp;</span>num);
                 <span class="macro">assert_eq!</span>(cs.is_satisfied(), n==<span class="number">0</span>);
 
             };
@@ -2156,9 +2156,9 @@
 
             <span class="kw">let </span>test_premise_num = |premise: bool, n| -&gt; bool  {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;num&quot;</span>), || Fr::from(n));
+                <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"num"</span>), || Fr::from(n));
                 <span class="kw">let </span>pb = Boolean::constant(premise);
-                implies_equal_zero(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal zero&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num);
+                implies_equal_zero(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal zero"</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num);
                 cs.is_satisfied()
             };
 
@@ -2172,10 +2172,10 @@
         ]) {
             <span class="kw">let </span>test_a_b = |premise: bool, a, b| -&gt; bool {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                <span class="kw">let </span>a_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;a_num&quot;</span>), || a);
-                <span class="kw">let </span>b_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;b_num&quot;</span>), || b);
+                <span class="kw">let </span>a_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"a_num"</span>), || a);
+                <span class="kw">let </span>b_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"b_num"</span>), || b);
                 <span class="kw">let </span>pb = Boolean::constant(premise);
-                implies_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
+                implies_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal"</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
                 cs.is_satisfied()
             };
 
@@ -2189,10 +2189,10 @@
         ]) {
             <span class="kw">let </span>test_a_b = |premise: bool, a, b| -&gt; bool{
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                <span class="kw">let </span>a_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;a_num&quot;</span>), || a);
-                <span class="kw">let </span>b_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;b_num&quot;</span>), || b);
+                <span class="kw">let </span>a_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"a_num"</span>), || a);
+                <span class="kw">let </span>b_num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"b_num"</span>), || b);
                 <span class="kw">let </span>pb = Boolean::constant(premise);
-                <span class="kw">let _ </span>= implies_unequal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
+                <span class="kw">let _ </span>= implies_unequal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal"</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
                 cs.is_satisfied()
             };
 
@@ -2208,9 +2208,9 @@
 
             <span class="kw">let </span>test_premise_unequal = |premise: bool, n, t| -&gt; bool  {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;num&quot;</span>), || n);
+                <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"num"</span>), || n);
                 <span class="kw">let </span>pb = Boolean::constant(premise);
-                <span class="kw">let _ </span>= implies_unequal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal zero&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num, t);
+                <span class="kw">let _ </span>= implies_unequal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal zero"</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num, t);
                 cs.is_satisfied()
             };
 
@@ -2227,9 +2227,9 @@
 
             <span class="kw">let </span>test_premise_equal = |premise: bool, n, t| -&gt; bool  {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;num&quot;</span>), || n);
+                <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"num"</span>), || n);
                 <span class="kw">let </span>pb = Boolean::constant(premise);
-                implies_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal zero&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num, t);
+                implies_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal zero"</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num, t);
                 cs.is_satisfied()
             };
 
@@ -2253,8 +2253,8 @@
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = elem {
                     v[e] = Boolean::constant(<span class="bool-val">true</span>);
                 };
-                <span class="kw">let </span>alloc_sum = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;sum&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(sum)));
-                popcount_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;popcount equal&quot;</span>), <span class="kw-2">&amp;</span>v, alloc_sum.unwrap().get_variable());
+                <span class="kw">let </span>alloc_sum = AllocatedNum::alloc(cs.namespace(|| <span class="string">"sum"</span>), || <span class="prelude-val">Ok</span>(Fr::from(sum)));
+                popcount_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"popcount equal"</span>), <span class="kw-2">&amp;</span>v, alloc_sum.unwrap().get_variable());
                 <span class="macro">assert_eq!</span>(cs.is_satisfied(), result);
             };
 
@@ -2267,7 +2267,7 @@
             <span class="comment">// Insert true again into a distinct random position, now popocount must be three
             </span>test_sum(<span class="prelude-val">Some</span>(k), <span class="number">3</span>, <span class="bool-val">true</span>);
 
-            <span class="comment">// negative test, sum can&#39;t be a random number between 4 and MAX
+            <span class="comment">// negative test, sum can't be a random number between 4 and MAX
             </span>test_sum(<span class="prelude-val">None</span>, rand_wrong, <span class="bool-val">false</span>);
         }
 
@@ -2305,7 +2305,7 @@
                     }
                     <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
                     <span class="kw">let </span>p = Boolean::Constant(premise);
-                    enforce_selector_with_premise(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce selector with premise&quot;</span>), <span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>v);
+                    enforce_selector_with_premise(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"enforce selector with premise"</span>), <span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>v);
                     <span class="macro">assert_eq!</span>(cs.is_satisfied(), result);
                 };
 
@@ -2325,15 +2325,15 @@
         </span><span class="kw">fn </span>prop_add_constraint((x, y) <span class="kw">in </span>any::&lt;(FWrap&lt;Fr&gt;, FWrap&lt;Fr&gt;)&gt;()) {
             <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
 
-            <span class="kw">let </span>a = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;a&quot;</span>), || x.<span class="number">0</span>);
-            <span class="kw">let </span>b = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;b&quot;</span>), || y.<span class="number">0</span>);
+            <span class="kw">let </span>a = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"a"</span>), || x.<span class="number">0</span>);
+            <span class="kw">let </span>b = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"b"</span>), || y.<span class="number">0</span>);
 
-            <span class="kw">let </span>res = a.add(cs.namespace(|| <span class="string">&quot;a+b&quot;</span>), <span class="kw-2">&amp;</span>b).expect(<span class="string">&quot;add failed&quot;</span>);
+            <span class="kw">let </span>res = a.add(cs.namespace(|| <span class="string">"a+b"</span>), <span class="kw-2">&amp;</span>b).expect(<span class="string">"add failed"</span>);
 
-            <span class="kw">let </span><span class="kw-2">mut </span>tmp = a.get_value().expect(<span class="string">&quot;get_value failed&quot;</span>);
-            tmp.add_assign(<span class="kw-2">&amp;</span>b.get_value().expect(<span class="string">&quot;get_value failed&quot;</span>));
+            <span class="kw">let </span><span class="kw-2">mut </span>tmp = a.get_value().expect(<span class="string">"get_value failed"</span>);
+            tmp.add_assign(<span class="kw-2">&amp;</span>b.get_value().expect(<span class="string">"get_value failed"</span>));
 
-            <span class="macro">assert_eq!</span>(res.get_value().expect(<span class="string">&quot;get_value failed&quot;</span>), tmp);
+            <span class="macro">assert_eq!</span>(res.get_value().expect(<span class="string">"get_value failed"</span>), tmp);
             <span class="macro">assert!</span>(cs.is_satisfied());
 
         }
@@ -2343,15 +2343,15 @@
 
                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
 
-            <span class="kw">let </span>a = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;a&quot;</span>), || x.<span class="number">0</span>);
-            <span class="kw">let </span>b = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;b&quot;</span>), || y.<span class="number">0</span>);
+            <span class="kw">let </span>a = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"a"</span>), || x.<span class="number">0</span>);
+            <span class="kw">let </span>b = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"b"</span>), || y.<span class="number">0</span>);
 
-            <span class="kw">let </span>res = sub(cs.namespace(|| <span class="string">&quot;a-b&quot;</span>), <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b).expect(<span class="string">&quot;subtraction failed&quot;</span>);
+            <span class="kw">let </span>res = sub(cs.namespace(|| <span class="string">"a-b"</span>), <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b).expect(<span class="string">"subtraction failed"</span>);
 
-            <span class="kw">let </span><span class="kw-2">mut </span>tmp = a.get_value().expect(<span class="string">&quot;get_value failed&quot;</span>);
-            tmp.sub_assign(<span class="kw-2">&amp;</span>b.get_value().expect(<span class="string">&quot;get_value failed&quot;</span>));
+            <span class="kw">let </span><span class="kw-2">mut </span>tmp = a.get_value().expect(<span class="string">"get_value failed"</span>);
+            tmp.sub_assign(<span class="kw-2">&amp;</span>b.get_value().expect(<span class="string">"get_value failed"</span>));
 
-            <span class="macro">assert_eq!</span>(res.get_value().expect(<span class="string">&quot;get_value failed&quot;</span>), tmp);
+            <span class="macro">assert_eq!</span>(res.get_value().expect(<span class="string">"get_value failed"</span>), tmp);
             <span class="macro">assert!</span>(cs.is_satisfied());
 
         }
@@ -2360,12 +2360,12 @@
         </span><span class="kw">fn </span>prop_alloc_equal_const((x, y) <span class="kw">in </span>any::&lt;(FWrap&lt;Fr&gt;, FWrap&lt;Fr&gt;)&gt;()) {
             <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
 
-            <span class="kw">let </span>a = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;a&quot;</span>), || x.<span class="number">0</span>);
+            <span class="kw">let </span>a = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"a"</span>), || x.<span class="number">0</span>);
 
             <span class="kw">let </span>equal =
-                alloc_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;alloc_equal_const&quot;</span>), <span class="kw-2">&amp;</span>a, x.<span class="number">0</span>).unwrap();
+                alloc_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"alloc_equal_const"</span>), <span class="kw-2">&amp;</span>a, x.<span class="number">0</span>).unwrap();
             <span class="kw">let </span>equal2 =
-                alloc_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;alloc_equal_const 2&quot;</span>), <span class="kw-2">&amp;</span>a, y.<span class="number">0</span>).unwrap();
+                alloc_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"alloc_equal_const 2"</span>), <span class="kw-2">&amp;</span>a, y.<span class="number">0</span>).unwrap();
             <span class="comment">// a must always equal x.
             </span><span class="macro">assert!</span>(equal.get_value().unwrap());
 
@@ -2383,13 +2383,13 @@
 
             <span class="comment">// Allocate premise boolean.
             </span><span class="kw">let </span>premise = Boolean::from(AllocatedBit::alloc(
-                cs.namespace(|| <span class="string">&quot;premise&quot;</span>),
+                cs.namespace(|| <span class="string">"premise"</span>),
                 <span class="prelude-val">Some</span>(premise_val)
-            ).expect(<span class="string">&quot;alloc failed&quot;</span>));
+            ).expect(<span class="string">"alloc failed"</span>));
 
             <span class="comment">// Execute the function under test.
             </span>enforce_implication_lc(
-                cs.namespace(|| <span class="string">&quot;enforce_implication_lc&quot;</span>),
+                cs.namespace(|| <span class="string">"enforce_implication_lc"</span>),
                 <span class="kw-2">&amp;</span>premise,
                 |<span class="kw">_</span>| lc,
             );
@@ -2414,12 +2414,12 @@
 
         <span class="comment">// Allocate premise boolean.
         </span><span class="kw">let </span>premise_true = Boolean::from(
-            AllocatedBit::alloc(cs.namespace(|| <span class="string">&quot;premise_true&quot;</span>), <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)).expect(<span class="string">&quot;alloc failed&quot;</span>),
+            AllocatedBit::alloc(cs.namespace(|| <span class="string">"premise_true"</span>), <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)).expect(<span class="string">"alloc failed"</span>),
         );
 
         <span class="comment">// Execute the function under test.
         </span>enforce_implication_lc(
-            cs.namespace(|| <span class="string">&quot;enforce_implication_lc_big&quot;</span>),
+            cs.namespace(|| <span class="string">"enforce_implication_lc_big"</span>),
             <span class="kw-2">&amp;</span>premise_true,
             |<span class="kw">_</span>| test_lc_big.clone(),
         );
@@ -2432,13 +2432,13 @@
         <span class="comment">// an lc &gt; 1 should pass if premise is false.
         // Allocate premise boolean.
         </span><span class="kw">let </span>premise_false = Boolean::from(
-            AllocatedBit::alloc(cs.namespace(|| <span class="string">&quot;premise_false&quot;</span>), <span class="prelude-val">Some</span>(<span class="bool-val">false</span>))
-                .expect(<span class="string">&quot;alloc failed&quot;</span>),
+            AllocatedBit::alloc(cs.namespace(|| <span class="string">"premise_false"</span>), <span class="prelude-val">Some</span>(<span class="bool-val">false</span>))
+                .expect(<span class="string">"alloc failed"</span>),
         );
 
         <span class="comment">// Execute the function under test.
         </span>enforce_implication_lc(
-            cs.namespace(|| <span class="string">&quot;enforce_implication_lc_big_with_false&quot;</span>),
+            cs.namespace(|| <span class="string">"enforce_implication_lc_big_with_false"</span>),
             <span class="kw-2">&amp;</span>premise_false,
             |<span class="kw">_</span>| test_lc_big,
         );
@@ -2453,8 +2453,8 @@
         <span class="kw">let </span><span class="kw-2">mut </span>test_lc_arb_num = LinearCombination::zero();
 
         <span class="comment">// Allocate a few numbers. Here TWO_INV + TWO_INV = ONE
-        </span><span class="kw">let </span>anum1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;num1&quot;</span>), || Fr::TWO_INV);
-        <span class="kw">let </span>anum2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;num2&quot;</span>), || Fr::TWO_INV);
+        </span><span class="kw">let </span>anum1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"num1"</span>), || Fr::TWO_INV);
+        <span class="kw">let </span>anum2 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"num2"</span>), || Fr::TWO_INV);
 
         <span class="comment">// Add them to the lc
         </span>test_lc_arb_num = test_lc_arb_num + (Fr::ONE, anum1.get_variable());
@@ -2462,7 +2462,7 @@
 
         <span class="comment">// Execute the function under test.
         </span>enforce_implication_lc(
-            cs.namespace(|| <span class="string">&quot;enforce_implication_lc_arb_num&quot;</span>),
+            cs.namespace(|| <span class="string">"enforce_implication_lc_arb_num"</span>),
             <span class="kw-2">&amp;</span>premise_true,
             |<span class="kw">_</span>| test_lc_arb_num,
         );
@@ -2486,12 +2486,12 @@
 
         <span class="comment">// Allocate premise boolean.
         </span><span class="kw">let </span>premise_true = Boolean::from(
-            AllocatedBit::alloc(cs.namespace(|| <span class="string">&quot;premise_true&quot;</span>), <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)).expect(<span class="string">&quot;alloc failed&quot;</span>),
+            AllocatedBit::alloc(cs.namespace(|| <span class="string">"premise_true"</span>), <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)).expect(<span class="string">"alloc failed"</span>),
         );
 
         <span class="comment">// Execute the function under test.
         </span>enforce_implication_lc_zero(
-            cs.namespace(|| <span class="string">&quot;enforce_implication_lc_big&quot;</span>),
+            cs.namespace(|| <span class="string">"enforce_implication_lc_big"</span>),
             <span class="kw-2">&amp;</span>premise_true,
             |<span class="kw">_</span>| test_lc_big.clone(),
         );
@@ -2509,12 +2509,12 @@
 
         <span class="comment">// Allocate premise boolean.
         </span><span class="kw">let </span>premise_true = Boolean::from(
-            AllocatedBit::alloc(cs.namespace(|| <span class="string">&quot;premise_true&quot;</span>), <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)).expect(<span class="string">&quot;alloc failed&quot;</span>),
+            AllocatedBit::alloc(cs.namespace(|| <span class="string">"premise_true"</span>), <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)).expect(<span class="string">"alloc failed"</span>),
         );
 
         <span class="comment">// Execute the function under test.
         </span>enforce_implication_lc_zero(
-            cs.namespace(|| <span class="string">&quot;enforce_implication_lc_one&quot;</span>),
+            cs.namespace(|| <span class="string">"enforce_implication_lc_one"</span>),
             <span class="kw-2">&amp;</span>premise_true,
             |<span class="kw">_</span>| test_lc_one.clone(),
         );
@@ -2528,13 +2528,13 @@
         <span class="comment">// an lc != 0 should pass if premise is false.
         // Allocate premise boolean.
         </span><span class="kw">let </span>premise_false = Boolean::from(
-            AllocatedBit::alloc(cs.namespace(|| <span class="string">&quot;premise_false&quot;</span>), <span class="prelude-val">Some</span>(<span class="bool-val">false</span>))
-                .expect(<span class="string">&quot;alloc failed&quot;</span>),
+            AllocatedBit::alloc(cs.namespace(|| <span class="string">"premise_false"</span>), <span class="prelude-val">Some</span>(<span class="bool-val">false</span>))
+                .expect(<span class="string">"alloc failed"</span>),
         );
 
         <span class="comment">// Execute the function under test.
         </span>enforce_implication_lc_zero(
-            cs.namespace(|| <span class="string">&quot;enforce_implication_lc_big_with_false&quot;</span>),
+            cs.namespace(|| <span class="string">"enforce_implication_lc_big_with_false"</span>),
             <span class="kw-2">&amp;</span>premise_false,
             |<span class="kw">_</span>| test_lc_big,
         );
@@ -2550,14 +2550,14 @@
         <span class="kw">let </span><span class="kw-2">mut </span>test_lc_arb_num = LinearCombination::zero();
 
         <span class="comment">// Allocate a number that is zero, but not a Boolean.
-        </span><span class="kw">let </span>anum1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;num1&quot;</span>), || Fr::ZERO);
+        </span><span class="kw">let </span>anum1 = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"num1"</span>), || Fr::ZERO);
 
         <span class="comment">// Add it to the lc
         </span>test_lc_arb_num = test_lc_arb_num + (Fr::ONE, anum1.get_variable());
 
         <span class="comment">// Execute the function under test.
         </span>enforce_implication_lc_zero(
-            cs.namespace(|| <span class="string">&quot;enforce_implication_lc_arb_num&quot;</span>),
+            cs.namespace(|| <span class="string">"enforce_implication_lc_arb_num"</span>),
             <span class="kw-2">&amp;</span>premise_true,
             |<span class="kw">_</span>| test_lc_arb_num,
         );
@@ -2569,14 +2569,14 @@
     </span><span class="kw">fn </span>test_implies_u64_negative_edge_case() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
 
-        <span class="kw">let </span>alloc_num = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num&quot;</span>), || {
+        <span class="kw">let </span>alloc_num = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"num"</span>), || {
             <span class="comment">// Edge case: 2ˆ64 = 18446744073709551616
-            </span><span class="prelude-val">Ok</span>(Fr::from_str_vartime(<span class="string">&quot;18446744073709551616&quot;</span>).unwrap())
+            </span><span class="prelude-val">Ok</span>(Fr::from_str_vartime(<span class="string">"18446744073709551616"</span>).unwrap())
         })
         .unwrap();
 
         <span class="kw">let </span>t = Boolean::Constant(<span class="bool-val">true</span>);
-        implies_u64(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce u64&quot;</span>), <span class="kw-2">&amp;</span>t, <span class="kw-2">&amp;</span>alloc_num).unwrap();
+        implies_u64(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"enforce u64"</span>), <span class="kw-2">&amp;</span>t, <span class="kw-2">&amp;</span>alloc_num).unwrap();
         <span class="macro">assert!</span>(!cs.is_satisfied());
     }
 
@@ -2585,10 +2585,10 @@
         </span><span class="kw">fn </span>test_implies_u64(f <span class="kw">in </span>any::&lt;FWrap&lt;Fr&gt;&gt;()) {
             <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
 
-            <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;num&quot;</span>), || f.<span class="number">0</span>);
+            <span class="kw">let </span>num = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">"num"</span>), || f.<span class="number">0</span>);
 
             <span class="kw">let </span>t = Boolean::Constant(<span class="bool-val">true</span>);
-            implies_u64(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce u64&quot;</span>), <span class="kw-2">&amp;</span>t, <span class="kw-2">&amp;</span>num).unwrap();
+            implies_u64(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"enforce u64"</span>), <span class="kw-2">&amp;</span>t, <span class="kw-2">&amp;</span>num).unwrap();
 
             <span class="kw">let </span>f_u64_roundtrip: Fr = f.<span class="number">0</span>.to_u64_unchecked().into();
             <span class="kw">let </span>was_u64 = f_u64_roundtrip == f.<span class="number">0</span>;

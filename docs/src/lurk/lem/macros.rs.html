@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/macros.rs`."><title>macros.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/macros.rs`."><title>macros.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1074,14 +1074,14 @@
                     <span class="macro-nonterminal">$</span><span class="macro">crate::tag!</span>(<span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag</span>),
                     <span class="macro-nonterminal">$</span><span class="macro">crate::block!</span>( <span class="macro-nonterminal">$case_ops </span>),
                 ).is_some() {
-                    <span class="macro">panic!</span>(<span class="string">&quot;Repeated tag on `match`&quot;</span>);
+                    <span class="macro">panic!</span>(<span class="string">"Repeated tag on `match`"</span>);
                 };
                 $(
                     <span class="kw">if </span>cases.insert(
                         <span class="macro-nonterminal">$</span><span class="macro">crate::tag!</span>(<span class="macro-nonterminal">$other_kind</span>::<span class="macro-nonterminal">$other_tag</span>),
                         <span class="macro-nonterminal">$</span><span class="macro">crate::block!</span>( <span class="macro-nonterminal">$case_ops </span>),
                     ).is_some() {
-                        <span class="macro">panic!</span>(<span class="string">&quot;Repeated tag on `match`&quot;</span>);
+                        <span class="macro">panic!</span>(<span class="string">"Repeated tag on `match`"</span>);
                     };
                 )*
             )*
@@ -1097,14 +1097,14 @@
                     <span class="macro-nonterminal">$crate::state::lurk_sym</span>(<span class="macro-nonterminal">$sym</span>),
                     <span class="macro-nonterminal">$</span><span class="macro">crate::block!</span>( <span class="macro-nonterminal">$case_ops </span>),
                 ).is_some() {
-                    <span class="macro">panic!</span>(<span class="string">&quot;Repeated value on `match`&quot;</span>);
+                    <span class="macro">panic!</span>(<span class="string">"Repeated value on `match`"</span>);
                 };
                 $(
                     <span class="kw">if </span>cases.insert(
                         <span class="macro-nonterminal">$crate::state::lurk_sym</span>(<span class="macro-nonterminal">$other_sym</span>),
                         <span class="macro-nonterminal">$</span><span class="macro">crate::block!</span>( <span class="macro-nonterminal">$case_ops </span>),
                     ).is_some() {
-                        <span class="macro">panic!</span>(<span class="string">&quot;Repeated value on `match`&quot;</span>);
+                        <span class="macro">panic!</span>(<span class="string">"Repeated value on `match`"</span>);
                     };
                 )*
             )*
@@ -1512,7 +1512,7 @@
     };
     (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>} ) =&gt; {
         {
-            <span class="macro">compile_error!</span>(<span class="string">&quot;You must provide Func with a return at each path!&quot;</span>);
+            <span class="macro">compile_error!</span>(<span class="string">"You must provide Func with a return at each path!"</span>);
         }
     };
     (@end {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="macro-nonterminal">$cont</span>:expr) =&gt; {
@@ -1552,23 +1552,23 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_macros() {
         <span class="kw">let </span>lemops = [
-            Op::Zero(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
-            Op::Cons2(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Char), [var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>)]),
+            Op::Zero(var(<span class="string">"foo"</span>), Tag::Expr(Num)),
+            Op::Cons2(var(<span class="string">"foo"</span>), Tag::Expr(Char), [var(<span class="string">"bar"</span>), var(<span class="string">"baz"</span>)]),
             Op::Cons3(
-                var(<span class="string">&quot;foo&quot;</span>),
+                var(<span class="string">"foo"</span>),
                 Tag::Expr(Char),
-                [var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>)],
+                [var(<span class="string">"bar"</span>), var(<span class="string">"baz"</span>), var(<span class="string">"bazz"</span>)],
             ),
             Op::Cons4(
-                var(<span class="string">&quot;foo&quot;</span>),
+                var(<span class="string">"foo"</span>),
                 Tag::Expr(Char),
-                [var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>), var(<span class="string">&quot;baxx&quot;</span>)],
+                [var(<span class="string">"bar"</span>), var(<span class="string">"baz"</span>), var(<span class="string">"bazz"</span>), var(<span class="string">"baxx"</span>)],
             ),
-            Op::Decons2([var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>)], var(<span class="string">&quot;aaa&quot;</span>)),
-            Op::Decons3([var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>), var(<span class="string">&quot;moo&quot;</span>)], var(<span class="string">&quot;aaa&quot;</span>)),
-            Op::Decons4([var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>), var(<span class="string">&quot;moo&quot;</span>), var(<span class="string">&quot;noo&quot;</span>)], var(<span class="string">&quot;aaa&quot;</span>)),
-            Op::Hide(var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>)),
-            Op::Open(var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>)),
+            Op::Decons2([var(<span class="string">"foo"</span>), var(<span class="string">"goo"</span>)], var(<span class="string">"aaa"</span>)),
+            Op::Decons3([var(<span class="string">"foo"</span>), var(<span class="string">"goo"</span>), var(<span class="string">"moo"</span>)], var(<span class="string">"aaa"</span>)),
+            Op::Decons4([var(<span class="string">"foo"</span>), var(<span class="string">"goo"</span>), var(<span class="string">"moo"</span>), var(<span class="string">"noo"</span>)], var(<span class="string">"aaa"</span>)),
+            Op::Hide(var(<span class="string">"bar"</span>), var(<span class="string">"baz"</span>), var(<span class="string">"bazz"</span>)),
+            Op::Open(var(<span class="string">"bar"</span>), var(<span class="string">"baz"</span>), var(<span class="string">"bazz"</span>)),
         ];
         <span class="kw">let </span>lemops_macro = <span class="macro">vec!</span>[
             <span class="macro">op!</span>(<span class="kw">let </span>foo: Expr::Num),
@@ -1586,7 +1586,7 @@
             <span class="macro">assert!</span>(lemops[i] == lemops_macro[i]);
         }
 
-        <span class="kw">let </span>ret = Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;bar&quot;</span>), var(<span class="string">&quot;baz&quot;</span>), var(<span class="string">&quot;bazz&quot;</span>)]);
+        <span class="kw">let </span>ret = Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">"bar"</span>), var(<span class="string">"baz"</span>), var(<span class="string">"bazz"</span>)]);
         <span class="kw">let </span>block = Block {
             ops: lemops_macro,
             ctrl: ret,
@@ -1622,30 +1622,30 @@
         });
         <span class="macro">assert!</span>(
             foo == Ctrl::match_tag(
-                var(<span class="string">&quot;www&quot;</span>),
+                var(<span class="string">"www"</span>),
                 <span class="macro">vec!</span>[
                     (
                         Tag::Expr(Num),
                         Block {
                             ops: <span class="macro">vec!</span>[],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>)]),
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">"foo"</span>), var(<span class="string">"foo"</span>), var(<span class="string">"foo"</span>)]),
                         }
                     ),
                     (
                         Tag::Expr(Str),
                         Block {
-                            ops: <span class="macro">vec!</span>[Op::Zero(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num))],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>)]),
+                            ops: <span class="macro">vec!</span>[Op::Zero(var(<span class="string">"foo"</span>), Tag::Expr(Num))],
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">"foo"</span>), var(<span class="string">"foo"</span>), var(<span class="string">"foo"</span>)]),
                         }
                     ),
                     (
                         Tag::Expr(Char),
                         Block {
                             ops: <span class="macro">vec!</span>[
-                                Op::Zero(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
-                                Op::Zero(var(<span class="string">&quot;goo&quot;</span>), Tag::Expr(Char))
+                                Op::Zero(var(<span class="string">"foo"</span>), Tag::Expr(Num)),
+                                Op::Zero(var(<span class="string">"goo"</span>), Tag::Expr(Char))
                             ],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>)]),
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">"foo"</span>), var(<span class="string">"goo"</span>), var(<span class="string">"goo"</span>)]),
                         }
                     )
                 ],
@@ -1655,10 +1655,10 @@
 
         <span class="kw">let </span>moo = <span class="macro">ctrl!</span>(
             <span class="kw">match </span>symbol www {
-                <span class="string">&quot;nil&quot; </span>=&gt; {
+                <span class="string">"nil" </span>=&gt; {
                     <span class="kw">return </span>(foo, foo, foo); <span class="comment">// a single Ctrl will not turn into a Seq
                 </span>}
-                <span class="string">&quot;cons&quot; </span>=&gt; {
+                <span class="string">"cons" </span>=&gt; {
                     <span class="kw">let </span>foo: Expr::Num;
                     <span class="kw">let </span>goo: Expr::Char;
                     <span class="kw">return </span>(foo, goo, goo);
@@ -1670,29 +1670,29 @@
 
         <span class="macro">assert!</span>(
             moo == Ctrl::match_symbol(
-                var(<span class="string">&quot;www&quot;</span>),
+                var(<span class="string">"www"</span>),
                 <span class="macro">vec!</span>[
                     (
-                        lurk_sym(<span class="string">&quot;nil&quot;</span>),
+                        lurk_sym(<span class="string">"nil"</span>),
                         Block {
                             ops: <span class="macro">vec!</span>[],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;foo&quot;</span>)]),
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">"foo"</span>), var(<span class="string">"foo"</span>), var(<span class="string">"foo"</span>)]),
                         }
                     ),
                     (
-                        lurk_sym(<span class="string">&quot;cons&quot;</span>),
+                        lurk_sym(<span class="string">"cons"</span>),
                         Block {
                             ops: <span class="macro">vec!</span>[
-                                Op::Zero(var(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
-                                Op::Zero(var(<span class="string">&quot;goo&quot;</span>), Tag::Expr(Char))
+                                Op::Zero(var(<span class="string">"foo"</span>), Tag::Expr(Num)),
+                                Op::Zero(var(<span class="string">"goo"</span>), Tag::Expr(Char))
                             ],
-                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;foo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>), var(<span class="string">&quot;goo&quot;</span>)]),
+                            ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">"foo"</span>), var(<span class="string">"goo"</span>), var(<span class="string">"goo"</span>)]),
                         }
                     )
                 ],
                 <span class="prelude-val">Some</span>(Block {
-                    ops: <span class="macro">vec!</span>[Op::Zero(var(<span class="string">&quot;xoo&quot;</span>), Tag::Expr(Str))],
-                    ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">&quot;xoo&quot;</span>), var(<span class="string">&quot;xoo&quot;</span>), var(<span class="string">&quot;xoo&quot;</span>)]),
+                    ops: <span class="macro">vec!</span>[Op::Zero(var(<span class="string">"xoo"</span>), Tag::Expr(Str))],
+                    ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">"xoo"</span>), var(<span class="string">"xoo"</span>), var(<span class="string">"xoo"</span>)]),
                 })
             )
         );

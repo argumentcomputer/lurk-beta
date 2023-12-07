@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tag.rs`."><title>tag.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tag.rs`."><title>tag.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -516,7 +516,7 @@
 <a href="#516" id="516">516</a>
 <a href="#517" id="517">517</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>lurk_macros::TryFromRepr;
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>proptest_derive::Arbitrary;
 <span class="kw">use </span>serde_repr::{Deserialize_repr, Serialize_repr};
 <span class="kw">use </span>std::{convert::TryFrom, fmt};
@@ -542,7 +542,7 @@
 </span><span class="attr">#[derive(
     Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr, TryFromRepr,
 )]
-#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = <span class="string">"wasm32"</span>), derive(Arbitrary))]
 #[repr(u16)]
 </span><span class="kw">pub enum </span>ExprTag {
     Nil = <span class="number">0b0000_0000_0000_0000</span>,
@@ -572,20 +572,20 @@
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>ExprTag {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            ExprTag::Nil =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;nil#&quot;</span>),
-            ExprTag::Cons =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cons#&quot;</span>),
-            ExprTag::Sym =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;sym#&quot;</span>),
-            ExprTag::Fun =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;fun#&quot;</span>),
-            ExprTag::Num =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;num#&quot;</span>),
-            ExprTag::Thunk =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;thunk#&quot;</span>),
-            ExprTag::Str =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;str#&quot;</span>),
-            ExprTag::Key =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;key#&quot;</span>),
-            ExprTag::Char =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;char#&quot;</span>),
-            ExprTag::Comm =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;comm#&quot;</span>),
-            ExprTag::U64 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;u64#&quot;</span>),
-            ExprTag::Cproc =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cproc#&quot;</span>),
+            ExprTag::Nil =&gt; <span class="macro">write!</span>(f, <span class="string">"nil#"</span>),
+            ExprTag::Cons =&gt; <span class="macro">write!</span>(f, <span class="string">"cons#"</span>),
+            ExprTag::Sym =&gt; <span class="macro">write!</span>(f, <span class="string">"sym#"</span>),
+            ExprTag::Fun =&gt; <span class="macro">write!</span>(f, <span class="string">"fun#"</span>),
+            ExprTag::Num =&gt; <span class="macro">write!</span>(f, <span class="string">"num#"</span>),
+            ExprTag::Thunk =&gt; <span class="macro">write!</span>(f, <span class="string">"thunk#"</span>),
+            ExprTag::Str =&gt; <span class="macro">write!</span>(f, <span class="string">"str#"</span>),
+            ExprTag::Key =&gt; <span class="macro">write!</span>(f, <span class="string">"key#"</span>),
+            ExprTag::Char =&gt; <span class="macro">write!</span>(f, <span class="string">"char#"</span>),
+            ExprTag::Comm =&gt; <span class="macro">write!</span>(f, <span class="string">"comm#"</span>),
+            ExprTag::U64 =&gt; <span class="macro">write!</span>(f, <span class="string">"u64#"</span>),
+            ExprTag::Cproc =&gt; <span class="macro">write!</span>(f, <span class="string">"cproc#"</span>),
         }
     }
 }
@@ -635,7 +635,7 @@
 </span><span class="attr">#[derive(
     Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, TryFromRepr,
 )]
-#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = <span class="string">"wasm32"</span>), derive(Arbitrary))]
 #[repr(u16)]
 </span><span class="kw">pub enum </span>ContTag {
     Outermost = <span class="number">0b0001_0000_0000_0000</span>,
@@ -687,25 +687,25 @@
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>ContTag {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            ContTag::Outermost =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;outermost#&quot;</span>),
-            ContTag::Call0 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;call0#&quot;</span>),
-            ContTag::Call =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;call#&quot;</span>),
-            ContTag::Call2 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;call2#&quot;</span>),
-            ContTag::Tail =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;tail#&quot;</span>),
-            ContTag::Error =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;error#&quot;</span>),
-            ContTag::Lookup =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;lookup#&quot;</span>),
-            ContTag::Unop =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;unop#&quot;</span>),
-            ContTag::Binop =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;binop#&quot;</span>),
-            ContTag::Binop2 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;binop2#&quot;</span>),
-            ContTag::If =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;if#&quot;</span>),
-            ContTag::Let =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;let#&quot;</span>),
-            ContTag::LetRec =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;letrec#&quot;</span>),
-            ContTag::Dummy =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;dummy#&quot;</span>),
-            ContTag::Terminal =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;terminal#&quot;</span>),
-            ContTag::Emit =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;emit#&quot;</span>),
-            ContTag::Cproc =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cproc#&quot;</span>),
+            ContTag::Outermost =&gt; <span class="macro">write!</span>(f, <span class="string">"outermost#"</span>),
+            ContTag::Call0 =&gt; <span class="macro">write!</span>(f, <span class="string">"call0#"</span>),
+            ContTag::Call =&gt; <span class="macro">write!</span>(f, <span class="string">"call#"</span>),
+            ContTag::Call2 =&gt; <span class="macro">write!</span>(f, <span class="string">"call2#"</span>),
+            ContTag::Tail =&gt; <span class="macro">write!</span>(f, <span class="string">"tail#"</span>),
+            ContTag::Error =&gt; <span class="macro">write!</span>(f, <span class="string">"error#"</span>),
+            ContTag::Lookup =&gt; <span class="macro">write!</span>(f, <span class="string">"lookup#"</span>),
+            ContTag::Unop =&gt; <span class="macro">write!</span>(f, <span class="string">"unop#"</span>),
+            ContTag::Binop =&gt; <span class="macro">write!</span>(f, <span class="string">"binop#"</span>),
+            ContTag::Binop2 =&gt; <span class="macro">write!</span>(f, <span class="string">"binop2#"</span>),
+            ContTag::If =&gt; <span class="macro">write!</span>(f, <span class="string">"if#"</span>),
+            ContTag::Let =&gt; <span class="macro">write!</span>(f, <span class="string">"let#"</span>),
+            ContTag::LetRec =&gt; <span class="macro">write!</span>(f, <span class="string">"letrec#"</span>),
+            ContTag::Dummy =&gt; <span class="macro">write!</span>(f, <span class="string">"dummy#"</span>),
+            ContTag::Terminal =&gt; <span class="macro">write!</span>(f, <span class="string">"terminal#"</span>),
+            ContTag::Emit =&gt; <span class="macro">write!</span>(f, <span class="string">"emit#"</span>),
+            ContTag::Cproc =&gt; <span class="macro">write!</span>(f, <span class="string">"cproc#"</span>),
         }
     }
 }
@@ -722,7 +722,7 @@
     Deserialize_repr,
     TryFromRepr,
 )]
-#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = <span class="string">"wasm32"</span>), derive(Arbitrary))]
 #[repr(u16)]
 </span><span class="kw">pub enum </span>Op1 {
     Car = <span class="number">0b0010_0000_0000_0000</span>,
@@ -753,12 +753,12 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>Op
 <span class="kw">where
-    </span><span class="self">Self</span>: <span class="lifetime">&#39;static</span>,
+    </span><span class="self">Self</span>: <span class="lifetime">'static</span>,
 {
-    <span class="kw">fn </span>symbol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
-    <span class="kw">fn </span>all() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="self">Self</span>&gt;;
+    <span class="kw">fn </span>symbol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
+    <span class="kw">fn </span>all() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="self">Self</span>&gt;;
     <span class="kw">fn </span>supports_arity(<span class="kw-2">&amp;</span><span class="self">self</span>, n: usize) -&gt; bool;
-    <span class="kw">fn </span>all_symbol_names() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+    <span class="kw">fn </span>all_symbol_names() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
         <span class="self">Self</span>::all().iter().map(|x| <span class="self">Self</span>::symbol_name(<span class="kw-2">*</span>x)).collect()
     }
 }
@@ -781,24 +781,24 @@
 }
 
 <span class="kw">impl </span>Op <span class="kw">for </span>Op1 {
-    <span class="kw">fn </span>symbol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+    <span class="kw">fn </span>symbol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
         <span class="kw">match </span><span class="self">self </span>{
-            Op1::Car =&gt; <span class="string">&quot;car&quot;</span>,
-            Op1::Cdr =&gt; <span class="string">&quot;cdr&quot;</span>,
-            Op1::Atom =&gt; <span class="string">&quot;atom&quot;</span>,
-            Op1::Emit =&gt; <span class="string">&quot;emit&quot;</span>,
-            Op1::Open =&gt; <span class="string">&quot;open&quot;</span>,
-            Op1::Secret =&gt; <span class="string">&quot;secret&quot;</span>,
-            Op1::Commit =&gt; <span class="string">&quot;commit&quot;</span>,
-            Op1::Num =&gt; <span class="string">&quot;num&quot;</span>,
-            Op1::Comm =&gt; <span class="string">&quot;comm&quot;</span>,
-            Op1::Char =&gt; <span class="string">&quot;char&quot;</span>,
-            Op1::Eval =&gt; <span class="string">&quot;eval&quot;</span>,
-            Op1::U64 =&gt; <span class="string">&quot;u64&quot;</span>,
+            Op1::Car =&gt; <span class="string">"car"</span>,
+            Op1::Cdr =&gt; <span class="string">"cdr"</span>,
+            Op1::Atom =&gt; <span class="string">"atom"</span>,
+            Op1::Emit =&gt; <span class="string">"emit"</span>,
+            Op1::Open =&gt; <span class="string">"open"</span>,
+            Op1::Secret =&gt; <span class="string">"secret"</span>,
+            Op1::Commit =&gt; <span class="string">"commit"</span>,
+            Op1::Num =&gt; <span class="string">"num"</span>,
+            Op1::Comm =&gt; <span class="string">"comm"</span>,
+            Op1::Char =&gt; <span class="string">"char"</span>,
+            Op1::Eval =&gt; <span class="string">"eval"</span>,
+            Op1::U64 =&gt; <span class="string">"u64"</span>,
         }
     }
 
-    <span class="kw">fn </span>all() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>all() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="self">Self</span>&gt; {
         <span class="macro">vec!</span>[
             <span class="kw-2">&amp;</span>Op1::Car,
             <span class="kw-2">&amp;</span>Op1::Cdr,
@@ -821,20 +821,20 @@
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>Op1 {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            Op1::Car =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;car#&quot;</span>),
-            Op1::Cdr =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cdr#&quot;</span>),
-            Op1::Atom =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;atom#&quot;</span>),
-            Op1::Emit =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;emit#&quot;</span>),
-            Op1::Open =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;open#&quot;</span>),
-            Op1::Secret =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;secret#&quot;</span>),
-            Op1::Commit =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;commit#&quot;</span>),
-            Op1::Num =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;num#&quot;</span>),
-            Op1::Comm =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;comm#&quot;</span>),
-            Op1::Char =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;char#&quot;</span>),
-            Op1::Eval =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;eval#&quot;</span>),
-            Op1::U64 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;u64#&quot;</span>),
+            Op1::Car =&gt; <span class="macro">write!</span>(f, <span class="string">"car#"</span>),
+            Op1::Cdr =&gt; <span class="macro">write!</span>(f, <span class="string">"cdr#"</span>),
+            Op1::Atom =&gt; <span class="macro">write!</span>(f, <span class="string">"atom#"</span>),
+            Op1::Emit =&gt; <span class="macro">write!</span>(f, <span class="string">"emit#"</span>),
+            Op1::Open =&gt; <span class="macro">write!</span>(f, <span class="string">"open#"</span>),
+            Op1::Secret =&gt; <span class="macro">write!</span>(f, <span class="string">"secret#"</span>),
+            Op1::Commit =&gt; <span class="macro">write!</span>(f, <span class="string">"commit#"</span>),
+            Op1::Num =&gt; <span class="macro">write!</span>(f, <span class="string">"num#"</span>),
+            Op1::Comm =&gt; <span class="macro">write!</span>(f, <span class="string">"comm#"</span>),
+            Op1::Char =&gt; <span class="macro">write!</span>(f, <span class="string">"char#"</span>),
+            Op1::Eval =&gt; <span class="macro">write!</span>(f, <span class="string">"eval#"</span>),
+            Op1::U64 =&gt; <span class="macro">write!</span>(f, <span class="string">"u64#"</span>),
         }
     }
 }
@@ -851,7 +851,7 @@
     Deserialize_repr,
     TryFromRepr,
 )]
-#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = <span class="string">"wasm32"</span>), derive(Arbitrary))]
 #[repr(u16)]
 </span><span class="kw">pub enum </span>Op2 {
     Sum = <span class="number">0b0011_0000_0000_0000</span>,
@@ -920,28 +920,28 @@
 }
 
 <span class="kw">impl </span>Op <span class="kw">for </span>Op2 {
-    <span class="kw">fn </span>symbol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+    <span class="kw">fn </span>symbol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
         <span class="kw">match </span><span class="self">self </span>{
-            Op2::Sum =&gt; <span class="string">&quot;+&quot;</span>,
-            Op2::Diff =&gt; <span class="string">&quot;-&quot;</span>,
-            Op2::Product =&gt; <span class="string">&quot;*&quot;</span>,
-            Op2::Quotient =&gt; <span class="string">&quot;/&quot;</span>,
-            Op2::Equal =&gt; <span class="string">&quot;eq&quot;</span>,
-            Op2::NumEqual =&gt; <span class="string">&quot;=&quot;</span>,
-            Op2::Less =&gt; <span class="string">&quot;&lt;&quot;</span>,
-            Op2::Greater =&gt; <span class="string">&quot;&gt;&quot;</span>,
-            Op2::LessEqual =&gt; <span class="string">&quot;&lt;=&quot;</span>,
-            Op2::GreaterEqual =&gt; <span class="string">&quot;&gt;=&quot;</span>,
-            Op2::Cons =&gt; <span class="string">&quot;cons&quot;</span>,
-            Op2::StrCons =&gt; <span class="string">&quot;strcons&quot;</span>,
-            Op2::Begin =&gt; <span class="string">&quot;begin&quot;</span>,
-            Op2::Hide =&gt; <span class="string">&quot;hide&quot;</span>,
-            Op2::Modulo =&gt; <span class="string">&quot;%&quot;</span>,
-            Op2::Eval =&gt; <span class="string">&quot;eval&quot;</span>,
+            Op2::Sum =&gt; <span class="string">"+"</span>,
+            Op2::Diff =&gt; <span class="string">"-"</span>,
+            Op2::Product =&gt; <span class="string">"*"</span>,
+            Op2::Quotient =&gt; <span class="string">"/"</span>,
+            Op2::Equal =&gt; <span class="string">"eq"</span>,
+            Op2::NumEqual =&gt; <span class="string">"="</span>,
+            Op2::Less =&gt; <span class="string">"&lt;"</span>,
+            Op2::Greater =&gt; <span class="string">"&gt;"</span>,
+            Op2::LessEqual =&gt; <span class="string">"&lt;="</span>,
+            Op2::GreaterEqual =&gt; <span class="string">"&gt;="</span>,
+            Op2::Cons =&gt; <span class="string">"cons"</span>,
+            Op2::StrCons =&gt; <span class="string">"strcons"</span>,
+            Op2::Begin =&gt; <span class="string">"begin"</span>,
+            Op2::Hide =&gt; <span class="string">"hide"</span>,
+            Op2::Modulo =&gt; <span class="string">"%"</span>,
+            Op2::Eval =&gt; <span class="string">"eval"</span>,
         }
     }
 
-    <span class="kw">fn </span>all() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>all() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="self">Self</span>&gt; {
         <span class="macro">vec!</span>[
             <span class="kw-2">&amp;</span>Op2::Sum,
             <span class="kw-2">&amp;</span>Op2::Diff,
@@ -968,24 +968,24 @@
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>Op2 {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            Op2::Sum =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;sum#&quot;</span>),
-            Op2::Diff =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;diff#&quot;</span>),
-            Op2::Product =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;product#&quot;</span>),
-            Op2::Quotient =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;quotient#&quot;</span>),
-            Op2::Equal =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;equal#&quot;</span>),
-            Op2::NumEqual =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;numequal#&quot;</span>),
-            Op2::Less =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;less#&quot;</span>),
-            Op2::Greater =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;greater&quot;</span>),
-            Op2::LessEqual =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;lessequal#&quot;</span>),
-            Op2::GreaterEqual =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;greaterequal#&quot;</span>),
-            Op2::Cons =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cons&quot;</span>),
-            Op2::StrCons =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;strcons#&quot;</span>),
-            Op2::Begin =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;begin&quot;</span>),
-            Op2::Hide =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;hide&quot;</span>),
-            Op2::Modulo =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;modulo&quot;</span>),
-            Op2::Eval =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;eval#&quot;</span>),
+            Op2::Sum =&gt; <span class="macro">write!</span>(f, <span class="string">"sum#"</span>),
+            Op2::Diff =&gt; <span class="macro">write!</span>(f, <span class="string">"diff#"</span>),
+            Op2::Product =&gt; <span class="macro">write!</span>(f, <span class="string">"product#"</span>),
+            Op2::Quotient =&gt; <span class="macro">write!</span>(f, <span class="string">"quotient#"</span>),
+            Op2::Equal =&gt; <span class="macro">write!</span>(f, <span class="string">"equal#"</span>),
+            Op2::NumEqual =&gt; <span class="macro">write!</span>(f, <span class="string">"numequal#"</span>),
+            Op2::Less =&gt; <span class="macro">write!</span>(f, <span class="string">"less#"</span>),
+            Op2::Greater =&gt; <span class="macro">write!</span>(f, <span class="string">"greater"</span>),
+            Op2::LessEqual =&gt; <span class="macro">write!</span>(f, <span class="string">"lessequal#"</span>),
+            Op2::GreaterEqual =&gt; <span class="macro">write!</span>(f, <span class="string">"greaterequal#"</span>),
+            Op2::Cons =&gt; <span class="macro">write!</span>(f, <span class="string">"cons"</span>),
+            Op2::StrCons =&gt; <span class="macro">write!</span>(f, <span class="string">"strcons#"</span>),
+            Op2::Begin =&gt; <span class="macro">write!</span>(f, <span class="string">"begin"</span>),
+            Op2::Hide =&gt; <span class="macro">write!</span>(f, <span class="string">"hide"</span>),
+            Op2::Modulo =&gt; <span class="macro">write!</span>(f, <span class="string">"modulo"</span>),
+            Op2::Eval =&gt; <span class="macro">write!</span>(f, <span class="string">"eval#"</span>),
         }
     }
 }
@@ -1000,7 +1000,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>prop_expr_tag_u16(x <span class="kw">in </span>any::&lt;ExprTag&gt;()) {
         <span class="kw">let </span>x_u16: u16 = x.into();
-        <span class="kw">let </span>x2 = ExprTag::try_from(x_u16).expect(<span class="string">&quot;read ExprTag from u16&quot;</span>);
+        <span class="kw">let </span>x2 = ExprTag::try_from(x_u16).expect(<span class="string">"read ExprTag from u16"</span>);
         <span class="macro">assert_eq!</span>(x, x2);
     }
     }
@@ -1009,7 +1009,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>prop_cont_tag_u16(x <span class="kw">in </span>any::&lt;ContTag&gt;()) {
         <span class="kw">let </span>x_u16: u16 = x.into();
-        <span class="kw">let </span>x2 = ContTag::try_from(x_u16).expect(<span class="string">&quot;read ContTag from u16&quot;</span>);
+        <span class="kw">let </span>x2 = ContTag::try_from(x_u16).expect(<span class="string">"read ContTag from u16"</span>);
         <span class="macro">assert_eq!</span>(x, x2)
     }
     }
@@ -1018,7 +1018,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>prop_op1_u16(x <span class="kw">in </span>any::&lt;Op1&gt;()) {
         <span class="kw">let </span>x_u16: u16 = x.into();
-        <span class="kw">let </span>x2 = Op1::try_from(x_u16).expect(<span class="string">&quot;read Op1 from u16&quot;</span>);
+        <span class="kw">let </span>x2 = Op1::try_from(x_u16).expect(<span class="string">"read Op1 from u16"</span>);
         <span class="macro">assert_eq!</span>(x, x2)
     }
     }
@@ -1027,7 +1027,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>prop_op2_u16(x <span class="kw">in </span>any::&lt;Op2&gt;()) {
         <span class="kw">let </span>x_u16: u16 = x.into();
-        <span class="kw">let </span>x2 = Op2::try_from(x_u16).expect(<span class="string">&quot;read Op2 from u16&quot;</span>);
+        <span class="kw">let </span>x2 = Op2::try_from(x_u16).expect(<span class="string">"read Op2 from u16"</span>);
         <span class="macro">assert_eq!</span>(x, x2)
     }
     }

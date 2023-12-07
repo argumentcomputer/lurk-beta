@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/public_parameters/instance.rs`."><title>instance.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/public_parameters/instance.rs`."><title>instance.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -284,7 +284,7 @@
 //! Each instance is a unique key representing a unique parameter object cached in the file system.
 //! The module provides the API to smoothly fetch/write/update params and sets of params.
 //!
-//! Currently, [::nova] defines three &quot;kinds&quot; of parameter objects that need to be cached.
+//! Currently, [::nova] defines three "kinds" of parameter objects that need to be cached.
 //! The first kind corresponds to [::nova::PublicParams], which contain a full instance of public parameters
 //! required for a Nova proof. The second and third kinds correspond to [::nova::supernova::AuxParams] and
 //! [::nova::supernova::CircuitParams], which contain partial instances of public parameters required for
@@ -301,14 +301,14 @@
 //! - For [::nova::supernova::CircuitParams], this is the hash of the shape of its particular SuperNova circuit.
 //!
 //! Because the first primary circuit of Lurk will always be the universal Lurk circuit, which may get very large
-//! at high `rc`, we instead hash an &quot;ad-hoc&quot; circuit that still uniquely represents the universal Lurk circuit,
+//! at high `rc`, we instead hash an "ad-hoc" circuit that still uniquely represents the universal Lurk circuit,
 //! but is much smaller and faster to hash.
 //!
 //! The idea is this: we have the large `rc` universal Lurk circuit as:
 //! ```ignore
 //! lurk-circuit(rc) = start bits -- frame -- glue -- frame -- glue ... -- end bits (repeat rc times)
 //! ```
-//! Instead we hash an ad-hoc circuit (`rc=2`, which allows capturing our &quot;glue&quot;):
+//! Instead we hash an ad-hoc circuit (`rc=2`, which allows capturing our "glue"):
 //! ```ignore
 //! lurk-circuit(2) = start bits -- frame -- glue -- frame -- end bits
 //! ```
@@ -349,22 +349,22 @@
 /// An [Instance] represents exactly one distinct [nova::NovaPublicParams], [supernova::SuperNovaAuxParams],
 /// or [supernova::SuperNovaCircuitParams], tagged by the [Kind] field.
 ///
-/// When fetching a set of SuperNova public parameters, the &quot;core&quot; instance is the auxilliary parameters,
+/// When fetching a set of SuperNova public parameters, the "core" instance is the auxilliary parameters,
 /// because it contains the digest of the entire set of public parameters. Then, from this core instance,
 /// we derive the `num_circuits + 1` circuit param instances. This makes sure that we keep the SuperNova
 /// instances as modular as possible, and reuse as much overlapping circuit params as possible.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>Instance&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
+</span><span class="kw">pub struct </span>Instance&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
 {
     <span class="kw">pub </span>rc: usize,
     <span class="kw">pub </span>lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     <span class="kw">pub </span>abomonated: bool,
     <span class="kw">pub </span>cache_key: F,
     <span class="kw">pub </span>kind: Kind,
-    <span class="kw">pub </span>_p: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M&gt;,
+    <span class="kw">pub </span>_p: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>M&gt;,
 }
 
-<span class="doccomment">/// From [::nova], there are 3 &quot;kinds&quot; of public param objects that need to be cached.
+<span class="doccomment">/// From [::nova], there are 3 "kinds" of public param objects that need to be cached.
 /// The first kind corresponds to [nova::NovaPublicParams], which contain a full instance of public parameters
 /// required for a Nova proof. The second and third kinds correspond to [supernova::SuperNovaAuxParams] and
 /// [supernova::SuperNovaCircuitParams], which contain partial instances of public parameters required for
@@ -393,41 +393,41 @@
 
 <span class="kw">impl </span>Metadata {
     <span class="kw">fn </span>from_instance&lt;
-        <span class="lifetime">&#39;a</span>,
+        <span class="lifetime">'a</span>,
         F: CurveCycleEquipped,
-        C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-        M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+        C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+        M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
     &gt;(
-        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
+        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;,
     ) -&gt; <span class="self">Self </span>{
         Metadata {
             rc: instance.rc,
             lang: instance.lang.clone().key(),
             abomonated: instance.abomonated,
-            cache_key: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, instance.cache_key),
+            cache_key: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, instance.cache_key),
             kind: instance.kind.clone(),
         }
     }
 }
 
 <span class="kw">impl</span>&lt;
-        <span class="lifetime">&#39;a</span>,
+        <span class="lifetime">'a</span>,
         F: CurveCycleEquipped,
         C: Coprocessor&lt;F&gt;,
-        M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
-    &gt; Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
+        M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+    &gt; Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">pub fn </span>new(rc: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;, abomonated: bool, kind: Kind) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>cache_key = <span class="kw">match </span>kind {
-            Kind::NovaPublicParams =&gt; nova::circuit_cache_key::&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;(rc, lang.clone()),
+            Kind::NovaPublicParams =&gt; nova::circuit_cache_key::&lt;<span class="lifetime">'a</span>, F, C, M&gt;(rc, lang.clone()),
             Kind::SuperNovaAuxParams =&gt; {
                 supernova::circuit_cache_keys::&lt;F, C, M&gt;(rc, <span class="kw-2">&amp;</span>lang).digest()
             }
             Kind::SuperNovaCircuitParams(circuit_index) =&gt; {
-                supernova::circuit_cache_key::&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;(rc, lang.clone(), circuit_index)
+                supernova::circuit_cache_key::&lt;<span class="lifetime">'a</span>, F, C, M&gt;(rc, lang.clone(), circuit_index)
             }
         };
         Instance {
@@ -445,7 +445,7 @@
     </span><span class="kw">pub fn </span>circuit_param_instances(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(<span class="self">self</span>.kind, Kind::SuperNovaAuxParams),
-            <span class="string">&quot;not a supernova instance&quot;
+            <span class="string">"not a supernova instance"
         </span>);
         <span class="kw">let </span>num_circuits = <span class="self">self</span>.lang().coprocessors().len() + <span class="number">1</span>;
         (<span class="number">0</span>..num_circuits)
@@ -473,8 +473,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
-    Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
+    Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
@@ -486,19 +486,19 @@
 
     <span class="doccomment">/// The key (or cache_key) of this [Instance] used to retrieve it from the file cache
     </span><span class="kw">pub fn </span>key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="kw">let </span>abomonated = <span class="kw">if </span><span class="self">self</span>.abomonated { <span class="string">&quot; abomonated&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;&quot; </span>};
+        <span class="kw">let </span>abomonated = <span class="kw">if </span><span class="self">self</span>.abomonated { <span class="string">" abomonated" </span>} <span class="kw">else </span>{ <span class="string">"" </span>};
         <span class="kw">let </span>lang = <span class="self">self</span>.lang();
-        <span class="macro">format!</span>(<span class="string">&quot;{} (rc={}){}&quot;</span>, lang.key(), <span class="self">self</span>.rc, abomonated)
+        <span class="macro">format!</span>(<span class="string">"{} (rc={}){}"</span>, lang.key(), <span class="self">self</span>.rc, abomonated)
     }
 
     <span class="kw">pub fn </span>create(<span class="kw-2">&amp;</span><span class="self">self</span>, disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; io::Result&lt;File&gt; {
         <span class="kw">let </span>metadata = Metadata::from_instance(<span class="self">self</span>);
         <span class="kw">let </span>cache_key: F = compute_cache_key(<span class="kw-2">&amp;</span>metadata);
-        <span class="kw">let </span>cache_key_str = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, cache_key);
+        <span class="kw">let </span>cache_key_str = <span class="macro">format!</span>(<span class="string">"{:?}"</span>, cache_key);
 
         <span class="kw">let </span>instance_file = File::create(disk_cache_path.join(<span class="kw-2">&amp;</span>cache_key_str))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>metadata_file = disk_cache_path.join(cache_key_str).with_extension(<span class="string">&quot;json&quot;</span>);
+        <span class="kw">let </span>metadata_file = disk_cache_path.join(cache_key_str).with_extension(<span class="string">"json"</span>);
         <span class="kw">let </span>metadata_file = File::create(metadata_file)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>writer = BufWriter::new(<span class="kw-2">&amp;</span>metadata_file);
@@ -510,11 +510,11 @@
     <span class="kw">pub fn </span>open(<span class="kw-2">&amp;</span><span class="self">self</span>, disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; io::Result&lt;File&gt; {
         <span class="kw">let </span>metadata = Metadata::from_instance(<span class="self">self</span>);
         <span class="kw">let </span>cache_key: F = compute_cache_key(<span class="kw-2">&amp;</span>metadata);
-        <span class="kw">let </span>cache_key_str = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, cache_key);
+        <span class="kw">let </span>cache_key_str = <span class="macro">format!</span>(<span class="string">"{:?}"</span>, cache_key);
 
         <span class="kw">let </span>instance_file = File::open(disk_cache_path.join(<span class="kw-2">&amp;</span>cache_key_str))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>metadata_file = disk_cache_path.join(cache_key_str).with_extension(<span class="string">&quot;json&quot;</span>);
+        <span class="kw">let </span>metadata_file = disk_cache_path.join(cache_key_str).with_extension(<span class="string">"json"</span>);
         <span class="kw">let </span>metadata_file = File::open(metadata_file)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>reader = BufReader::new(metadata_file);
@@ -523,7 +523,7 @@
         <span class="kw">if </span>metadata != expected_metadata {
             <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::Other,
-                <span class="string">&quot;public params: mistmatched instances&quot;</span>,
+                <span class="string">"public params: mistmatched instances"</span>,
             ));
         }
 

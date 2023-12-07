@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -389,7 +389,7 @@
 
 <span class="doccomment">/// A Frame of evaluation in a CEK machine.
 </span><span class="kw">pub trait </span>FrameLike&lt;ExprPtr, ContPtr&gt;: Sized {
-    <span class="doccomment">/// the type for the Frame&#39;s IO
+    <span class="doccomment">/// the type for the Frame's IO
     </span><span class="kw">type </span>FrameIO: CEKState&lt;ExprPtr, ContPtr&gt;;
     <span class="doccomment">/// the input of the frame
     </span><span class="kw">fn </span>input(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::FrameIO;
@@ -399,11 +399,11 @@
 
 <span class="doccomment">/// A trait for a store of expressions
 </span><span class="kw">pub trait </span>EvaluationStore {
-    <span class="doccomment">/// the type for the Store&#39;s pointers
+    <span class="doccomment">/// the type for the Store's pointers
     </span><span class="kw">type </span>Ptr;
-    <span class="doccomment">/// the type for the Store&#39;s continuation poitners
+    <span class="doccomment">/// the type for the Store's continuation poitners
     </span><span class="kw">type </span>ContPtr;
-    <span class="doccomment">/// the type for the Store&#39;s errors
+    <span class="doccomment">/// the type for the Store's errors
     </span><span class="kw">type </span>Error: std::fmt::Debug;
 
     <span class="doccomment">/// interpreting a string representation of an expression
@@ -421,8 +421,8 @@
 }
 
 <span class="doccomment">/// Trait to support multiple `MultiFrame` implementations.
-</span><span class="kw">pub trait </span>MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt;:
-    Provable&lt;F&gt; + Circuit&lt;F&gt; + StepCircuit&lt;F&gt; + <span class="lifetime">&#39;a
+</span><span class="kw">pub trait </span>MultiFrameTrait&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;:
+    Provable&lt;F&gt; + Circuit&lt;F&gt; + StepCircuit&lt;F&gt; + <span class="lifetime">'a
 </span>{
     <span class="doccomment">/// The associated `Ptr` type
     </span><span class="kw">type </span>Ptr: std::fmt::Debug + Eq + Copy;
@@ -458,10 +458,10 @@
         env: <span class="self">Self</span>::Ptr,
         store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store,
         limit: usize,
-        ec: <span class="kw-2">&amp;</span>EvalConfig&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
+        ec: <span class="kw-2">&amp;</span>EvalConfig&lt;<span class="lifetime">'_</span>, F, C&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="self">Self</span>::EvalFrame&gt;, ProofError&gt;;
 
-    <span class="doccomment">/// Returns a public IO vector when equipped with the local store, and the Self::Frame&#39;s IO
+    <span class="doccomment">/// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
     </span><span class="kw">fn </span>io_to_scalar_vector(
         store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store,
         io: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::EvalFrame <span class="kw">as </span>FrameLike&lt;<span class="self">Self</span>::Ptr, <span class="self">Self</span>::ContPtr&gt;&gt;::FrameIO,
@@ -497,7 +497,7 @@
     <span class="doccomment">/// Create an instance from some `Self::Frame`s.
     </span><span class="kw">fn </span>from_frames(
         frames: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::EvalFrame],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">Self</span>::Store,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>::Store,
         folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     ) -&gt; Vec&lt;<span class="self">Self</span>&gt;;
 }
@@ -521,10 +521,10 @@
 
 </span><span class="doccomment">/// Trait to abstract Nova and SuperNova proofs
 </span><span class="kw">pub trait </span>RecursiveSNARKTrait&lt;
-    <span class="lifetime">&#39;a</span>,
+    <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
 &gt; <span class="kw">where
     </span><span class="self">Self</span>: Sized,
 {
@@ -545,7 +545,7 @@
         pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
         z0: <span class="kw-2">&amp;</span>[F],
         steps: Vec&lt;M&gt;,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>M::Store,
         reduction_count: usize,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::ProveOutput, ProofError&gt;;
@@ -592,10 +592,10 @@
         }
     }
 
-    <span class="kw">fn </span>eval_config&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
+    <span class="kw">fn </span>eval_config&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;,
-    ) -&gt; EvalConfig&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
+        lang: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Lang&lt;F, C&gt;,
+    ) -&gt; EvalConfig&lt;<span class="lifetime">'a</span>, F, C&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::IVC =&gt; EvalConfig::new_ivc(lang),
             <span class="self">Self</span>::NIVC =&gt; EvalConfig::new_nivc(lang),
@@ -604,7 +604,7 @@
 }
 
 <span class="doccomment">/// A trait for a prover that works with a field `F`.
-</span><span class="kw">pub trait </span>Prover&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt; {
+</span><span class="kw">pub trait </span>Prover&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt; {
     <span class="doccomment">/// Associated type for public parameters
     </span><span class="kw">type </span>PublicParams;
 
@@ -613,7 +613,7 @@
 
     <span class="doccomment">/// Assiciated proof type, which must implement `RecursiveSNARKTrait`
     </span><span class="kw">type </span>RecursiveSnark: RecursiveSNARKTrait&lt;
-        <span class="lifetime">&#39;a</span>,
+        <span class="lifetime">'a</span>,
         F,
         C,
         M,
@@ -621,13 +621,13 @@
         ProveOutput = <span class="self">Self</span>::ProveOutput,
     &gt;;
 
-    <span class="doccomment">/// Returns a reference to the prover&#39;s FoldingMode
+    <span class="doccomment">/// Returns a reference to the prover's FoldingMode
     </span><span class="kw">fn </span>folding_mode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FoldingMode;
 
     <span class="doccomment">/// Returns the number of reductions for the prover.
     </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
-    <span class="doccomment">/// Returns a reference to the Prover&#39;s Lang.
+    <span class="doccomment">/// Returns a reference to the Prover's Lang.
     </span><span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt;;
 
     <span class="doccomment">/// Generate a proof from a sequence of frames
@@ -635,7 +635,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
         frames: <span class="kw-2">&amp;</span>[M::EvalFrame],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>M::Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::ProveOutput, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         store.hydrate_z_cache();
         <span class="kw">let </span>z0 = M::io_to_scalar_vector(store, frames[<span class="number">0</span>].input());
@@ -667,7 +667,7 @@
         pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
         expr: M::Ptr,
         env: M::Ptr,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>M::Store,
         limit: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::ProveOutput, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>eval_config = <span class="self">self</span>.folding_mode().eval_config(<span class="self">self</span>.lang());

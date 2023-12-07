@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/slot.rs`."><title>slot.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/slot.rs`."><title>slot.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -301,11 +301,20 @@
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ### Slot optimizations
 //!
 //! Some LEM functions may require expensive gadgets, such as Poseidon hashing.
-//! So we use the concept of &quot;slots&quot; to avoid wasting constraints. To explore
-//! this idea, let&#39;s use the following LEM as an example:
+//! So we use the concept of "slots" to avoid wasting constraints. To explore
+//! this idea, let's use the following LEM as an example:
 //!
 //! ```text
 //! (a, b, c): 3 =&gt; {
@@ -330,10 +339,10 @@
 //! * If it goes through `Num`, we need to get one hash right
 //! * If it goes through `Char`, we need to get two hashes right
 //!
-//! Either way, that&#39;s at most two hashes that we really care about. So we say
+//! Either way, that's at most two hashes that we really care about. So we say
 //! that we need to allocate two slots. The first slot is for the the hash of `x`
-//! or `m` and the second slot is for the hash of `n` (or a &quot;dummy value&quot;, as
-//! explained ahead). Let&#39;s see a sketch of part of the circuit:
+//! or `m` and the second slot is for the hash of `n` (or a "dummy value", as
+//! explained ahead). Let's see a sketch of part of the circuit:
 //!
 //! ```text
 //!     ┌─────┐        ┌─────┐
@@ -358,11 +367,11 @@
 //! ```
 //!
 //! `PNum` and `PChar` are boolean premises that indicate whether interpretation
-//! went through `Num` or `Char` respectively. They&#39;re used as inputs for gadgets
+//! went through `Num` or `Char` respectively. They're used as inputs for gadgets
 //! that implement implications (hence the right arrows above). We will talk
-//! about &quot;concrete&quot; vs &quot;virtual&quot; paths elsewhere.
+//! about "concrete" vs "virtual" paths elsewhere.
 //!
-//! Now we&#39;re able to feed the slots with the data that comes from interpretation:
+//! Now we're able to feed the slots with the data that comes from interpretation:
 //!
 //! 1. If it goes through `Num`, we will collect `[[a, b]]` for the preimages of
 //! the slots. So we can feed the preimage of `slot0` with `[a, b]` and the
@@ -376,19 +385,19 @@
 //! implications for which it is the premise must also be true (which is fine!).
 //! `PChar`, on the other hand, will be false, making the conclusions of the
 //! implications for which it is the premise irrelevant. This is crucial because
-//! interpretation won&#39;t even produce bindings for `m` or `n`, thus we don&#39;t
-//! expect to fulfill `m.hash == s0` nor `n.hash == s1`. In fact, we don&#39;t expect
+//! interpretation won't even produce bindings for `m` or `n`, thus we don't
+//! expect to fulfill `m.hash == s0` nor `n.hash == s1`. In fact, we don't expect
 //! to fulfill any conclusion in the implications deriving from the `PChar` premise.
 //!
 //! Finally, we have an analogous situation for the second case, when
 //! interpretation goes through `Char`.
 //!
-//! This example explored slots of type &quot;hash2&quot;, but the same line of thought can
+//! This example explored slots of type "hash2", but the same line of thought can
 //! be expanded to different types of slots, orthogonally.
 //!
 //! #### The slot optimization algorithm
 //!
-//! We&#39;ve separated the process in three steps:
+//! We've separated the process in three steps:
 //!
 //! 1. Perform a static analysis to compute the number of slots (for each slot
 //! type) that are needed. This piece of information will live on a `SlotsCounter`
@@ -536,16 +545,32 @@
     }
 }
 
+<span class="attr">#[derive(Clone, Debug)]
+</span><span class="doccomment">/// The values a variable can take. `Num`s are pure field elements, much like `Ptr::Atom`,
+/// but missing the tag. `Boolean`s are also field elements, but they are guaranteed to be
+/// constrained to take only 0 or 1 values.
+</span><span class="kw">pub enum </span>Val {
+    Pointer(Ptr),
+    Num(usize),
+    Boolean(bool),
+}
+
 <span class="doccomment">/// Holds data to feed the slots
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub enum </span>SlotData {
-    <span class="doccomment">/// A sequence of pointers, holding hashing preimages
-    </span>PtrVec(Vec&lt;Ptr&gt;),
-    <span class="doccomment">/// An element of the finite field (cached in a `Store`) and a `Ptr` for
-    /// commitments
-    </span>FPtr(usize, Ptr),
-    <span class="doccomment">/// An element of the finite field (cached in a `Store`) for bit decompositions
-    </span>F(usize),
+</span><span class="kw">pub struct </span>SlotData {
+    <span class="kw">pub </span>vals: Vec&lt;Val&gt;,
+}
+
+<span class="kw">impl </span>SlotData {
+    <span class="doccomment">/// Size of the slot data in number of field elements
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.vals.iter().fold(<span class="number">0</span>, |acc, val| <span class="kw">match </span>val {
+            <span class="comment">// Pointers are tag/hash pairs
+            </span>Val::Pointer(..) =&gt; acc + <span class="number">2</span>,
+            <span class="comment">// Numbers and booleans are single field elements
+            </span>Val::Num(..) | Val::Boolean(..) =&gt; acc + <span class="number">1</span>,
+        })
+    }
 }
 
 <span class="attr">#[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -569,25 +594,18 @@
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_compatible(<span class="kw-2">&amp;</span><span class="self">self</span>, slot_data: <span class="kw-2">&amp;</span>SlotData) -&gt; bool {
-        <span class="macro">matches!</span>(
-            (<span class="self">self</span>, slot_data),
-            (<span class="self">Self</span>::Hash4, SlotData::PtrVec(..))
-                | (<span class="self">Self</span>::Hash6, SlotData::PtrVec(..))
-                | (<span class="self">Self</span>::Hash8, SlotData::PtrVec(..))
-                | (<span class="self">Self</span>::Commitment, SlotData::FPtr(..))
-                | (<span class="self">Self</span>::BitDecomp, SlotData::F(..))
-        )
+        slot_data.size() == <span class="self">self</span>.preimg_size()
     }
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>SlotType {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Hash4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Hash4&quot;</span>),
-            <span class="self">Self</span>::Hash6 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Hash6&quot;</span>),
-            <span class="self">Self</span>::Hash8 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Hash8&quot;</span>),
-            <span class="self">Self</span>::Commitment =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Commitment&quot;</span>),
-            <span class="self">Self</span>::BitDecomp =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;BitDecomp&quot;</span>),
+            <span class="self">Self</span>::Hash4 =&gt; <span class="macro">write!</span>(f, <span class="string">"Hash4"</span>),
+            <span class="self">Self</span>::Hash6 =&gt; <span class="macro">write!</span>(f, <span class="string">"Hash6"</span>),
+            <span class="self">Self</span>::Hash8 =&gt; <span class="macro">write!</span>(f, <span class="string">"Hash8"</span>),
+            <span class="self">Self</span>::Commitment =&gt; <span class="macro">write!</span>(f, <span class="string">"Commitment"</span>),
+            <span class="self">Self</span>::BitDecomp =&gt; <span class="macro">write!</span>(f, <span class="string">"BitDecomp"</span>),
         }
     }
 }
@@ -600,8 +618,8 @@
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Slot {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;Slot({}, {})&quot;</span>, <span class="self">self</span>.idx, <span class="self">self</span>.typ)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"Slot({}, {})"</span>, <span class="self">self</span>.idx, <span class="self">self</span>.typ)
     }
 }
 </code></pre></div></section></main></body></html>

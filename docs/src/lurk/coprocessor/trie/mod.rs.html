@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/coprocessor/trie/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/coprocessor/trie/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1243,7 +1243,7 @@
 //! tree with a vast number of redundant hashes.
 //!
 //! The non-circuit implementation appears to do the unnecessary work of returning not only lookup and insertion results
-//! but also Merkle inclusion *proofs* of correctness. That&#39;s because the circuit implementation, which represents a
+//! but also Merkle inclusion *proofs* of correctness. That's because the circuit implementation, which represents a
 //! proof, will actually be a proof *verifying* that the vanilla operation was correctly performed. Therefore, the
 //! vanilla operation needs to provide such a proof so the circuit can verify it.
 
@@ -1285,7 +1285,7 @@
 
 <span class="kw">pub type </span>HashPreimagePath&lt;F, <span class="kw">const </span>ARITY: usize&gt; = Vec&lt;(F, [F; ARITY])&gt;;
 
-<span class="kw">pub type </span>StandardTrie&lt;<span class="lifetime">&#39;a</span>, F&gt; = Trie&lt;<span class="lifetime">&#39;a</span>, F, <span class="number">8</span>, <span class="number">85</span>&gt;;
+<span class="kw">pub type </span>StandardTrie&lt;<span class="lifetime">'a</span>, F&gt; = Trie&lt;<span class="lifetime">'a</span>, F, <span class="number">8</span>, <span class="number">85</span>&gt;;
 
 <span class="attr">#[derive(Clone, Coproc, Debug)]
 </span><span class="kw">pub enum </span>TrieCoproc&lt;F: LurkField&gt; {
@@ -1305,7 +1305,7 @@
     </span>}
 
     <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr]) -&gt; Ptr {
-        <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; = Trie::new(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache);
+        <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">'_</span>, F&gt; = Trie::new(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache);
         <span class="comment">// TODO: Use a custom type.
         </span>s.num(trie.root)
     }
@@ -1330,7 +1330,7 @@
         _not_dummy: <span class="kw-2">&amp;</span>Boolean,
         _args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
-        <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; = Trie::new(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache);
+        <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">'_</span>, F&gt; = Trie::new(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache);
 
         <span class="comment">// TODO: Use a custom type.
         </span><span class="kw">let </span>root = s.num(trie.root);
@@ -1357,7 +1357,7 @@
         <span class="comment">// TODO: Check tags.
         </span><span class="kw">let </span>root_scalar = <span class="kw-2">*</span>s.hash_ptr(root_ptr).value();
         <span class="kw">let </span>key_scalar = <span class="kw-2">*</span>s.hash_ptr(key_ptr).value();
-        <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; =
+        <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">'_</span>, F&gt; =
             Trie::new_with_root(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache, root_scalar);
 
         s.comm(trie.lookup_aux(key_scalar).unwrap())
@@ -1380,7 +1380,7 @@
     </span><span class="kw">let </span>supplied_root_value = root_ptr.hash();
     <span class="kw">let </span>root_value = supplied_root_value.get_value();
     <span class="kw">let </span>key_val = key_ptr.hash();
-    <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; = <span class="kw">if </span>not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
+    <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">'_</span>, F&gt; = <span class="kw">if </span>not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
         Trie::new_with_root(
             poseidon_cache,
             inverse_poseidon_cache,
@@ -1391,12 +1391,12 @@
     };
 
     <span class="kw">let </span>allocated_root_value =
-        AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;allocated_root_value&quot;</span>), || {
+        AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"allocated_root_value"</span>), || {
             <span class="prelude-val">Ok</span>(trie.root)
         })<span class="question-mark">?</span>;
 
     implies_equal(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce_root&quot;</span>),
+        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"enforce_root"</span>),
         not_dummy,
         supplied_root_value,
         <span class="kw-2">&amp;</span>allocated_root_value,
@@ -1461,7 +1461,7 @@
         <span class="kw">let </span>root_scalar = <span class="kw-2">*</span>s.hash_ptr(root_ptr).value();
         <span class="kw">let </span>key_scalar = <span class="kw-2">*</span>s.hash_ptr(key_ptr).value();
         <span class="kw">let </span>val_scalar = <span class="kw-2">*</span>s.hash_ptr(val_ptr).value();
-        <span class="kw">let </span><span class="kw-2">mut </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; =
+        <span class="kw">let </span><span class="kw-2">mut </span>trie: StandardTrie&lt;<span class="lifetime">'_</span>, F&gt; =
             Trie::new_with_root(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache, root_scalar);
         trie.insert(key_scalar, val_scalar).unwrap();
 
@@ -1487,7 +1487,7 @@
     <span class="kw">let </span>root_value = supplied_root_value.get_value();
     <span class="kw">let </span>key_val = key_ptr.hash();
     <span class="kw">let </span>new_val = val_ptr.hash();
-    <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">&#39;_</span>, F&gt; = <span class="kw">if </span>not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
+    <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">'_</span>, F&gt; = <span class="kw">if </span>not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
         Trie::new_with_root(
             poseidon_cache,
             inverse_poseidon_cache,
@@ -1498,12 +1498,12 @@
     };
 
     <span class="kw">let </span>allocated_root_value =
-        AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;allocated_root_value&quot;</span>), || {
+        AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"allocated_root_value"</span>), || {
             <span class="prelude-val">Ok</span>(trie.root)
         })<span class="question-mark">?</span>;
 
     implies_equal(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce_root&quot;</span>),
+        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"enforce_root"</span>),
         not_dummy,
         supplied_root_value,
         <span class="kw-2">&amp;</span>allocated_root_value,
@@ -1554,13 +1554,13 @@
 <span class="doccomment">/// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 </span><span class="comment">// TODO: define standard patterns for such modularity.
 </span><span class="kw">pub fn </span>install&lt;F: LurkField&gt;(state: <span class="kw-2">&amp;</span>Rc&lt;RefCell&lt;State&gt;&gt;, lang: <span class="kw-2">&amp;mut </span>Lang&lt;F, TrieCoproc&lt;F&gt;&gt;) {
-    lang.add_coprocessor(<span class="string">&quot;.lurk.trie.new&quot;</span>, NewCoprocessor::default());
-    lang.add_coprocessor(<span class="string">&quot;.lurk.trie.lookup&quot;</span>, LookupCoprocessor::default());
-    lang.add_coprocessor(<span class="string">&quot;.lurk.trie.insert&quot;</span>, InsertCoprocessor::default());
+    lang.add_coprocessor(<span class="string">".lurk.trie.new"</span>, NewCoprocessor::default());
+    lang.add_coprocessor(<span class="string">".lurk.trie.lookup"</span>, LookupCoprocessor::default());
+    lang.add_coprocessor(<span class="string">".lurk.trie.insert"</span>, InsertCoprocessor::default());
 
-    <span class="kw">let </span>trie_package_name: Symbol = <span class="string">&quot;.lurk.trie&quot;</span>.into();
+    <span class="kw">let </span>trie_package_name: Symbol = <span class="string">".lurk.trie"</span>.into();
     <span class="kw">let </span><span class="kw-2">mut </span>package = Package::new(trie_package_name.into());
-    [<span class="string">&quot;new&quot;</span>, <span class="string">&quot;lookup&quot;</span>, <span class="string">&quot;insert&quot;</span>].into_iter().for_each(|name| {
+    [<span class="string">"new"</span>, <span class="string">"lookup"</span>, <span class="string">"insert"</span>].into_iter().for_each(|name| {
         package.intern(name);
     });
     state.borrow_mut().add_package(package);
@@ -1570,11 +1570,11 @@
 
 <span class="doccomment">/// A sparse Trie.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>Trie&lt;<span class="lifetime">&#39;a</span>, F: LurkField, <span class="kw">const </span>ARITY: usize, <span class="kw">const </span>HEIGHT: usize&gt; {
+</span><span class="kw">pub struct </span>Trie&lt;<span class="lifetime">'a</span>, F: LurkField, <span class="kw">const </span>ARITY: usize, <span class="kw">const </span>HEIGHT: usize&gt; {
     root: F,
     empty_roots: [F; HEIGHT],
-    hash_cache: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PoseidonCache&lt;F&gt;,
-    children: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ChildMap&lt;F, ARITY&gt;,
+    hash_cache: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PoseidonCache&lt;F&gt;,
+    children: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ChildMap&lt;F, ARITY&gt;,
 }
 
 <span class="attr">#[derive(Debug)]
@@ -1631,11 +1631,11 @@
         new_value: F,
         hash_cache: <span class="kw-2">&amp;</span>PoseidonCache&lt;F&gt;,
     ) -&gt; bool {
-        <span class="kw">let </span>old_value = old_value.unwrap_or_else(|| Trie::&lt;<span class="lifetime">&#39;_</span>, F, ARITY, HEIGHT&gt;::empty_element());
+        <span class="kw">let </span>old_value = old_value.unwrap_or_else(|| Trie::&lt;<span class="lifetime">'_</span>, F, ARITY, HEIGHT&gt;::empty_element());
 
         <span class="kw">let </span>old_verified = <span class="self">self</span>.old_proof.verify(old_root, key, old_value, hash_cache);
 
-        <span class="comment">// This is purely an evaluation-time optimization. Don&#39;t try to reproduce in the circuit, which cannot shortcut.
+        <span class="comment">// This is purely an evaluation-time optimization. Don't try to reproduce in the circuit, which cannot shortcut.
         </span><span class="kw">if </span>!old_verified {
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
@@ -1648,7 +1648,7 @@
             .all(|(a, b)| {
                 <span class="kw">if </span>a == b {
                     <span class="comment">// If the remaining trees are identical, then only one needs to be verified.
-                    // This is purely an evaluation-time optimization. Don&#39;t try to reproduce in the circuit, which cannot shortcut.
+                    // This is purely an evaluation-time optimization. Don't try to reproduce in the circuit, which cannot shortcut.
                     </span><span class="kw">return </span>old_verified;
                 }
                 <span class="kw">let </span>differing_position_count: usize =
@@ -1657,7 +1657,7 @@
                 differing_position_count &lt;= <span class="number">1
             </span>});
 
-        <span class="comment">// This is purely an evaluation-time optimization. Don&#39;t try to reproduce in the circuit, which cannot shortcut.
+        <span class="comment">// This is purely an evaluation-time optimization. Don't try to reproduce in the circuit, which cannot shortcut.
         </span><span class="kw">if </span>!paths_differ_by_at_most_one {
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
@@ -1666,7 +1666,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, <span class="kw">const </span>ARITY: usize, <span class="kw">const </span>HEIGHT: usize&gt; Trie&lt;<span class="lifetime">&#39;a</span>, F, ARITY, HEIGHT&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, <span class="kw">const </span>ARITY: usize, <span class="kw">const </span>HEIGHT: usize&gt; Trie&lt;<span class="lifetime">'a</span>, F, ARITY, HEIGHT&gt; {
     <span class="doccomment">/// The empty element is specified to be zero. This is a natural choice. Crucially, the chosen value must have no known
     /// preimage.
     </span><span class="kw">fn </span>empty_element() -&gt; F {
@@ -1741,8 +1741,8 @@
     <span class="doccomment">/// Creates a new `Trie`, saving preimage data in `store`.
     /// HEIGHT must be exactly that required to minimally store all elements of `F`.
     </span><span class="kw">pub fn </span>new(
-        poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PoseidonCache&lt;F&gt;,
-        inverse_poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InversePoseidonCache&lt;F&gt;,
+        poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PoseidonCache&lt;F&gt;,
+        inverse_poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InversePoseidonCache&lt;F&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::new_aux(poseidon_cache, inverse_poseidon_cache, <span class="prelude-val">None</span>)
     }
@@ -1750,16 +1750,16 @@
     <span class="doccomment">/// Creates a new `Trie`, saving preimage data in `store`.
     /// Height must be at least that required to store `size` elements.
     </span><span class="kw">pub fn </span>new_with_capacity(
-        poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PoseidonCache&lt;F&gt;,
-        inverse_poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InversePoseidonCache&lt;F&gt;,
+        poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PoseidonCache&lt;F&gt;,
+        inverse_poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InversePoseidonCache&lt;F&gt;,
         size: usize,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::new_aux(poseidon_cache, inverse_poseidon_cache, <span class="prelude-val">Some</span>(size))
     }
 
     <span class="kw">fn </span>new_aux(
-        poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PoseidonCache&lt;F&gt;,
-        inverse_poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InversePoseidonCache&lt;F&gt;,
+        poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PoseidonCache&lt;F&gt;,
+        inverse_poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InversePoseidonCache&lt;F&gt;,
         size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="comment">// ARITY must be a power of two.
@@ -1782,7 +1782,7 @@
         </span><span class="macro">assert!</span>(bits_needed_for_path &lt;= bits_available_from_field);
 
         <span class="kw">match </span>size {
-            <span class="comment">// No size specified means size must be &#39;exact&#39;.
+            <span class="comment">// No size specified means size must be 'exact'.
             </span><span class="prelude-val">None </span>=&gt; {
                 <span class="kw">let </span>field_significant_bits = F::NUM_BITS <span class="kw">as </span>usize;
                 <span class="kw">let </span>height_needed_for_field = field_significant_bits / arity_bits
@@ -1806,8 +1806,8 @@
 
     <span class="doccomment">/// Create a new `Trie` with specified root.
     </span><span class="kw">fn </span>new_with_root(
-        poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PoseidonCache&lt;F&gt;,
-        inverse_poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InversePoseidonCache&lt;F&gt;,
+        poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PoseidonCache&lt;F&gt;,
+        inverse_poseidon_cache: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InversePoseidonCache&lt;F&gt;,
         root: F,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>new = <span class="self">Self</span>::new(poseidon_cache, inverse_poseidon_cache);
@@ -1854,7 +1854,7 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         key: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;Boolean&gt;&gt;, SynthesisError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>bits = key.to_bits_le_strict(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bits&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>bits = key.to_bits_le_strict(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"bits"</span>))<span class="question-mark">?</span>;
         bits.reverse();
 
         <span class="kw">let </span>(arity_bits, bits_needed) = <span class="self">Self</span>::path_bit_dimensions();
@@ -1869,7 +1869,7 @@
     <span class="doccomment">/// Returns a value corresponding to the commitment associated with `key`, if any.
     /// Note that this depends on the impossibility of discovering a value for which the commitment is zero. We could
     /// alternately return the empty element (`F::zero()`) for missing values, but instead return an `Option` to more
-    /// clearly signal intent -- since the encoding of &#39;missing&#39; values as `Fr::zero()` is significant.
+    /// clearly signal intent -- since the encoding of 'missing' values as `Fr::zero()` is significant.
     </span><span class="kw">pub fn </span>lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, key: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;F&gt;, Error&lt;F&gt;&gt; {
         <span class="self">self</span>.lookup_aux(key)
             .map(|payload| (payload != <span class="self">Self</span>::empty_element()).then_some(payload))
@@ -1894,7 +1894,7 @@
         allocated_root: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
         key: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-        <span class="kw">let </span>path = <span class="self">Self</span>::synthesize_path(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;path&quot;</span>), key)<span class="question-mark">?</span>;
+        <span class="kw">let </span>path = <span class="self">Self</span>::synthesize_path(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"path"</span>), key)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>val = <span class="self">self
             </span>.synthesize_lookup_at_path(cs, hash_constants, allocated_root, <span class="kw-2">&amp;</span>path)<span class="question-mark">?
@@ -1924,7 +1924,7 @@
                             .enumerate()
                             .map(|(j, f)| {
                                 AllocatedNum::alloc(
-                                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;preimage-{i}-{j}&quot;</span>)),
+                                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"preimage-{i}-{j}"</span>)),
                                     || <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>f),
                                 )
                             })
@@ -1933,7 +1933,7 @@
                         (<span class="number">0</span>..ARITY)
                             .map(|j| {
                                 AllocatedNum::alloc(
-                                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;preimage-{i}-{j}&quot;</span>)),
+                                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"preimage-{i}-{j}"</span>)),
                                     || <span class="prelude-val">Err</span>(SynthesisError::AssignmentMissing),
                                 )
                             })
@@ -1943,15 +1943,15 @@
                     preimage_path.push(allocated_preimage.clone());
 
                     <span class="kw">let </span>hashed = hash_constants.constants(ARITY.into()).hash(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;poseidon_hash_{i}&quot;</span>)),
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"poseidon_hash_{i}"</span>)),
                         allocated_preimage.clone(),
                         <span class="prelude-val">None</span>,
                     )<span class="question-mark">?</span>;
 
-                    enforce_equal(cs, || <span class="macro">format!</span>(<span class="string">&quot;hashed equals next {i}&quot;</span>), <span class="kw-2">&amp;</span>hashed, <span class="kw-2">&amp;</span>next);
+                    enforce_equal(cs, || <span class="macro">format!</span>(<span class="string">"hashed equals next {i}"</span>), <span class="kw-2">&amp;</span>hashed, <span class="kw-2">&amp;</span>next);
 
                     select(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;select-{i}&quot;</span>)),
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"select-{i}"</span>)),
                         <span class="kw-2">&amp;</span>allocated_preimage,
                         k_bits,
                     )
@@ -2054,9 +2054,9 @@
         key: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
         value: AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-        <span class="kw">let </span>path = <span class="self">Self</span>::synthesize_path(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;path&quot;</span>), key)<span class="question-mark">?</span>;
+        <span class="kw">let </span>path = <span class="self">Self</span>::synthesize_path(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"path"</span>), key)<span class="question-mark">?</span>;
         <span class="self">self</span>.synthesize_insert_at_path(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;insert_aux&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"insert_aux"</span>),
             hash_constants,
             allocated_root,
             <span class="kw-2">&amp;</span>path,
@@ -2074,7 +2074,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>preimage_path = <span class="self">self
             </span>.synthesize_lookup_at_path(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;found_value&quot;</span>),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"found_value"</span>),
                 hash_constants,
                 allocated_root,
                 path,
@@ -2082,7 +2082,7 @@
             </span>.<span class="number">1</span>;
 
         <span class="self">Self</span>::synthesize_modify_value_at_path(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;new_root_value&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_root_value"</span>),
             hash_constants,
             path,
             <span class="kw-2">&amp;</span>preimage_path,
@@ -2104,7 +2104,7 @@
                 .iter()
                 .enumerate()
                 .map(|(j, _x)| {
-                    AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;preimage-{i}-{j}&quot;</span>)), || {
+                    AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"preimage-{i}-{j}"</span>)), || {
                         <span class="kw">if </span>j == path_index {
                             value.get_value().ok_or(SynthesisError::AssignmentMissing)
                         } <span class="kw">else </span>{
@@ -2117,7 +2117,7 @@
                 .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, SynthesisError&gt;&gt;()<span class="question-mark">?</span>;
 
             value = hash_constants.constants(ARITY.into()).hash(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;poseidon_hash_{i}&quot;</span>)),
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"poseidon_hash_{i}"</span>)),
                 new_preimage,
                 <span class="prelude-val">None</span>,
             )<span class="question-mark">?
@@ -2137,8 +2137,8 @@
     })
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, <span class="kw">const </span>ARITY: usize, <span class="kw">const </span>HEIGHT: usize&gt; Default
-    <span class="kw">for </span>Trie&lt;<span class="lifetime">&#39;a</span>, F, ARITY, HEIGHT&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, <span class="kw">const </span>ARITY: usize, <span class="kw">const </span>HEIGHT: usize&gt; Default
+    <span class="kw">for </span>Trie&lt;<span class="lifetime">'a</span>, F, ARITY, HEIGHT&gt;
 {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="macro">todo!</span>();
@@ -2155,19 +2155,19 @@
     <span class="kw">static </span>POSEIDON_CACHE: OnceCell&lt;PoseidonCache&lt;Fr&gt;&gt; = OnceCell::new();
     <span class="kw">static </span>INVERSE_POSEIDON_CACHE: OnceCell&lt;InversePoseidonCache&lt;Fr&gt;&gt; = OnceCell::new();
 
-    <span class="kw">fn </span>poseidon_cache() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>PoseidonCache&lt;Fr&gt; {
+    <span class="kw">fn </span>poseidon_cache() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>PoseidonCache&lt;Fr&gt; {
         POSEIDON_CACHE.get_or_init(PoseidonCache::default)
     }
 
-    <span class="kw">fn </span>inverse_poseidon_cache() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>InversePoseidonCache&lt;Fr&gt; {
+    <span class="kw">fn </span>inverse_poseidon_cache() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>InversePoseidonCache&lt;Fr&gt; {
         INVERSE_POSEIDON_CACHE.get_or_init(InversePoseidonCache::default)
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_empty_roots() {
-        <span class="kw">let </span>t: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
+        <span class="kw">let </span>t: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
             Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">512</span>);
-        <span class="macro">assert_eq!</span>(Fr::zero(), Trie::&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt;::empty_element());
+        <span class="macro">assert_eq!</span>(Fr::zero(), Trie::&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt;::empty_element());
         <span class="macro">assert_eq!</span>(Fr::zero(), t.empty_root_for_height(<span class="number">0</span>));
         <span class="macro">assert_eq!</span>(
             scalar_from_u64s([
@@ -2202,25 +2202,25 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_sizes() {
         {
-            <span class="kw">let </span>t: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">1</span>&gt; =
+            <span class="kw">let </span>t: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">1</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">8</span>);
             <span class="macro">assert_eq!</span>(<span class="number">8</span>, t.leaves());
         }
 
         {
-            <span class="kw">let </span>t: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">2</span>&gt; =
+            <span class="kw">let </span>t: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">2</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">64</span>);
             <span class="macro">assert_eq!</span>(<span class="number">64</span>, t.leaves());
         }
 
         {
-            <span class="kw">let </span>t: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
+            <span class="kw">let </span>t: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">512</span>);
             <span class="macro">assert_eq!</span>(<span class="number">512</span>, t.leaves());
         }
 
         {
-            <span class="kw">let </span>t: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">4</span>&gt; =
+            <span class="kw">let </span>t: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">4</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">4096</span>);
             <span class="macro">assert_eq!</span>(<span class="number">1</span>, t.row_size(<span class="number">0</span>));
             <span class="macro">assert_eq!</span>(<span class="number">8</span>, t.row_size(<span class="number">1</span>));
@@ -2239,13 +2239,13 @@
         le_bytes[<span class="number">24</span>..<span class="number">32</span>].copy_from_slice(<span class="kw-2">&amp;</span>parts[<span class="number">3</span>].to_le_bytes());
         <span class="kw">let </span><span class="kw-2">mut </span>repr = &lt;Fr <span class="kw">as </span>PrimeField&gt;::Repr::default();
         repr.as_mut().copy_from_slice(<span class="kw-2">&amp;</span>le_bytes[..]);
-        Fr::from_repr_vartime(repr).expect(<span class="string">&quot;u64s exceed scalar field modulus&quot;</span>)
+        Fr::from_repr_vartime(repr).expect(<span class="string">"u64s exceed scalar field modulus"</span>)
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_hashes() {
         {
-            <span class="kw">let </span><span class="kw-2">mut </span>t0: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">1</span>&gt; =
+            <span class="kw">let </span><span class="kw-2">mut </span>t0: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">1</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">8</span>);
             <span class="macro">assert_eq!</span>(
                 scalar_from_u64s([
@@ -2259,7 +2259,7 @@
             <span class="macro">assert_eq!</span>(t0.empty_root(), t0.root());
         }
         {
-            <span class="kw">let </span><span class="kw-2">mut </span>t1: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">2</span>&gt; =
+            <span class="kw">let </span><span class="kw-2">mut </span>t1: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">2</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">64</span>);
             <span class="macro">assert_eq!</span>(
                 scalar_from_u64s([
@@ -2273,7 +2273,7 @@
             <span class="macro">assert_eq!</span>(t1.empty_root(), t1.root());
         }
         {
-            <span class="kw">let </span><span class="kw-2">mut </span>t2: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
+            <span class="kw">let </span><span class="kw-2">mut </span>t2: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">512</span>);
             <span class="macro">assert_eq!</span>(
                 scalar_from_u64s([
@@ -2287,7 +2287,7 @@
             <span class="macro">assert_eq!</span>(t2.empty_root(), t2.root());
         }
         {
-            <span class="kw">let </span><span class="kw-2">mut </span>t3: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">4</span>&gt; =
+            <span class="kw">let </span><span class="kw-2">mut </span>t3: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">4</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">4096</span>);
             <span class="macro">assert_eq!</span>(
                 scalar_from_u64s([
@@ -2310,7 +2310,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_lookup() {
         {
-            <span class="kw">let </span>t3: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
+            <span class="kw">let </span>t3: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">512</span>);
 
             <span class="kw">let </span>found = t3.lookup(Fr::from_u64(<span class="number">500</span>)).unwrap();
@@ -2320,7 +2320,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_lookup_proof() {
         {
-            <span class="kw">let </span>t3: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
+            <span class="kw">let </span>t3: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">512</span>);
             <span class="kw">let </span>root = t3.root();
             <span class="kw">let </span>key = Fr::from_u64(<span class="number">500</span>);
@@ -2336,7 +2336,7 @@
     </span><span class="kw">fn </span>test_insert() {
         <span class="comment">// TODO: Use prop tests.
         </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>t3: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
+            <span class="kw">let </span><span class="kw-2">mut </span>t3: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">512</span>);
             <span class="kw">let </span>key = Fr::from_u64(<span class="number">500</span>);
             <span class="kw">let </span>val = Fr::from_u64(<span class="number">123</span>);
@@ -2371,7 +2371,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_insert_proof() {
         {
-            <span class="kw">let </span><span class="kw-2">mut </span>t3: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
+            <span class="kw">let </span><span class="kw-2">mut </span>t3: Trie&lt;<span class="lifetime">'_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">512</span>);
             <span class="kw">let </span>key = Fr::from_u64(<span class="number">500</span>);
             <span class="kw">let </span>val = Fr::from_u64(<span class="number">123</span>);

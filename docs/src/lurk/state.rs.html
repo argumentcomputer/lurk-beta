@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/state.rs`."><title>state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/state.rs`."><title>state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -381,7 +381,7 @@
             <span class="self">self</span>.current_package = package_name;
             <span class="prelude-val">Ok</span>(())
         } <span class="kw">else </span>{
-            <span class="macro">bail!</span>(<span class="string">&quot;Package {package_name} not found&quot;</span>)
+            <span class="macro">bail!</span>(<span class="string">"Package {package_name} not found"</span>)
         }
     }
 
@@ -395,14 +395,14 @@
     </span><span class="kw">fn </span>get_current_package(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Package {
         <span class="self">self</span>.symbol_packages
             .get(<span class="kw-2">&amp;</span><span class="self">self</span>.current_package)
-            .expect(<span class="string">&quot;current package must be in the hashmap&quot;</span>)
+            .expect(<span class="string">"current package must be in the hashmap"</span>)
     }
 
     <span class="doccomment">/// Returns a mutable reference to the current package
     </span><span class="kw">fn </span>get_current_package_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Package {
         <span class="self">self</span>.symbol_packages
             .get_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.current_package)
-            .expect(<span class="string">&quot;current package must be in the hashmap&quot;</span>)
+            .expect(<span class="string">"current package must be in the hashmap"</span>)
     }
 
     <span class="doccomment">/// Returns the resolved (fully-qualified) symbol given a symbol name
@@ -449,7 +449,7 @@
                         <span class="self">self</span>.add_package(package);
                         <span class="prelude-val">Ok</span>(symbol)
                     } <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Package {acc} not found&quot;</span>)
+                        <span class="macro">bail!</span>(<span class="string">"Package {acc} not found"</span>)
                     }
                 }
             })
@@ -499,7 +499,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>user_package = Package::new(lurk_package.intern(USER_PACKAGE_SYMBOL_NAME));
         user_package
             .use_package(<span class="kw-2">&amp;</span>lurk_package)
-            .expect(<span class="string">&quot;all symbols in the lurk package are importable&quot;</span>);
+            .expect(<span class="string">"all symbols in the lurk package are importable"</span>);
 
         <span class="comment">// initiate the state with the lurk user package then add the others
         </span><span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">Self</span>::new_with_package(user_package);
@@ -541,77 +541,77 @@
 <span class="kw">static </span>INITIAL_LURK_STATE_CELL: OnceCell&lt;State&gt; = OnceCell::new();
 
 <span class="doccomment">/// Returns a shared reference to the initial Lurk state
-</span><span class="kw">pub fn </span>initial_lurk_state() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>State {
+</span><span class="kw">pub fn </span>initial_lurk_state() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>State {
     INITIAL_LURK_STATE_CELL.get_or_init(State::init_lurk_state)
 }
 
-<span class="kw">const </span>LURK_PACKAGE_SYMBOL_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;lurk&quot;</span>;
-<span class="kw">const </span>USER_PACKAGE_SYMBOL_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;user&quot;</span>;
-<span class="kw">const </span>META_PACKAGE_SYMBOL_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;meta&quot;</span>;
+<span class="kw">const </span>LURK_PACKAGE_SYMBOL_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"lurk"</span>;
+<span class="kw">const </span>USER_PACKAGE_SYMBOL_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"user"</span>;
+<span class="kw">const </span>META_PACKAGE_SYMBOL_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"meta"</span>;
 
 <span class="kw">const </span>LURK_PACKAGE_SYMBOLS_NAMES: [<span class="kw-2">&amp;</span>str; <span class="number">36</span>] = [
-    <span class="string">&quot;atom&quot;</span>,
-    <span class="string">&quot;begin&quot;</span>,
-    <span class="string">&quot;car&quot;</span>,
-    <span class="string">&quot;cdr&quot;</span>,
-    <span class="string">&quot;char&quot;</span>,
-    <span class="string">&quot;comm&quot;</span>,
-    <span class="string">&quot;commit&quot;</span>,
-    <span class="string">&quot;cons&quot;</span>,
-    <span class="string">&quot;current-env&quot;</span>,
-    <span class="string">&quot;emit&quot;</span>,
-    <span class="string">&quot;eval&quot;</span>,
-    <span class="string">&quot;eq&quot;</span>,
-    <span class="string">&quot;hide&quot;</span>,
-    <span class="string">&quot;if&quot;</span>,
-    <span class="string">&quot;lambda&quot;</span>,
-    <span class="string">&quot;let&quot;</span>,
-    <span class="string">&quot;letrec&quot;</span>,
-    <span class="string">&quot;nil&quot;</span>,
-    <span class="string">&quot;num&quot;</span>,
-    <span class="string">&quot;u64&quot;</span>,
-    <span class="string">&quot;open&quot;</span>,
-    <span class="string">&quot;quote&quot;</span>,
-    <span class="string">&quot;secret&quot;</span>,
-    <span class="string">&quot;strcons&quot;</span>,
-    <span class="string">&quot;t&quot;</span>,
-    <span class="string">&quot;+&quot;</span>,
-    <span class="string">&quot;-&quot;</span>,
-    <span class="string">&quot;*&quot;</span>,
-    <span class="string">&quot;/&quot;</span>,
-    <span class="string">&quot;%&quot;</span>,
-    <span class="string">&quot;=&quot;</span>,
-    <span class="string">&quot;&lt;&quot;</span>,
-    <span class="string">&quot;&gt;&quot;</span>,
-    <span class="string">&quot;&lt;=&quot;</span>,
-    <span class="string">&quot;&gt;=&quot;</span>,
-    <span class="string">&quot;_&quot;</span>,
+    <span class="string">"atom"</span>,
+    <span class="string">"begin"</span>,
+    <span class="string">"car"</span>,
+    <span class="string">"cdr"</span>,
+    <span class="string">"char"</span>,
+    <span class="string">"comm"</span>,
+    <span class="string">"commit"</span>,
+    <span class="string">"cons"</span>,
+    <span class="string">"current-env"</span>,
+    <span class="string">"emit"</span>,
+    <span class="string">"eval"</span>,
+    <span class="string">"eq"</span>,
+    <span class="string">"hide"</span>,
+    <span class="string">"if"</span>,
+    <span class="string">"lambda"</span>,
+    <span class="string">"let"</span>,
+    <span class="string">"letrec"</span>,
+    <span class="string">"nil"</span>,
+    <span class="string">"num"</span>,
+    <span class="string">"u64"</span>,
+    <span class="string">"open"</span>,
+    <span class="string">"quote"</span>,
+    <span class="string">"secret"</span>,
+    <span class="string">"strcons"</span>,
+    <span class="string">"t"</span>,
+    <span class="string">"+"</span>,
+    <span class="string">"-"</span>,
+    <span class="string">"*"</span>,
+    <span class="string">"/"</span>,
+    <span class="string">"%"</span>,
+    <span class="string">"="</span>,
+    <span class="string">"&lt;"</span>,
+    <span class="string">"&gt;"</span>,
+    <span class="string">"&lt;="</span>,
+    <span class="string">"&gt;="</span>,
+    <span class="string">"_"</span>,
 ];
 
 <span class="kw">const </span>META_PACKAGE_SYMBOLS_NAMES: [<span class="kw-2">&amp;</span>str; <span class="number">23</span>] = [
-    <span class="string">&quot;def&quot;</span>,
-    <span class="string">&quot;defrec&quot;</span>,
-    <span class="string">&quot;load&quot;</span>,
-    <span class="string">&quot;assert&quot;</span>,
-    <span class="string">&quot;assert-eq&quot;</span>,
-    <span class="string">&quot;assert-emitted&quot;</span>,
-    <span class="string">&quot;assert-error&quot;</span>,
-    <span class="string">&quot;commit&quot;</span>,
-    <span class="string">&quot;hide&quot;</span>,
-    <span class="string">&quot;fetch&quot;</span>,
-    <span class="string">&quot;open&quot;</span>,
-    <span class="string">&quot;clear&quot;</span>,
-    <span class="string">&quot;set-env&quot;</span>,
-    <span class="string">&quot;prove&quot;</span>,
-    <span class="string">&quot;verify&quot;</span>,
-    <span class="string">&quot;defpackage&quot;</span>,
-    <span class="string">&quot;import&quot;</span>,
-    <span class="string">&quot;in-package&quot;</span>,
-    <span class="string">&quot;help&quot;</span>,
-    <span class="string">&quot;call&quot;</span>,
-    <span class="string">&quot;chain&quot;</span>,
-    <span class="string">&quot;inspect&quot;</span>,
-    <span class="string">&quot;inspect-full&quot;</span>,
+    <span class="string">"def"</span>,
+    <span class="string">"defrec"</span>,
+    <span class="string">"load"</span>,
+    <span class="string">"assert"</span>,
+    <span class="string">"assert-eq"</span>,
+    <span class="string">"assert-emitted"</span>,
+    <span class="string">"assert-error"</span>,
+    <span class="string">"commit"</span>,
+    <span class="string">"hide"</span>,
+    <span class="string">"fetch"</span>,
+    <span class="string">"open"</span>,
+    <span class="string">"clear"</span>,
+    <span class="string">"set-env"</span>,
+    <span class="string">"prove"</span>,
+    <span class="string">"verify"</span>,
+    <span class="string">"defpackage"</span>,
+    <span class="string">"import"</span>,
+    <span class="string">"in-package"</span>,
+    <span class="string">"help"</span>,
+    <span class="string">"call"</span>,
+    <span class="string">"chain"</span>,
+    <span class="string">"inspect"</span>,
+    <span class="string">"inspect-full"</span>,
 ];
 
 <span class="attr">#[cfg(test)]
@@ -637,32 +637,32 @@
             .iter()
             .for_each(|s| test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>Arc::new(lurk_sym(s)), s));
 
-        <span class="kw">let </span>user_sym = state.intern(<span class="string">&quot;user-sym&quot;</span>);
-        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>user_sym, <span class="string">&quot;user-sym&quot;</span>);
+        <span class="kw">let </span>user_sym = state.intern(<span class="string">"user-sym"</span>);
+        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>user_sym, <span class="string">"user-sym"</span>);
 
-        <span class="kw">let </span>my_package_name = SymbolRef::new(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;my-package&quot;</span>]));
+        <span class="kw">let </span>my_package_name = SymbolRef::new(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">"my-package"</span>]));
         <span class="kw">let </span><span class="kw-2">mut </span>my_package = Package::new(my_package_name.clone());
-        <span class="kw">let </span>my_symbol = my_package.intern(<span class="string">&quot;my-symbol&quot;</span>);
+        <span class="kw">let </span>my_symbol = my_package.intern(<span class="string">"my-symbol"</span>);
         state.add_package(my_package);
 
-        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>my_symbol, <span class="string">&quot;.my-package.my-symbol&quot;</span>);
+        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>my_symbol, <span class="string">".my-package.my-symbol"</span>);
 
-        <span class="kw">let </span>lambda_sym = SymbolRef::new(lurk_sym(<span class="string">&quot;lambda&quot;</span>));
+        <span class="kw">let </span>lambda_sym = SymbolRef::new(lurk_sym(<span class="string">"lambda"</span>));
 
         state.set_current_package(my_package_name).unwrap();
-        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>my_symbol, <span class="string">&quot;my-symbol&quot;</span>);
-        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>lambda_sym, <span class="string">&quot;.lurk.lambda&quot;</span>);
+        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>my_symbol, <span class="string">"my-symbol"</span>);
+        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>lambda_sym, <span class="string">".lurk.lambda"</span>);
 
         state.import(<span class="kw-2">&amp;</span>[lambda_sym.clone()]).unwrap();
-        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>lambda_sym, <span class="string">&quot;lambda&quot;</span>);
-        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>user_sym, <span class="string">&quot;.lurk.user.user-sym&quot;</span>);
+        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>lambda_sym, <span class="string">"lambda"</span>);
+        test_printing_helper(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;</span>user_sym, <span class="string">".lurk.user.user-sym"</span>);
 
-        <span class="kw">let </span>path = [<span class="string">&quot;my-package&quot;</span>, <span class="string">&quot;my-other-symbol&quot;</span>];
+        <span class="kw">let </span>path = [<span class="string">"my-package"</span>, <span class="string">"my-other-symbol"</span>];
         state.intern_path(<span class="kw-2">&amp;</span>path, <span class="bool-val">false</span>, <span class="bool-val">false</span>).unwrap();
         test_printing_helper(
             <span class="kw-2">&amp;</span>state,
             <span class="kw-2">&amp;</span>SymbolRef::new(Symbol::sym(<span class="kw-2">&amp;</span>path)),
-            <span class="string">&quot;my-other-symbol&quot;</span>,
+            <span class="string">"my-other-symbol"</span>,
         );
     }
 }

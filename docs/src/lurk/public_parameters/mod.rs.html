@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/public_parameters/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/public_parameters/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -240,16 +240,16 @@
 
 <span class="kw">pub fn </span>public_params&lt;
     F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;static</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;static</span>, F, C&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'static</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'static</span>, F, C&gt;,
 &gt;(
-    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;static</span>, F, C, M&gt;,
+    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'static</span>, F, C, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;PublicParams&lt;F, M&gt;&gt;, Error&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">let </span>f = |instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;static</span>, F, C, M&gt;| {
+    <span class="kw">let </span>f = |instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'static</span>, F, C, M&gt;| {
         Arc::new(nova::public_params(instance.rc, instance.lang()))
     };
     mem_cache::PUBLIC_PARAM_MEM_CACHE.get_from_mem_cache_or_update_with(instance, f)
@@ -260,37 +260,37 @@
 /// this leads to extremely high performance, but restricts the lifetime of the data
 /// to the lifetime of the file. Thus, we cannot pass a reference out and must
 /// rely on a closure to capture the data and continue the computation in `bind`.
-</span><span class="kw">pub fn </span>with_public_params&lt;<span class="lifetime">&#39;a</span>, F, C, M, Fn, T&gt;(
-    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
+</span><span class="kw">pub fn </span>with_public_params&lt;<span class="lifetime">'a</span>, F, C, M, Fn, T&gt;(
+    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;,
     bind: Fn,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;T, Error&gt;
 <span class="kw">where
     </span>F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
     Fn: FnOnce(<span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;) -&gt; T,
     &lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>default =
-        |instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;| nova::public_params(instance.rc, instance.lang());
+        |instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;| nova::public_params(instance.rc, instance.lang());
     <span class="kw">let </span>disk_cache = DiskCache::&lt;F, C, M&gt;::new(public_params_dir()).unwrap();
 
     <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
     <span class="kw">let </span>pp = disk_cache.read_bytes(instance, <span class="kw-2">&amp;mut </span>bytes).and_then(|()| {
         <span class="kw">if let </span><span class="prelude-val">Some</span>((pp, remaining)) = <span class="kw">unsafe </span>{ decode(<span class="kw-2">&amp;mut </span>bytes) } {
             <span class="macro">assert!</span>(remaining.is_empty());
-            <span class="macro">eprintln!</span>(<span class="string">&quot;Using disk-cached public params for {}&quot;</span>, instance.key());
+            <span class="macro">eprintln!</span>(<span class="string">"Using disk-cached public params for {}"</span>, instance.key());
             <span class="prelude-val">Ok</span>(pp)
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
+            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">"failed to decode bytes"</span>.into()))
         }
     });
 
     <span class="kw">match </span>pp {
         <span class="prelude-val">Ok</span>(pp) =&gt; <span class="prelude-val">Ok</span>(bind(pp)),
         <span class="prelude-val">Err</span>(e) =&gt; {
-            <span class="macro">eprintln!</span>(<span class="string">&quot;{e}&quot;</span>);
+            <span class="macro">eprintln!</span>(<span class="string">"{e}"</span>);
             <span class="kw">let </span>pp = default(instance);
             disk_cache.write_abomonated(instance, <span class="kw-2">&amp;</span>pp)<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(bind(<span class="kw-2">&amp;</span>pp))
@@ -299,12 +299,12 @@
 }
 
 <span class="kw">pub fn </span>supernova_circuit_params&lt;
-    <span class="lifetime">&#39;a</span>,
+    <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
 &gt;(
-    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
+    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NovaCircuitShape&lt;F&gt;, Error&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
@@ -316,21 +316,21 @@
     disk_cache.read_bytes(instance, <span class="kw-2">&amp;mut </span>bytes).and_then(|()| {
         <span class="kw">if let </span><span class="prelude-val">Some</span>((pp, remaining)) = <span class="kw">unsafe </span>{ decode::&lt;NovaCircuitShape&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span>bytes) } {
             <span class="macro">assert!</span>(remaining.is_empty());
-            <span class="macro">eprintln!</span>(<span class="string">&quot;Using disk-cached public params for {}&quot;</span>, instance.key());
+            <span class="macro">eprintln!</span>(<span class="string">"Using disk-cached public params for {}"</span>, instance.key());
             <span class="prelude-val">Ok</span>(pp.clone())
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
+            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">"failed to decode bytes"</span>.into()))
         }
     })
 }
 
 <span class="kw">pub fn </span>supernova_aux_params&lt;
-    <span class="lifetime">&#39;a</span>,
+    <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
 &gt;(
-    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
+    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SuperNovaAuxParams&lt;F&gt;, Error&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
@@ -346,7 +346,7 @@
             <span class="macro">assert!</span>(remaining.is_empty());
             <span class="prelude-val">Ok</span>(aux_params.clone())
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
+            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">"failed to decode bytes"</span>.into()))
         }
     })
 }
@@ -356,19 +356,19 @@
 <span class="kw">use </span>::nova::traits::circuit_supernova::StepCircuit <span class="kw">as </span>SuperStepCircuit;
 <span class="kw">use </span>supernova::C2;
 <span class="kw">pub fn </span>supernova_public_params&lt;
-    <span class="lifetime">&#39;a</span>,
+    <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
 &gt;(
-    instance_primary: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
+    instance_primary: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;supernova::PublicParams&lt;F, M&gt;, Error&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">let </span>default = |instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;| {
-        supernova::public_params::&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;(instance.rc, instance.lang())
+    <span class="kw">let </span>default = |instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;| {
+        supernova::public_params::&lt;<span class="lifetime">'a</span>, F, C, M&gt;(instance.rc, instance.lang())
     };
     <span class="kw">let </span>disk_cache = DiskCache::&lt;F, C, M&gt;::new(public_params_dir()).unwrap();
 
@@ -382,7 +382,7 @@
 
     <span class="kw">let </span>pp = <span class="kw">match </span>(maybe_circuit_params_vec, maybe_aux_params) {
         (<span class="prelude-val">Ok</span>(circuit_params_vec), <span class="prelude-val">Ok</span>(aux_params)) =&gt; {
-            <span class="macro">println!</span>(<span class="string">&quot;generating public params&quot;</span>);
+            <span class="macro">println!</span>(<span class="string">"generating public params"</span>);
             supernova::PublicParams {
                 pp: SuperNovaPublicParams::&lt;F, M&gt;::from_parts_unchecked(
                     circuit_params_vec,
@@ -391,7 +391,7 @@
             }
         }
         <span class="kw">_ </span>=&gt; {
-            <span class="macro">println!</span>(<span class="string">&quot;generating running claim params&quot;</span>);
+            <span class="macro">println!</span>(<span class="string">"generating running claim params"</span>);
             <span class="kw">let </span>pp = default(instance_primary);
 
             <span class="kw">let </span>(circuit_params_vec, aux_params) = pp.pp.into_parts();
@@ -424,11 +424,11 @@
     <span class="attr">#[test]
     </span><span class="comment">// Note: No Eq instance for PublicParams currently, just testing disk read/write
     </span><span class="kw">fn </span>serde_public_params_roundtrip() {
-        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
-        std::env::set_var(<span class="string">&quot;LURK_PUBLIC_PARAMS&quot;</span>, tmp_dir.path());
+        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">"tmp"</span>).tempdir().unwrap();
+        std::env::set_var(<span class="string">"LURK_PUBLIC_PARAMS"</span>, tmp_dir.path());
 
         <span class="kw">let </span>lang: Arc&lt;Lang&lt;S1, Coproc&lt;S1&gt;&gt;&gt; = Arc::new(Lang::new());
-        <span class="kw">type </span>OG = <span class="kw">crate</span>::proof::nova::C1LEM&lt;<span class="lifetime">&#39;static</span>, S1, Coproc&lt;S1&gt;&gt;;
+        <span class="kw">type </span>OG = <span class="kw">crate</span>::proof::nova::C1LEM&lt;<span class="lifetime">'static</span>, S1, Coproc&lt;S1&gt;&gt;;
         <span class="kw">let </span>instance = Instance::new(<span class="number">10</span>, lang, <span class="bool-val">true</span>, Kind::NovaPublicParams);
         <span class="comment">// Without disk cache, writes to tmpfile
         </span><span class="kw">let </span>_public_params = public_params::&lt;S1, Coproc&lt;S1&gt;, OG&gt;(<span class="kw-2">&amp;</span>instance).unwrap();

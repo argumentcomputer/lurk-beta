@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e6a78389201e676c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (87e1447aa 2023-11-30)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c67e44d78ab2db17.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (1fdfe1234 2023-12-06)" data-channel="nightly" data-search-js="search-5a66c239c06b3a66.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -340,36 +340,36 @@
 
 <span class="doccomment">/// Gets the `LURK_CONFIG` settings. If uninitialized, sets the global variable
 /// in the following order (greatest to least precedence):
-/// - `settings` map if provided, e.g. with key (&quot;public_params_dir&quot;, &quot;$HOME/lurk-rs/public_params&quot;)
+/// - `settings` map if provided, e.g. with key ("public_params_dir", "$HOME/lurk-rs/public_params")
 /// - Env var per setting, e.g. `LURK_PUBLIC_PARAMS_DIR`
 /// - Config file, which also has a configurable location (see `lurk_config_file()`),
 ///   and has the following syntax for e.g. TOML:
 ///   ```toml
-///   public_params_dir = &quot;/path/to/params&quot;
+///   public_params_dir = "/path/to/params"
 ///   ```
 ///   Other file formats are supported by the `config` crate, but only TOML is tested
 /// - Default values, e.g. `$HOME/.lurk/public_params`
 </span><span class="kw">pub fn </span>lurk_config(
     file: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Utf8PathBuf&gt;,
     settings: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span>str, String&gt;&gt;,
-) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Settings {
+) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Settings {
     LURK_CONFIG
         .get_or_init(|| Settings::from_config(lurk_config_file(file), settings).unwrap_or_default())
 }
 
 <span class="doccomment">/// Gets the `LURK_CONFIG_FILE` path. If uninitialized, sets the global variable
 /// in the following order (greatest to least precedence):
-/// - `config_file` parameter if provided, e.g. &quot;$HOME/lurk-rs/lurk-local.toml&quot;
+/// - `config_file` parameter if provided, e.g. "$HOME/lurk-rs/lurk-local.toml"
 /// - `LURK_CONFIG_FILE` env var
 /// - Default location at `$HOME/.lurk/lurk.toml` or `&lt;current_dir&gt;/.config/lurk.toml` on WASM.
-</span><span class="kw">pub fn </span>lurk_config_file(config_file: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Utf8PathBuf&gt;) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Utf8PathBuf {
+</span><span class="kw">pub fn </span>lurk_config_file(config_file: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Utf8PathBuf&gt;) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Utf8PathBuf {
     LURK_CONFIG_FILE.get_or_init(|| {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = config_file {
             file.clone()
-        } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(file) = std::env::var(<span class="string">&quot;LURK_CONFIG_FILE&quot;</span>) {
+        } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(file) = std::env::var(<span class="string">"LURK_CONFIG_FILE"</span>) {
             Utf8PathBuf::from(file)
         } <span class="kw">else </span>{
-            lurk_default_dir().join(<span class="string">&quot;lurk.toml&quot;</span>)
+            lurk_default_dir().join(<span class="string">"lurk.toml"</span>)
         }
     })
 }
@@ -392,16 +392,16 @@
         config_file: <span class="kw-2">&amp;</span>Utf8PathBuf,
         settings: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span>str, String&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ConfigError&gt; {
-        <span class="kw">let </span>public_params = <span class="string">&quot;public_params_dir&quot;</span>;
+        <span class="kw">let </span>public_params = <span class="string">"public_params_dir"</span>;
         <span class="comment">// Settings are read first to last, in order of increasing precedence.
         // Hence, default values must come first so they are overriden by all other methods.
         </span>Config::builder()
             <span class="comment">// Default settings if unspecified in the config file
             </span>.set_default(public_params, public_params_default_dir().to_string())<span class="question-mark">?
-            </span>.set_default(<span class="string">&quot;perf&quot;</span>, <span class="string">&quot;max-parallel-simple&quot;</span>.to_string())<span class="question-mark">?
+            </span>.set_default(<span class="string">"perf"</span>, <span class="string">"max-parallel-simple"</span>.to_string())<span class="question-mark">?
             </span>.add_source(File::with_name(config_file.as_str()).required(<span class="bool-val">false</span>))
             <span class="comment">// Then override with any `LURK` environment variables
-            </span>.add_source(Environment::with_prefix(<span class="string">&quot;LURK&quot;</span>))
+            </span>.add_source(Environment::with_prefix(<span class="string">"LURK"</span>))
             <span class="comment">// Optionally override if settings were specified via CLI arg
             </span>.set_override_option(public_params, settings.and_then(|s| s.get(public_params).map(|v| v.to_owned())))<span class="question-mark">?
             </span>.build()
@@ -419,24 +419,24 @@
 }
 
 <span class="kw">pub fn </span>public_params_default_dir() -&gt; Utf8PathBuf {
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">let </span>params_path = home_dir();
-    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
     </span><span class="kw">let </span>params_path = Utf8PathBuf::new();
-    params_path.join(<span class="string">&quot;.lurk/public_params&quot;</span>)
+    params_path.join(<span class="string">".lurk/public_params"</span>)
 }
 
 <span class="comment">// TODO: Should we crash if the user has no home dir?
 </span><span class="doccomment">/// Returns the home directory used by `cargo`` and `rustup`
-</span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">pub fn </span>home_dir() -&gt; Utf8PathBuf {
-    Utf8PathBuf::from_path_buf(home::home_dir().expect(<span class="string">&quot;missing home directory&quot;</span>))
-        .expect(<span class="string">&quot;path contains invalid Unicode&quot;</span>)
+    Utf8PathBuf::from_path_buf(home::home_dir().expect(<span class="string">"missing home directory"</span>))
+        .expect(<span class="string">"path contains invalid Unicode"</span>)
 }
 
 <span class="doccomment">/// Performance-related configuration settings
 </span><span class="attr">#[derive(Default, Debug, PartialEq, Eq, Deserialize)]
-#[serde(from = <span class="string">&quot;CannedConfig&quot;</span>)]
+#[serde(from = <span class="string">"CannedConfig"</span>)]
 </span><span class="kw">pub struct </span>PerfConfig {
     <span class="doccomment">/// Parallelism settings
     </span><span class="kw">pub </span>parallelism: ParallelConfig,
@@ -543,7 +543,7 @@
 
 <span class="doccomment">/// Shortcut to easily set `PerfConfig`
 </span><span class="attr">#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;kebab-case&quot;</span>)]
+#[serde(rename_all = <span class="string">"kebab-case"</span>)]
 </span><span class="kw">enum </span>CannedConfig {
     FullySequential,
     <span class="attr">#[default]
@@ -573,21 +573,21 @@
     <span class="kw">use </span><span class="kw">crate</span>::config::{CannedConfig, PerfConfig, Settings};
 
     <span class="comment">// Tests a generic config file with identical syntax to that used in `LURK_CONFIG`
-    // Doesn&#39;t test `OnceCell` behavior as the tests seem to share memory
+    // Doesn't test `OnceCell` behavior as the tests seem to share memory
     </span><span class="attr">#[test]
     </span><span class="kw">fn </span>test_config_lurk() {
-        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
+        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">"tmp"</span>).tempdir().unwrap();
         <span class="kw">let </span>tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
-        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">&quot;lurk.toml&quot;</span>);
-        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">&quot;public_params&quot;</span>).into_string();
+        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">"lurk.toml"</span>);
+        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">"public_params"</span>).into_string();
         <span class="kw">let </span>perf_config = PerfConfig::from(CannedConfig::FullySequential);
 
         <span class="kw">let </span><span class="kw-2">mut </span>config_file = File::create(config_dir.clone()).unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"public_params_dir = \"{public_params_dir}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="string">&quot;perf = \&quot;fully-sequential\&quot;\n&quot;</span>.as_bytes())
+            .write_all(<span class="string">"perf = \"fully-sequential\"\n"</span>.as_bytes())
             .unwrap();
 
         <span class="kw">let </span>config = Settings::from_config(<span class="kw-2">&amp;</span>config_dir, <span class="prelude-val">None</span>).unwrap();
@@ -597,26 +597,26 @@
     }
 
     <span class="comment">// Tests overwriting the config file and CLI argument
-    // Doesn&#39;t test env var as it can overwrite other tests when run in parallel
+    // Doesn't test env var as it can overwrite other tests when run in parallel
     </span><span class="attr">#[test]
     </span><span class="kw">fn </span>test_config_override() {
-        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
+        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">"tmp"</span>).tempdir().unwrap();
         <span class="kw">let </span>tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
-        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">&quot;lurk.toml&quot;</span>);
-        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">&quot;public_params&quot;</span>).into_string();
+        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">"lurk.toml"</span>);
+        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">"public_params"</span>).into_string();
 
         <span class="kw">let </span><span class="kw-2">mut </span>config_file = File::create(config_dir.clone()).unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"public_params_dir = \"{public_params_dir}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="string">&quot;perf = \&quot;parallel-steps-only\&quot;\n&quot;</span>.as_bytes())
+            .write_all(<span class="string">"perf = \"parallel-steps-only\"\n"</span>.as_bytes())
             .unwrap();
 
         <span class="comment">// Overwrite public params dir to simulate CLI setting
-        </span><span class="kw">let </span>public_params_dir_cli = tmp_dir.join(<span class="string">&quot;public_params_cli&quot;</span>);
+        </span><span class="kw">let </span>public_params_dir_cli = tmp_dir.join(<span class="string">"public_params_cli"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>overrides = HashMap::new();
-        overrides.insert(<span class="string">&quot;public_params_dir&quot;</span>, public_params_dir_cli.to_string());
+        overrides.insert(<span class="string">"public_params_dir"</span>, public_params_dir_cli.to_string());
 
         <span class="kw">let </span>config = Settings::from_config(<span class="kw-2">&amp;</span>config_dir, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>overrides)).unwrap();
 
@@ -627,18 +627,18 @@
     <span class="comment">// Tests that duplicate config keys result in an error
     </span><span class="attr">#[test]
     </span><span class="kw">fn </span>test_config_duplicate() {
-        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
+        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">"tmp"</span>).tempdir().unwrap();
         <span class="kw">let </span>tmp_dir = Utf8Path::from_path(tmp_dir.path()).unwrap();
-        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">&quot;lurk.toml&quot;</span>);
-        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">&quot;public_params&quot;</span>).into_string();
-        <span class="kw">let </span>public_params_dir_dup = tmp_dir.join(<span class="string">&quot;public_params_dup&quot;</span>).into_string();
+        <span class="kw">let </span>config_dir = tmp_dir.join(<span class="string">"lurk.toml"</span>);
+        <span class="kw">let </span>public_params_dir = tmp_dir.join(<span class="string">"public_params"</span>).into_string();
+        <span class="kw">let </span>public_params_dir_dup = tmp_dir.join(<span class="string">"public_params_dup"</span>).into_string();
 
         <span class="kw">let </span><span class="kw-2">mut </span>config_file = File::create(config_dir.clone()).unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"public_params_dir = \"{public_params_dir}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="macro">format!</span>(<span class="string">&quot;public_params_dir = \&quot;{public_params_dir_dup}\&quot;\n&quot;</span>).as_bytes())
+            .write_all(<span class="macro">format!</span>(<span class="string">"public_params_dir = \"{public_params_dir_dup}\"\n"</span>).as_bytes())
             .unwrap();
 
         <span class="macro">assert!</span>(Settings::from_config(<span class="kw-2">&amp;</span>config_dir, <span class="prelude-val">None</span>).is_err())
