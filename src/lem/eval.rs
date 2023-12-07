@@ -802,14 +802,13 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         return (nil)
     });
     let is_cproc = is_cproc(cprocs);
-    let lookup = func!(lookup(expr, env, found, binding): 4 => {
-        let rec = Symbol("rec");
-        let non_rec = Symbol("non_rec");
-        let error = Symbol("error");
+    let lookup = func!(lookup(expr, env, state, binding): 4 => {
+        let found = Symbol("found");
         let not_found = Symbol("not_found");
-        let continue = eq_val(not_found, found);
+        let error = Symbol("error");
+        let continue = eq_val(not_found, state);
         if !continue {
-            return (expr, env, found, binding)
+            return (expr, env, state, binding)
         }
         match env.tag {
             Expr::Nil => {
@@ -827,14 +826,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
             Expr::Sym => {
                 let eq_val = eq_val(var, expr);
                 if eq_val {
-                    return (val, env, non_rec, binding)
-                }
-                return (expr, smaller_env, not_found, binding)
-            }
-            Expr::RecVar => {
-                let eq_val = eq_val(var, expr);
-                if eq_val {
-                    return (val, env, rec, binding)
+                    return (val, env, found, binding)
                 }
                 return (expr, smaller_env, not_found, binding)
             }
@@ -888,25 +880,20 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                     return (expr, env, cont, apply)
                 }
                 let not_found = Symbol("not_found");
-                let (expr, env, found, binding) = lookup(expr, env, not_found, nil);
-                let (expr, env, found, binding) = lookup(expr, env, found, binding);
-                let (expr, env, found, binding) = lookup(expr, env, found, binding);
-                match symbol found {
+                let (expr, env, state, binding) = lookup(expr, env, not_found, nil);
+                let (expr, env, state, binding) = lookup(expr, env, state, binding);
+                let (expr, env, state, binding) = lookup(expr, env, state, binding);
+                let (expr, env, state, binding) = lookup(expr, env, state, binding);
+                match symbol state {
                     "error" => {
                         return (expr, env, err, errctrl)
                     }
-                    "non_rec" => {
-                        return (expr, env, cont, apply)
-                    }
-                    "rec" => {
+                    "found" => {
                         match expr.tag {
-                            Expr::Fun => {
-                                // if `val2` is a closure, then extend its environment
-                                let (arg, body, closed_env, _foo) = decons4(expr);
-                                let extended: Expr::Cons = cons2(binding, closed_env);
-                                // and return the extended closure
-                                let fun: Expr::Fun = cons4(arg, body, extended, foo);
-                                return (fun, env, cont, apply)
+                            Expr::Thunk => {
+                                let (body, body_env) = decons2(expr);
+                                let env: Expr::Cons = cons2(binding, body_env);
+                                return (body, env, cont, ret)
                             }
                         };
                         return (expr, env, cont, apply)
@@ -963,8 +950,11 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                                 let cont: Cont::Let = cons4(var, env, expanded, cont);
                                                 return (val, env, cont, ret)
                                             }
+                                            let thunk: Expr::Thunk = cons2(val, env);
+                                            let binding: Expr::Cons = cons2(var, thunk);
+                                            let rec_env: Expr::Cons = cons2(binding, env);
                                             let cont: Cont::LetRec = cons4(var, env, expanded, cont);
-                                            return (val, env, cont, ret)
+                                            return (val, rec_env, cont, ret)
                                         }
                                     };
                                     return (expr, env, err, errctrl)
@@ -1298,8 +1288,6 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     }
                     Cont::LetRec => {
                         let (var, saved_env, body, cont) = decons4(cont);
-                        // Since the variable came from a letrec, it is a recursive variable
-                        let var = cast(var, Expr::RecVar);
                         let binding: Expr::Cons = cons2(var, result);
                         let extended_env: Expr::Cons = cons2(binding, saved_env);
                         return (body, extended_env, cont, ret)
@@ -1734,9 +1722,9 @@ mod tests {
         assert_eq!(
             func.slots_count,
             SlotsCounter {
-                hash4: 14,
+                hash4: 17,
                 hash6: 0,
-                hash8: 6,
+                hash8: 5,
                 commitment: 1,
                 bit_decomp: 3,
             }
@@ -1745,8 +1733,8 @@ mod tests {
             expected.assert_eq(&computed.to_string());
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["8884"]);
-        expect_eq(cs.num_constraints(), expect!["10831"]);
+        expect_eq(cs.aux().len(), expect!["9377"]);
+        expect_eq(cs.num_constraints(), expect!["11318"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }

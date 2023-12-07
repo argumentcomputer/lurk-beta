@@ -23,7 +23,7 @@ use crate::{
         self, Binop, Binop2, Call, Call0, Call2, Dummy, Emit, If, Let, LetRec, Lookup, Outermost,
         Tail, Terminal, Unop,
     },
-    tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, RecVar, Str, Sym, Thunk, U64},
+    tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
 };
 
 use super::pointers::{Ptr, RawPtr, ZPtr};
@@ -1002,13 +1002,6 @@ impl Ptr {
                         state.fmt_to_string(&sym.into())
                     } else {
                         "<Opaque Sym>".into()
-                    }
-                }
-                RecVar => {
-                    if let Some(sym) = store.fetch_sym(&self.cast(Tag::Expr(Sym))) {
-                        state.fmt_to_string(&sym.into())
-                    } else {
-                        "<Opaque RecVar>".into()
                     }
                 }
                 Key => {
