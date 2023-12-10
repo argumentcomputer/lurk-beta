@@ -107,53 +107,73 @@ Lurk REPL welcomes you.
 
 Or enable `info` log-level for a trace of reduction frames:
 ```ignore
-➜  lurk-rs ✗ RUST_LOG=info bin/lurk
+➜  lurk-rs ✗ RUST_LOG=lurk::lem::eval=info bin/lurk
     Finished release [optimized] target(s) in 0.05s
      Running `target/release/lurk`
 Lurk REPL welcomes you.
-> (let ((square (lambda (x) (* x x)))) (square 8))
- INFO  lurk::eval > Frame: 0
-	Expr: (let ((square (lambda (x) (* x x)))) (square 8))
-	Env: nil
+user> (let ((square (lambda (x) (* x x)))) (square 8))
+  2023-12-10T15:58:21.902414Z  INFO lurk::lem::eval: Frame: 0
+	Expr: (let ((.lurk.user.square (lambda (.lurk.user.x) (* .lurk.user.x .lurk.user.x)))) (.lurk.user.square 8))
+	Env:  nil
 	Cont: Outermost
- INFO  lurk::eval > Frame: 1
-	Expr: (lambda (x) (* x x))
-	Env: nil
-	Cont: Let{ var: square, body: (square 8), saved_env: nil, continuation: Outermost }
- INFO  lurk::eval > Frame: 2
-	Expr: (square 8)
-	Env: ((square . <FUNCTION (x) (* x x)>))
+    at src/lem/eval.rs:99
+
+  2023-12-10T15:58:21.902943Z  INFO lurk::lem::eval: Frame: 1
+	Expr: (lambda (.lurk.user.x) (* .lurk.user.x .lurk.user.x))
+	Env:  nil
+	Cont: Let{ var: .lurk.user.square, saved_env: nil, body: (.lurk.user.square 8), continuation: Outermost }
+    at src/lem/eval.rs:107
+
+  2023-12-10T15:58:21.903170Z  INFO lurk::lem::eval: Frame: 2
+	Expr: (.lurk.user.square 8)
+	Env:  ((.lurk.user.square . <FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)>))
 	Cont: Tail{ saved_env: nil, continuation: Outermost }
- INFO  lurk::eval > Frame: 3
-	Expr: square
-	Env: ((square . <FUNCTION (x) (* x x)>))
-	Cont: Call{ unevaled_arg: 8, saved_env: ((square . <FUNCTION (x) (* x x)>)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
- INFO  lurk::eval > Frame: 4
+    at src/lem/eval.rs:107
+
+  2023-12-10T15:58:21.903649Z  INFO lurk::lem::eval: Frame: 3
+	Expr: .lurk.user.square
+	Env:  ((.lurk.user.square . <FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)>))
+	Cont: Call{ unevaled_arg: 8, saved_env: ((.lurk.user.square . <FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)>)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
+    at src/lem/eval.rs:107
+
+  2023-12-10T15:58:21.903678Z  INFO lurk::lem::eval: Frame: 4
 	Expr: 8
-	Env: ((square . <FUNCTION (x) (* x x)>))
-	Cont: Call2{ function: <FUNCTION (x) (* x x)>, saved_env: ((square . <FUNCTION (x) (* x x)>)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
- INFO  lurk::eval > Frame: 5
-	Expr: (* x x)
-	Env: ((x . 8))
+	Env:  ((.lurk.user.square . <FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)>))
+	Cont: Call2{ function: <FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)>, saved_env: ((.lurk.user.square . <FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)>)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
+    at src/lem/eval.rs:107
+
+  2023-12-10T15:58:21.903696Z  INFO lurk::lem::eval: Frame: 5
+	Expr: (* .lurk.user.x .lurk.user.x)
+	Env:  ((.lurk.user.x . 8))
 	Cont: Tail{ saved_env: nil, continuation: Outermost }
- INFO  lurk::eval > Frame: 6
-	Expr: x
-	Env: ((x . 8))
-	Cont: Binop{ operator: product#, unevaled_args: (x), saved_env: ((x . 8)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
- INFO  lurk::eval > Frame: 7
-	Expr: x
-	Env: ((x . 8))
+    at src/lem/eval.rs:107
+
+  2023-12-10T15:58:21.903772Z  INFO lurk::lem::eval: Frame: 6
+	Expr: .lurk.user.x
+	Env:  ((.lurk.user.x . 8))
+	Cont: Binop{ operator: product#, saved_env: ((.lurk.user.x . 8)), unevaled_args: (.lurk.user.x), continuation: Tail{ saved_env: nil, continuation: Outermost } }
+    at src/lem/eval.rs:107
+
+  2023-12-10T15:58:21.903844Z  INFO lurk::lem::eval: Frame: 7
+	Expr: .lurk.user.x
+	Env:  ((.lurk.user.x . 8))
 	Cont: Binop2{ operator: product#, evaled_arg: 8, continuation: Tail{ saved_env: nil, continuation: Outermost } }
- INFO  lurk::eval > Frame: 8
-	Expr: Thunk{ value: 64 => cont: Outermost}
-	Env: nil
+    at src/lem/eval.rs:107
+
+  2023-12-10T15:58:21.903866Z  INFO lurk::lem::eval: Frame: 8
+	Expr: Thunk{ value: 64 => cont: Outermost }
+	Env:  nil
 	Cont: Dummy
- INFO  lurk::eval > Frame: 9
+    at src/lem/eval.rs:107
+
+  2023-12-10T15:58:21.903878Z  INFO lurk::lem::eval: Frame: 9
 	Expr: 64
-	Env: nil
+	Env:  nil
 	Cont: Terminal
+    at src/lem/eval.rs:107
+
 [9 iterations] => 64
-> 
+user> 
 ```
 
 ## Install
