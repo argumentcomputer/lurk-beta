@@ -69,53 +69,73 @@ Lurk REPL welcomes you.
 </span>&gt;</code></pre></div>
 <p>Or enable <code>info</code> log-level for a trace of reduction frames:</p>
 
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>➜  lurk-rs ✗ RUST_LOG=info bin/lurk
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>➜  lurk-rs ✗ RUST_LOG=lurk::lem::eval=info bin/lurk
     Finished release [optimized] target(s) <span class="kw">in </span><span class="number">0.05s
      </span>Running `target/release/lurk`
 Lurk REPL welcomes you.
-&gt; (<span class="kw">let </span>((square (lambda (x) (* x x)))) (square <span class="number">8</span>))
- INFO  lurk::eval &gt; Frame: <span class="number">0
-	</span>Expr: (<span class="kw">let </span>((square (lambda (x) (* x x)))) (square <span class="number">8</span>))
-	Env: nil
+user&gt; (<span class="kw">let </span>((square (lambda (x) (* x x)))) (square <span class="number">8</span>))
+  <span class="number">2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.902414Z  </span>INFO lurk::lem::eval: Frame: <span class="number">0
+	</span>Expr: (<span class="kw">let </span>((.lurk.user.square (lambda (.lurk.user.x) (* .lurk.user.x .lurk.user.x)))) (.lurk.user.square <span class="number">8</span>))
+	Env:  nil
 	Cont: Outermost
- INFO  lurk::eval &gt; Frame: <span class="number">1
-	</span>Expr: (lambda (x) (* x x))
-	Env: nil
-	Cont: Let{ var: square, body: (square <span class="number">8</span>), saved_env: nil, continuation: Outermost }
- INFO  lurk::eval &gt; Frame: <span class="number">2
-	</span>Expr: (square <span class="number">8</span>)
-	Env: ((square . &lt;FUNCTION (x) (* x x)&gt;))
+    at src/lem/eval.rs:<span class="number">99
+
+  2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.902943Z  </span>INFO lurk::lem::eval: Frame: <span class="number">1
+	</span>Expr: (lambda (.lurk.user.x) (* .lurk.user.x .lurk.user.x))
+	Env:  nil
+	Cont: Let{ var: .lurk.user.square, saved_env: nil, body: (.lurk.user.square <span class="number">8</span>), continuation: Outermost }
+    at src/lem/eval.rs:<span class="number">107
+
+  2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.903170Z  </span>INFO lurk::lem::eval: Frame: <span class="number">2
+	</span>Expr: (.lurk.user.square <span class="number">8</span>)
+	Env:  ((.lurk.user.square . &lt;FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)&gt;))
 	Cont: Tail{ saved_env: nil, continuation: Outermost }
- INFO  lurk::eval &gt; Frame: <span class="number">3
-	</span>Expr: square
-	Env: ((square . &lt;FUNCTION (x) (* x x)&gt;))
-	Cont: Call{ unevaled_arg: <span class="number">8</span>, saved_env: ((square . &lt;FUNCTION (x) (* x x)&gt;)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
- INFO  lurk::eval &gt; Frame: <span class="number">4
+    at src/lem/eval.rs:<span class="number">107
+
+  2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.903649Z  </span>INFO lurk::lem::eval: Frame: <span class="number">3
+	</span>Expr: .lurk.user.square
+	Env:  ((.lurk.user.square . &lt;FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)&gt;))
+	Cont: Call{ unevaled_arg: <span class="number">8</span>, saved_env: ((.lurk.user.square . &lt;FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)&gt;)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
+    at src/lem/eval.rs:<span class="number">107
+
+  2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.903678Z  </span>INFO lurk::lem::eval: Frame: <span class="number">4
 	</span>Expr: <span class="number">8
-	</span>Env: ((square . &lt;FUNCTION (x) (* x x)&gt;))
-	Cont: Call2{ function: &lt;FUNCTION (x) (* x x)&gt;, saved_env: ((square . &lt;FUNCTION (x) (* x x)&gt;)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
- INFO  lurk::eval &gt; Frame: <span class="number">5
-	</span>Expr: (* x x)
-	Env: ((x . <span class="number">8</span>))
+	</span>Env:  ((.lurk.user.square . &lt;FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)&gt;))
+	Cont: Call2{ function: &lt;FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)&gt;, saved_env: ((.lurk.user.square . &lt;FUNCTION (.lurk.user.x) (* .lurk.user.x .lurk.user.x)&gt;)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
+    at src/lem/eval.rs:<span class="number">107
+
+  2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.903696Z  </span>INFO lurk::lem::eval: Frame: <span class="number">5
+	</span>Expr: (* .lurk.user.x .lurk.user.x)
+	Env:  ((.lurk.user.x . <span class="number">8</span>))
 	Cont: Tail{ saved_env: nil, continuation: Outermost }
- INFO  lurk::eval &gt; Frame: <span class="number">6
-	</span>Expr: x
-	Env: ((x . <span class="number">8</span>))
-	Cont: Binop{ operator: product#, unevaled_args: (x), saved_env: ((x . <span class="number">8</span>)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
- INFO  lurk::eval &gt; Frame: <span class="number">7
-	</span>Expr: x
-	Env: ((x . <span class="number">8</span>))
+    at src/lem/eval.rs:<span class="number">107
+
+  2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.903772Z  </span>INFO lurk::lem::eval: Frame: <span class="number">6
+	</span>Expr: .lurk.user.x
+	Env:  ((.lurk.user.x . <span class="number">8</span>))
+	Cont: Binop{ operator: product#, saved_env: ((.lurk.user.x . <span class="number">8</span>)), unevaled_args: (.lurk.user.x), continuation: Tail{ saved_env: nil, continuation: Outermost } }
+    at src/lem/eval.rs:<span class="number">107
+
+  2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.903844Z  </span>INFO lurk::lem::eval: Frame: <span class="number">7
+	</span>Expr: .lurk.user.x
+	Env:  ((.lurk.user.x . <span class="number">8</span>))
 	Cont: Binop2{ operator: product#, evaled_arg: <span class="number">8</span>, continuation: Tail{ saved_env: nil, continuation: Outermost } }
- INFO  lurk::eval &gt; Frame: <span class="number">8
-	</span>Expr: Thunk{ value: <span class="number">64 </span>=&gt; cont: Outermost}
-	Env: nil
+    at src/lem/eval.rs:<span class="number">107
+
+  2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.903866Z  </span>INFO lurk::lem::eval: Frame: <span class="number">8
+	</span>Expr: Thunk{ value: <span class="number">64 </span>=&gt; cont: Outermost }
+	Env:  nil
 	Cont: Dummy
- INFO  lurk::eval &gt; Frame: <span class="number">9
+    at src/lem/eval.rs:<span class="number">107
+
+  2023</span>-<span class="number">12</span>-<span class="number">10T15</span>:<span class="number">58</span>:<span class="number">21.903878Z  </span>INFO lurk::lem::eval: Frame: <span class="number">9
 	</span>Expr: <span class="number">64
-	</span>Env: nil
+	</span>Env:  nil
 	Cont: Terminal
-[<span class="number">9 </span>iterations] =&gt; <span class="number">64
-</span>&gt; </code></pre></div>
+    at src/lem/eval.rs:<span class="number">107
+
+</span>[<span class="number">9 </span>iterations] =&gt; <span class="number">64
+</span>user&gt; </code></pre></div>
 <h3 id="install"><a href="#install">Install</a></h3>
 <p>You can install the <code>lurk</code> Repl on your machine with</p>
 
