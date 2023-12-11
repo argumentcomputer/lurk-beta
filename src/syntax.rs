@@ -1,13 +1,9 @@
 use std::fmt;
 
 use crate::field::LurkField;
-use crate::lurk_sym_ptr;
 use crate::num::Num;
 use crate::package::SymbolRef;
 use crate::parser::position::Pos;
-use crate::ptr::Ptr;
-use crate::state::lurk_sym;
-use crate::store::Store;
 use crate::uint::UInt;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -116,38 +112,6 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
                     }
                 }
                 write!(f, ")")
-            }
-        }
-    }
-}
-
-impl<F: LurkField> Store<F> {
-    pub fn intern_syntax(&self, syn: Syntax<F>) -> Ptr<F> {
-        match syn {
-            Syntax::Num(_, x) => self.intern_num(x),
-            Syntax::UInt(_, x) => self.intern_uint(x),
-            Syntax::Char(_, x) => self.intern_char(x),
-            Syntax::Symbol(_, symbol) => self.intern_symbol(&symbol),
-            Syntax::String(_, x) => self.intern_string(&x),
-            Syntax::Quote(pos, x) => {
-                let xs = vec![Syntax::Symbol(pos, lurk_sym("quote").into()), *x];
-                self.intern_syntax(Syntax::List(pos, xs))
-            }
-            Syntax::List(_, xs) => {
-                let mut cdr = lurk_sym_ptr!(self, nil);
-                for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(x);
-                    cdr = self.intern_cons(car, cdr);
-                }
-                cdr
-            }
-            Syntax::Improper(_, xs, end) => {
-                let mut cdr = self.intern_syntax(*end);
-                for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(x);
-                    cdr = self.intern_cons(car, cdr);
-                }
-                cdr
             }
         }
     }
