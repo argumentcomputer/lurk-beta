@@ -5,7 +5,6 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::{convert::TryFrom, fmt};
 
 use crate::field::LurkField;
-use crate::ptr::TypePredicates;
 
 pub trait Tag:
     Into<u16> + TryFrom<u16, Error = anyhow::Error> + Copy + Sized + std::hash::Hash + Eq + fmt::Debug
@@ -70,30 +69,6 @@ impl fmt::Display for ExprTag {
             ExprTag::U64 => write!(f, "u64#"),
             ExprTag::Cproc => write!(f, "cproc#"),
         }
-    }
-}
-
-impl TypePredicates for ExprTag {
-    fn is_fun(&self) -> bool {
-        matches!(self, ExprTag::Fun)
-    }
-    fn is_self_evaluating(&self) -> bool {
-        match self {
-            Self::Cons | Self::Thunk | Self::Sym => false,
-            Self::Nil
-            | Self::Fun
-            | Self::Num
-            | Self::Str
-            | Self::Char
-            | Self::Comm
-            | Self::U64
-            | Self::Key
-            | Self::Cproc => true,
-        }
-    }
-
-    fn is_potentially(&self, tag: Self) -> bool {
-        self == &tag || !self.is_self_evaluating()
     }
 }
 

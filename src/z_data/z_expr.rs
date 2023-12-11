@@ -8,9 +8,6 @@ use serde::{Deserialize, Serialize};
 use crate::field::FWrap;
 use crate::field::LurkField;
 use crate::hash::PoseidonCache;
-use crate::num::Num;
-use crate::ptr::{Ptr, RawPtr};
-use crate::store::Store;
 use crate::tag::{ExprTag, Tag};
 use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 use crate::z_store::ZStore;
@@ -128,50 +125,6 @@ impl<F: LurkField> ZExpr<F> {
             ZExpr::UInt(x) => match x {
                 UInt::U64(x) => ZPtr(ExprTag::U64, F::from_u64(*x)),
             },
-        }
-    }
-
-    /// Constructs a `ZExpr` by fetching `ptr`'s expression from the store and hashing it
-    pub fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
-        match ptr.tag {
-            ExprTag::Nil => Some(ZExpr::Nil),
-            ExprTag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
-                Some(ZExpr::Cons(store.hash_expr(car)?, store.hash_expr(cdr)?))
-            }),
-            ExprTag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
-                Some(ZExpr::Comm(secret.0, store.hash_expr(payload)?))
-            }),
-            ExprTag::Sym if ptr.raw == RawPtr::Null => Some(ZExpr::RootSym),
-            ExprTag::Sym => store.fetch_symcons(ptr).and_then(|(tag, val)| {
-                Some(ZExpr::Sym(store.hash_expr(&tag)?, store.hash_expr(&val)?))
-            }),
-            ExprTag::Key => store.fetch_symcons(ptr).and_then(|(tag, val)| {
-                Some(ZExpr::Key(store.hash_expr(&tag)?, store.hash_expr(&val)?))
-            }),
-            ExprTag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
-                Some(ZExpr::Fun {
-                    arg: store.hash_expr(arg)?,
-                    body: store.hash_expr(body)?,
-                    closed_env: store.hash_expr(closed_env)?,
-                })
-            }),
-            ExprTag::Num => store.fetch_num(ptr).map(|num| match num {
-                Num::U64(x) => ZExpr::Num((*x).into()),
-                Num::Scalar(x) => ZExpr::Num(*x),
-            }),
-            ExprTag::Str if ptr.raw == RawPtr::Null => Some(ZExpr::EmptyStr),
-            ExprTag::Str => store.fetch_strcons(ptr).and_then(|(tag, val)| {
-                Some(ZExpr::Str(store.hash_expr(&tag)?, store.hash_expr(&val)?))
-            }),
-            ExprTag::Char => store.fetch_char(ptr).map(ZExpr::Char),
-            ExprTag::U64 => store.fetch_uint(ptr).map(ZExpr::UInt),
-            ExprTag::Thunk => store.fetch_thunk(ptr).and_then(|thunk| {
-                Some(ZExpr::Thunk(
-                    store.hash_expr(&thunk.value)?,
-                    store.hash_cont(&thunk.continuation)?,
-                ))
-            }),
-            ExprTag::Cproc => unreachable!("Lurk Alpha doesn't produce such expressions"),
         }
     }
 }

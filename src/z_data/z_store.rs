@@ -9,8 +9,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use crate::hash::PoseidonCache;
-use crate::ptr::Ptr;
-use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::tag::ExprTag;
 use crate::uint::UInt;
@@ -45,17 +43,6 @@ impl<F: LurkField> ZStore<F> {
         ZStore {
             expr_map: BTreeMap::new(),
             cont_map: BTreeMap::new(),
-        }
-    }
-
-    /// Creates a new `ZStore` and adds all `ZExprPtrs` reachable from the hashed `expr`
-    /// Inserts child pointers into `ZStore` with `to_z_store_with_ptr`,
-    /// then inserts top level pointer
-    /// Discards errors and returns an empty `ZStore` instead
-    pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ZExprPtr<F>>) {
-        match store.to_z_store_with_ptr(expr) {
-            Ok((new, z_ptr)) => (new, Some(z_ptr)),
-            _ => (ZStore::new(), None),
         }
     }
 

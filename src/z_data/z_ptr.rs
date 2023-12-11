@@ -15,7 +15,6 @@ use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::field::FWrap;
 use crate::field::LurkField;
-use crate::store::{self, Store};
 use crate::tag::{ContTag, ExprTag, Tag};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -126,20 +125,6 @@ impl<E: Tag, F: LurkField> ZPtr<E, F> {
 
 /// Alias for an expression pointer
 pub type ZExprPtr<F> = ZPtr<ExprTag, F>;
-
-impl<F: LurkField> ZExprPtr<F> {
-    /// Parses and hashes a Lurk source string into a ZExprPtr
-    pub fn from_lurk_str(value: &str) -> Result<Self, store::Error> {
-        let store = Store::<F>::default();
-        let ptr = store
-            .read(value)
-            .map_err(|e| store::Error(format!("Parse error: {}", e)))?;
-        let zptr = store
-            .hash_expr(&ptr)
-            .ok_or(store::Error("Invalid ptr".into()))?;
-        Ok(zptr)
-    }
-}
 
 /// Alias for a continuation pointer
 pub type ZContPtr<F> = ZPtr<ContTag, F>;
