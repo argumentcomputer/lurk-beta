@@ -1,0 +1,85 @@
+# Commit a temporary `cargo-command.env` on the desired local branch before running workflow
+name: Run custom `cargo` command
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Cargo command to run'
+        required: true
+        type: string
+      runner:
+        description: 'GitHub Actions runner'
+        required: true
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - ubuntu-latest
+          - buildjet-32vcpu-ubuntu-2204
+          - gpu-bench
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  cpu-command:
+    name: Run `cargo` command
+    if: inputs.runner != 'gpu-bench'
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      # Install dependencies
+      - uses: actions-rs/toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+      - uses: cardinalby/export-env-action@v2
+        with:
+          envFile:
+            'cargo-command.env'
+        continue-on-error: true
+      # Checks if command starts with `cargo`, then runs if so
+      - name: Run command
+        run: |
+          CARGO_CMD=$(echo ${{ inputs.command }} | awk '{ print $1 }')
+          if [ "$CARGO_CMD" != "cargo" ];
+          then
+            echo 'Invalid `cargo` command'
+            exit 1
+          else
+            ${{ inputs.command }}
+          fi
+
+  gpu-command:
+    name: Run `cargo` command on GPU
+    if: inputs.runner == 'gpu-bench'
+    runs-on: [self-hosted, "${{ inputs.runner }}", "NVIDIA L4"]
+    steps:
+      - uses: actions/checkout@v4
+      # Install dependencies
+      - uses: actions-rs/toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+      - name: Set up GPU if applicable
+        run: |
+          nvidia-smi
+          nvcc --version
+          CUDA_ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed 's/\.//g')
+          echo "EC_GPU_CUDA_NVCC_ARGS=--fatbin --gpu-architecture=sm_$CUDA_ARCH --generate-code=arch=compute_$CUDA_ARCH,code=sm_$CUDA_ARCH" | tee -a $GITHUB_ENV
+          echo "CUDA_ARCH=$CUDA_ARCH" | tee -a $GITHUB_ENV
+          echo "EC_GPU_FRAMEWORK=cuda" | tee -a $GITHUB_ENV
+          env | grep -E "LURK|EC_GPU|CUDA"
+      - uses: cardinalby/export-env-action@v2
+        with:
+          envFile:
+            'cargo-command.env'
+        continue-on-error: true
+      # Checks if command starts with `cargo`
+      - name: Run command
+        run: |
+          CARGO_CMD=$(echo ${{ inputs.command }} | awk '{ print $1 }')
+          if [ "$CARGO_CMD" != "cargo" ];
+          then
+            echo 'Invalid `cargo` command'
+            exit 1
+          else
+            ${{ inputs.command }}
+          fi
