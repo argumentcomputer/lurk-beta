@@ -231,14 +231,14 @@ where
         pp: &Self::PublicParams,
         z0: &[F],
         zi: &[F],
-        last_circuit_idx: usize,
+        _last_circuit_idx: usize,
     ) -> Result<bool, Self::ErrorType> {
         let (z0_primary, zi_primary) = (z0, zi);
         let z0_secondary = Self::z0_secondary();
         let zi_secondary = &z0_secondary;
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p) => p.verify(&pp.pp, last_circuit_idx, z0_primary, &z0_secondary)?,
+            Self::Recursive(p) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
             Self::Compressed(_) => unimplemented!(),
         };
 
