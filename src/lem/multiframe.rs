@@ -826,6 +826,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
         2 * self.lurk_step.input_params.len()
     }
 
+    #[tracing::instrument(skip_all, name = "synthesize")]
     fn synthesize<CS>(
         &self,
         cs: &mut CS,

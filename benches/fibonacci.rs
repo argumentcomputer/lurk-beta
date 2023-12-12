@@ -13,13 +13,12 @@ use lurk::{
     field::LurkField,
     lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
     proof::nova::NovaProver,
-    proof::Prover,
-    public_parameters::{
-        instance::{Instance, Kind},
-        public_params,
-    },
+    proof::{nova::public_params, Prover},
     state::State,
 };
+
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
+use tracing_texray::TeXRayLayer;
 
 mod common;
 use common::set_bench_config;
@@ -111,14 +110,8 @@ fn fibonacci_prove<M: measurement::Measurement>(
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
 
-    // use cached public params
-    let instance = Instance::new(
-        prove_params.reduction_count,
-        lang_rc.clone(),
-        true,
-        Kind::NovaPublicParams,
-    );
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp =
+        public_params::<_, _, MultiFrame<'_, _, _>>(prove_params.reduction_count, lang_rc.clone());
 
     // Track the number of `Lurk frames / sec`
     let rc = prove_params.reduction_count as u64;
@@ -148,7 +141,8 @@ fn fibonacci_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let result = prover.prove(&pp, frames, &store);
+                    let result = tracing_texray::examine(tracing::info_span!("bang!"))
+                        .in_scope(|| prover.prove(&pp, frames, &store));
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -159,12 +153,17 @@ fn fibonacci_prove<M: measurement::Measurement>(
 
 fn fibonacci_benchmark(c: &mut Criterion) {
     // Uncomment to record the logs. May negatively impact performance
-    //tracing_subscriber::fmt::init();
+    let subscriber = Registry::default()
+        .with(fmt::layer().pretty())
+        .with(EnvFilter::from_default_env())
+        .with(TeXRayLayer::new().width(120));
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+
     set_bench_config();
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
     let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
-    let batch_sizes = [100, 200];
+    let batch_sizes = [249, 374, 499];
 
     let state = State::init_lurk_state().rccell();
 
@@ -187,6 +186,8 @@ fn fibonacci_benchmark(c: &mut Criterion) {
     }
 }
 
+// RUST_LOG=info LURK_RC=600 LURK_PERF=max-parallel-simple cargo criterion --bench fibonacci --features "cuda" 2> ./benches/gpu-spmvm/600.txt
+// RUST_LOG=info LURK_RC=900 LURK_PERF=max-parallel-simple cargo criterion --bench fibonacci --features "cuda" 2> ./benches/dev/900.txt
 cfg_if::cfg_if! {
     if #[cfg(feature = "flamegraph")] {
         criterion_group! {

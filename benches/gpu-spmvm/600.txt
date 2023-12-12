@@ -1,0 +1,2 @@
+   Compiling sppark v0.1.5
+   Compiling pasta-msm v0.1.4 (https://github.com/lurk-lab/pasta-msm?branch=dev#182b971d)

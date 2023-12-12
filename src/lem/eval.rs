@@ -96,7 +96,7 @@ fn build_frames<
     let mut pc = 0;
     let mut frames = vec![];
     let mut iterations = 0;
-    tracing::info!("{}", &log_fmt(0, &input, &[], store));
+    tracing::debug!("{}", &log_fmt(0, &input, &[], store));
     for _ in 0..limit {
         let mut emitted = vec![];
         let (frame, must_break) =
@@ -104,7 +104,7 @@ fn build_frames<
 
         iterations += 1;
         input = frame.output.clone();
-        tracing::info!("{}", &log_fmt(iterations, &input, &emitted, store));
+        tracing::debug!("{}", &log_fmt(iterations, &input, &emitted, store));
         let expr = frame.output[0];
         frames.push(frame);
 

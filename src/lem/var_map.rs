@@ -2,7 +2,6 @@ use std::collections::hash_map::Entry;
 
 use anyhow::{bail, Result};
 use fxhash::FxHashMap;
-use tracing::info;
 
 use super::Var;
 
@@ -29,7 +28,7 @@ impl<V> VarMap<V> {
             }
             Entry::Occupied(mut o) => {
                 let v = o.insert(v);
-                info!("Variable {} has been overwritten", o.key());
+                tracing::debug!("Variable {} has been overwritten", o.key());
                 Some(v)
             }
         }
