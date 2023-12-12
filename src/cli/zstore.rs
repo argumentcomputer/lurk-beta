@@ -156,7 +156,8 @@ impl<F: LurkField> ZDag<F> {
     }
 
     /// Populates a `ZDag` with data from self
-    fn populate_z_dag(
+    #[allow(dead_code)]
+    pub(crate) fn populate_z_dag(
         &self,
         z_ptr: &ZPtr<F>,
         z_dag: &mut ZDag<F>,
@@ -195,6 +196,9 @@ impl<F: LurkField> ZDag<F> {
         recurse(z_ptr)
     }
 
+    /// Returns a `ZDag` containing only enough data to represent the `z_ptrs`,
+    /// which must be recoverable from `self`
+    #[allow(dead_code)]
     pub(crate) fn filtered(&self, z_ptrs: &[&ZPtr<F>]) -> Result<Self> {
         let mut z_dag_new = ZDag::default();
         let mut cache = HashSet::default();

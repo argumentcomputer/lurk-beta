@@ -36,7 +36,7 @@ use crate::cli::{
     zstore::ZStore,
 };
 
-use self::{field_data::load, lurk_proof::PackedLurkProof};
+use self::field_data::load;
 
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -61,10 +61,6 @@ enum Command {
     #[command(verbatim_doc_comment)]
     Circom(CircomArgs),
     PublicParams(PublicParamArgs),
-    /// Packs a proof on a file to be shared
-    Pack(PackArgs),
-    /// Unpacks a proof into Lurk's internal data storage
-    Unpack(UnpackArgs),
 }
 
 #[derive(Args, Debug)]
@@ -581,52 +577,6 @@ impl PublicParamArgs {
     }
 }
 
-#[derive(Args, Debug)]
-struct PackArgs {
-    /// Key of the proof to be packed
-    #[clap(value_parser)]
-    proof_key: String,
-
-    /// Path to the packed proof output
-    #[clap(long, short = 'o', value_parser)]
-    output: Utf8PathBuf,
-
-    /// Flag to exclude meta data
-    #[arg(long)]
-    exclude_meta: bool,
-
-    /// Flag to include envs in the meta data. Irrelevant if exclude_meta is true
-    #[arg(long)]
-    include_envs: bool,
-
-    /// Path to proofs directory
-    #[clap(long, value_parser)]
-    proofs_dir: Option<Utf8PathBuf>,
-
-    /// Config file, containing the lowest precedence parameters
-    #[clap(long, value_parser)]
-    config: Option<Utf8PathBuf>,
-}
-
-#[derive(Args, Debug)]
-struct UnpackArgs {
-    /// Packed proof path
-    #[clap(value_parser)]
-    proof_path: Utf8PathBuf,
-
-    /// Path to public parameters directory
-    #[clap(long, value_parser)]
-    public_params_dir: Option<Utf8PathBuf>,
-
-    /// Path to proofs directory
-    #[clap(long, value_parser)]
-    proofs_dir: Option<Utf8PathBuf>,
-
-    /// Config file, containing the lowest precedence parameters
-    #[clap(long, value_parser)]
-    config: Option<Utf8PathBuf>,
-}
-
 impl Cli {
     fn run(self) -> Result<()> {
         match self.command {
@@ -686,33 +636,6 @@ impl Cli {
 
                 create_lurk_dirs()?;
                 public_params_args.run()
-            }
-            Command::Pack(pack_args) => {
-                let mut cli_settings = HashMap::new();
-                if let Some(dir) = pack_args.proofs_dir {
-                    cli_settings.insert("proofs_dir", dir.to_string());
-                }
-                cli_config(pack_args.config.as_ref(), Some(&cli_settings));
-                PackedLurkProof::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>::pack(
-                    pack_args.proof_key,
-                    &pack_args.output,
-                    pack_args.exclude_meta,
-                    pack_args.include_envs,
-                )
-            }
-            Command::Unpack(unpack_args) => {
-                let mut cli_settings = HashMap::new();
-                if let Some(dir) = unpack_args.public_params_dir {
-                    cli_settings.insert("public_params_dir", dir.to_string());
-                }
-                if let Some(dir) = unpack_args.proofs_dir {
-                    cli_settings.insert("proofs_dir", dir.to_string());
-                }
-                cli_config(unpack_args.config.as_ref(), Some(&cli_settings));
-                create_lurk_dirs()?;
-                PackedLurkProof::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>::unpack(
-                    &unpack_args.proof_path,
-                )
             }
         }
     }
