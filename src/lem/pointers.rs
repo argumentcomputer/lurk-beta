@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{field::LurkField, tag::ExprTag::Nil};
+use crate::{
+    field::LurkField,
+    tag::ExprTag::{Cons, Fun, Nil, Num, Str, Sym},
+};
 
 use super::Tag;
 
@@ -32,8 +35,44 @@ impl Ptr {
         }
     }
 
+    #[inline]
+    pub fn has_tag(&self, tag: &Tag) -> bool {
+        self.tag() == tag
+    }
+
+    #[inline]
+    pub fn has_tag_in(&self, tags: &[Tag]) -> bool {
+        tags.contains(self.tag())
+    }
+
+    #[inline]
+    pub fn is_sym(&self) -> bool {
+        self.has_tag(&Tag::Expr(Sym))
+    }
+
+    #[inline]
+    pub fn is_num(&self) -> bool {
+        self.has_tag(&Tag::Expr(Num))
+    }
+
+    #[inline]
+    pub fn is_str(&self) -> bool {
+        self.has_tag(&Tag::Expr(Str))
+    }
+
+    #[inline]
+    pub fn is_fun(&self) -> bool {
+        self.has_tag(&Tag::Expr(Fun))
+    }
+
+    #[inline]
     pub fn is_nil(&self) -> bool {
-        self.tag() == &Tag::Expr(Nil)
+        self.has_tag(&Tag::Expr(Nil))
+    }
+
+    #[inline]
+    pub fn is_list(&self) -> bool {
+        self.has_tag_in(&[Tag::Expr(Cons), Tag::Expr(Nil)])
     }
 
     #[inline]

@@ -1,0 +1,26 @@
+;; A protocol that requires knowledge of a hash that opens to a pair such that
+;; its components add up to 30. If the proof is accepted, further require that
+;; the first component of the pair be greater than 10.
+!(defprotocol my-protocol (hash pair)
+  (let ((list6 (lambda (a b c d e f) (cons a (cons b (cons c (cons d (cons e (cons f nil))))))))
+        (mk-open-expr (lambda (hash) (cons 'open (cons hash nil)))))
+    (cons
+      (if (= (+ (car pair) (cdr pair)) 30)
+        (list6 (mk-open-expr hash) nil :outermost pair nil :terminal)
+        nil)
+      (lambda () (> (car pair) 10))))
+  :rc 10
+  :descr "demo protocol")
+
+;; This is the prover's pair, whose hash is
+;; 0x09910d31a7568d66855bcc83fccc4826063dfdf93fe5e1f736c83ec892ed139e
+(commit '(13 . 17))
+
+;; Let's prove it and write the proof to the file protocol-proof
+!(prove-protocol my-protocol
+  "protocol-proof"
+  0x09910d31a7568d66855bcc83fccc4826063dfdf93fe5e1f736c83ec892ed139e
+  '(13 . 17))
+
+;; Now it can be verified
+!(verify-protocol my-protocol "protocol-proof")

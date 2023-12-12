@@ -52,6 +52,7 @@ fn test_demo() {
         "demo/chained-functional-commitment.lurk",
         "demo/bank.lurk",
         "demo/vdf.lurk",
+        "demo/protocol.lurk",
     ];
 
     demo_examples.into_par_iter().for_each(|f| {
