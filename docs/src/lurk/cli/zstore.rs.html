@@ -363,6 +363,10 @@
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::collections::{BTreeMap, HashMap, HashSet};
@@ -521,7 +525,8 @@
     }
 
     <span class="doccomment">/// Populates a `ZDag` with data from self
-    </span><span class="kw">fn </span>populate_z_dag(
+    </span><span class="attr">#[allow(dead_code)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>populate_z_dag(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         z_ptr: <span class="kw-2">&amp;</span>ZPtr&lt;F&gt;,
         z_dag: <span class="kw-2">&amp;mut </span>ZDag&lt;F&gt;,
@@ -560,7 +565,10 @@
         recurse(z_ptr)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>filtered(<span class="kw-2">&amp;</span><span class="self">self</span>, z_ptrs: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>ZPtr&lt;F&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+    <span class="doccomment">/// Returns a `ZDag` containing only enough data to represent the `z_ptrs`,
+    /// which must be recoverable from `self`
+    </span><span class="attr">#[allow(dead_code)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>filtered(<span class="kw-2">&amp;</span><span class="self">self</span>, z_ptrs: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>ZPtr&lt;F&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>z_dag_new = ZDag::default();
         <span class="kw">let </span><span class="kw-2">mut </span>cache = HashSet::default();
         <span class="kw">for </span>z_ptr <span class="kw">in </span>z_ptrs {
