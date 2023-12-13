@@ -978,22 +978,29 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         match symbol head {
                             "lambda" => {
                                 let (vars, rest) = car_cdr(rest);
-                                match rest.tag {
+                                let rest_nil = eq_tag(rest, nil);
+                                if rest_nil {
+                                    return (expr, env, err, errctrl)
+                                }
+                                let (body, end) = car_cdr(rest);
+                                let end_nil = eq_tag(end, nil);
+                                if !end_nil {
+                                    return (expr, env, err, errctrl)
+                                }
+                                match vars.tag {
                                     Expr::Cons => {
-                                        let (body, end) = decons2(rest);
-                                        match end.tag {
-                                            Expr::Nil => {
-                                                let vars_is_cons = eq_tag(vars, cons);
-                                                let vars_is_nil = eq_tag(vars, nil);
-                                                let vars_is_cons_or_nil = or(vars_is_cons, vars_is_nil);
-                                                if vars_is_cons_or_nil {
-                                                    let fun: Expr::Fun = cons4(vars, body, env, foo);
-                                                    return (fun, env, cont, apply)
-                                                }
-                                                return (expr, env, err, errctrl)
+                                        let (var, _rest_vars) = decons2(vars);
+                                        match var.tag {
+                                            Expr::Sym => {
+                                                let fun: Expr::Fun = cons4(vars, body, env, foo);
+                                                return (fun, env, cont, apply)
                                             }
                                         };
                                         return (expr, env, err, errctrl)
+                                    }
+                                    Expr::Nil => {
+                                        let fun: Expr::Fun = cons4(vars, body, env, foo);
+                                        return (fun, env, cont, apply)
                                     }
                                 };
                                 return (expr, env, err, errctrl)
@@ -1277,21 +1284,22 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 let (vars, body, fun_env, _foo) = decons4(function);
                                 // vars must be non-empty, so:
                                 let (var, rest_vars) = decons2(vars);
+                                let binding: Expr::Cons = cons2(var, result);
+                                let ext_env: Expr::Cons = cons2(binding, fun_env);
+                                let rest_vars_empty = eq_tag(rest_vars, nil);
+                                let args_empty = eq_tag(args, nil);
+                                if rest_vars_empty {
+                                    if args_empty {
+                                        return (body, ext_env, continuation, ret)
+                                    }
+                                    // Oversaturated call
+                                    let cont: Cont::Call = cons4(args, args_env, continuation, foo);
+                                    return (body, ext_env, cont, ret)
+                                }
+                                let ext_function: Expr::Fun = cons4(rest_vars, body, ext_env, foo);
+                                let (var, _rest_vars) = car_cdr(rest_vars);
                                 match var.tag {
                                     Expr::Sym => {
-                                        let binding: Expr::Cons = cons2(var, result);
-                                        let ext_env: Expr::Cons = cons2(binding, fun_env);
-                                        let rest_vars_empty = eq_tag(rest_vars, nil);
-                                        let args_empty = eq_tag(args, nil);
-                                        if rest_vars_empty {
-                                            if args_empty {
-                                                return (body, ext_env, continuation, ret)
-                                            }
-                                            // Oversaturated call
-                                            let cont: Cont::Call = cons4(args, args_env, continuation, foo);
-                                            return (body, ext_env, cont, ret)
-                                        }
-                                        let ext_function: Expr::Fun = cons4(rest_vars, body, ext_env, foo);
                                         if args_empty {
                                             // Undersaturated call
                                             return (ext_function, ext_env, continuation, ret)
@@ -1758,8 +1766,8 @@ mod tests {
             expected.assert_eq(&computed.to_string());
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["8808"]);
-        expect_eq(cs.num_constraints(), expect!["10572"]);
+        expect_eq(cs.aux().len(), expect!["8823"]);
+        expect_eq(cs.num_constraints(), expect!["10628"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
