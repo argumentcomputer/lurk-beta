@@ -11,7 +11,7 @@ use nova::{
     },
     traits::{
         circuit_supernova::{StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit},
-        snark::default_ck_hint,
+        snark::{BatchedRelaxedR1CSSNARKTrait, RelaxedR1CSSNARKTrait},
         Engine,
     },
 };
@@ -111,12 +111,15 @@ where
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
     let non_uniform_circuit = M::blank(folding_config, 0);
-    // TODO: use `&*SS::commitment_key_floor()`, where `SS<G>: BatchedRelaxedR1CSSNARKTrait<G>``
-    // when https://github.com/lurk-lab/arecibo/issues/27 closes
+
+    // grab hints for the compressed SNARK variants we will use this with
+    let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
+    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<E2<F>>>::ck_floor();
+
     let pp = SuperNovaPublicParams::<F, M>::setup(
         &non_uniform_circuit,
-        &*default_ck_hint(),
-        &*default_ck_hint(),
+        &*commitment_size_hint1,
+        &*commitment_size_hint2,
     );
     let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
     PublicParams { pp, pk, vk }
