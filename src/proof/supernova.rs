@@ -127,7 +127,7 @@ where
 pub enum Proof<
     'a,
     F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
+    C: Coprocessor<F>,
     M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
 > where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
