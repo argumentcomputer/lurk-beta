@@ -780,7 +780,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 assert!(self.frames.is_none());
                 let store = Store::default();
                 let dummy_io = [store.dummy(); 3];
-                let blank_frame = Frame::blank(self.get_func(), self.pc);
+                let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
                 let frames = vec![blank_frame; self.num_frames];
                 synth(&store, &frames, &dummy_io, &dummy_io)
             }
@@ -869,7 +869,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
             None => {
                 assert!(self.store.is_none());
                 let store = Store::default();
-                let blank_frame = Frame::blank(self.get_func(), self.pc);
+                let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
                 let frames = vec![blank_frame; self.num_frames];
                 let g = self.lurk_step.alloc_globals(cs, &store)?;
                 self.synthesize_frames(cs, &store, input, &frames, &g)?
