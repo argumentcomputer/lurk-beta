@@ -21,6 +21,9 @@ jobs:
       && contains(github.event.comment.body, '!benchmark')
       && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
     steps:
+      # Get base branch of the PR
+      - uses: xt0rted/pull-request-comment-branch@v2
+        id: comment-branch
       - uses: actions/checkout@v4
       - name: Checkout PR branch
         run: gh pr checkout $PR_NUMBER
@@ -46,7 +49,7 @@ jobs:
           # Optional. Compare only this benchmark target
           benchName: "fibonacci"
           # Needed. The name of the branch to compare with
-          branchName: ${{ github.ref_name }}
+          branchName: ${{ steps.comment-branch.outputs.base_ref }}
 
   gpu-benchmark:
     name: run fibonacci benchmark on GPU
@@ -57,6 +60,9 @@ jobs:
       && contains(github.event.comment.body, '!gpu-benchmark')
       && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
     steps:
+      # Get base branch of the PR
+      - uses: xt0rted/pull-request-comment-branch@v2
+        id: comment-branch
       - uses: actions/checkout@v4
       - name: Checkout PR branch
         run: gh pr checkout $PR_NUMBER
@@ -94,4 +100,4 @@ jobs:
           # Optional. Features activated in the benchmark
           features: "cuda"
           # Needed. The name of the branch to compare with
-          branchName: ${{ github.ref_name }}
+          branchName: ${{ steps.comment-branch.outputs.base_ref }}
