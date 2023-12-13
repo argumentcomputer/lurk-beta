@@ -93,8 +93,9 @@ jobs:
         run: |
           echo "LURK_BENCH_OUTPUT=commit-comment" | tee -a $GITHUB_ENV
           echo "BASE_COMMIT=${{ github.event.merge_group.base_sha }}" | tee -a $GITHUB_ENV
-          echo "GPU_NAME=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader,nounits | tail -n1)" | tee -a $GITHUB_ENV
-          echo "GPU_ID=$(echo ${{ env.GPU_NAME }} | awk '{ print $NF }')" | tee -a $GITHUB_ENV
+          GPU_NAME=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader,nounits | tail -n1)
+          echo "GPU_ID=$(echo $GPU_NAME | awk '{ print $NF }')" | tee -a $GITHUB_ENV
+          echo "GPU_NAME=$GPU_NAME | tee -a $GITHUB_ENV
       # Checkout gh-pages to check for cached bench result
       - name: Checkout gh-pages
         uses: actions/checkout@v4
