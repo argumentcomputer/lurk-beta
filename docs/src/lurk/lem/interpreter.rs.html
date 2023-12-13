@@ -727,9 +727,9 @@
 }
 
 <span class="kw">impl </span>Frame {
-    <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func, pc: usize) -&gt; Frame {
-        <span class="kw">let </span>input = <span class="macro">vec!</span>[Ptr::dummy(); func.input_params.len()];
-        <span class="kw">let </span>output = <span class="macro">vec!</span>[Ptr::dummy(); func.output_size];
+    <span class="kw">pub fn </span>blank&lt;F: LurkField&gt;(func: <span class="kw-2">&amp;</span>Func, pc: usize, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Frame {
+        <span class="kw">let </span>input = <span class="macro">vec!</span>[store.dummy(); func.input_params.len()];
+        <span class="kw">let </span>output = <span class="macro">vec!</span>[store.dummy(); func.output_size];
         <span class="kw">let </span>hints = Hints::blank(func);
         Frame {
             input,

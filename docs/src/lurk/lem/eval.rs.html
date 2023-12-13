@@ -3632,7 +3632,7 @@
     </span><span class="kw">fn </span>test_counts() {
         <span class="kw">let </span>store = Store::default();
         <span class="kw">let </span>func = eval_step();
-        <span class="kw">let </span>frame = Frame::blank(func, <span class="number">0</span>);
+        <span class="kw">let </span>frame = Frame::blank(func, <span class="number">0</span>, <span class="kw-2">&amp;</span>store);
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
         <span class="kw">let </span>lang: Lang&lt;Fr, Coproc&lt;Fr&gt;&gt; = Lang::new();
         <span class="kw">let _ </span>= func.synthesize_frame_aux(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frame, <span class="kw-2">&amp;</span>lang);

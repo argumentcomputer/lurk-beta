@@ -1904,7 +1904,7 @@
                 <span class="macro">assert!</span>(<span class="self">self</span>.frames.is_none());
                 <span class="kw">let </span>store = Store::default();
                 <span class="kw">let </span>dummy_io = [store.dummy(); <span class="number">3</span>];
-                <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc);
+                <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc, <span class="kw-2">&amp;</span>store);
                 <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.num_frames];
                 synth(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>dummy_io, <span class="kw-2">&amp;</span>dummy_io)
             }
@@ -1993,7 +1993,7 @@
             <span class="prelude-val">None </span>=&gt; {
                 <span class="macro">assert!</span>(<span class="self">self</span>.store.is_none());
                 <span class="kw">let </span>store = Store::default();
-                <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc);
+                <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc, <span class="kw-2">&amp;</span>store);
                 <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.num_frames];
                 <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_globals(cs, <span class="kw-2">&amp;</span>store)<span class="question-mark">?</span>;
                 <span class="self">self</span>.synthesize_frames(cs, <span class="kw-2">&amp;</span>store, input, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>g)<span class="question-mark">?

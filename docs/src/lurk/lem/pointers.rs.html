@@ -141,11 +141,6 @@
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
@@ -268,11 +263,6 @@
             Ptr::Tuple4(<span class="kw">_</span>, x) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>x),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
-    }
-
-    <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>dummy() -&gt; <span class="self">Self </span>{
-        Ptr::Atom(Tag::Expr(Nil), <span class="number">0</span>)
     }
 }
 
