@@ -1805,7 +1805,7 @@ mod tests {
     fn test_counts() {
         let store = Store::default();
         let func = eval_step();
-        let frame = Frame::blank(func, 0);
+        let frame = Frame::blank(func, 0, &store);
         let mut cs = TestConstraintSystem::<Fr>::new();
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);

@@ -120,9 +120,9 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn blank(func: &Func, pc: usize) -> Frame {
-        let input = vec![Ptr::dummy(); func.input_params.len()];
-        let output = vec![Ptr::dummy(); func.output_size];
+    pub fn blank<F: LurkField>(func: &Func, pc: usize, store: &Store<F>) -> Frame {
+        let input = vec![store.dummy(); func.input_params.len()];
+        let output = vec![store.dummy(); func.output_size];
         let hints = Hints::blank(func);
         Frame {
             input,

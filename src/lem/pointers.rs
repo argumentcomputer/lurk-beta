@@ -121,11 +121,6 @@ impl Ptr {
             _ => None,
         }
     }
-
-    #[inline]
-    pub fn dummy() -> Self {
-        Ptr::Atom(Tag::Expr(Nil), 0)
-    }
 }
 
 /// A `ZPtr` is the result of "hydrating" a `Ptr`. This process is better
