@@ -1,7 +1,7 @@
 [package]
 name = "lurk"
 version = "0.2.0"
-authors = ["porcuquine <porcuquine@gmail.com>"]
+authors = ["Lurk Lab Engineering <engineering@lurk-lab.com>"]
 license = "MIT OR Apache-2.0"
 description = "Turing-Complete Zero Knowledge"
 edition = "2021"
@@ -31,8 +31,8 @@ halo2curves = "0.4"
 hex = { version = "0.4.3", features = ["serde"] }
 indexmap = { version = "2.1.0", features = ["rayon", "serde"] }
 itertools = "0.11"
-lurk-macros = { path = "lurk-macros" }
-lurk-metrics = { path = "lurk-metrics" }
+lurk-macros = { version = "0.1.0", path = "lurk-macros" }
+lurk-metrics = { version = "0.1.0", path = "lurk-metrics" }
 metrics = { workspace = true }
 neptune = { workspace = true, features = ["arity2", "arity4", "arity8", "arity16", "pasta"] }
 nom = "7.1.3"
@@ -62,13 +62,14 @@ abomonation = { workspace = true }
 abomonation_derive = { version = "0.1.0", package = "abomonation_derive_ng" }
 crossbeam = "0.8.2"
 byteorder = "1.4.3"
-circom-scotia = { git = "https://github.com/lurk-lab/circom-scotia", branch = "dev" }
+circom-scotia = "0.2.0"
 sha2 = { version = "0.10.2" }
 reqwest = { version = "0.11.18", features = ["stream", "blocking"] }
 ansi_term = "0.12.1"
 tracing = { workspace = true }
 tracing-texray = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+# TODO: package release
 elsa = { version = "1.9.0", git = "https://github.com/lurk-lab/elsa", branch = "sync_frozen", features = ["indexmap"] }
 arc-swap = "1.6.0"
 
@@ -120,18 +121,18 @@ members = ["lurk-macros", "lurk-metrics"]
 abomonation = "0.7.3"
 anyhow = "1.0.72"
 base64 = "0.13.1"
-bellpepper = { git = "https://github.com/lurk-lab/bellpepper", branch = "dev" }
-bellpepper-core = { git = "https://github.com/lurk-lab/bellpepper", branch = "dev" }
+bellpepper = "0.4.1"
+bellpepper-core = "0.4.0"
 bincode = "1.3.3"
 clap = "4.3.17"
 ff = "0.13"
 metrics = "0.21.1"
-neptune = { git = "https://github.com/lurk-lab/neptune", branch = "dev", features = ["abomonation"] }
-nova = { git = "https://github.com/lurk-lab/arecibo", branch = "dev", package = "arecibo" }
+neptune = { version = "13.0.0", features = ["abomonation"] }
+nova = { version = "0.1.0", package = "arecibo" }
 once_cell = "1.18.0"
 pairing = { version = "0.23" }
-pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch = "dev" }
-pasta-msm = { git = "https://github.com/lurk-lab/pasta-msm", branch = "dev" }
+pasta_curves = "0.5.1"
+pasta-msm = "0.1.4"
 proptest = "1.2.0"
 proptest-derive = "0.3.0"
 rand = "0.8"
@@ -181,7 +182,3 @@ harness = false
 [[bench]]
 name = "public_params"
 harness = false
-
-[patch.crates-io]
-# This is needed to ensure halo2curves, which imports pasta-curves, uses the *same* traits in bn256_grumpkin
-pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch = "dev" }
