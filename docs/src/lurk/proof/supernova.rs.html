@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/supernova.rs`."><title>supernova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e883e87179a81222.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (3340d49d2 2023-12-12)" data-channel="nightly" data-search-js="search-cca444cbb68c36e9.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-bc37acceda91d44a.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/supernova.rs`."><title>supernova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e883e87179a81222.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (eeff92ad3 2023-12-13)" data-channel="nightly" data-search-js="search-ec029af4ec3ae4df.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-bc37acceda91d44a.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -376,17 +376,60 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>nova::{
     supernova::{
-        <span class="self">self</span>, error::SuperNovaError, AuxParams, CircuitDigests, NonUniformCircuit, RecursiveSNARK,
+        <span class="self">self</span>,
+        error::SuperNovaError,
+        snark::{CompressedSNARK, ProverKey, VerifierKey},
+        AuxParams, CircuitDigests, NonUniformCircuit, RecursiveSNARK,
     },
     traits::{
         circuit_supernova::{StepCircuit <span class="kw">as </span>SuperStepCircuit, TrivialSecondaryCircuit},
-        snark::default_ck_hint,
+        snark::{BatchedRelaxedR1CSSNARKTrait, RelaxedR1CSSNARKTrait},
         Engine,
     },
 };
@@ -425,10 +468,11 @@
 {
     <span class="doccomment">/// Public params for SuperNova.
     </span><span class="kw">pub </span>pp: SuperNovaPublicParams&lt;F, SC&gt;,
-    <span class="comment">// SuperNova does not yet have a `CompressedSNARK`.
-    // pk: ProverKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
-    // vk: VerifierKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
-</span>}
+    <span class="doccomment">/// Prover key for SuperNova
+    </span><span class="kw">pub </span>pk: ProverKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+    <span class="doccomment">/// Verifier key for SuperNova
+    </span><span class="kw">pub </span>vk: VerifierKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+}
 
 <span class="kw">impl</span>&lt;F: CurveCycleEquipped, SC: SuperStepCircuit&lt;F&gt;&gt; Index&lt;usize&gt; <span class="kw">for </span>PublicParams&lt;F, SC&gt;
 <span class="kw">where
@@ -455,6 +499,20 @@
     }
 }
 
+<span class="doccomment">/// Type alias for the Evaluation Engine using G1 group elements.
+</span><span class="kw">pub type </span>EE1&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::EE1;
+<span class="doccomment">/// Type alias for the Evaluation Engine using G2 group elements.
+</span><span class="kw">pub type </span>EE2&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::EE2;
+
+<span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
+</span><span class="comment">// NOTE: this is not a SNARK that uses computational commitments,
+// that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
+</span><span class="kw">pub type </span>SS1&lt;F&gt; = nova::spartan::batched::BatchedRelaxedR1CSSNARK&lt;E1&lt;F&gt;, EE1&lt;F&gt;&gt;;
+<span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
+</span><span class="comment">// NOTE: this is not a SNARK that uses computational commitments,
+// that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
+</span><span class="kw">pub type </span>SS2&lt;F&gt; = nova::spartan::snark::RelaxedR1CSSNARK&lt;E2&lt;F&gt;, EE2&lt;F&gt;&gt;;
+
 <span class="doccomment">/// Generates the running claim params for the SuperNova proving system.
 </span><span class="kw">pub fn </span>public_params&lt;
     <span class="lifetime">'a</span>,
@@ -471,28 +529,38 @@
 {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
     <span class="kw">let </span>non_uniform_circuit = M::blank(folding_config, <span class="number">0</span>);
-    <span class="comment">// TODO: use `&amp;*SS::commitment_key_floor()`, where `SS&lt;G&gt;: RelaxedR1CSSNARKTrait&lt;G&gt;``
-    // when https://github.com/lurk-lab/arecibo/issues/27 closes
-    </span><span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F, M&gt;::setup(
+
+    <span class="comment">// grab hints for the compressed SNARK variants we will use this with
+    </span><span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>BatchedRelaxedR1CSSNARKTrait&lt;E1&lt;F&gt;&gt;&gt;::ck_floor();
+    <span class="kw">let </span>commitment_size_hint2 = &lt;SS2&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;E2&lt;F&gt;&gt;&gt;::ck_floor();
+
+    <span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F, M&gt;::setup(
         <span class="kw-2">&amp;</span>non_uniform_circuit,
-        <span class="kw-2">&amp;*</span>default_ck_hint(),
-        <span class="kw-2">&amp;*</span>default_ck_hint(),
+        <span class="kw-2">&amp;*</span>commitment_size_hint1,
+        <span class="kw-2">&amp;*</span>commitment_size_hint2,
     );
-    PublicParams { pp }
+    <span class="kw">let </span>(pk, vk) = CompressedSNARK::setup(<span class="kw-2">&amp;</span>pp).unwrap();
+    PublicParams { pp, pk, vk }
 }
 
 <span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
-</span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
-<span class="kw">where
+</span><span class="kw">pub enum </span>Proof&lt;
+    <span class="lifetime">'a</span>,
+    F: CurveCycleEquipped,
+    C: Coprocessor&lt;F&gt;,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt;,
+&gt; <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="doccomment">/// A proof for the intermediate steps of a recursive computation
     </span>Recursive(Box&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;&gt;&gt;),
     <span class="doccomment">/// A proof for the final step of a recursive computation
-    </span><span class="comment">// Compressed(Box&lt;CompressedSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1&lt;'a, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;),
-    </span>Compressed(PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(C, M)&gt;),
+    </span>Compressed(
+        Box&lt;CompressedSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;,
+        PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>C&gt;,
+    ),
 }
 
 <span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
@@ -501,7 +569,7 @@
     <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
     C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
+    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt;,
 &gt; {
     <span class="doccomment">/// The number of small-step reductions performed in each recursive step of
     /// the primary Lurk circuit.
@@ -511,8 +579,12 @@
     _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>M&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
-    SuperNovaProver&lt;<span class="lifetime">'a</span>, F, C, M&gt;
+<span class="kw">impl</span>&lt;
+        <span class="lifetime">'a</span>,
+        F: CurveCycleEquipped,
+        C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
+        M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt;,
+    &gt; SuperNovaProver&lt;<span class="lifetime">'a</span>, F, C, M&gt;
 {
     <span class="doccomment">/// Create a new SuperNovaProver with a reduction count and a `Lang`
     </span><span class="attr">#[inline]
@@ -598,10 +670,18 @@
         ))
     }
 
-    <span class="kw">fn </span>compress(<span class="self">self</span>, _pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
-        <span class="comment">// TODO: change this upon merging https://github.com/lurk-lab/arecibo/pull/131
-        // in order to close https://github.com/lurk-lab/lurk-rs/issues/912
-        </span><span class="macro">unimplemented!</span>()
+    <span class="kw">fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            <span class="self">Self</span>::Recursive(recursive_snark) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Compressed(
+                Box::new(CompressedSNARK::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;::prove(
+                    <span class="kw-2">&amp;</span>pp.pp,
+                    <span class="kw-2">&amp;</span>pp.pk,
+                    recursive_snark,
+                )<span class="question-mark">?</span>),
+                PhantomData,
+            )),
+            <span class="self">Self</span>::Compressed(..) =&gt; <span class="prelude-val">Ok</span>(<span class="self">self</span>),
+        }
     }
 
     <span class="kw">fn </span>verify(
@@ -617,7 +697,7 @@
 
         <span class="kw">let </span>(zi_primary_verified, zi_secondary_verified) = <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Recursive(p) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.pp, z0_primary, <span class="kw-2">&amp;</span>z0_secondary)<span class="question-mark">?</span>,
-            <span class="self">Self</span>::Compressed(<span class="kw">_</span>) =&gt; <span class="macro">unimplemented!</span>(),
+            <span class="self">Self</span>::Compressed(p, <span class="kw">_</span>) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.pp, <span class="kw-2">&amp;</span>pp.vk, z0_primary, <span class="kw-2">&amp;</span>z0_secondary)<span class="question-mark">?</span>,
         };
 
         <span class="prelude-val">Ok</span>(zi_primary == zi_primary_verified &amp;&amp; zi_secondary == <span class="kw-2">&amp;</span>zi_secondary_verified)
