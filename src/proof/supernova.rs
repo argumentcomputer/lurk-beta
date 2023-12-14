@@ -4,11 +4,14 @@ use abomonation::Abomonation;
 use ff::PrimeField;
 use nova::{
     supernova::{
-        self, error::SuperNovaError, AuxParams, CircuitDigests, NonUniformCircuit, RecursiveSNARK,
+        self,
+        error::SuperNovaError,
+        snark::{CompressedSNARK, ProverKey, VerifierKey},
+        AuxParams, CircuitDigests, NonUniformCircuit, RecursiveSNARK,
     },
     traits::{
         circuit_supernova::{StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit},
-        snark::default_ck_hint,
+        snark::{BatchedRelaxedR1CSSNARKTrait, RelaxedR1CSSNARKTrait},
         Engine,
     },
 };
@@ -47,9 +50,10 @@ where
 {
     /// Public params for SuperNova.
     pub pp: SuperNovaPublicParams<F, SC>,
-    // SuperNova does not yet have a `CompressedSNARK`.
-    // pk: ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
-    // vk: VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    /// Prover key for SuperNova
+    pub pk: ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    /// Verifier key for SuperNova
+    pub vk: VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
 }
 
 impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> Index<usize> for PublicParams<F, SC>
@@ -77,6 +81,20 @@ where
     }
 }
 
+/// Type alias for the Evaluation Engine using G1 group elements.
+pub type EE1<F> = <F as CurveCycleEquipped>::EE1;
+/// Type alias for the Evaluation Engine using G2 group elements.
+pub type EE2<F> = <F as CurveCycleEquipped>::EE2;
+
+/// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
+// NOTE: this is not a SNARK that uses computational commitments,
+// that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
+pub type SS1<F> = nova::spartan::batched::BatchedRelaxedR1CSSNARK<E1<F>, EE1<F>>;
+/// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
+// NOTE: this is not a SNARK that uses computational commitments,
+// that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
+pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<E2<F>, EE2<F>>;
+
 /// Generates the running claim params for the SuperNova proving system.
 pub fn public_params<
     'a,
@@ -93,28 +111,38 @@ where
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
     let non_uniform_circuit = M::blank(folding_config, 0);
-    // TODO: use `&*SS::commitment_key_floor()`, where `SS<G>: RelaxedR1CSSNARKTrait<G>``
-    // when https://github.com/lurk-lab/arecibo/issues/27 closes
+
+    // grab hints for the compressed SNARK variants we will use this with
+    let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
+    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<E2<F>>>::ck_floor();
+
     let pp = SuperNovaPublicParams::<F, M>::setup(
         &non_uniform_circuit,
-        &*default_ck_hint(),
-        &*default_ck_hint(),
+        &*commitment_size_hint1,
+        &*commitment_size_hint2,
     );
-    PublicParams { pp }
+    let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
+    PublicParams { pp, pk, vk }
 }
 
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
-pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
-where
+pub enum Proof<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F>,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
+> where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// A proof for the intermediate steps of a recursive computation
     Recursive(Box<RecursiveSNARK<E1<F>, E2<F>>>),
     /// A proof for the final step of a recursive computation
-    // Compressed(Box<CompressedSNARK<E1<F>, E2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>),
-    Compressed(PhantomData<&'a (C, M)>),
+    Compressed(
+        Box<CompressedSNARK<E1<F>, E2<F>, M, C2<F>, SS1<F>, SS2<F>>>,
+        PhantomData<&'a C>,
+    ),
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
@@ -123,7 +151,7 @@ pub struct SuperNovaProver<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
 > {
     /// The number of small-step reductions performed in each recursive step of
     /// the primary Lurk circuit.
@@ -133,8 +161,12 @@ pub struct SuperNovaProver<
     _phantom: PhantomData<&'a M>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
-    SuperNovaProver<'a, F, C, M>
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
+    > SuperNovaProver<'a, F, C, M>
 {
     /// Create a new SuperNovaProver with a reduction count and a `Lang`
     #[inline]
@@ -220,10 +252,18 @@ where
         ))
     }
 
-    fn compress(self, _pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
-        // TODO: change this upon merging https://github.com/lurk-lab/arecibo/pull/131
-        // in order to close https://github.com/lurk-lab/lurk-rs/issues/912
-        unimplemented!()
+    fn compress(self, pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
+        match &self {
+            Self::Recursive(recursive_snark) => Ok(Self::Compressed(
+                Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
+                    &pp.pp,
+                    &pp.pk,
+                    recursive_snark,
+                )?),
+                PhantomData,
+            )),
+            Self::Compressed(..) => Ok(self),
+        }
     }
 
     fn verify(
@@ -239,7 +279,7 @@ where
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
             Self::Recursive(p) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
-            Self::Compressed(_) => unimplemented!(),
+            Self::Compressed(p, _) => p.verify(&pp.pp, &pp.vk, z0_primary, &z0_secondary)?,
         };
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == &zi_secondary_verified)

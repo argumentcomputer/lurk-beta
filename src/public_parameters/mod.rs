@@ -1,4 +1,4 @@
-use ::nova::traits::Engine;
+use ::nova::{supernova::snark::CompressedSNARK, traits::Engine};
 use abomonation::{decode, Abomonation};
 use std::sync::Arc;
 
@@ -164,12 +164,12 @@ where
     let pp = match (maybe_circuit_params_vec, maybe_aux_params) {
         (Ok(circuit_params_vec), Ok(aux_params)) => {
             println!("generating public params");
-            supernova::PublicParams {
-                pp: SuperNovaPublicParams::<F, M>::from_parts_unchecked(
-                    circuit_params_vec,
-                    aux_params,
-                ),
-            }
+
+            let pp =
+                SuperNovaPublicParams::<F, M>::from_parts_unchecked(circuit_params_vec, aux_params);
+            let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
+
+            supernova::PublicParams { pp, pk, vk }
         }
         _ => {
             println!("generating running claim params");
@@ -183,12 +183,12 @@ where
                 let instance = instance_primary.reindex(circuit_index);
                 disk_cache.write_abomonated(&instance, circuit_params)?;
             }
-            supernova::PublicParams {
-                pp: SuperNovaPublicParams::<F, M>::from_parts_unchecked(
-                    circuit_params_vec,
-                    aux_params,
-                ),
-            }
+
+            let pp =
+                SuperNovaPublicParams::<F, M>::from_parts_unchecked(circuit_params_vec, aux_params);
+            let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
+
+            supernova::PublicParams { pp, pk, vk }
         }
     };
 
