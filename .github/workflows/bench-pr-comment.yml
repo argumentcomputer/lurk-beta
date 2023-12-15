@@ -35,14 +35,13 @@ jobs:
         run: sudo apt-get install -y pkg-config libssl-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Load env vars
+      - name: Set output type
         run: |
-          set -a
-          source bench.env
-          set +a
           echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
-          env | grep -E 'LURK|EC_GPU|CUDA'
-        working-directory: ${{ github.workspace }}/benches
+      - uses: cardinalby/export-env-action@v2
+        with:
+          envFile:
+            'benches/bench.env'
       # Run the comparative benchmark and comment output on the PR
       - uses: boa-dev/criterion-compare-action@v3
         with:
@@ -60,6 +59,13 @@ jobs:
       && contains(github.event.comment.body, '!gpu-benchmark')
       && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
     steps:
+      # Set up GPU env
+      - uses: actions/checkout@v4
+        with:
+          repository: lurk-lab/ci-workflows
+      - uses: ./.github/actions/ci-env
+        with:
+          gpu-framework: 'cuda'
       # Get base branch of the PR
       - uses: xt0rted/pull-request-comment-branch@v2
         id: comment-branch
@@ -69,20 +75,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.issue.number }}
-      # Set up GPU
-      # Check we have access to the machine's Nvidia drivers
-      - run: nvidia-smi
-      # The `compute`/`sm` number corresponds to the Nvidia GPU architecture
-      # In this case, the self-hosted machine uses the Ampere architecture, but we want this to be configurable
-      # See https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
-      # Writes env vars to `bench.env` to be read by `dotenv` action. This is roundabout but puts all the env vars in one place
-      - name: Set env for CUDA compute
-        run: echo "CUDA_ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed 's/\.//g')" >> bench.env
-      - name: set env for EC_GPU
-        run: echo 'EC_GPU_CUDA_NVCC_ARGS=--fatbin --gpu-architecture=sm_${{ env.CUDA_ARCH }} --generate-code=arch=compute_${{ env.CUDA_ARCH }},code=sm_${{ env.CUDA_ARCH }}' >> bench.env
-      # Check that CUDA is installed with a driver-compatible version
-      # This must also be compatible with the GPU architecture, see above link
-      - run: nvcc --version
       # Install dependencies
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2

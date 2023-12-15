@@ -1,32 +1,8 @@
-name: Codecov
+name: Generate and deploy Codecov results
 on:
   schedule:
     - cron:  '0 0 * * *'
     
 jobs:
   codecov-grcov:
-    name: Generate code coverage
-    runs-on: buildjet-16vcpu-ubuntu-2204
-    strategy:
-      fail-fast: true
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@nextest
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Clean the workspace
-        run: cargo llvm-cov clean --workspace
-      - name: Build
-        run: cargo build --profile dev-ci
-      - name: Collect coverage data
-        run: cargo llvm-cov nextest --lcov --output-path lcov.info --profile ci --release --workspace --run-ignored ignored-only -E 'all() - test(test_make_fcomm_examples)'
-      - name: Upload coverage data to codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: lcov.info
+    uses: lurk-lab/ci-workflows/.github/workflows/codecov.yml@main

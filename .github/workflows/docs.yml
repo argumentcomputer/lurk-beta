@@ -1,4 +1,4 @@
-name: Docs
+name: Generate and deploy crate docs
 
 on:
   push:
@@ -12,30 +12,4 @@ on:
 
 jobs:
   docs:
-    name: Generate crate documentation
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-
-      - name: Generate documentation
-        uses: actions-rs/cargo@v1
-        env:
-          RUSTDOCFLAGS: "--enable-index-page -Zunstable-options"
-        with:
-          command: doc
-          args: --workspace --no-deps
-
-      - name: Deploy documentation
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./target/doc
-          destination_dir: docs
+    uses: lurk-lab/ci-workflows/.github/workflows/docs.yml@main
