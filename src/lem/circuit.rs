@@ -31,7 +31,7 @@ use bellpepper_core::{
     },
 };
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet},
     sync::Arc,
 };
 
@@ -472,9 +472,7 @@ struct RecursiveContext<'a, F: LurkField, C: Coprocessor<F>> {
     commitment_slots: &'a [&'a (Vec<AllocatedNum<F>>, AllocatedVal<F>)],
     bit_decomp_slots: &'a [&'a (Vec<AllocatedNum<F>>, AllocatedVal<F>)],
     blank: bool,
-    call_outputs: &'a VecDeque<Vec<Ptr>>,
-    call_idx: usize,
-    cproc_outputs: &'a [Vec<Ptr>],
+    bindings: &'a VarMap<Val>,
 }
 
 fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
@@ -485,7 +483,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     bound_allocations: &mut BoundAllocations<F>,
     preallocated_outputs: &Vec<AllocatedPtr<F>>,
     ctx: &mut RecursiveContext<'_, F, C>,
-    mut cproc_idx: usize,
 ) -> Result<()> {
     for (op_idx, op) in block.ops.iter().enumerate() {
         let mut cs = cs.namespace(|| format!("op {op_idx}"));
@@ -577,7 +574,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     .ok_or_else(|| anyhow!("Coprocessor for {sym} not found"))?;
                 let not_dummy_and_not_blank = not_dummy.get_value() == Some(true) && !ctx.blank;
                 let collected_z_ptrs = if not_dummy_and_not_blank {
-                    let collected_ptrs = &ctx.cproc_outputs[cproc_idx];
+                    let collected_ptrs = ctx.bindings.get_many_ptr(out)?;
                     if out.len() != collected_ptrs.len() {
                         bail!("Incompatible output length for coprocessor {sym}")
                     }
@@ -633,7 +630,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                         );
                     }
                 }
-                cproc_idx += 1;
             }
             Op::Call(out, func, inp) => {
                 // Allocate the output pointers that the `func` will return to.
@@ -644,11 +640,11 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 // add the results of the call to the witness, or recompute them.
                 let not_dummy_and_not_blank = not_dummy.get_value() == Some(true) && !ctx.blank;
                 let output_z_ptrs = if not_dummy_and_not_blank {
-                    let z_ptrs = ctx.call_outputs[ctx.call_idx]
+                    let ptrs = ctx.bindings.get_many_ptr(out)?;
+                    let z_ptrs = ptrs
                         .iter()
                         .map(|ptr| ctx.store.hash_ptr(ptr))
                         .collect::<Vec<_>>();
-                    ctx.call_idx += 1;
                     assert_eq!(z_ptrs.len(), out.len());
                     z_ptrs
                 } else {
@@ -680,7 +676,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     bound_allocations,
                     &output_ptrs,
                     ctx,
-                    cproc_idx,
                 )?;
             }
             Op::Cons2(img, tag, preimg) => {
@@ -1082,7 +1077,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 bound_allocations,
                 preallocated_outputs,
                 ctx,
-                cproc_idx,
             )?;
             branch_slots.push(branch_slot);
         }
@@ -1118,7 +1112,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 bound_allocations,
                 preallocated_outputs,
                 ctx,
-                cproc_idx,
             )?;
 
             // Pushing `is_default` to `selector` to enforce summation = 1
@@ -1167,7 +1160,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 bound_allocations,
                 preallocated_outputs,
                 ctx,
-                cproc_idx,
             )?;
             synthesize_block(
                 &mut cs.namespace(|| "if_eq.false"),
@@ -1177,7 +1169,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 bound_allocations,
                 preallocated_outputs,
                 ctx,
-                cproc_idx,
             )?;
             *next_slot = next_slot.cmp_max(branch_slot);
             Ok(())
@@ -1344,11 +1335,8 @@ impl Func {
                     commitment_slots,
                     bit_decomp_slots,
                     blank: frame.blank,
-                    call_outputs: &frame.hints.call_outputs,
-                    call_idx: 0,
-                    cproc_outputs: &frame.hints.cproc_outputs,
+                    bindings: &frame.hints.bindings,
                 },
-                0,
             )?;
         } else {
             assert!(!cs.is_witness_generator());
@@ -1375,11 +1363,8 @@ impl Func {
                     commitment_slots,
                     bit_decomp_slots,
                     blank: frame.blank,
-                    call_outputs: &frame.hints.call_outputs,
-                    call_idx: 0,
-                    cproc_outputs: &frame.hints.cproc_outputs,
+                    bindings: &frame.hints.bindings,
                 },
-                0,
             )?;
         }
 
