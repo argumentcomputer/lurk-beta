@@ -13,6 +13,12 @@ use super::Var;
 #[derive(Clone, Debug)]
 pub struct VarMap<V>(FxHashMap<Var, V>);
 
+impl<V> Default for VarMap<V> {
+    fn default() -> VarMap<V> {
+        VarMap(FxHashMap::default())
+    }
+}
+
 impl<V> VarMap<V> {
     /// Creates an empty `VarMap`
     #[inline]
