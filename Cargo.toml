@@ -27,7 +27,6 @@ dashmap = "5.5.0"
 ff = { workspace = true }
 fxhash = "0.2.1"
 generic-array = "0.14.7"
-halo2curves = "0.4"
 hex = { version = "0.4.3", features = ["serde"] }
 indexmap = { version = "2.1.0", features = ["rayon", "serde"] }
 itertools = "0.11"
@@ -83,10 +82,12 @@ rustyline = { version = "11.0", features = [
     "with-file-history",
 ], default-features = false }
 home = "0.5.5"
+halo2curves = { version = "0.5.0", features = ["bits", "derive_serde"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 rustyline = { version = "11.0", features = ["derive"], default-features = false }
+halo2curves = { version = "0.5.0", default-features = false, features = ["bits", "derive_serde"] }
 
 [features]
 default = []
