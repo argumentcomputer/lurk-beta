@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e883e87179a81222.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (eeff92ad3 2023-12-13)" data-channel="nightly" data-search-js="search-ec029af4ec3ae4df.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-bc37acceda91d44a.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-804b98a1284a310a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (6a6287132 2023-12-17)" data-channel="nightly" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -588,25 +589,7 @@
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>std::collections::VecDeque;
 
 <span class="kw">use super</span>::{
     path::Path,
@@ -627,7 +610,7 @@
 };
 
 <span class="kw">impl </span>VarMap&lt;Val&gt; {
-    <span class="kw">fn </span>get_many_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>[Var]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Ptr&gt;&gt; {
+    <span class="kw">pub fn </span>get_many_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>[Var]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Ptr&gt;&gt; {
         args.iter().map(|arg| <span class="self">self</span>.get_ptr(arg)).collect()
     }
 
@@ -665,8 +648,7 @@
     <span class="kw">pub </span>hash8: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&gt;&gt;,
     <span class="kw">pub </span>commitment: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&gt;&gt;,
     <span class="kw">pub </span>bit_decomp: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&gt;&gt;,
-    <span class="kw">pub </span>call_outputs: VecDeque&lt;Vec&lt;Ptr&gt;&gt;,
-    <span class="kw">pub </span>cproc_outputs: Vec&lt;Vec&lt;Ptr&gt;&gt;,
+    <span class="kw">pub </span>bindings: VarMap&lt;Val&gt;,
 }
 
 <span class="kw">impl </span>Hints {
@@ -677,16 +659,14 @@
         <span class="kw">let </span>hash8 = Vec::with_capacity(slot.hash8);
         <span class="kw">let </span>commitment = Vec::with_capacity(slot.commitment);
         <span class="kw">let </span>bit_decomp = Vec::with_capacity(slot.bit_decomp);
-        <span class="kw">let </span>call_outputs = VecDeque::new();
-        <span class="kw">let </span>cproc_outputs = Vec::new();
+        <span class="kw">let </span>bindings = VarMap::new();
         Hints {
             hash4,
             hash6,
             hash8,
             commitment,
             bit_decomp,
-            call_outputs,
-            cproc_outputs,
+            bindings,
         }
     }
 
@@ -697,16 +677,14 @@
         <span class="kw">let </span>hash8 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash8];
         <span class="kw">let </span>commitment = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.commitment];
         <span class="kw">let </span>bit_decomp = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.bit_decomp];
-        <span class="kw">let </span>call_outputs = VecDeque::new();
-        <span class="kw">let </span>cproc_outputs = Vec::new();
+        <span class="kw">let </span>bindings = VarMap::new();
         Hints {
             hash4,
             hash6,
             hash8,
             commitment,
             bit_decomp,
-            call_outputs,
-            cproc_outputs,
+            bindings,
         }
     }
 }
@@ -768,35 +746,24 @@
                     <span class="kw">if </span>out.len() != out_ptrs.len() {
                         <span class="macro">bail!</span>(<span class="string">"Incompatible output length for coprocessor {sym}"</span>)
                     }
-                    <span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(<span class="kw-2">&amp;</span>out_ptrs) {
-                        bindings.insert(var.clone(), Val::Pointer(<span class="kw-2">*</span>ptr));
+                    <span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(out_ptrs.into_iter()) {
+                        bindings.insert(var.clone(), Val::Pointer(ptr));
+                        hints.bindings.insert(var.clone(), Val::Pointer(ptr));
                     }
-                    hints.cproc_outputs.push(out_ptrs);
                 }
                 Op::Call(out, func, inp) =&gt; {
                     <span class="comment">// Get the argument values
                     </span><span class="kw">let </span>inp_ptrs = bindings.get_many_ptr(inp)<span class="question-mark">?</span>;
-
-                    <span class="comment">// To save lexical order of `call_outputs` we need to push the output
-                    // of the call *before* the inner calls of the `func`. To do this, we
-                    // save all the inner call outputs, push the output of the call in front
-                    // of it, then extend `call_outputs`
-                    </span><span class="kw">let </span><span class="kw-2">mut </span>inner_call_outputs = VecDeque::new();
-                    std::mem::swap(<span class="kw-2">&amp;mut </span>inner_call_outputs, <span class="kw-2">&amp;mut </span>hints.call_outputs);
-                    <span class="kw">let </span>(<span class="kw-2">mut </span>frame, func_path) =
+                    <span class="kw">let </span>(frame, func_path) =
                         func.call(<span class="kw-2">&amp;</span>inp_ptrs, store, hints, emitted, lang, pc)<span class="question-mark">?</span>;
-                    std::mem::swap(<span class="kw-2">&amp;mut </span>inner_call_outputs, <span class="kw-2">&amp;mut </span>frame.hints.call_outputs);
-
-                    <span class="comment">// Extend the path and bind the output variables to the output values
+                    <span class="comment">// Extend the path
                     </span>path.extend_from_path(<span class="kw-2">&amp;</span>func_path);
-                    <span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(frame.output.iter()) {
-                        bindings.insert_ptr(var.clone(), <span class="kw-2">*</span>ptr);
+                    <span class="comment">// Bind the output variables to the output values
+                    </span>hints = frame.hints;
+                    <span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(frame.output.into_iter()) {
+                        bindings.insert_ptr(var.clone(), ptr);
+                        hints.bindings.insert_ptr(var.clone(), ptr);
                     }
-
-                    <span class="comment">// Update `hints` correctly
-                    </span>inner_call_outputs.push_front(frame.output);
-                    hints = frame.hints;
-                    hints.call_outputs.extend(inner_call_outputs);
                 }
                 Op::Copy(tgt, src) =&gt; {
                     bindings.insert(tgt.clone(), bindings.get_cloned(src)<span class="question-mark">?</span>);

@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/circuit.rs`."><title>circuit.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e883e87179a81222.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (eeff92ad3 2023-12-13)" data-channel="nightly" data-search-js="search-ec029af4ec3ae4df.js" data-settings-js="settings-fe03fdc259827cd2.js" ><script src="../../../static.files/storage-bc37acceda91d44a.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-77dede896d6ac08e.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/circuit.rs`."><title>circuit.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-804b98a1284a310a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (6a6287132 2023-12-17)" data-channel="nightly" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1572,21 +1573,6 @@
 <a href="#1572" id="1572">1572</a>
 <a href="#1573" id="1573">1573</a>
 <a href="#1574" id="1574">1574</a>
-<a href="#1575" id="1575">1575</a>
-<a href="#1576" id="1576">1576</a>
-<a href="#1577" id="1577">1577</a>
-<a href="#1578" id="1578">1578</a>
-<a href="#1579" id="1579">1579</a>
-<a href="#1580" id="1580">1580</a>
-<a href="#1581" id="1581">1581</a>
-<a href="#1582" id="1582">1582</a>
-<a href="#1583" id="1583">1583</a>
-<a href="#1584" id="1584">1584</a>
-<a href="#1585" id="1585">1585</a>
-<a href="#1586" id="1586">1586</a>
-<a href="#1587" id="1587">1587</a>
-<a href="#1588" id="1588">1588</a>
-<a href="#1589" id="1589">1589</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -1620,7 +1606,7 @@
     },
 };
 <span class="kw">use </span>std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet},
     sync::Arc,
 };
 
@@ -2061,9 +2047,7 @@
     commitment_slots: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
     bit_decomp_slots: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)],
     blank: bool,
-    call_outputs: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VecDeque&lt;Vec&lt;Ptr&gt;&gt;,
-    call_idx: usize,
-    cproc_outputs: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[Vec&lt;Ptr&gt;],
+    bindings: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VarMap&lt;Val&gt;,
 }
 
 <span class="kw">fn </span>synthesize_block&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, C: Coprocessor&lt;F&gt;&gt;(
@@ -2074,7 +2058,6 @@
     bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
     preallocated_outputs: <span class="kw-2">&amp;</span>Vec&lt;AllocatedPtr&lt;F&gt;&gt;,
     ctx: <span class="kw-2">&amp;mut </span>RecursiveContext&lt;<span class="lifetime">'_</span>, F, C&gt;,
-    <span class="kw-2">mut </span>cproc_idx: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">for </span>(op_idx, op) <span class="kw">in </span>block.ops.iter().enumerate() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = cs.namespace(|| <span class="macro">format!</span>(<span class="string">"op {op_idx}"</span>));
@@ -2166,7 +2149,7 @@
                     .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">"Coprocessor for {sym} not found"</span>))<span class="question-mark">?</span>;
                 <span class="kw">let </span>not_dummy_and_not_blank = not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) &amp;&amp; !ctx.blank;
                 <span class="kw">let </span>collected_z_ptrs = <span class="kw">if </span>not_dummy_and_not_blank {
-                    <span class="kw">let </span>collected_ptrs = <span class="kw-2">&amp;</span>ctx.cproc_outputs[cproc_idx];
+                    <span class="kw">let </span>collected_ptrs = ctx.bindings.get_many_ptr(out)<span class="question-mark">?</span>;
                     <span class="kw">if </span>out.len() != collected_ptrs.len() {
                         <span class="macro">bail!</span>(<span class="string">"Incompatible output length for coprocessor {sym}"</span>)
                     }
@@ -2222,7 +2205,6 @@
                         );
                     }
                 }
-                cproc_idx += <span class="number">1</span>;
             }
             Op::Call(out, func, inp) =&gt; {
                 <span class="comment">// Allocate the output pointers that the `func` will return to.
@@ -2233,11 +2215,11 @@
                 // add the results of the call to the witness, or recompute them.
                 </span><span class="kw">let </span>not_dummy_and_not_blank = not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) &amp;&amp; !ctx.blank;
                 <span class="kw">let </span>output_z_ptrs = <span class="kw">if </span>not_dummy_and_not_blank {
-                    <span class="kw">let </span>z_ptrs = ctx.call_outputs[ctx.call_idx]
+                    <span class="kw">let </span>ptrs = ctx.bindings.get_many_ptr(out)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>z_ptrs = ptrs
                         .iter()
                         .map(|ptr| ctx.store.hash_ptr(ptr))
                         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-                    ctx.call_idx += <span class="number">1</span>;
                     <span class="macro">assert_eq!</span>(z_ptrs.len(), out.len());
                     z_ptrs
                 } <span class="kw">else </span>{
@@ -2269,7 +2251,6 @@
                     bound_allocations,
                     <span class="kw-2">&amp;</span>output_ptrs,
                     ctx,
-                    cproc_idx,
                 )<span class="question-mark">?</span>;
             }
             Op::Cons2(img, tag, preimg) =&gt; {
@@ -2671,7 +2652,6 @@
                 bound_allocations,
                 preallocated_outputs,
                 ctx,
-                cproc_idx,
             )<span class="question-mark">?</span>;
             branch_slots.push(branch_slot);
         }
@@ -2707,7 +2687,6 @@
                 bound_allocations,
                 preallocated_outputs,
                 ctx,
-                cproc_idx,
             )<span class="question-mark">?</span>;
 
             <span class="comment">// Pushing `is_default` to `selector` to enforce summation = 1
@@ -2756,7 +2735,6 @@
                 bound_allocations,
                 preallocated_outputs,
                 ctx,
-                cproc_idx,
             )<span class="question-mark">?</span>;
             synthesize_block(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"if_eq.false"</span>),
@@ -2766,7 +2744,6 @@
                 bound_allocations,
                 preallocated_outputs,
                 ctx,
-                cproc_idx,
             )<span class="question-mark">?</span>;
             <span class="kw-2">*</span>next_slot = next_slot.cmp_max(branch_slot);
             <span class="prelude-val">Ok</span>(())
@@ -2933,11 +2910,8 @@
                     commitment_slots,
                     bit_decomp_slots,
                     blank: frame.blank,
-                    call_outputs: <span class="kw-2">&amp;</span>frame.hints.call_outputs,
-                    call_idx: <span class="number">0</span>,
-                    cproc_outputs: <span class="kw-2">&amp;</span>frame.hints.cproc_outputs,
+                    bindings: <span class="kw-2">&amp;</span>frame.hints.bindings,
                 },
-                <span class="number">0</span>,
             )<span class="question-mark">?</span>;
         } <span class="kw">else </span>{
             <span class="macro">assert!</span>(!cs.is_witness_generator());
@@ -2964,11 +2938,8 @@
                     commitment_slots,
                     bit_decomp_slots,
                     blank: frame.blank,
-                    call_outputs: <span class="kw-2">&amp;</span>frame.hints.call_outputs,
-                    call_idx: <span class="number">0</span>,
-                    cproc_outputs: <span class="kw-2">&amp;</span>frame.hints.cproc_outputs,
+                    bindings: <span class="kw-2">&amp;</span>frame.hints.bindings,
                 },
-                <span class="number">0</span>,
             )<span class="question-mark">?</span>;
         }
 
