@@ -11,5 +11,7 @@
 
 # CLI tools
 /src/cli/** @lurk-lab/lurk-cli-tools
-/fcomm/** @lurk-lab/lurk-cli-tools
-/clutch/** @lurk-lab/lurk-cli-tools
+
+# Circuit
+/src/circuit/** @lurk-lab/lurk-circuit
+/src/lem/circuit.rs @lurk-lab/lurk-circuit
