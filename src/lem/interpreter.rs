@@ -1,5 +1,4 @@
 use anyhow::{anyhow, bail, Result};
-use std::collections::VecDeque;
 
 use super::{
     path::Path,
@@ -20,7 +19,7 @@ use crate::{
 };
 
 impl VarMap<Val> {
-    fn get_many_ptr(&self, args: &[Var]) -> Result<Vec<Ptr>> {
+    pub fn get_many_ptr(&self, args: &[Var]) -> Result<Vec<Ptr>> {
         args.iter().map(|arg| self.get_ptr(arg)).collect()
     }
 
@@ -58,8 +57,7 @@ pub struct Hints {
     pub hash8: Vec<Option<SlotData>>,
     pub commitment: Vec<Option<SlotData>>,
     pub bit_decomp: Vec<Option<SlotData>>,
-    pub call_outputs: VecDeque<Vec<Ptr>>,
-    pub cproc_outputs: Vec<Vec<Ptr>>,
+    pub bindings: VarMap<Val>,
 }
 
 impl Hints {
@@ -70,16 +68,14 @@ impl Hints {
         let hash8 = Vec::with_capacity(slot.hash8);
         let commitment = Vec::with_capacity(slot.commitment);
         let bit_decomp = Vec::with_capacity(slot.bit_decomp);
-        let call_outputs = VecDeque::new();
-        let cproc_outputs = Vec::new();
+        let bindings = VarMap::new();
         Hints {
             hash4,
             hash6,
             hash8,
             commitment,
             bit_decomp,
-            call_outputs,
-            cproc_outputs,
+            bindings,
         }
     }
 
@@ -90,16 +86,14 @@ impl Hints {
         let hash8 = vec![None; slot.hash8];
         let commitment = vec![None; slot.commitment];
         let bit_decomp = vec![None; slot.bit_decomp];
-        let call_outputs = VecDeque::new();
-        let cproc_outputs = Vec::new();
+        let bindings = VarMap::new();
         Hints {
             hash4,
             hash6,
             hash8,
             commitment,
             bit_decomp,
-            call_outputs,
-            cproc_outputs,
+            bindings,
         }
     }
 }
@@ -161,35 +155,24 @@ impl Block {
                     if out.len() != out_ptrs.len() {
                         bail!("Incompatible output length for coprocessor {sym}")
                     }
-                    for (var, ptr) in out.iter().zip(&out_ptrs) {
-                        bindings.insert(var.clone(), Val::Pointer(*ptr));
+                    for (var, ptr) in out.iter().zip(out_ptrs.into_iter()) {
+                        bindings.insert(var.clone(), Val::Pointer(ptr));
+                        hints.bindings.insert(var.clone(), Val::Pointer(ptr));
                     }
-                    hints.cproc_outputs.push(out_ptrs);
                 }
                 Op::Call(out, func, inp) => {
                     // Get the argument values
                     let inp_ptrs = bindings.get_many_ptr(inp)?;
-
-                    // To save lexical order of `call_outputs` we need to push the output
-                    // of the call *before* the inner calls of the `func`. To do this, we
-                    // save all the inner call outputs, push the output of the call in front
-                    // of it, then extend `call_outputs`
-                    let mut inner_call_outputs = VecDeque::new();
-                    std::mem::swap(&mut inner_call_outputs, &mut hints.call_outputs);
-                    let (mut frame, func_path) =
+                    let (frame, func_path) =
                         func.call(&inp_ptrs, store, hints, emitted, lang, pc)?;
-                    std::mem::swap(&mut inner_call_outputs, &mut frame.hints.call_outputs);
-
-                    // Extend the path and bind the output variables to the output values
+                    // Extend the path
                     path.extend_from_path(&func_path);
-                    for (var, ptr) in out.iter().zip(frame.output.iter()) {
-                        bindings.insert_ptr(var.clone(), *ptr);
-                    }
-
-                    // Update `hints` correctly
-                    inner_call_outputs.push_front(frame.output);
+                    // Bind the output variables to the output values
                     hints = frame.hints;
-                    hints.call_outputs.extend(inner_call_outputs);
+                    for (var, ptr) in out.iter().zip(frame.output.into_iter()) {
+                        bindings.insert_ptr(var.clone(), ptr);
+                        hints.bindings.insert_ptr(var.clone(), ptr);
+                    }
                 }
                 Op::Copy(tgt, src) => {
                     bindings.insert(tgt.clone(), bindings.get_cloned(src)?);
