@@ -310,6 +310,28 @@ pub(crate) fn div<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(res)
 }
 
+pub(crate) fn invert<F: PrimeField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    a: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    let inv = AllocatedNum::alloc(cs.namespace(|| "invert"), || {
+        let inv = (a.get_value().ok_or(SynthesisError::AssignmentMissing)?).invert();
+
+        let inv_opt: Option<_> = inv.into();
+        inv_opt.ok_or(SynthesisError::DivisionByZero)
+    })?;
+
+    // inv * a = 1
+    cs.enforce(
+        || "inversion",
+        |lc| lc + inv.get_variable(),
+        |lc| lc + a.get_variable(),
+        |lc| lc + CS::one(),
+    );
+
+    Ok(inv)
+}
+
 /// Select the nth element of `from`, where `path_bits` represents n, least-significant bit first.
 /// The returned result contains the selected element, and constraints are enforced.
 /// `from.len()` must be a power of two.

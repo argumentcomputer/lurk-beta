@@ -132,6 +132,14 @@ impl<F: LurkField> AllocatedPtr<F> {
         &self.hash
     }
 
+    pub fn get_value<T: Tag>(&self) -> Option<ZPtr<T, F>> {
+        self.tag.get_value().and_then(|tag| {
+            self.hash
+                .get_value()
+                .map(|hash| ZPtr::from_parts(Tag::from_field(&tag).expect("bad tag"), hash))
+        })
+    }
+
     pub fn enforce_equal<CS: ConstraintSystem<F>>(&self, cs: &mut CS, other: &Self) {
         // debug_assert_eq!(self.tag.get_value(), other.tag.get_value());
         enforce_equal(cs, || "tags equal", &self.tag, &other.tag);
