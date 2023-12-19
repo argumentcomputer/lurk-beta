@@ -22,7 +22,7 @@ fn test_aux<C: Coprocessor<Fr>>(
     expected_env: Option<Ptr>,
     expected_cont: Option<Ptr>,
     expected_emitted: Option<Vec<Ptr>>,
-    expected_iterations: Expect,
+    expected_iterations: &Expect,
     lang: &Option<&Lang<Fr, C>>,
 ) {
     let ptr = s.read_with_default_state(expr).unwrap();
@@ -46,7 +46,7 @@ fn test_aux_with_state<C: Coprocessor<Fr>>(
     expected_env: Option<Ptr>,
     expected_cont: Option<Ptr>,
     expected_emitted: Option<Vec<Ptr>>,
-    expected_iterations: Expect,
+    expected_iterations: &Expect,
     lang: &Option<&Lang<Fr, C>>,
 ) {
     let ptr = s.read(state, expr).unwrap();
@@ -70,7 +70,7 @@ fn do_test_aux<C: Coprocessor<Fr>>(
     expected_env: Option<Ptr>,
     expected_cont: Option<Ptr>,
     expected_emitted: Option<Vec<Ptr>>,
-    expected_iterations: Expect,
+    expected_iterations: &Expect,
     lang: &Option<&Lang<Fr, C>>,
 ) {
     if let Some(lang) = lang {
@@ -106,7 +106,7 @@ fn do_test<C: Coprocessor<Fr>>(
     expected_env: Option<Ptr>,
     expected_cont: Option<Ptr>,
     expected_emitted: Option<Vec<Ptr>>,
-    expected_iterations: Expect,
+    expected_iterations: &Expect,
     lang: &Lang<Fr, C>,
 ) {
     let limit = 100000;
@@ -179,11 +179,11 @@ fn self_evaluating() {
     ]
     .into_iter()
     .for_each(|(expr, expt)| {
-        test_aux::<Coproc<Fr>>(s, expr, Some(expt), None, None, None, expect!["1"], &None);
+        test_aux::<Coproc<Fr>>(s, expr, Some(expt), None, None, None, &expect!["1"], &None);
     });
 
     let fun = s.intern_fun(s.intern_user_symbol("x"), s.list(vec![expt_nil]), expt_nil);
-    do_test_aux::<Coproc<Fr>>(s, &fun, Some(fun), None, None, None, expect!["1"], &None);
+    do_test_aux::<Coproc<Fr>>(s, &fun, Some(fun), None, None, None, &expect!["1"], &None);
 }
 
 #[test]
@@ -202,7 +202,7 @@ fn evaluate_cons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -221,7 +221,7 @@ fn emit_output() {
         None,
         Some(terminal),
         Some(emitted),
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -240,7 +240,7 @@ fn evaluate_lambda() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -259,7 +259,7 @@ fn evaluate_empty_args_lambda() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -278,7 +278,7 @@ fn evaluate_lambda2() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &None,
     );
 }
@@ -297,7 +297,7 @@ fn evaluate_lambda3() {
         None,
         Some(terminal),
         None,
-        expect!["10"],
+        &expect!["10"],
         &None,
     );
 }
@@ -318,7 +318,7 @@ fn evaluate_lambda4() {
         None,
         Some(terminal),
         None,
-        expect!["10"],
+        &expect!["10"],
         &None,
     );
 }
@@ -339,7 +339,7 @@ fn evaluate_lambda5() {
         None,
         Some(terminal),
         None,
-        expect!["13"],
+        &expect!["13"],
         &None,
     );
 }
@@ -358,7 +358,7 @@ fn evaluate_sum() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -377,7 +377,7 @@ fn evaluate_diff() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -396,7 +396,7 @@ fn evaluate_product() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -415,7 +415,7 @@ fn evaluate_quotient() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -426,7 +426,7 @@ fn evaluate_quotient_divide_by_zero() {
     let expr = "(/ 21 0)";
 
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
@@ -445,7 +445,7 @@ fn evaluate_num_equal() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -461,7 +461,7 @@ fn evaluate_num_equal() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -481,7 +481,7 @@ fn evaluate_adder1() {
         None,
         Some(terminal),
         None,
-        expect!["13"],
+        &expect!["13"],
         &None,
     );
 }
@@ -502,7 +502,7 @@ fn evaluate_adder2() {
         None,
         Some(terminal),
         None,
-        expect!["15"],
+        &expect!["15"],
         &None,
     );
 }
@@ -521,7 +521,7 @@ fn evaluate_let_simple() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -540,7 +540,7 @@ fn evaluate_empty_let_bug() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -561,7 +561,7 @@ fn evaluate_let() {
         None,
         Some(terminal),
         None,
-        expect!["10"],
+        &expect!["10"],
         &None,
     );
 }
@@ -572,7 +572,7 @@ fn evaluate_let_empty_error() {
     let expr = "(let)";
 
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -581,7 +581,7 @@ fn evaluate_let_empty_body_error() {
     let expr = "(let ((a 1)))";
 
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -590,7 +590,7 @@ fn evaluate_letrec_empty_error() {
     let expr = "(letrec)";
 
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -599,7 +599,7 @@ fn evaluate_letrec_empty_body_error() {
     let expr = "(letrec ((a 1)))";
 
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -616,7 +616,7 @@ fn evaluate_letrec_body_nil() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -635,7 +635,7 @@ fn evaluate_let_parallel_binding() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -658,7 +658,7 @@ fn evaluate_arithmetic_let() {
         Some(new_env),
         Some(terminal),
         None,
-        expect!["18"],
+        &expect!["18"],
         &None,
     );
 }
@@ -689,7 +689,7 @@ fn evaluate_fundamental_conditional() {
             None,
             Some(terminal),
             None,
-            expect!["35"],
+            &expect!["35"],
             &None,
         );
     }
@@ -716,7 +716,7 @@ fn evaluate_fundamental_conditional() {
             None,
             Some(terminal),
             None,
-            expect!["32"],
+            &expect!["32"],
             &None,
         );
     }
@@ -737,7 +737,7 @@ fn evaluate_if() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -754,7 +754,7 @@ fn evaluate_if() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -775,7 +775,7 @@ fn evaluate_fully_evaluates() {
             None,
             Some(terminal),
             None,
-            expect!["5"],
+            &expect!["5"],
             &None,
         );
     }
@@ -800,7 +800,7 @@ fn evaluate_recursion1() {
         None,
         Some(terminal),
         None,
-        expect!["91"],
+        &expect!["91"],
         &None,
     );
 }
@@ -825,7 +825,7 @@ fn evaluate_recursion2() {
         None,
         Some(terminal),
         None,
-        expect!["201"],
+        &expect!["201"],
         &None,
     );
 }
@@ -848,7 +848,7 @@ fn evaluate_recursion_multiarg() {
         None,
         Some(terminal),
         None,
-        expect!["95"],
+        &expect!["95"],
         &None,
     );
 }
@@ -874,7 +874,7 @@ fn evaluate_recursion_optimized() {
         None,
         Some(terminal),
         None,
-        expect!["75"],
+        &expect!["75"],
         &None,
     );
 }
@@ -899,7 +899,7 @@ fn evaluate_tail_recursion() {
         None,
         Some(terminal),
         None,
-        expect!["129"],
+        &expect!["129"],
         &None,
     );
 }
@@ -927,7 +927,7 @@ fn evaluate_tail_recursion_somewhat_optimized() {
         None,
         Some(terminal),
         None,
-        expect!["110"],
+        &expect!["110"],
         &None,
     );
 }
@@ -948,7 +948,7 @@ fn evaluate_multiple_letrec_bindings() {
         None,
         Some(terminal),
         None,
-        expect!["22"],
+        &expect!["22"],
         &None,
     );
 }
@@ -969,7 +969,7 @@ fn evaluate_multiple_letrec_bindings_referencing() {
         None,
         Some(terminal),
         None,
-        expect!["31"],
+        &expect!["31"],
         &None,
     );
 }
@@ -1001,7 +1001,7 @@ fn evaluate_multiple_letrec_bindings_recursive() {
         None,
         Some(terminal),
         None,
-        expect!["242"],
+        &expect!["242"],
         &None,
     );
 }
@@ -1025,7 +1025,7 @@ fn nested_let_closure_regression() {
             None,
             Some(terminal),
             None,
-            expect!["13"],
+            &expect!["13"],
             &None,
         );
     }
@@ -1042,7 +1042,7 @@ fn nested_let_closure_regression() {
             None,
             Some(terminal),
             None,
-            expect!["14"],
+            &expect!["14"],
             &None,
         );
     }
@@ -1063,7 +1063,7 @@ fn evaluate_eq() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -1080,7 +1080,7 @@ fn evaluate_eq() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -1097,7 +1097,7 @@ fn evaluate_eq() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -1115,7 +1115,7 @@ fn evaluate_eq() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -1136,7 +1136,7 @@ fn evaluate_zero_arg_lambda() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -1158,7 +1158,7 @@ fn evaluate_zero_arg_lambda() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -1173,7 +1173,7 @@ fn evaluate_zero_arg_lambda() {
             None,
             Some(terminal),
             None,
-            expect!["12"],
+            &expect!["12"],
             &None,
         );
     }
@@ -1186,14 +1186,14 @@ fn evaluate_zero_arg_lambda_variants() {
         let expr = "((lambda () 123) 1)";
 
         let error = s.cont_error();
-        test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
+        test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
     }
     {
         let s = &Store::<Fr>::default();
         let expr = "(123)";
 
         let error = s.cont_error();
-        test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
 }
 
@@ -1236,7 +1236,7 @@ fn evaluate_make_tree() {
             None,
             Some(terminal),
             None,
-            expect!["493"],
+            &expect!["493"],
             &None,
         );
     }
@@ -1282,7 +1282,7 @@ fn evaluate_map_tree_bug() {
             None,
             Some(terminal),
             None,
-            expect!["170"],
+            &expect!["170"],
             &None,
         );
     }
@@ -1309,7 +1309,7 @@ fn evaluate_map_tree_numequal_bug() {
             None,
             Some(error),
             None,
-            expect!["169"],
+            &expect!["169"],
             &None,
         );
     }
@@ -1344,7 +1344,7 @@ fn env_lost_bug() {
             None,
             Some(terminal),
             None,
-            expect!["25"],
+            &expect!["25"],
             &None,
         );
     }
@@ -1369,7 +1369,7 @@ fn dont_discard_rest_env() {
             None,
             Some(terminal),
             None,
-            expect!["22"],
+            &expect!["22"],
             &None,
         );
     }
@@ -1395,7 +1395,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1405,7 +1405,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1415,7 +1415,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1425,7 +1425,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1435,7 +1435,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1445,7 +1445,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1455,7 +1455,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1465,7 +1465,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1475,7 +1475,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1485,7 +1485,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -1501,7 +1501,7 @@ fn test_one_arg_cons_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -1518,7 +1518,7 @@ fn test_car_nil() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1535,7 +1535,7 @@ fn test_cdr_nil() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1551,7 +1551,7 @@ fn test_car_cdr_invalid_tag_error_sym() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1561,7 +1561,7 @@ fn test_car_cdr_invalid_tag_error_sym() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1577,7 +1577,7 @@ fn test_car_cdr_invalid_tag_error_char() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1587,7 +1587,7 @@ fn test_car_cdr_invalid_tag_error_char() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1603,7 +1603,7 @@ fn test_car_cdr_invalid_tag_error_num() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1613,7 +1613,7 @@ fn test_car_cdr_invalid_tag_error_num() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1629,7 +1629,7 @@ fn test_car_cdr_invalid_tag_error_lambda() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -1639,7 +1639,7 @@ fn test_car_cdr_invalid_tag_error_lambda() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1675,7 +1675,7 @@ fn go_translate() {
         None,
         None,
         None,
-        expect!["1114"],
+        &expect!["1114"],
         &None,
     );
 }
@@ -1693,7 +1693,7 @@ fn begin_current_env() {
             None,
             None,
             None,
-            expect!["2"],
+            &expect!["2"],
             &None,
         );
     }
@@ -1712,7 +1712,7 @@ fn begin() {
             None,
             None,
             None,
-            expect!["6"],
+            &expect!["6"],
             &None,
         );
     }
@@ -1735,7 +1735,7 @@ fn begin_current_env1() {
             None,
             None,
             None,
-            expect!["5"],
+            &expect!["5"],
             &None,
         );
     }
@@ -1746,7 +1746,7 @@ fn hide_open() {
     let s = &Store::<Fr>::default();
     let expr = "(open (hide 123 'x))";
     let x = s.intern_user_symbol("x");
-    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, expect!["5"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, &expect!["5"], &None);
 }
 
 #[test]
@@ -1764,21 +1764,21 @@ fn hide_opaque_open_available() {
 
     {
         let expr = s.list(vec![open, comm]);
-        do_test::<Coproc<Fr>>(s, &expr, Some(x), None, None, None, expect!["2"], &lang);
+        do_test::<Coproc<Fr>>(s, &expr, Some(x), None, None, None, &expect!["2"], &lang);
     }
 
     {
         let secret = s.intern_lurk_symbol("secret");
         let expr = s.list(vec![secret, comm]);
         let sec = s.num_u64(123);
-        do_test::<Coproc<Fr>>(s, &expr, Some(sec), None, None, None, expect!["2"], &lang);
+        do_test::<Coproc<Fr>>(s, &expr, Some(sec), None, None, None, &expect!["2"], &lang);
     }
 
     {
         // We can open a commitment identified by its corresponding `Num`.
         let comm_num = s.num(c);
         let expr2 = s.list(vec![open, comm_num]);
-        do_test::<Coproc<Fr>>(s, &expr2, Some(x), None, None, None, expect!["2"], &lang);
+        do_test::<Coproc<Fr>>(s, &expr2, Some(x), None, None, None, &expect!["2"], &lang);
     }
 }
 
@@ -1799,7 +1799,7 @@ fn hide_opaque_open_unavailable() {
     let expr = s2.list(vec![open, comm]);
     let lang = Lang::new();
 
-    do_test::<Coproc<Fr>>(s2, &expr, Some(x), None, None, None, expect!["2"], &lang);
+    do_test::<Coproc<Fr>>(s2, &expr, Some(x), None, None, None, &expect!["2"], &lang);
 }
 
 #[test]
@@ -1807,7 +1807,7 @@ fn commit_open_sym() {
     let s = &Store::<Fr>::default();
     let expr = "(open (commit 'x))";
     let x = s.intern_user_symbol("x");
-    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, expect!["4"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, &expect!["4"], &None);
 }
 
 #[test]
@@ -1819,7 +1819,7 @@ fn commitment_value() {
             "0x2937881eff06c2bcc2c8c1fa0818ae3733c759376f76fc10b7439269e9aaa9bc",
         )
         .unwrap();
-    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, expect!["4"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, &expect!["4"], &None);
 }
 
 #[test]
@@ -1832,10 +1832,10 @@ fn commit_nil() {
         .unwrap();
 
     let expr = "(num (commit nil))";
-    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, expect!["4"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, &expect!["4"], &None);
 
     let expr = "(num (commit '.lurk.nil))";
-    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, expect!["4"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, &expect!["4"], &None);
 }
 
 #[test]
@@ -1843,7 +1843,7 @@ fn commit_error() {
     let s = &Store::<Fr>::default();
     let expr = "(commit 123 456)";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -1851,7 +1851,7 @@ fn open_error() {
     let s = &Store::<Fr>::default();
     let expr = "(open 123 456)";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -1859,7 +1859,7 @@ fn secret_error() {
     let s = &Store::<Fr>::default();
     let expr = "(secret 123 456)";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -1867,7 +1867,7 @@ fn num_error() {
     let s = &Store::<Fr>::default();
     let expr = "(num 123 456)";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -1875,7 +1875,7 @@ fn comm_error() {
     let s = &Store::<Fr>::default();
     let expr = "(comm 123 456)";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -1883,7 +1883,7 @@ fn char_error() {
     let s = &Store::<Fr>::default();
     let expr = "(char 123 456)";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -1899,7 +1899,7 @@ fn prove_commit_secret() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -1917,7 +1917,7 @@ fn num() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1935,7 +1935,7 @@ fn num_char() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1953,7 +1953,7 @@ fn char_num() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1971,7 +1971,7 @@ fn char_coercion() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -1988,7 +1988,7 @@ fn commit_num() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -2006,7 +2006,7 @@ fn hide_open_comm_num() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &None,
     );
 }
@@ -2024,7 +2024,7 @@ fn hide_secret_comm_num() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &None,
     );
 }
@@ -2042,7 +2042,7 @@ fn commit_open_comm_num() {
         None,
         Some(terminal),
         None,
-        expect!["8"],
+        &expect!["8"],
         &None,
     );
 }
@@ -2060,7 +2060,7 @@ fn commit_secret_comm_num() {
         None,
         Some(terminal),
         None,
-        expect!["8"],
+        &expect!["8"],
         &None,
     );
 }
@@ -2078,7 +2078,7 @@ fn commit_num_open() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -2090,9 +2090,27 @@ fn num_invalid_tag() {
     let expr1 = "(num \"asdf\")";
     let expr2 = "(num '(1))";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<Coproc<Fr>>(s, expr1, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<Coproc<Fr>>(s, expr2, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr1,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr2,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
 }
 
 #[test]
@@ -2102,9 +2120,27 @@ fn comm_invalid_tag() {
     let expr1 = "(comm \"asdf\")";
     let expr2 = "(comm '(1))";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<Coproc<Fr>>(s, expr1, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<Coproc<Fr>>(s, expr2, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr1,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr2,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
 }
 
 #[test]
@@ -2114,9 +2150,27 @@ fn char_invalid_tag() {
     let expr1 = "(char \"asdf\")";
     let expr2 = "(char '(1))";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<Coproc<Fr>>(s, expr1, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<Coproc<Fr>>(s, expr2, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr1,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr2,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
 }
 
 #[test]
@@ -2132,7 +2186,7 @@ fn terminal_sym() {
         None,
         Some(terminal),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -2142,7 +2196,7 @@ fn terminal_sym() {
 fn open_opaque_commit() {
     let s = &Store::<Fr>::default();
     let expr = "(open 123)";
-    test_aux::<Coproc<Fr>>(s, expr, None, None, None, None, expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, None, None, &expect!["2"], &None);
 }
 
 #[test]
@@ -2150,7 +2204,7 @@ fn open_wrong_type() {
     let s = &Store::<Fr>::default();
     let expr = "(open 'asdf)";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
 }
 
 #[test]
@@ -2158,7 +2212,7 @@ fn secret_wrong_type() {
     let s = &Store::<Fr>::default();
     let expr = "(secret 'asdf)";
     let error = s.cont_error();
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
 }
 
 #[test]
@@ -2166,7 +2220,7 @@ fn secret_wrong_type() {
 fn secret_invalid_tag() {
     let s = &Store::<Fr>::default();
     let expr = "(secret 123)";
-    test_aux::<Coproc<Fr>>(s, expr, None, None, None, None, expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, None, None, &expect!["2"], &None);
 }
 
 #[test]
@@ -2174,7 +2228,7 @@ fn secret_invalid_tag() {
 fn secret_opaque_commit() {
     let s = &Store::<Fr>::default();
     let expr = "(secret (comm 123))";
-    test_aux::<Coproc<Fr>>(s, expr, None, None, None, None, expect!["2"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, None, None, &expect!["2"], &None);
 }
 
 #[allow(dead_code)]
@@ -2194,7 +2248,7 @@ fn relational_aux(s: &Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -2335,7 +2389,7 @@ fn test_relational_edge_case_identity() {
             None,
             Some(terminal),
             None,
-            expect!["19"],
+            &expect!["19"],
             &None,
         );
     }
@@ -2354,7 +2408,7 @@ fn test_relational_edge_case_identity() {
             None,
             Some(terminal),
             None,
-            expect!["24"],
+            &expect!["24"],
             &None,
         );
     }
@@ -2378,7 +2432,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            expect!["10"],
+            &expect!["10"],
             &None,
         );
     }
@@ -2393,7 +2447,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            expect!["6"],
+            &expect!["6"],
             &None,
         );
     }
@@ -2408,7 +2462,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            expect!["6"],
+            &expect!["6"],
             &None,
         );
     }
@@ -2423,7 +2477,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            expect!["6"],
+            &expect!["6"],
             &None,
         );
     }
@@ -2438,7 +2492,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            expect!["6"],
+            &expect!["6"],
             &None,
         );
     }
@@ -2457,7 +2511,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -2474,7 +2528,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -2489,7 +2543,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            expect!["3"],
+            &expect!["3"],
             &None,
         );
     }
@@ -2511,7 +2565,7 @@ fn test_quoted_symbols() {
         None,
         Some(terminal),
         None,
-        expect!["13"],
+        &expect!["13"],
         &None,
     );
 }
@@ -2532,7 +2586,7 @@ fn test_eval() {
         None,
         Some(terminal),
         None,
-        expect!["17"],
+        &expect!["17"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2542,7 +2596,7 @@ fn test_eval() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &None,
     );
 }
@@ -2556,7 +2610,7 @@ fn test_eval_env_regression() {
     let error = s.cont_error();
     let terminal = s.cont_terminal();
 
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["5"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["5"], &None);
     test_aux::<Coproc<Fr>>(
         s,
         expr2,
@@ -2564,7 +2618,7 @@ fn test_eval_env_regression() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -2586,7 +2640,7 @@ fn test_u64_mul() {
         None,
         Some(terminal),
         None,
-        expect!["7"],
+        &expect!["7"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2596,7 +2650,7 @@ fn test_u64_mul() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2606,7 +2660,7 @@ fn test_u64_mul() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -2627,7 +2681,7 @@ fn test_u64_add() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2637,7 +2691,7 @@ fn test_u64_add() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -2661,7 +2715,7 @@ fn test_u64_sub() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2671,7 +2725,7 @@ fn test_u64_sub() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2681,7 +2735,7 @@ fn test_u64_sub() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -2708,7 +2762,7 @@ fn test_u64_div() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2718,10 +2772,19 @@ fn test_u64_div() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
-    test_aux::<Coproc<Fr>>(s, expr3, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr3,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["3"],
+        &None,
+    );
 }
 
 #[test]
@@ -2746,7 +2809,7 @@ fn test_u64_mod() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2756,10 +2819,19 @@ fn test_u64_mod() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
-    test_aux::<Coproc<Fr>>(s, expr3, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr3,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["3"],
+        &None,
+    );
 }
 
 #[test]
@@ -2772,9 +2844,27 @@ fn test_num_mod() {
 
     let error = s.cont_error();
 
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
-    test_aux::<Coproc<Fr>>(s, expr2, None, None, Some(error), None, expect!["3"], &None);
-    test_aux::<Coproc<Fr>>(s, expr3, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr2,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["3"],
+        &None,
+    );
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr3,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["3"],
+        &None,
+    );
 }
 
 #[test]
@@ -2808,7 +2898,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2818,7 +2908,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2828,7 +2918,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2838,7 +2928,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -2849,7 +2939,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2859,7 +2949,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2869,7 +2959,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2879,7 +2969,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -2890,7 +2980,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2900,7 +2990,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -2911,7 +3001,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2921,7 +3011,7 @@ fn test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -2952,7 +3042,7 @@ fn test_u64_conversion() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2962,7 +3052,7 @@ fn test_u64_conversion() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2972,7 +3062,7 @@ fn test_u64_conversion() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -2983,7 +3073,7 @@ fn test_u64_conversion() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -2993,11 +3083,29 @@ fn test_u64_conversion() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
-    test_aux::<Coproc<Fr>>(s, expr6, None, None, Some(error), None, expect!["1"], &None);
-    test_aux::<Coproc<Fr>>(s, expr7, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr6,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["1"],
+        &None,
+    );
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr7,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["1"],
+        &None,
+    );
 }
 
 #[test]
@@ -3009,8 +3117,17 @@ fn test_numeric_type_error() {
         let expr = &format!("({op} 0 'a)");
         let expr2 = &format!("({op} 0u64 'a)");
 
-        test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
-        test_aux::<Coproc<Fr>>(s, expr2, None, None, Some(error), None, expect!["3"], &None);
+        test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
+        test_aux::<Coproc<Fr>>(
+            s,
+            expr2,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["3"],
+            &None,
+        );
     };
 
     test("+");
@@ -3042,7 +3159,7 @@ fn test_u64_num_comparison() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3052,7 +3169,7 @@ fn test_u64_num_comparison() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3074,7 +3191,7 @@ fn test_u64_num_cons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3084,7 +3201,7 @@ fn test_u64_num_cons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3096,7 +3213,7 @@ fn test_hide_u64_secret() {
     let expr = "(hide 0u64 123)";
     let error = s.cont_error();
 
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
@@ -3119,7 +3236,7 @@ fn test_keyword() {
         None,
         Some(terminal),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3129,7 +3246,7 @@ fn test_keyword() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3139,7 +3256,7 @@ fn test_keyword() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3221,7 +3338,7 @@ fn test_fold_cons_regression() {
         None,
         Some(terminal),
         None,
-        expect!["152"],
+        &expect!["152"],
         &None,
     );
 }
@@ -3240,7 +3357,7 @@ fn test_lambda_args_regression() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3251,7 +3368,7 @@ fn test_eval_bad_form() {
     let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env.
     let error = s.cont_error();
 
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["8"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["8"], &None);
 }
 
 #[test]
@@ -3259,7 +3376,16 @@ fn test_eval_quote_error() {
     let s = &Store::<Fr>::default();
     let error = s.cont_error();
 
-    test_aux::<Coproc<Fr>>(s, "(1)", None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<Coproc<Fr>>(
+        s,
+        "(1)",
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["1"],
+        &None,
+    );
     test_aux::<Coproc<Fr>>(
         s,
         "(quote . 1)",
@@ -3267,7 +3393,7 @@ fn test_eval_quote_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3277,7 +3403,7 @@ fn test_eval_quote_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3287,7 +3413,7 @@ fn test_eval_quote_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -3298,7 +3424,7 @@ fn test_eval_dotted_syntax_error() {
     let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
     let error = s.cont_error();
 
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[allow(dead_code)]
@@ -3311,32 +3437,68 @@ fn op_syntax_error<T: Op + Copy>() {
         {
             let expr = format!("({name} . 1)");
             tracing::debug!("{}", &expr);
-            test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+            test_aux::<Coproc<Fr>>(
+                s,
+                &expr,
+                None,
+                None,
+                Some(error),
+                None,
+                &expect!["1"],
+                &None,
+            );
         }
 
         if !op.supports_arity(0) {
             let expr = format!("({name})");
             tracing::debug!("{}", &expr);
-            test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+            test_aux::<Coproc<Fr>>(
+                s,
+                &expr,
+                None,
+                None,
+                Some(error),
+                None,
+                &expect!["1"],
+                &None,
+            );
         }
         if !op.supports_arity(1) {
             let expr = format!("({name} 123)");
             tracing::debug!("{}", &expr);
-            test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+            test_aux::<Coproc<Fr>>(
+                s,
+                &expr,
+                None,
+                None,
+                Some(error),
+                None,
+                &expect!["1"],
+                &None,
+            );
         }
         if !op.supports_arity(2) {
             let expr = format!("({name} 123 456)");
             tracing::debug!("{}", &expr);
-            test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+            test_aux::<Coproc<Fr>>(
+                s,
+                &expr,
+                None,
+                None,
+                Some(error),
+                None,
+                &expect!["1"],
+                &None,
+            );
         }
 
         if !op.supports_arity(3) {
             let expr = format!("({name} 123 456 789)");
             tracing::debug!("{}", &expr);
             let iterations = if op.supports_arity(2) {
-                expect!["2"]
+                &expect!["2"]
             } else {
-                expect!["1"]
+                &expect!["1"]
             };
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, iterations, &None);
         }
@@ -3369,7 +3531,7 @@ fn test_eval_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3379,7 +3541,7 @@ fn test_eval_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3389,7 +3551,7 @@ fn test_eval_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3399,7 +3561,7 @@ fn test_eval_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3414,7 +3576,16 @@ fn test_eval_non_symbol_binding_error() {
         let expr2 = format!("(letrec (({x} 123)) {x})");
         let expr3 = format!("(lambda ({x}) {x})");
 
-        test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<Coproc<Fr>>(
+            s,
+            &expr,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["1"],
+            &None,
+        );
         test_aux::<Coproc<Fr>>(
             s,
             &expr2,
@@ -3422,7 +3593,7 @@ fn test_eval_non_symbol_binding_error() {
             None,
             Some(error),
             None,
-            expect!["1"],
+            &expect!["1"],
             &None,
         );
         test_aux::<Coproc<Fr>>(
@@ -3432,7 +3603,7 @@ fn test_eval_non_symbol_binding_error() {
             None,
             Some(error),
             None,
-            expect!["1"],
+            &expect!["1"],
             &None,
         );
     };
@@ -3490,7 +3661,7 @@ fn test_dumb_lang() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(&lang),
     );
     test_aux(
@@ -3500,7 +3671,7 @@ fn test_dumb_lang() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &Some(&lang),
     );
     test_aux(
@@ -3510,7 +3681,7 @@ fn test_dumb_lang() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &Some(&lang),
     );
     test_aux(
@@ -3520,7 +3691,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["4"],
+        &expect!["4"],
         &Some(&lang),
     );
     test_aux(
@@ -3530,7 +3701,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &Some(&lang),
     );
     test_aux(
@@ -3540,7 +3711,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(&lang),
     );
     test_aux(
@@ -3550,7 +3721,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(&lang),
     );
     test_aux(
@@ -3560,7 +3731,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(&lang),
     );
 }
@@ -3591,7 +3762,7 @@ fn test_trie_lang() {
         None,
         None,
         None,
-        expect!["4"],
+        &expect!["4"],
         &Some(&lang),
     );
 
@@ -3607,7 +3778,7 @@ fn test_trie_lang() {
         None,
         None,
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(&lang),
     );
 
@@ -3627,7 +3798,7 @@ fn test_trie_lang() {
         None,
         None,
         None,
-        expect!["4"],
+        &expect!["4"],
         &Some(&lang),
     );
 
@@ -3643,7 +3814,7 @@ fn test_trie_lang() {
         None,
         None,
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(&lang),
     );
 
@@ -3661,7 +3832,7 @@ fn test_trie_lang() {
         None,
         None,
         None,
-        expect!["9"],
+        &expect!["9"],
         &Some(&lang),
     );
 
@@ -3678,7 +3849,7 @@ fn test_trie_lang() {
         None,
         None,
         None,
-        expect!["13"],
+        &expect!["13"],
         &Some(&lang),
     );
 }
@@ -3706,7 +3877,7 @@ fn test_terminator_lang() {
         None,
         Some(terminal),
         None,
-        expect!["1"],
+        &expect!["1"],
         &Some(&lang),
     );
 }

@@ -51,7 +51,7 @@ fn test_prove_self_evaluating() {
     ]
     .into_iter()
     .for_each(|(expr, expt)| {
-        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expt), None, None, None, expect!["1"], &None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expt), None, None, None, &expect!["1"], &None);
     });
 
     let fun = s.intern_fun(s.intern_user_symbol("x"), s.list(vec![expt_nil]), expt_nil);
@@ -82,7 +82,7 @@ fn test_prove_binop() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -102,7 +102,7 @@ fn test_prove_binop_fail() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -123,7 +123,7 @@ fn test_prove_arithmetic_let() {
         None,
         Some(terminal),
         None,
-        expect!["18"],
+        &expect!["18"],
         &None,
     );
 }
@@ -162,7 +162,7 @@ fn test_prove_num_equal() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -175,7 +175,7 @@ fn test_prove_num_equal() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -192,7 +192,7 @@ fn test_prove_invalid_num_equal() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -204,7 +204,7 @@ fn test_prove_invalid_num_equal() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -223,7 +223,7 @@ fn test_prove_equal() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -233,7 +233,7 @@ fn test_prove_equal() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -243,7 +243,7 @@ fn test_prove_equal() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -253,7 +253,7 @@ fn test_prove_equal() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -269,7 +269,7 @@ fn test_prove_quote_end_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -286,7 +286,7 @@ fn test_prove_if() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -299,7 +299,7 @@ fn test_prove_if() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     )
 }
@@ -316,7 +316,7 @@ fn test_prove_if_end_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     )
 }
@@ -334,7 +334,7 @@ fn test_prove_if_fully_evaluates() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -357,7 +357,7 @@ fn test_prove_recursion1() {
         None,
         Some(terminal),
         None,
-        expect!["66"],
+        &expect!["66"],
         &None,
     );
 }
@@ -381,7 +381,7 @@ fn test_prove_recursion2() {
         None,
         Some(terminal),
         None,
-        expect!["93"],
+        &expect!["93"],
         &None,
     );
 }
@@ -473,7 +473,7 @@ fn test_prove_emit_output() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -491,7 +491,7 @@ fn test_prove_evaluate() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -511,7 +511,7 @@ fn test_prove_evaluate2() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &None,
     );
 }
@@ -534,7 +534,7 @@ fn test_prove_evaluate3() {
         None,
         Some(terminal),
         None,
-        expect!["10"],
+        &expect!["10"],
         &None,
     );
 }
@@ -558,7 +558,7 @@ fn test_prove_evaluate4() {
         None,
         Some(terminal),
         None,
-        expect!["10"],
+        &expect!["10"],
         &None,
     );
 }
@@ -579,7 +579,7 @@ fn test_prove_evaluate5() {
         None,
         Some(terminal),
         None,
-        expect!["13"],
+        &expect!["13"],
         &None,
     );
 }
@@ -597,7 +597,7 @@ fn test_prove_evaluate_sum() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -614,7 +614,7 @@ fn test_prove_binop_rest_is_nil() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -624,7 +624,7 @@ fn test_prove_binop_rest_is_nil() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -645,7 +645,7 @@ fn op_syntax_error<T: Op + Copy>() {
                 None,
                 Some(error),
                 None,
-                expect!["1"],
+                &expect!["1"],
                 &None,
             );
         }
@@ -659,7 +659,7 @@ fn op_syntax_error<T: Op + Copy>() {
                 None,
                 Some(error),
                 None,
-                expect!["1"],
+                &expect!["1"],
                 &None,
             );
         }
@@ -673,7 +673,7 @@ fn op_syntax_error<T: Op + Copy>() {
                 None,
                 Some(error),
                 None,
-                expect!["1"],
+                &expect!["1"],
                 &None,
             );
         }
@@ -682,9 +682,9 @@ fn op_syntax_error<T: Op + Copy>() {
             let expr = format!("({name} 123 456 789)");
             tracing::debug!("{:?}", &expr);
             let iterations = if op.supports_arity(2) {
-                expect!["2"]
+                &expect!["2"]
             } else {
-                expect!["1"]
+                &expect!["1"]
             };
             test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, iterations, &None);
         }
@@ -719,7 +719,7 @@ fn test_prove_diff() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -737,7 +737,7 @@ fn test_prove_product() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -755,7 +755,7 @@ fn test_prove_quotient() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -772,7 +772,7 @@ fn test_prove_error_div_by_zero() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -789,7 +789,7 @@ fn test_prove_error_invalid_type_and_not_cons() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -811,7 +811,7 @@ fn test_prove_adder() {
         None,
         Some(terminal),
         None,
-        expect!["13"],
+        &expect!["13"],
         &None,
     );
 }
@@ -828,7 +828,7 @@ fn test_prove_current_env_simple() {
         None,
         Some(terminal),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -845,7 +845,7 @@ fn test_prove_current_env_rest_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -864,7 +864,7 @@ fn test_prove_let_simple() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -880,7 +880,7 @@ fn test_prove_let_end_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -896,7 +896,7 @@ fn test_prove_letrec_end_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -912,7 +912,7 @@ fn test_prove_lambda_empty_error() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -928,7 +928,7 @@ fn test_prove_let_empty_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -944,7 +944,7 @@ fn test_prove_let_empty_body_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -960,7 +960,7 @@ fn test_prove_letrec_empty_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -976,7 +976,7 @@ fn test_prove_letrec_empty_body_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -993,7 +993,7 @@ fn test_prove_let_body_nil() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -1009,7 +1009,7 @@ fn test_prove_let_rest_body_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -1025,7 +1025,7 @@ fn test_prove_letrec_rest_body_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -1043,7 +1043,7 @@ fn test_prove_let_null_bindings() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -1060,7 +1060,7 @@ fn test_prove_letrec_null_bindings() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -1081,7 +1081,7 @@ fn test_prove_let() {
         None,
         Some(terminal),
         None,
-        expect!["18"],
+        &expect!["18"],
         &None,
     );
 }
@@ -1106,7 +1106,7 @@ fn test_prove_arithmetic() {
         None,
         Some(terminal),
         None,
-        expect!["23"],
+        &expect!["23"],
         &None,
     );
 }
@@ -1128,7 +1128,7 @@ fn test_prove_comparison() {
         None,
         Some(terminal),
         None,
-        expect!["21"],
+        &expect!["21"],
         &None,
     );
 }
@@ -1157,7 +1157,7 @@ fn test_prove_conditional() {
         None,
         Some(terminal),
         None,
-        expect!["35"],
+        &expect!["35"],
         &None,
     );
 }
@@ -1186,7 +1186,7 @@ fn test_prove_conditional2() {
         None,
         Some(terminal),
         None,
-        expect!["32"],
+        &expect!["32"],
         &None,
     );
 }
@@ -1212,7 +1212,7 @@ fn test_prove_fundamental_conditional_bug() {
         None,
         Some(terminal),
         None,
-        expect!["32"],
+        &expect!["32"],
         &None,
     );
 }
@@ -1230,7 +1230,7 @@ fn test_prove_fully_evaluates() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -1253,7 +1253,7 @@ fn test_prove_recursion() {
         None,
         Some(terminal),
         None,
-        expect!["66"],
+        &expect!["66"],
         &None,
     );
 }
@@ -1275,7 +1275,7 @@ fn test_prove_recursion_multiarg() {
         None,
         Some(terminal),
         None,
-        expect!["69"],
+        &expect!["69"],
         &None,
     );
 }
@@ -1300,7 +1300,7 @@ fn test_prove_recursion_optimized() {
         None,
         Some(terminal),
         None,
-        expect!["56"],
+        &expect!["56"],
         &None,
     );
 }
@@ -1324,7 +1324,7 @@ fn test_prove_tail_recursion() {
         None,
         Some(terminal),
         None,
-        expect!["93"],
+        &expect!["93"],
         &None,
     );
 }
@@ -1350,7 +1350,7 @@ fn test_prove_tail_recursion_somewhat_optimized() {
         None,
         Some(terminal),
         None,
-        expect!["81"], &None
+        &expect!["81"], &None
     );
 }
 
@@ -1375,7 +1375,7 @@ fn test_prove_no_mutual_recursion() {
         None,
         Some(terminal),
         None,
-        expect!["22"],
+        &expect!["22"],
         &None,
     );
 }
@@ -1400,7 +1400,7 @@ fn test_prove_no_mutual_recursion_error() {
         None,
         Some(error),
         None,
-        expect!["25"],
+        &expect!["25"],
         &None,
     );
 }
@@ -1418,7 +1418,7 @@ fn test_prove_cons1() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -1434,7 +1434,7 @@ fn test_prove_car_end_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -1450,7 +1450,7 @@ fn test_prove_cdr_end_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -1466,7 +1466,7 @@ fn test_prove_atom_end_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -1482,7 +1482,7 @@ fn test_prove_emit_end_is_nil_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -1499,7 +1499,7 @@ fn test_prove_cons2() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -1516,7 +1516,7 @@ fn test_prove_zero_arg_lambda1() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -1533,7 +1533,7 @@ fn test_prove_zero_arg_lambda2() {
         None,
         Some(terminal),
         None,
-        expect!["10"],
+        &expect!["10"],
         &None,
     );
 }
@@ -1575,7 +1575,7 @@ fn test_prove_zero_arg_lambda4() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -1592,7 +1592,7 @@ fn test_prove_zero_arg_lambda5() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -1609,7 +1609,7 @@ fn test_prove_zero_arg_lambda6() {
         None,
         Some(error),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -1630,7 +1630,7 @@ fn test_prove_nested_let_closure_regression() {
         None,
         Some(terminal),
         None,
-        expect!["14"],
+        &expect!["14"],
         &None,
     );
 }
@@ -1653,7 +1653,7 @@ fn test_prove_minimal_tail_call() {
         None,
         Some(terminal),
         None,
-        expect!["50"],
+        &expect!["50"],
         &None,
     );
 }
@@ -1675,7 +1675,7 @@ fn test_prove_cons_in_function1() {
         None,
         Some(terminal),
         None,
-        expect!["15"],
+        &expect!["15"],
         &None,
     );
 }
@@ -1697,7 +1697,7 @@ fn test_prove_cons_in_function2() {
         None,
         Some(terminal),
         None,
-        expect!["15"],
+        &expect!["15"],
         &None,
     );
 }
@@ -1715,7 +1715,7 @@ fn test_prove_multiarg_eval_bug() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -1739,7 +1739,7 @@ fn test_prove_multiple_letrec_bindings() {
         None,
         Some(terminal),
         None,
-        expect!["78"],
+        &expect!["78"],
         &None,
     );
 }
@@ -1763,7 +1763,7 @@ fn test_prove_tail_call2() {
         None,
         Some(terminal),
         None,
-        expect!["84"],
+        &expect!["84"],
         &None,
     );
 }
@@ -1783,7 +1783,7 @@ fn test_prove_multiple_letrecstar_bindings() {
         None,
         Some(terminal),
         None,
-        expect!["22"],
+        &expect!["22"],
         &None,
     );
 }
@@ -1803,7 +1803,7 @@ fn test_prove_multiple_letrecstar_bindings_referencing() {
         None,
         Some(terminal),
         None,
-        expect!["31"],
+        &expect!["31"],
         &None,
     );
 }
@@ -1834,7 +1834,7 @@ fn test_prove_multiple_letrecstar_bindings_recursive() {
         None,
         Some(terminal),
         None,
-        expect!["242"],
+        &expect!["242"],
         &None,
     );
 }
@@ -1856,7 +1856,7 @@ fn test_prove_dont_discard_rest_env() {
         None,
         Some(terminal),
         None,
-        expect!["22"],
+        &expect!["22"],
         &None,
     );
 }
@@ -1925,7 +1925,7 @@ fn test_prove_terminal_continuation_regression() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &None,
     );
 }
@@ -1946,7 +1946,7 @@ fn test_prove_chained_functional_commitment() {
         None,
         Some(terminal),
         None,
-        expect!["39"],
+        &expect!["39"],
         &None,
     );
 }
@@ -1963,7 +1963,7 @@ fn test_prove_begin_empty() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1981,7 +1981,7 @@ fn test_prove_begin_emit() {
         None,
         None,
         Some(&expected_emitted),
-        expect!["13"],
+        &expect!["13"],
         &None,
     );
 }
@@ -1998,7 +1998,7 @@ fn test_prove_str_car() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2015,7 +2015,7 @@ fn test_prove_str_cdr() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2032,7 +2032,7 @@ fn test_prove_str_car_empty() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2049,7 +2049,7 @@ fn test_prove_str_cdr_empty() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2066,7 +2066,7 @@ fn test_prove_strcons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -2082,7 +2082,7 @@ fn test_prove_str_cons_error() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -2098,7 +2098,7 @@ fn test_prove_one_arg_cons_error() {
         None,
         Some(error),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -2115,7 +2115,7 @@ fn test_prove_car_nil() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2132,7 +2132,7 @@ fn test_prove_cdr_nil() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2148,7 +2148,7 @@ fn test_prove_car_cdr_invalid_tag_error_sym() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2158,7 +2158,7 @@ fn test_prove_car_cdr_invalid_tag_error_sym() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2174,7 +2174,7 @@ fn test_prove_car_cdr_invalid_tag_error_char() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2184,7 +2184,7 @@ fn test_prove_car_cdr_invalid_tag_error_char() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2200,7 +2200,7 @@ fn test_prove_car_cdr_invalid_tag_error_num() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2210,7 +2210,7 @@ fn test_prove_car_cdr_invalid_tag_error_num() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2228,7 +2228,7 @@ fn test_prove_car_cdr_of_cons() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2238,7 +2238,7 @@ fn test_prove_car_cdr_of_cons() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -2254,7 +2254,7 @@ fn test_prove_car_cdr_invalid_tag_error_lambda() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2264,7 +2264,7 @@ fn test_prove_car_cdr_invalid_tag_error_lambda() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2282,7 +2282,7 @@ fn test_prove_hide_open() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -2292,7 +2292,7 @@ fn test_prove_hide_wrong_secret_type() {
     let s = &Store::<Fr>::default();
     let expr = "(hide 'x 456)";
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
@@ -2308,7 +2308,7 @@ fn test_prove_hide_secret() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -2326,7 +2326,7 @@ fn test_prove_hide_open_sym() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -2344,7 +2344,7 @@ fn test_prove_commit_open_sym() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -2362,7 +2362,7 @@ fn test_prove_commit_open() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -2372,7 +2372,7 @@ fn test_prove_commit_error() {
     let s = &Store::<Fr>::default();
     let expr = "(commit 123 456)";
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -2380,7 +2380,7 @@ fn test_prove_open_error() {
     let s = &Store::<Fr>::default();
     let expr = "(open 123 456)";
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["1"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
@@ -2388,7 +2388,7 @@ fn test_prove_open_wrong_type() {
     let s = &Store::<Fr>::default();
     let expr = "(open 'asdf)";
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
 }
 
 #[test]
@@ -2396,7 +2396,7 @@ fn test_prove_secret_wrong_type() {
     let s = &Store::<Fr>::default();
     let expr = "(secret 'asdf)";
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
 }
 
 #[test]
@@ -2412,7 +2412,7 @@ fn test_prove_commit_secret() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -2430,7 +2430,7 @@ fn test_prove_num() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2448,7 +2448,7 @@ fn test_prove_num_char() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2466,7 +2466,7 @@ fn test_prove_char_num() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -2486,7 +2486,7 @@ fn test_prove_char_coercion() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2496,7 +2496,7 @@ fn test_prove_char_coercion() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -2513,7 +2513,7 @@ fn test_prove_commit_num() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -2531,7 +2531,7 @@ fn test_prove_hide_open_comm_num() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &None,
     );
 }
@@ -2549,7 +2549,7 @@ fn test_prove_hide_secret_comm_num() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &None,
     );
 }
@@ -2567,7 +2567,7 @@ fn test_prove_commit_open_comm_num() {
         None,
         Some(terminal),
         None,
-        expect!["8"],
+        &expect!["8"],
         &None,
     );
 }
@@ -2585,7 +2585,7 @@ fn test_prove_commit_secret_comm_num() {
         None,
         Some(terminal),
         None,
-        expect!["8"],
+        &expect!["8"],
         &None,
     );
 }
@@ -2603,7 +2603,7 @@ fn test_prove_commit_num_open() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -2615,9 +2615,27 @@ fn test_prove_num_invalid_tag() {
     let expr1 = "(num \"asdf\")";
     let expr2 = "(num '(1))";
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr1,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr2,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
 }
 
 #[test]
@@ -2627,9 +2645,27 @@ fn test_prove_comm_invalid_tag() {
     let expr1 = "(comm \"asdf\")";
     let expr2 = "(comm '(1))";
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr1,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr2,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
 }
 
 #[test]
@@ -2639,9 +2675,27 @@ fn test_prove_char_invalid_tag() {
     let expr1 = "(char \"asdf\")";
     let expr2 = "(char '(1))";
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, expect!["2"], &None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr1,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr2,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["2"],
+        &None,
+    );
 }
 
 #[test]
@@ -2657,7 +2711,7 @@ fn test_prove_terminal_sym() {
         None,
         Some(terminal),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -2667,7 +2721,7 @@ fn test_prove_terminal_sym() {
 fn test_prove_open_opaque_commit() {
     let s = &Store::<Fr>::default();
     let expr = "(open 123)";
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, &expect!["2"], &None);
 }
 
 #[test]
@@ -2675,7 +2729,7 @@ fn test_prove_open_opaque_commit() {
 fn test_prove_secret_invalid_tag() {
     let s = &Store::<Fr>::default();
     let expr = "(secret 123)";
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, &expect!["2"], &None);
 }
 
 #[test]
@@ -2683,7 +2737,7 @@ fn test_prove_secret_invalid_tag() {
 fn test_prove_secret_opaque_commit() {
     let s = &Store::<Fr>::default();
     let expr = "(secret (comm 123))";
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, expect!["2"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, &expect!["2"], &None);
 }
 
 #[test]
@@ -2705,7 +2759,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2715,7 +2769,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2725,7 +2779,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2735,7 +2789,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2745,7 +2799,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -2756,7 +2810,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -2767,7 +2821,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -2778,7 +2832,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -2789,7 +2843,7 @@ fn test_str_car_cdr_cons() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -2810,7 +2864,7 @@ fn relational_aux(s: &Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -2947,7 +3001,7 @@ fn test_relational_edge_case_identity() {
         None,
         Some(terminal),
         None,
-        expect!["19"],
+        &expect!["19"],
         &None,
     );
 }
@@ -2968,7 +3022,7 @@ fn test_prove_test_eval() {
         None,
         Some(terminal),
         None,
-        expect!["17"],
+        &expect!["17"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -2978,7 +3032,7 @@ fn test_prove_test_eval() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &None,
     );
 }
@@ -3003,7 +3057,7 @@ fn test_prove_test_keyword() {
         None,
         Some(terminal),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3013,7 +3067,7 @@ fn test_prove_test_keyword() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3023,7 +3077,7 @@ fn test_prove_test_keyword() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3048,7 +3102,7 @@ fn test_prove_functional_commitment() {
         None,
         Some(terminal),
         None,
-        expect!["25"],
+        &expect!["25"],
         &None,
     );
 }
@@ -3078,7 +3132,7 @@ fn test_prove_complicated_functional_commitment() {
         None,
         Some(terminal),
         None,
-        expect!["108"],
+        &expect!["108"],
         &None,
     );
 }
@@ -3101,7 +3155,7 @@ fn test_prove_test_fold_cons_regression() {
         None,
         Some(terminal),
         None,
-        expect!["152"],
+        &expect!["152"],
         &None,
     );
 }
@@ -3120,7 +3174,7 @@ fn test_prove_test_lambda_args_regression() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3132,7 +3186,7 @@ fn test_prove_reduce_sym_contradiction_regression() {
     let expr = "(eval 'a '(nil))";
     let error = s.cont_error();
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["4"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["4"], &None);
 }
 
 #[test]
@@ -3154,7 +3208,7 @@ fn test_prove_test_self_eval_env_not_nil() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3174,7 +3228,7 @@ fn test_prove_test_self_eval_nil() {
         None,
         Some(terminal),
         None,
-        expect!["1"],
+        &expect!["1"],
         &None,
     );
 }
@@ -3186,7 +3240,7 @@ fn test_prove_test_env_not_nil_and_binding_nil() {
     let expr = "(let ((a 1) (b 2)) c)";
 
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["7"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["7"], &None);
 }
 
 #[test]
@@ -3195,7 +3249,7 @@ fn test_prove_test_eval_bad_form() {
     let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env. This tests for error on malformed env.
     let error = s.cont_error();
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["8"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["8"], &None);
 }
 
 #[test]
@@ -3217,7 +3271,7 @@ fn test_prove_test_u64_mul() {
         None,
         Some(terminal),
         None,
-        expect!["7"],
+        &expect!["7"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3227,7 +3281,7 @@ fn test_prove_test_u64_mul() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3237,7 +3291,7 @@ fn test_prove_test_u64_mul() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3247,7 +3301,7 @@ fn test_prove_test_u64_mul() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
 }
@@ -3268,7 +3322,7 @@ fn test_prove_test_u64_add() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3278,7 +3332,7 @@ fn test_prove_test_u64_add() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -3302,7 +3356,7 @@ fn test_prove_test_u64_sub() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3312,7 +3366,7 @@ fn test_prove_test_u64_sub() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3322,7 +3376,7 @@ fn test_prove_test_u64_sub() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -3349,7 +3403,7 @@ fn test_prove_test_u64_div() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3359,10 +3413,19 @@ fn test_prove_test_u64_div() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
-    test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr3,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["3"],
+        &None,
+    );
 }
 
 #[test]
@@ -3387,7 +3450,7 @@ fn test_prove_test_u64_mod() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3397,10 +3460,19 @@ fn test_prove_test_u64_mod() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
-    test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr3,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["3"],
+        &None,
+    );
 }
 
 #[test]
@@ -3413,9 +3485,27 @@ fn test_prove_test_num_mod() {
 
     let error = s.cont_error();
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
-    test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, expect!["3"], &None);
-    test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr2,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["3"],
+        &None,
+    );
+    test_aux::<_, _, M1<'_, _>>(
+        s,
+        expr3,
+        None,
+        None,
+        Some(error),
+        None,
+        &expect!["3"],
+        &None,
+    );
 }
 
 #[test]
@@ -3446,7 +3536,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3456,7 +3546,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3466,7 +3556,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3476,7 +3566,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -3487,7 +3577,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3497,7 +3587,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3507,7 +3597,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3517,7 +3607,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 
@@ -3528,7 +3618,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3538,7 +3628,7 @@ fn test_prove_test_u64_comp() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3563,7 +3653,7 @@ fn test_prove_test_u64_conversion() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3573,7 +3663,7 @@ fn test_prove_test_u64_conversion() {
         None,
         Some(terminal),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3583,7 +3673,7 @@ fn test_prove_test_u64_conversion() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3593,7 +3683,7 @@ fn test_prove_test_u64_conversion() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -3615,7 +3705,7 @@ fn test_prove_test_u64_num_comparison() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3625,7 +3715,7 @@ fn test_prove_test_u64_num_comparison() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3647,7 +3737,7 @@ fn test_prove_test_u64_num_cons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3657,7 +3747,7 @@ fn test_prove_test_u64_num_cons() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3669,7 +3759,7 @@ fn test_prove_test_hide_u64_secret() {
     let expr = "(hide 0u64 123)";
     let error = s.cont_error();
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
@@ -3679,7 +3769,7 @@ fn test_prove_test_mod_by_zero_error() {
     let expr = "(% 0 0)";
     let error = s.cont_error();
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
@@ -3688,7 +3778,7 @@ fn test_prove_dotted_syntax_error() {
     let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
     let error = s.cont_error();
 
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, expect!["3"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
@@ -3731,7 +3821,7 @@ fn test_prove_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3741,7 +3831,7 @@ fn test_prove_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3751,7 +3841,7 @@ fn test_prove_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3761,7 +3851,7 @@ fn test_prove_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &None,
     );
 }
@@ -3777,7 +3867,16 @@ fn test_prove_non_symbol_binding_error() {
         let expr2 = format!("(letrec (({x} 123)) {x})");
         let expr3 = format!("(lambda ({x}) {x})");
 
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<_, _, M1<'_, _>>(
+            s,
+            &expr,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["1"],
+            &None,
+        );
         test_aux::<_, _, M1<'_, _>>(
             s,
             &expr2,
@@ -3785,7 +3884,7 @@ fn test_prove_non_symbol_binding_error() {
             None,
             Some(error),
             None,
-            expect!["1"],
+            &expect!["1"],
             &None,
         );
         test_aux::<_, _, M1<'_, _>>(
@@ -3795,7 +3894,7 @@ fn test_prove_non_symbol_binding_error() {
             None,
             Some(error),
             None,
-            expect!["1"],
+            &expect!["1"],
             &None,
         );
     };
@@ -3823,37 +3922,100 @@ fn test_prove_head_with_sym_mimicking_value() {
     {
         // binop
         let expr = format!("({} 1 1)", hash_num(s, state.clone(), "+"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<_, _, M1<'_, _>>(
+            s,
+            &expr,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["1"],
+            &None,
+        );
     }
     {
         // unop
         let expr = format!("({} '(1 . 2))", hash_num(s, state.clone(), "car"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<_, _, M1<'_, _>>(
+            s,
+            &expr,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["1"],
+            &None,
+        );
     }
     {
         // let_or_letrec
         let expr = format!("({} ((a 1)) a)", hash_num(s, state.clone(), "let"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<_, _, M1<'_, _>>(
+            s,
+            &expr,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["1"],
+            &None,
+        );
     }
     {
         // current-env
         let expr = format!("({})", hash_num(s, state.clone(), "current-env"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<_, _, M1<'_, _>>(
+            s,
+            &expr,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["1"],
+            &None,
+        );
     }
     {
         // lambda
         let expr = format!("({} (x) 123)", hash_num(s, state.clone(), "lambda"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<_, _, M1<'_, _>>(
+            s,
+            &expr,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["1"],
+            &None,
+        );
     }
     {
         // quote
         let expr = format!("({} asdf)", hash_num(s, state.clone(), "quote"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<_, _, M1<'_, _>>(
+            s,
+            &expr,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["1"],
+            &None,
+        );
     }
     {
         // if
         let expr = format!("({} t 123 456)", hash_num(s, state, "if"));
-        test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, expect!["1"], &None);
+        test_aux::<_, _, M1<'_, _>>(
+            s,
+            &expr,
+            None,
+            None,
+            Some(error),
+            None,
+            &expect!["1"],
+            &None,
+        );
     }
 }
 
@@ -3905,7 +4067,7 @@ fn test_dumb_lang() {
         None,
         Some(terminal),
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
@@ -3915,7 +4077,7 @@ fn test_dumb_lang() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
@@ -3925,7 +4087,7 @@ fn test_dumb_lang() {
         None,
         Some(terminal),
         None,
-        expect!["9"],
+        &expect!["9"],
         &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
@@ -3935,7 +4097,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["4"],
+        &expect!["4"],
         &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
@@ -3945,7 +4107,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["2"],
+        &expect!["2"],
         &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
@@ -3955,7 +4117,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
@@ -3965,7 +4127,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
@@ -3975,7 +4137,7 @@ fn test_dumb_lang() {
         None,
         Some(error),
         None,
-        expect!["3"],
+        &expect!["3"],
         &Some(lang),
     );
 }
@@ -4003,7 +4165,7 @@ fn test_terminator_lang() {
         None,
         Some(terminal),
         None,
-        expect!["1"],
+        &expect!["1"],
         &Some(lang.into()),
     );
 }
@@ -4156,7 +4318,7 @@ fn test_prove_lambda_body_nil() {
         None,
         Some(terminal),
         None,
-        expect!["4"],
+        &expect!["4"],
         &None,
     );
 }
@@ -4174,7 +4336,7 @@ fn test_letrec_let_nesting() {
         None,
         Some(terminal),
         None,
-        expect!["6"],
+        &expect!["6"],
         &None,
     );
 }
@@ -4190,7 +4352,7 @@ fn test_let_sequencing() {
         None,
         Some(terminal),
         None,
-        expect!["5"],
+        &expect!["5"],
         &None,
     );
 }
@@ -4206,7 +4368,7 @@ fn test_letrec_sequencing() {
         None,
         Some(terminal),
         None,
-        expect!["8"],
+        &expect!["8"],
         &None,
     );
 }
