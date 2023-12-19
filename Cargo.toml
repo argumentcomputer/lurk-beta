@@ -1,7 +1,7 @@
 [package]
 name = "lurk"
-version = "0.2.0"
-authors = ["porcuquine <porcuquine@gmail.com>"]
+version = "0.3.0"
+authors = ["Lurk Lab Engineering <engineering@lurk-lab.com>"]
 license = "MIT OR Apache-2.0"
 description = "Turing-Complete Zero Knowledge"
 edition = "2021"
@@ -30,8 +30,8 @@ generic-array = "0.14.7"
 hex = { version = "0.4.3", features = ["serde"] }
 indexmap = { version = "2.1.0", features = ["rayon", "serde"] }
 itertools = "0.11"
-lurk-macros = { path = "lurk-macros" }
-lurk-metrics = { path = "lurk-metrics" }
+lurk-macros = { version = "0.2.0", path = "lurk-macros" }
+lurk-metrics = { version = "0.2.0", path = "lurk-metrics" }
 metrics = { workspace = true }
 neptune = { workspace = true, features = ["arity2", "arity4", "arity8", "arity16", "pasta"] }
 nom = "7.1.3"
