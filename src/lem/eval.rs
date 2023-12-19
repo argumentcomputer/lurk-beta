@@ -1799,6 +1799,7 @@ mod tests {
         lem::{slot::SlotsCounter, store::Store},
     };
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
+    use expect_test::{expect, Expect};
     use pasta_curves::pallas::Scalar as Fr;
 
     #[test]
@@ -1819,9 +1820,12 @@ mod tests {
                 bit_decomp: 3,
             }
         );
-        assert_eq!(cs.num_inputs(), 1);
-        assert_eq!(cs.aux().len(), 9118);
-        assert_eq!(cs.num_constraints(), 11064);
+        let expect_eq = |computed: usize, expected: Expect| {
+            expected.assert_eq(&computed.to_string());
+        };
+        expect_eq(cs.num_inputs(), expect!["1"]);
+        expect_eq(cs.aux().len(), expect!["9118"]);
+        expect_eq(cs.num_constraints(), expect!["11064"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
