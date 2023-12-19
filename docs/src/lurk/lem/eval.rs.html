@@ -1826,6 +1826,10 @@
 <a href="#1825" id="1825">1825</a>
 <a href="#1826" id="1826">1826</a>
 <a href="#1827" id="1827">1827</a>
+<a href="#1828" id="1828">1828</a>
+<a href="#1829" id="1829">1829</a>
+<a href="#1830" id="1830">1830</a>
+<a href="#1831" id="1831">1831</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -3627,6 +3631,7 @@
         lem::{slot::SlotsCounter, store::Store},
     };
     <span class="kw">use </span>bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
+    <span class="kw">use </span>expect_test::{expect, Expect};
     <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
 
     <span class="attr">#[test]
@@ -3647,9 +3652,12 @@
                 bit_decomp: <span class="number">3</span>,
             }
         );
-        <span class="macro">assert_eq!</span>(cs.num_inputs(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(cs.aux().len(), <span class="number">9118</span>);
-        <span class="macro">assert_eq!</span>(cs.num_constraints(), <span class="number">11064</span>);
+        <span class="kw">let </span>expect_eq = |computed: usize, expected: Expect| {
+            expected.assert_eq(<span class="kw-2">&amp;</span>computed.to_string());
+        };
+        expect_eq(cs.num_inputs(), <span class="macro">expect!</span>[<span class="string">"1"</span>]);
+        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"9118"</span>]);
+        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"11064"</span>]);
         <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), cs.num_constraints());
     }
 }
