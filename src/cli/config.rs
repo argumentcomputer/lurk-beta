@@ -60,6 +60,8 @@ pub(crate) struct CliSettings {
     /// Iteration limit for the program, which is arbitrary to user preferences
     /// Used mainly as a safety check, similar to default stack size
     pub(crate) limit: usize,
+    /// Maximum number of frames held at once, used to avoid memory overflows
+    pub(crate) max_chunk_size: usize,
 }
 
 impl CliSettings {
@@ -68,7 +70,7 @@ impl CliSettings {
         config_file: &Utf8PathBuf,
         cli_settings: Option<&HashMap<&str, String>>,
     ) -> Result<Self, ConfigError> {
-        let (proofs, commits, circom, backend, field, rc, limit) = (
+        let (proofs, commits, circom, backend, field, rc, limit, max_chunk_size) = (
             "proofs_dir",
             "commits_dir",
             "circom_dir",
@@ -76,6 +78,7 @@ impl CliSettings {
             "field",
             "rc",
             "limit",
+            "max_chunk_size",
         );
         Config::builder()
             .set_default(proofs, proofs_default_dir().to_string())?
@@ -96,6 +99,7 @@ impl CliSettings {
             .set_override_option(field, cli_settings.and_then(|s| s.get(field).map(|v| v.to_owned())))?
             .set_override_option(rc, cli_settings.and_then(|s| s.get(rc).map(|v| v.to_owned())))?
             .set_override_option(limit, cli_settings.and_then(|s| s.get(limit).map(|v| v.to_owned())))?
+            .set_override_option(max_chunk_size, cli_settings.and_then(|s| s.get(max_chunk_size).map(|v| v.to_owned())))?
             .build()
             .and_then(|c| c.try_deserialize())
     }
@@ -111,6 +115,7 @@ impl Default for CliSettings {
             field: LanguageField::default(),
             rc: 10,
             limit: 100_000_000,
+            max_chunk_size: 1_000_000,
         }
     }
 }
@@ -140,6 +145,7 @@ mod tests {
         let field = "Pallas";
         let rc = 100;
         let limit = 100_000;
+        let max_chunk_size = 10_000;
 
         let mut config_file = std::fs::File::create(config_dir.clone()).unwrap();
         config_file
@@ -166,6 +172,9 @@ mod tests {
         config_file
             .write_all(format!("limit = {limit}\n").as_bytes())
             .unwrap();
+        config_file
+            .write_all(format!("max_chunk_size = {max_chunk_size}\n").as_bytes())
+            .unwrap();
 
         let cli_config = CliSettings::from_config(&config_dir, None).unwrap();
         let lurk_config = Settings::from_config(&config_dir, None).unwrap();
@@ -177,5 +186,6 @@ mod tests {
         assert_eq!(cli_config.field, LanguageField::Pallas);
         assert_eq!(cli_config.rc, rc);
         assert_eq!(cli_config.limit, limit);
+        assert_eq!(cli_config.max_chunk_size, max_chunk_size);
     }
 }

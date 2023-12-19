@@ -57,8 +57,10 @@ pub trait EvaluationStore {
 
     /// interpreting a string representation of an expression
     fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error>;
+
     /// getting a pointer to the initial, empty environment
     fn initial_empty_env(&self) -> Self::Ptr;
+
     /// getting the terminal continuation pointer
     fn get_cont_terminal(&self) -> Self::ContPtr;
 
@@ -180,16 +182,13 @@ pub trait RecursiveSNARKTrait<
     /// Associated type for public parameters
     type PublicParams;
 
-    /// Main output of `prove_recursively`, encoding the actual proof
-    type ProveOutput;
-
     /// Extra input for `verify` to be defined as needed
     type ExtraVerifyInput;
 
     /// Type for error potentially thrown during verification
     type ErrorType;
 
-    /// Generate the recursive SNARK, encoded in `ProveOutput`
+    /// Generate the recursive SNARK
     fn prove_recursively(
         pp: &Self::PublicParams,
         z0: &[F],
@@ -197,7 +196,8 @@ pub trait RecursiveSNARKTrait<
         store: &'a M::Store,
         reduction_count: usize,
         lang: Arc<Lang<F, C>>,
-    ) -> Result<Self::ProveOutput, ProofError>;
+        initial_snark: Option<Self>,
+    ) -> Result<Self, ProofError>;
 
     /// Compress a proof
     fn compress(self, pp: &Self::PublicParams) -> Result<Self, ProofError>;
@@ -257,18 +257,8 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
     /// Associated type for public parameters
     type PublicParams;
 
-    /// Main output of `prove`, encoding the actual proof
-    type ProveOutput;
-
     /// Assiciated proof type, which must implement `RecursiveSNARKTrait`
-    type RecursiveSnark: RecursiveSNARKTrait<
-        'a,
-        F,
-        C,
-        M,
-        PublicParams = Self::PublicParams,
-        ProveOutput = Self::ProveOutput,
-    >;
+    type RecursiveSNARK: RecursiveSNARKTrait<'a, F, C, M, PublicParams = Self::PublicParams>;
 
     /// Returns a reference to the prover's FoldingMode
     fn folding_mode(&self) -> &FoldingMode;
@@ -285,7 +275,8 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         pp: &Self::PublicParams,
         frames: &[M::EvalFrame],
         store: &'a M::Store,
-    ) -> Result<(Self::ProveOutput, Vec<F>, Vec<F>, usize), ProofError> {
+        initial_snark: Option<Self::RecursiveSNARK>,
+    ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
         let z0 = M::io_to_scalar_vector(store, frames[0].input());
         let zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
@@ -298,13 +289,14 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         let steps = M::from_frames(frames, store, folding_config.into());
         let num_steps = steps.len();
 
-        let prove_output = Self::RecursiveSnark::prove_recursively(
+        let prove_output = Self::RecursiveSNARK::prove_recursively(
             pp,
             &z0,
             steps,
             store,
             self.reduction_count(),
             lang,
+            initial_snark,
         )?;
 
         Ok((prove_output, z0, zi, num_steps))
@@ -318,10 +310,10 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         env: M::Ptr,
         store: &'a M::Store,
         limit: usize,
-    ) -> Result<(Self::ProveOutput, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError> {
         let eval_config = self.folding_mode().eval_config(self.lang());
         let frames = M::build_frames(expr, env, store, limit, &eval_config)?;
-        self.prove(pp, &frames, store)
+        self.prove(pp, &frames, store, None)
     }
 
     /// Returns the expected total number of steps for the prover given raw iterations.

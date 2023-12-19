@@ -84,8 +84,8 @@ fn end2end_benchmark(c: &mut Criterion) {
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         b.iter(|| {
             let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
-            let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let _result = prover.prove(&pp, &frames, &store).unwrap();
+            let frames = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+            let _result = prover.prove(&pp, &frames, &store, None).unwrap();
         })
     });
 
@@ -251,10 +251,10 @@ fn prove_benchmark(c: &mut Criterion) {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
         let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
             NovaProver::new(reduction_count, lang_pallas_rc.clone());
-        let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+        let frames = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
         b.iter(|| {
-            let result = prover.prove(&pp, &frames, &store).unwrap();
+            let result = prover.prove(&pp, &frames, &store, None).unwrap();
             black_box(result);
         })
     });
@@ -298,10 +298,10 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas_rc.clone());
-        let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+        let frames = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
         b.iter(|| {
-            let (proof, _, _, _) = prover.prove(&pp, &frames, &store).unwrap();
+            let (proof, _, _, _) = prover.prove(&pp, &frames, &store, None).unwrap();
 
             let compressed_result = proof.compress(&pp).unwrap();
             black_box(compressed_result);
@@ -344,8 +344,8 @@ fn verify_benchmark(c: &mut Criterion) {
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas_rc.clone());
-            let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store).unwrap();
+            let frames = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store, None).unwrap();
 
             b.iter_batched(
                 || z0.clone(),
@@ -396,8 +396,8 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas_rc.clone());
-            let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store).unwrap();
+            let frames = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store, None).unwrap();
 
             let compressed_proof = proof.compress(&pp).unwrap();
 

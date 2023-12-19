@@ -31,7 +31,7 @@ fn test_nivc_steps() {
     // 9^2 + 8 = 89
     let expr = store.read_with_default_state("(cproc-dumb 9 8)").unwrap();
 
-    let (frames, _) = evaluate(Some((&lurk_step, &lang)), expr, &store, 10).unwrap();
+    let frames = evaluate(Some((&lurk_step, &lang)), expr, &store, 10).unwrap();
 
     // Iteration 1: evaluate first argument
     // Iteration 2: evaluate second argument

@@ -89,6 +89,10 @@ struct LoadArgs {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
+    /// Maximum number of held frames (defaults to 1_000_000; rounded up to the next multiple of rc)
+    #[clap(long, value_parser)]
+    max_chunk_size: Option<usize>,
+
     /// Prover backend (defaults to "Nova")
     #[clap(long, value_enum)]
     backend: Option<Backend>,
@@ -138,6 +142,9 @@ struct LoadCli {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
+    #[clap(long, value_parser)]
+    max_chunk_size: Option<usize>,
+
     #[clap(long, value_enum)]
     backend: Option<Backend>,
 
@@ -169,6 +176,7 @@ impl LoadArgs {
             config: self.config,
             rc: self.rc,
             limit: self.limit,
+            max_chunk_size: self.max_chunk_size,
             backend: self.backend,
             field: self.field,
             public_params_dir: self.public_params_dir,
@@ -201,6 +209,10 @@ struct ReplArgs {
     /// Iterations allowed (defaults to 100_000_000; rounded up to the next multiple of rc)
     #[clap(long, value_parser)]
     limit: Option<usize>,
+
+    /// Maximum number of held frames (defaults to 1_000_000; rounded up to the next multiple of rc)
+    #[clap(long, value_parser)]
+    max_chunk_size: Option<usize>,
 
     /// Prover backend (defaults to "Nova")
     #[clap(long, value_enum)]
@@ -244,6 +256,9 @@ struct ReplCli {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
+    #[clap(long, value_parser)]
+    max_chunk_size: Option<usize>,
+
     #[clap(long, value_enum)]
     backend: Option<Backend>,
 
@@ -271,6 +286,7 @@ impl ReplArgs {
             config: self.config,
             rc: self.rc,
             limit: self.limit,
+            max_chunk_size: self.max_chunk_size,
             backend: self.backend,
             field: self.field,
             public_params_dir: self.public_params_dir,
@@ -302,17 +318,17 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
 }
 
 macro_rules! new_repl {
-    ( $cli: expr, $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
+    ( $cli: expr, $rc: expr, $limit: expr, $max_chunk_size: expr, $field: path, $backend: expr ) => {{
         let store = get_store(&$cli.zstore).with_context(|| "reading store from file")?;
-        Repl::<$field>::new(store, $rc, $limit, $backend)
+        Repl::<$field>::new(store, $rc, $limit, $max_chunk_size, $backend)
     }};
 }
 
 impl ReplCli {
     fn run(&self) -> Result<()> {
         macro_rules! repl {
-            ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
-                let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
+            ( $rc: expr, $limit: expr, $max_chunk_size: expr, $field: path, $backend: expr ) => {{
+                let mut repl = new_repl!(self, $rc, $limit, $max_chunk_size, $field, $backend);
                 if let Some(lurk_file) = &self.load {
                     repl.load_file(lurk_file, false)?;
                 }
@@ -338,7 +354,8 @@ impl ReplCli {
             backend,
             field,
             rc,
-            limit
+            limit,
+            max_chunk_size
         );
 
         // Initializes CLI config with CLI arguments as overrides
@@ -348,12 +365,15 @@ impl ReplCli {
 
         let rc = config.rc;
         let limit = config.limit;
+        let max_chunk_size = config.max_chunk_size;
         let backend = &config.backend;
         let field = &config.field;
         validate_non_zero("rc", rc)?;
         backend.validate_field(field)?;
         match field {
-            LanguageField::Pallas => repl!(rc, limit, pallas::Scalar, backend.clone()),
+            LanguageField::Pallas => {
+                repl!(rc, limit, max_chunk_size, pallas::Scalar, backend.clone())
+            }
             LanguageField::Vesta => todo!(),
             LanguageField::BN256 => todo!(),
             LanguageField::Grumpkin => todo!(),
@@ -364,11 +384,11 @@ impl ReplCli {
 impl LoadCli {
     fn run(&self) -> Result<()> {
         macro_rules! load {
-            ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
-                let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
+            ( $rc: expr, $limit: expr, $max_chunk_size: expr, $field: path, $backend: expr ) => {{
+                let mut repl = new_repl!(self, $rc, $limit, $max_chunk_size, $field, $backend);
                 repl.load_file(&self.lurk_file, self.demo)?;
                 if self.prove {
-                    repl.prove_last_frames()?;
+                    repl.prove_last_computation()?;
                 }
                 Ok(())
             }};
@@ -392,7 +412,8 @@ impl LoadCli {
             backend,
             field,
             rc,
-            limit
+            limit,
+            max_chunk_size
         );
 
         // Initializes CLI config with CLI arguments as overrides
@@ -402,12 +423,15 @@ impl LoadCli {
 
         let rc = config.rc;
         let limit = config.limit;
+        let max_chunk_size = config.max_chunk_size;
         let backend = &config.backend;
         let field = &config.field;
         validate_non_zero("rc", rc)?;
         backend.validate_field(field)?;
         match field {
-            LanguageField::Pallas => load!(rc, limit, pallas::Scalar, backend.clone()),
+            LanguageField::Pallas => {
+                load!(rc, limit, max_chunk_size, pallas::Scalar, backend.clone())
+            }
             LanguageField::Vesta => todo!(),
             LanguageField::BN256 => todo!(),
             LanguageField::Grumpkin => todo!(),

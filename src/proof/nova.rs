@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 use abomonation::Abomonation;
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem};
 use ff::PrimeField;
@@ -235,8 +233,6 @@ where
 {
     type PublicParams = PublicParams<F, M>;
 
-    type ProveOutput = Self;
-
     /// The number of steps
     type ExtraVerifyInput = usize;
 
@@ -250,6 +246,7 @@ where
         store: &'a <M>::Store,
         reduction_count: usize,
         lang: Arc<Lang<F, C>>,
+        initial_snark: Option<Self>,
     ) -> Result<Self, ProofError> {
         assert!(!steps.is_empty());
         assert_eq!(steps[0].arity(), z0.len());
@@ -263,8 +260,11 @@ where
 
         tracing::debug!("steps.len: {}", steps.len());
 
-        // produce a recursive SNARK
-        let mut recursive_snark: Option<RecursiveSNARK<E1<F>, E2<F>, M, C2<F>>> = None;
+        // produce a recursive SNARK, starting from the initial one
+        let mut recursive_snark = initial_snark.and_then(|p| match p {
+            Self::Recursive(p, _) => Some(*p),
+            Self::Compressed(..) => None,
+        });
 
         // the shadowing here is voluntary
         let recursive_snark = if lurk_config(None, None)
@@ -428,8 +428,7 @@ where
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, M>;
-    type ProveOutput = Proof<'a, F, C, M>;
-    type RecursiveSnark = Proof<'a, F, C, M>;
+    type RecursiveSNARK = Proof<'a, F, C, M>;
 
     #[inline]
     fn reduction_count(&self) -> usize {

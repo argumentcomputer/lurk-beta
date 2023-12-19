@@ -16,7 +16,6 @@ use crate::{
     eval::lang::Coproc,
     field::LurkField,
     lem::{
-        eval::evaluate_with_env_and_cont,
         multiframe::MultiFrame,
         pointers::{Ptr, ZPtr},
         Tag,
@@ -370,9 +369,9 @@ impl MetaCmd<F> {
         ],
         run: |repl, args| {
             if !args.is_nil() {
-                repl.eval_expr_and_memoize(repl.peek1(args)?)?;
+                repl.evaluate_with_env_and_cont_then_memoize(repl.peek1(args)?, repl.env, repl.store.cont_outermost())?;
             }
-            repl.prove_last_frames()?;
+            repl.prove_last_computation()?;
             Ok(())
         }
     };
@@ -605,13 +604,11 @@ impl MetaCmd<F> {
         ],
         run: |repl: &mut Repl<F>, args: &Ptr| {
             Self::call(repl, args)?;
-            let ev = repl
-                .get_evaluation()
+            let result = &repl
+                .cache
                 .as_ref()
-                .expect("evaluation must have been set");
-            let result = ev
-                .get_result()
-                .expect("evaluation result must have been set");
+                .expect("evaluation result must have been set")
+                .1[0];
             let (_, comm) = repl.store.car_cdr(result)?;
             let Ptr::Atom(Tag::Expr(ExprTag::Comm), hash) = comm else {
                 bail!("Second component of a chain must be a commitment")
@@ -1047,27 +1044,23 @@ impl MetaCmd<F> {
 
             Self::post_verify_check(repl, post_verify)?;
 
-            let (frames, iterations) = evaluate_with_env_and_cont::<F, Coproc<F>>(
-                None,
+            let (output, _) = repl.evaluate_with_env_and_cont_then_memoize(
                 cek_io[0],
                 cek_io[1],
                 Self::get_cont_ptr(repl, &cek_io[2])?,
-                &repl.store,
-                repl.limit,
             )?;
 
             {
                 // making sure the output matches expectation before proving
-                let res = &frames.last().expect("frames can't be empty").output;
-                if cek_io[3] != res[0]
-                    || cek_io[4] != res[1]
-                    || Self::get_cont_ptr(repl, &cek_io[5])? != res[2]
+                if cek_io[3] != output[0]
+                    || cek_io[4] != output[1]
+                    || Self::get_cont_ptr(repl, &cek_io[5])? != output[2]
                 {
                     bail!("Mismatch between expected output and computed output")
                 }
             }
 
-            let proof_key = repl.prove_frames(&frames, iterations)?;
+            let proof_key = repl.prove_last_computation()?;
             let mut z_dag = ZDag::default();
             let z_ptr = z_dag.populate_with(&args, &repl.store, &mut Default::default());
             let args = LurkData { z_ptr, z_dag };
