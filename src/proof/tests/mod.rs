@@ -3,6 +3,7 @@ mod nova_tests_lem;
 use abomonation::Abomonation;
 use bellpepper::util_cs::{metric_cs::MetricCS, witness_cs::WitnessCS, Comparable};
 use bellpepper_core::{test_cs::TestConstraintSystem, ConstraintSystem, Delta};
+use expect_test::Expect;
 use nova::traits::Engine;
 use std::sync::Arc;
 
@@ -42,7 +43,7 @@ fn test_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a,
     expected_env: Option<M::Ptr>,
     expected_cont: Option<M::ContPtr>,
     expected_emitted: Option<&[M::Ptr]>,
-    expected_iterations: usize,
+    expected_iterations: &Expect,
     lang: &Option<Arc<Lang<F, C>>>,
 )
 // technical bounds that would disappear once associated_type_bounds stabilizes
@@ -74,7 +75,7 @@ fn nova_test_full_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFram
     expected_env: Option<M::Ptr>,
     expected_cont: Option<M::ContPtr>,
     expected_emitted: Option<&[M::Ptr]>,
-    expected_iterations: usize,
+    expected_iterations: &Expect,
     reduction_count: usize,
     check_nova: bool,
     limit: Option<usize>,
@@ -118,7 +119,7 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFra
     expected_env: Option<M::Ptr>,
     expected_cont: Option<M::ContPtr>,
     expected_emitted: Option<&[M::Ptr]>,
-    expected_iterations: usize,
+    expected_iterations: &Expect,
     reduction_count: usize,
     check_nova: bool,
     limit: Option<usize>,
@@ -157,7 +158,8 @@ where
     let multiframes = M::from_frames(&frames, s, folding_config.clone());
     let len = multiframes.len();
 
-    let adjusted_iterations = nova_prover.expected_num_steps(expected_iterations);
+    let expected_iterations_data = expected_iterations.data().parse::<usize>().unwrap();
+    let adjusted_iterations = nova_prover.expected_num_steps(expected_iterations_data);
     let mut previous_frame: Option<&M> = None;
 
     let mut cs_blank = MetricCS::<F>::new();
@@ -226,6 +228,8 @@ where
         assert_eq!(&s.get_cont_terminal(), output.cont());
     }
 
-    assert_eq!(expected_iterations, M::significant_frame_count(&frames));
+    let iterations = M::significant_frame_count(&frames);
+    assert!(iterations <= expected_iterations_data);
+    expected_iterations.assert_eq(&iterations.to_string());
     assert_eq!(adjusted_iterations, len);
 }
