@@ -667,8 +667,8 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         limit: usize,
         ec: &EvalConfig<'_, F, C>,
     ) -> Result<Vec<Self::EvalFrame>, ProofError> {
-        let cont = store.cont_outermost();
         let lurk_step = make_eval_step_from_config(ec);
+        let cont = store.cont_outermost();
         match evaluate_with_env_and_cont(
             Some((&lurk_step, ec.lang())),
             expr,
@@ -677,7 +677,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
             store,
             limit,
         ) {
-            Ok((frames, _)) => Ok(frames),
+            Ok(frames) => Ok(frames),
             Err(e) => Err(ProofError::Reduction(ReductionError::Misc(e.to_string()))),
         }
     }
@@ -994,7 +994,7 @@ mod tests {
 
         let expr = store.read_with_default_state("(if t (+ 5 5) 6)").unwrap();
 
-        let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, expr, &store, 10).unwrap();
+        let frames = evaluate::<Fq, Coproc<Fq>>(None, expr, &store, 10).unwrap();
 
         let sequential_slots_witnesses =
             generate_slots_witnesses(&store, &frames, num_slots_per_frame, false);
@@ -1101,7 +1101,7 @@ mod tests {
         let expr = store.read_with_default_state("(+ 1 2)").unwrap();
 
         let lang = Arc::new(Lang::<Fq, Coproc<Fq>>::new());
-        let (mut frames, _) = evaluate::<Fq, Coproc<Fq>>(None, expr, &store, 1).unwrap();
+        let mut frames = evaluate::<Fq, Coproc<Fq>>(None, expr, &store, 1).unwrap();
         assert_eq!(frames.len(), 1);
 
         let mut frame = frames.pop().unwrap();

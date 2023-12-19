@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 use abomonation::Abomonation;
 use ff::PrimeField;
 use nova::{
@@ -192,11 +190,7 @@ where
 {
     type PublicParams = PublicParams<F, M>;
 
-    /// Proving with SuperNova outputs the proof and the index of the last circuit
-    type ProveOutput = (Self, usize);
-
-    /// The index of the last circuit
-    type ExtraVerifyInput = usize;
+    type ExtraVerifyInput = PhantomData<F>;
 
     type ErrorType = SuperNovaError;
 
@@ -208,18 +202,20 @@ where
         _store: &'a <M>::Store,
         _reduction_count: usize,
         _lang: Arc<Lang<F, C>>,
-    ) -> Result<(Self, usize), ProofError> {
-        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>, E2<F>>> = None;
+        initial_snark: Option<Self>,
+    ) -> Result<Self, ProofError> {
+        let mut recursive_snark_option = initial_snark.and_then(|p| match p {
+            Self::Recursive(p) => Some(*p),
+            Self::Compressed(..) => None,
+        });
 
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
 
-        let mut last_circuit_index = 0;
-
         for (i, step) in steps.iter().enumerate() {
             info!("prove_recursively, step {i}");
 
-            let mut recursive_snark = recursive_snark_option.clone().unwrap_or_else(|| {
+            let mut recursive_snark = recursive_snark_option.unwrap_or_else(|| {
                 info!("RecursiveSnark::new {i}");
                 RecursiveSNARK::new(
                     &pp.pp,
@@ -239,17 +235,12 @@ where
                 .unwrap();
 
             recursive_snark_option = Some(recursive_snark);
-
-            last_circuit_index = step.circuit_index();
         }
 
         // This probably should be made unnecessary.
-        Ok((
-            Self::Recursive(Box::new(
-                recursive_snark_option.expect("RecursiveSNARK missing"),
-            )),
-            last_circuit_index,
-        ))
+        Ok(Self::Recursive(Box::new(
+            recursive_snark_option.expect("RecursiveSNARK missing"),
+        )))
     }
 
     fn compress(self, pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
@@ -271,7 +262,7 @@ where
         pp: &Self::PublicParams,
         z0: &[F],
         zi: &[F],
-        _last_circuit_idx: usize,
+        _phantom: PhantomData<F>,
     ) -> Result<bool, Self::ErrorType> {
         let (z0_primary, zi_primary) = (z0, zi);
         let z0_secondary = Self::z0_secondary();
@@ -297,8 +288,7 @@ where
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, M>;
-    type ProveOutput = (Proof<'a, F, C, M>, usize);
-    type RecursiveSnark = Proof<'a, F, C, M>;
+    type RecursiveSNARK = Proof<'a, F, C, M>;
 
     #[inline]
     fn reduction_count(&self) -> usize {

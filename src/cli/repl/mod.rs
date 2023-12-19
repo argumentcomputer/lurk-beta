@@ -23,7 +23,10 @@ use crate::{
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
-        eval::{evaluate_simple_with_env, evaluate_with_env},
+        eval::{
+            evaluate_simple_with_env, evaluate_simple_with_input, evaluate_with_env_and_cont,
+            evaluate_with_input,
+        },
         interpreter::Frame,
         multiframe::MultiFrame,
         pointers::Ptr,
@@ -64,19 +67,6 @@ impl Validator for InputValidator {
 }
 
 #[allow(dead_code)]
-struct Evaluation {
-    frames: Vec<Frame>,
-    iterations: usize,
-}
-
-impl Evaluation {
-    #[inline]
-    fn get_result(&self) -> Option<&Ptr> {
-        self.frames.last().and_then(|frame| frame.output.first())
-    }
-}
-
-#[allow(dead_code)]
 pub(crate) struct Repl<F: LurkField> {
     store: Store<F>,
     state: Rc<RefCell<State>>,
@@ -84,8 +74,9 @@ pub(crate) struct Repl<F: LurkField> {
     lang: Arc<Lang<F, Coproc<F>>>,
     rc: usize,
     limit: usize,
+    max_chunk_size: usize,
     backend: Backend,
-    evaluation: Option<Evaluation>,
+    cache: Option<(Vec<Frame>, Vec<Ptr>, usize)>,
     pwd_path: Utf8PathBuf,
     meta: HashMap<&'static str, MetaCmd<F>>,
     apply_fn: OnceCell<Ptr>,
@@ -107,10 +98,6 @@ fn pad(a: usize, m: usize) -> usize {
 }
 
 impl<F: LurkField> Repl<F> {
-    fn get_evaluation(&self) -> &Option<Evaluation> {
-        &self.evaluation
-    }
-
     fn peek1(&self, args: &Ptr) -> Result<Ptr> {
         let (first, rest) = self.store.car_cdr(args)?;
         if !rest.is_nil() {
@@ -152,8 +139,15 @@ impl<F: LurkField> Repl<F> {
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
 
 impl Repl<F> {
-    pub(crate) fn new(store: Store<F>, rc: usize, limit: usize, backend: Backend) -> Repl<F> {
+    pub(crate) fn new(
+        store: Store<F>,
+        rc: usize,
+        limit: usize,
+        max_chunk_size: usize,
+        backend: Backend,
+    ) -> Repl<F> {
         let limit = pad(limit, rc);
+        let max_chunk_size = pad(max_chunk_size, rc);
         info!(
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
             F::FIELD
@@ -169,8 +163,9 @@ impl Repl<F> {
             lang: Arc::new(Lang::new()),
             rc,
             limit,
+            max_chunk_size,
             backend,
-            evaluation: None,
+            cache: None,
             pwd_path,
             meta: MetaCmd::cmds(),
             apply_fn: OnceCell::new(),
@@ -258,92 +253,143 @@ impl Repl<F> {
         format!("{backend}_{field}_{rc}_{claim_hash}")
     }
 
-    /// Proves a computation and returns the proof key
-    pub(crate) fn prove_frames(&self, frames: &[Frame], iterations: usize) -> Result<String> {
-        match self.backend {
-            Backend::Nova => {
-                info!("Hydrating the store");
-                self.store.hydrate_z_cache();
-
-                let n_frames = frames.len();
-
-                // saving to avoid clones
-                let input = &frames[0].input;
-                let output = &frames[n_frames - 1].output;
-                let mut z_dag = ZDag::<F>::default();
-                let mut cache = HashMap::default();
-                let expr = z_dag.populate_with(&input[0], &self.store, &mut cache);
-                let env = z_dag.populate_with(&input[1], &self.store, &mut cache);
-                let cont = z_dag.populate_with(&input[2], &self.store, &mut cache);
-                let expr_out = z_dag.populate_with(&output[0], &self.store, &mut cache);
-                let env_out = z_dag.populate_with(&output[1], &self.store, &mut cache);
-                let cont_out = z_dag.populate_with(&output[2], &self.store, &mut cache);
-
-                let claim = Self::proof_claim(
-                    &self.store,
-                    (input[0], output[0]),
-                    (input[1], output[1]),
-                    (cont.parts(), cont_out.parts()),
-                );
-
-                let claim_comm = Commitment::new(None, claim, &self.store);
-                let claim_hash = &claim_comm.hash.hex_digits();
-                let proof_key = Self::proof_key(&self.backend, &self.rc, claim_hash);
-
-                let lurk_proof_meta = LurkProofMeta {
-                    iterations,
-                    expr_io: (expr, expr_out),
-                    env_io: Some((env, env_out)),
-                    cont_io: (cont, cont_out),
-                    z_dag,
-                };
-
-                if LurkProof::<_, _, MultiFrame<'_, _, Coproc<F>>>::is_cached(&proof_key) {
-                    info!("Proof already cached");
-                } else {
-                    info!("Proof not cached. Loading public parameters");
-                    let instance =
-                        Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
-                    let pp = public_params(&instance)?;
-
-                    let prover = NovaProver::<_, _, MultiFrame<'_, F, Coproc<F>>>::new(
-                        self.rc,
-                        self.lang.clone(),
-                    );
-
-                    info!("Proving");
-                    let (proof, public_inputs, public_outputs, num_steps) =
-                        prover.prove(&pp, frames, &self.store)?;
-                    info!("Compressing proof");
-                    let proof = proof.compress(&pp)?;
-                    assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
-                    assert!(proof.verify(&pp, &public_inputs, &public_outputs, num_steps)?);
-
-                    let lurk_proof = LurkProof::Nova {
-                        proof,
-                        public_inputs,
-                        public_outputs,
-                        num_steps,
-                        rc: self.rc,
-                        lang: (*self.lang).clone(),
-                    };
-
-                    lurk_proof.persist(&proof_key)?;
-                }
-                lurk_proof_meta.persist(&proof_key)?;
-                claim_comm.persist()?;
-                println!("Claim hash: 0x{claim_hash}");
-                println!("Proof key: \"{proof_key}\"");
-                Ok(proof_key)
-            }
-        }
-    }
-
     /// Proves the last cached computation and returns the proof key
-    pub(crate) fn prove_last_frames(&self) -> Result<String> {
-        match self.evaluation.as_ref() {
+    pub(crate) fn prove_last_computation(&mut self) -> Result<String> {
+        // releasing ownership of the cache, which might be lost
+        let mut cache = None;
+        std::mem::swap(&mut cache, &mut self.cache);
+        match cache {
             None => bail!("No evaluation to prove"),
-            Some(Evaluation { frames, iterations }) => self.prove_frames(frames, *iterations),
+            Some((frames, output, iterations)) => {
+                match self.backend {
+                    Backend::Nova => {
+                        info!("Hydrating the store");
+                        self.store.hydrate_z_cache();
+
+                        // saving to avoid clones
+                        let input = &frames[0].input;
+                        let mut z_dag = ZDag::<F>::default();
+                        let mut cache = HashMap::default();
+                        let expr = z_dag.populate_with(&input[0], &self.store, &mut cache);
+                        let env = z_dag.populate_with(&input[1], &self.store, &mut cache);
+                        let cont = z_dag.populate_with(&input[2], &self.store, &mut cache);
+                        let expr_out = z_dag.populate_with(&output[0], &self.store, &mut cache);
+                        let env_out = z_dag.populate_with(&output[1], &self.store, &mut cache);
+                        let cont_out = z_dag.populate_with(&output[2], &self.store, &mut cache);
+
+                        let claim = Self::proof_claim(
+                            &self.store,
+                            (input[0], output[0]),
+                            (input[1], output[1]),
+                            (cont.parts(), cont_out.parts()),
+                        );
+
+                        let claim_comm = Commitment::new(None, claim, &self.store);
+                        let claim_hash = &claim_comm.hash.hex_digits();
+                        let proof_key = Self::proof_key(&self.backend, &self.rc, claim_hash);
+
+                        let lurk_proof_meta = LurkProofMeta {
+                            iterations,
+                            expr_io: (expr, expr_out),
+                            env_io: Some((env, env_out)),
+                            cont_io: (cont, cont_out),
+                            z_dag,
+                        };
+
+                        if LurkProof::<_, _, MultiFrame<'_, _, Coproc<F>>>::is_cached(&proof_key) {
+                            info!("Proof already cached");
+                        } else {
+                            info!("Proof not cached. Loading public parameters");
+                            let instance = Instance::new(
+                                self.rc,
+                                self.lang.clone(),
+                                true,
+                                Kind::NovaPublicParams,
+                            );
+                            let pp = public_params(&instance)?;
+
+                            let prover = NovaProver::<_, _, MultiFrame<'_, F, Coproc<F>>>::new(
+                                self.rc,
+                                self.lang.clone(),
+                            );
+
+                            info!("Proving");
+                            let (mut proof, public_inputs, mut public_outputs, mut num_steps) =
+                                prover.prove(&pp, &frames, &self.store, None)?;
+                            let last_frame_output = &frames.last().unwrap().output;
+                            if last_frame_output != &output {
+                                // we need to further evaluate and prove, updating `proof`,
+                                // `public_outputs` and `num_steps`, until we reach the
+                                // known (precomputed) output
+                                let mut input = last_frame_output.clone();
+                                let mut current_proof = Some(proof);
+                                let mut fuel = self.limit - frames.len();
+                                loop {
+                                    assert!(fuel > 0);
+                                    // the maximum number of iterations allowed in this chunk
+                                    let partial_fuel = self.max_chunk_size.min(fuel);
+                                    let frames = evaluate_with_input::<F, Coproc<F>>(
+                                        None,
+                                        input,
+                                        &self.store,
+                                        partial_fuel,
+                                    )?;
+                                    // we could reset the store here as well, keeping only
+                                    // the commitments and poseidon cache... but let's not
+                                    // do it just yet and wait for a real need to manifest
+                                    let (
+                                        partial_proof,
+                                        _,
+                                        partial_public_outputs,
+                                        partial_num_steps,
+                                    ) = prover.prove(&pp, &frames, &self.store, current_proof)?;
+                                    public_outputs = partial_public_outputs;
+                                    num_steps += partial_num_steps;
+                                    let partial_iterations = frames.len();
+                                    let last_frame_output = &frames[partial_iterations - 1].output;
+                                    if last_frame_output == &output {
+                                        proof = partial_proof;
+                                        break;
+                                    }
+                                    input = last_frame_output.clone();
+                                    current_proof = Some(partial_proof);
+                                    fuel -= partial_iterations;
+                                }
+                            } else {
+                                // we can recover the cache here because a new
+                                // chunk of frames wasn't necessary
+                                self.cache = Some((frames, output, iterations));
+                            }
+
+                            info!("Compressing proof");
+                            let proof = proof.compress(&pp)?;
+                            assert_eq!(self.rc * num_steps, pad(iterations, self.rc));
+                            assert!(proof.verify(
+                                &pp,
+                                &public_inputs,
+                                &public_outputs,
+                                num_steps
+                            )?);
+
+                            let lurk_proof = LurkProof::Nova {
+                                proof,
+                                public_inputs,
+                                public_outputs,
+                                num_steps,
+                                rc: self.rc,
+                                lang: (*self.lang).clone(),
+                            };
+
+                            lurk_proof.persist(&proof_key)?;
+                        }
+                        lurk_proof_meta.persist(&proof_key)?;
+                        claim_comm.persist()?;
+                        println!("Claim hash: 0x{claim_hash}");
+                        println!("Proof key: \"{proof_key}\"");
+                        Ok(proof_key)
+                    }
+                }
+            }
         }
     }
 
@@ -408,6 +454,11 @@ impl Repl<F> {
         self.eval_expr_with_env(expr, self.env)
     }
 
+    #[inline]
+    fn halted(cek: &[Ptr]) -> bool {
+        matches!(cek[2].tag(), Tag::Cont(ContTag::Terminal | ContTag::Error))
+    }
+
     fn eval_expr_allowing_error_continuation(
         &mut self,
         expr_ptr: Ptr,
@@ -419,7 +470,7 @@ impl Repl<F> {
             &self.store,
             self.limit,
         )?;
-        if matches!(ptrs[2].tag(), Tag::Cont(ContTag::Terminal | ContTag::Error)) {
+        if Self::halted(&ptrs) {
             Ok((ptrs, iterations, emitted))
         } else {
             bail!(
@@ -429,11 +480,37 @@ impl Repl<F> {
         }
     }
 
-    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr) -> Result<(Vec<Ptr>, usize)> {
-        let (frames, iterations) =
-            evaluate_with_env::<F, Coproc<F>>(None, expr_ptr, self.env, &self.store, self.limit)?;
-        let output = frames[frames.len() - 1].output.clone();
-        self.evaluation = Some(Evaluation { frames, iterations });
+    fn evaluate_with_env_and_cont_then_memoize(
+        &mut self,
+        expr: Ptr,
+        env: Ptr,
+        cont: Ptr,
+    ) -> Result<(Vec<Ptr>, usize)> {
+        self.cache = None;
+        let (frames, output, iterations) = {
+            let fuel = self.max_chunk_size.min(self.limit);
+            let frames = evaluate_with_env_and_cont::<F, Coproc<F>>(
+                None,
+                expr,
+                env,
+                cont,
+                &self.store,
+                fuel,
+            )?;
+            let iterations = frames.len();
+            let output = frames[iterations - 1].output.clone();
+            if iterations == self.limit || Self::halted(&output) {
+                // we can't or need to go any further
+                (frames, output, iterations)
+            } else {
+                // max_chunk_size was reached... move on without accumulating frames
+                let fuel = self.limit - iterations;
+                let (output, iterations_non_cached, _) =
+                    evaluate_simple_with_input::<F, Coproc<F>>(None, output, &self.store, fuel)?;
+                (frames, output, iterations + iterations_non_cached)
+            }
+        };
+        self.cache = Some((frames, output.clone(), iterations));
         Ok((output, iterations))
     }
 
@@ -450,8 +527,12 @@ impl Repl<F> {
         Ok(self.store.expect_f(*hash_idx))
     }
 
-    pub(crate) fn handle_non_meta(&mut self, expr_ptr: Ptr) -> Result<()> {
-        let (output, iterations) = self.eval_expr_and_memoize(expr_ptr)?;
+    pub(crate) fn handle_non_meta(&mut self, expr: Ptr) -> Result<()> {
+        let (output, iterations) = self.evaluate_with_env_and_cont_then_memoize(
+            expr,
+            self.env,
+            self.store.cont_outermost(),
+        )?;
         let iterations_display = Self::pretty_iterations_display(iterations);
         match output[2].tag() {
             Tag::Cont(ContTag::Terminal) => {

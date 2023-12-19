@@ -132,14 +132,14 @@ where
 {
     let limit = limit.unwrap_or(10000);
 
-    let e = s.initial_empty_env();
+    let env = s.initial_empty_env();
 
-    let frames = M::build_frames(expr, e, s, limit, &EvalConfig::new_ivc(&lang)).unwrap();
+    let frames = M::build_frames(expr, env, s, limit, &EvalConfig::new_ivc(&lang)).unwrap();
     let nova_prover = NovaProver::<'a, F, C, M>::new(reduction_count, lang.clone());
 
     if check_nova {
         let pp = public_params::<_, _, M>(reduction_count, lang.clone());
-        let (proof, z0, zi, num_steps) = nova_prover.prove(&pp, &frames, s).unwrap();
+        let (proof, z0, zi, num_steps) = nova_prover.prove(&pp, &frames, s, None).unwrap();
 
         let res = proof.verify(&pp, &z0, &zi, num_steps);
         if res.is_err() {

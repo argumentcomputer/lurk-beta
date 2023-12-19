@@ -134,14 +134,12 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
-                .unwrap()
-                .0;
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit).unwrap();
 
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let result = prover.prove(&pp, frames, store);
+                    let result = prover.prove(&pp, frames, store, None);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -217,14 +215,12 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
-                .unwrap()
-                .0;
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit).unwrap();
 
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let (proof, _, _, _) = prover.prove(&pp, frames, store).unwrap();
+                    let (proof, _, _, _) = prover.prove(&pp, frames, store, None).unwrap();
                     let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);
@@ -302,14 +298,12 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
 
             let prover = SuperNovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
-                .unwrap()
-                .0;
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit).unwrap();
 
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let result = prover.prove(&pp, frames, store);
+                    let result = prover.prove(&pp, frames, store, None);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

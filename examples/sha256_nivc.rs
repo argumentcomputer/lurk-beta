@@ -1,5 +1,5 @@
 use pasta_curves::pallas::Scalar as Fr;
-use std::{sync::Arc, time::Instant};
+use std::{marker::PhantomData, sync::Arc, time::Instant};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
 
@@ -77,7 +77,7 @@ fn main() {
     let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang));
-    let (frames, _) = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
+    let frames = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
 
     let supernova_prover = SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
         REDUCTION_COUNT,
@@ -95,9 +95,8 @@ fn main() {
 
     println!("Beginning proof step...");
     let proof_start = Instant::now();
-    let ((proof, last_circuit_index), z0, zi, _num_steps) =
-        tracing_texray::examine(tracing::info_span!("bang!"))
-            .in_scope(|| supernova_prover.prove(&pp, &frames, store).unwrap());
+    let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
+        .in_scope(|| supernova_prover.prove(&pp, &frames, store, None).unwrap());
     let proof_end = proof_start.elapsed();
 
     println!("Proofs took {:?}", proof_end);
@@ -105,7 +104,7 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    assert!(proof.verify(&pp, &z0, &zi, last_circuit_index).unwrap());
+    assert!(proof.verify(&pp, &z0, &zi, PhantomData).unwrap());
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {:?}", verify_end);
@@ -118,9 +117,7 @@ fn main() {
     println!("Compression took {:?}", compress_end);
 
     let compressed_verify_start = Instant::now();
-    let res = compressed_proof
-        .verify(&pp, &z0, &zi, last_circuit_index)
-        .unwrap();
+    let res = compressed_proof.verify(&pp, &z0, &zi, PhantomData).unwrap();
     let compressed_verify_end = compressed_verify_start.elapsed();
 
     println!("Final verification took {:?}", compressed_verify_end);
