@@ -8,9 +8,9 @@
 [msrv-image]: https://img.shields.io/badge/rustc-1.70+-blue.svg
 [crates-image]: https://img.shields.io/crates/v/lurk.svg
 
-# Status (Alpha)
+# Status (Beta)
 
-Lurk is currently in Alpha. Code that runs in the Lurk Alpha release is expected to also run in Lurk Beta, and eventually Lurk 1.0. However, some low-level data representations are anticipated to change, and we will be refactoring the circuit implementation to increase auditability and further our confidence in Lurk's cryptographic security. Also note that since Lurk inherits some security properties from the underlying proving system, those who would rely on Lurk should investigate the security and status of Nova itself. We encourage early adopters to begin writing real applications taking advantage of Lurk so you can begin to familiarize yourself with the programming model. Likewise, we welcome your feedback -- which will help ensure ongoing development meets user need.
+Lurk is currently in [Beta](https://blog.lurk-lang.org/posts/lurk-beta/), which is backwards compatible with code that ran in Lurk Alpha and is expected to be compatible with Lurk 1.0. However, some low-level data representations are anticipated to change, and we will be refactoring the evaluation model (and consequently its circuit) for efficiency purposes. Also note that since Lurk inherits some security properties from the underlying proving system, those who would rely on Lurk should investigate the security and status of Nova/SuperNova itself. We encourage early adopters to begin writing real applications taking advantage of Lurk so you can begin to familiarize yourself with the programming model. Likewise, we welcome your feedback -- which will help ensure ongoing development meets user need.
 
 For support and discussions, please visit our [Zulip forum](https://zulip.lurk-lab.com/).
 
@@ -49,7 +49,7 @@ Lurk's Alpha release has undergone a [security audit](https://blog.lurk-lang.org
 
 # Versioning
 
-Please note that the Lurk language and spec will be versioned independently from the crates that implement the spec. This is necessary semantic versioning implies different requirements for the language and its implementation. For example, Lurk Alpha is released as crate `lurk 0.2.0`. It is our intention for these two versioning systems to coincide at 1.0. The next major Lurk release will be Lurk Beta, but there may be multiple minor-version crate releases before then.
+Please note that the Lurk language and spec will be versioned independently from the crates that implement the spec. This is necessary because semantic versioning implies different requirements for the language and its implementation. For example, Lurk Alpha is released as crate `lurk 0.2.0` and Lurk Beta is released as crate `lurk 0.3.0`. It is our intention for these two versioning systems to coincide at 1.0.
 
 ---
 
