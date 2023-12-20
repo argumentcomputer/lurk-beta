@@ -187,9 +187,9 @@ pub(crate) mod test {
             input_env: &AllocatedPtr<F>,
             input_cont: &AllocatedPtr<F>,
         ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
-            let num_tag = g.get_tag(&ExprTag::Num)?;
+            let num_tag = g.alloc_tag(cs, &ExprTag::Num);
 
-            let cont_err = g.get_allocated_ptr_from_ptr(&s.cont_error(), s)?;
+            let cont_err = g.alloc_ptr(cs, &s.cont_error(), s);
 
             let (expr, env, cont) =
                 self.synthesize_aux(cs, input_exprs, input_env, input_cont, num_tag, &cont_err)?;
@@ -246,7 +246,7 @@ pub(crate) mod test {
 
         fn synthesize<CS: ConstraintSystem<F>>(
             &self,
-            _cs: &mut CS,
+            cs: &mut CS,
             g: &GlobalAllocator<F>,
             s: &Store<F>,
             _not_dummy: &Boolean,
@@ -254,8 +254,8 @@ pub(crate) mod test {
             env: &AllocatedPtr<F>,
             _cont: &AllocatedPtr<F>,
         ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
-            let nil = g.get_allocated_ptr_from_ptr(&s.intern_nil(), s)?;
-            let term = g.get_allocated_ptr_from_ptr(&s.cont_terminal(), s)?;
+            let nil = g.alloc_ptr(cs, &s.intern_nil(), s);
+            let term = g.alloc_ptr(cs, &s.cont_terminal(), s);
             Ok(vec![nil, env.clone(), term])
         }
     }

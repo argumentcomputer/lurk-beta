@@ -20,14 +20,14 @@ use crate::{
 /// Constructs an `AllocatedPtr` compound by two others
 #[allow(dead_code)]
 pub(crate) fn construct_tuple2<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
-    cs: CS,
+    cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
     tag: &T,
     a: &AllocatedPtr<F>,
     b: &AllocatedPtr<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let tag = g.get_tag_cloned(tag)?;
+    let tag = g.alloc_tag_cloned(cs, tag);
 
     let hash = hash_poseidon(
         cs,
@@ -46,7 +46,7 @@ pub(crate) fn construct_tuple2<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 /// Constructs an `AllocatedPtr` compound by three others
 #[allow(dead_code)]
 pub(crate) fn construct_tuple3<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
-    cs: CS,
+    cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
     tag: &T,
@@ -54,7 +54,7 @@ pub(crate) fn construct_tuple3<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
     b: &AllocatedPtr<F>,
     c: &AllocatedPtr<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let tag = g.get_tag_cloned(tag)?;
+    let tag = g.alloc_tag_cloned(cs, tag);
 
     let hash = hash_poseidon(
         cs,
@@ -75,7 +75,7 @@ pub(crate) fn construct_tuple3<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 /// Constructs an `AllocatedPtr` compound by four others
 #[allow(dead_code)]
 pub(crate) fn construct_tuple4<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
-    cs: CS,
+    cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
     tag: &T,
@@ -84,7 +84,7 @@ pub(crate) fn construct_tuple4<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
     c: &AllocatedPtr<F>,
     d: &AllocatedPtr<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let tag = g.get_tag_cloned(tag)?;
+    let tag = g.alloc_tag_cloned(cs, tag);
 
     let hash = hash_poseidon(
         cs,
@@ -108,7 +108,7 @@ pub(crate) fn construct_tuple4<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 #[allow(dead_code)]
 #[inline]
 pub(crate) fn construct_cons<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: CS,
+    cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
     car: &AllocatedPtr<F>,
@@ -129,13 +129,19 @@ pub(crate) fn construct_list<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let init = match last {
         Some(last) => last,
-        None => g.get_allocated_ptr_from_ptr(&store.intern_nil(), store)?,
+        None => g.alloc_ptr(cs, &store.intern_nil(), store),
     };
     elts.iter()
         .rev()
         .enumerate()
         .try_fold(init, |acc, (i, ptr)| {
-            construct_cons(cs.namespace(|| format!("cons {i}")), g, store, ptr, &acc)
+            construct_cons(
+                &mut cs.namespace(|| format!("cons {i}")),
+                g,
+                store,
+                ptr,
+                &acc,
+            )
         })
 }
 
@@ -329,8 +335,8 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
         (ZPtr::dummy(), ZPtr::dummy())
     };
 
-    let nil = g.get_allocated_ptr_from_ptr(&store.intern_nil(), store)?;
-    let empty_str = g.get_allocated_ptr_from_ptr(&store.intern_string(""), store)?;
+    let nil = g.alloc_ptr(cs, &store.intern_nil(), store);
+    let empty_str = g.alloc_ptr(cs, &store.intern_string(""), store);
 
     let car = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "car"), || car);
     let cdr = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "cdr"), || cdr);
@@ -442,14 +448,12 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 /// };
 ///
 /// # let mut cs = TestConstraintSystem::new();
-/// # let mut g = GlobalAllocator::default();
+/// # let g = GlobalAllocator::default();
 /// let store = Store::<Fq>::default();
 /// let nil = store.intern_nil();
 /// let z_nil = store.hash_ptr(&nil);
 /// let empty_str = store.intern_string("");
 /// let z_empty_str = store.hash_ptr(&empty_str);
-/// # g.new_consts_from_z_ptr(&mut cs, &z_nil);
-/// # g.new_consts_from_z_ptr(&mut cs, &z_empty_str);
 /// let not_dummy = Boolean::Constant(true);
 ///
 /// let ab = store.intern_string("ab");
@@ -487,7 +491,7 @@ pub fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(Vec<AllocatedPtr<F>>, AllocatedPtr<F>, AllocatedNum<F>), SynthesisError> {
     let mut cars = Vec::with_capacity(n);
     let mut cdr = data.clone();
-    let mut length = g.get_const_cloned(F::ZERO)?;
+    let mut length = g.alloc_const_cloned(cs, F::ZERO);
     for i in 0..n {
         let (car, new_cdr, not_empty) = car_cdr(
             &mut cs.namespace(|| format!("car_cdr {i}")),
@@ -535,7 +539,6 @@ mod test {
         },
         field::LurkField,
         lem::{circuit::GlobalAllocator, store::Store},
-        tag::ExprTag,
     };
 
     use super::{a_ptr_as_z_ptr, chain_car_cdr, construct_list, deconstruct_tuple2};
@@ -543,13 +546,11 @@ mod test {
     #[test]
     fn test_construct_tuples() {
         let mut cs = WitnessCS::new();
-        let mut g = GlobalAllocator::default();
+        let g = GlobalAllocator::default();
         let store = Store::<Fq>::default();
         let nil = store.intern_nil();
-        let z_nil = store.hash_ptr(&nil);
-        let nil_tag = z_nil.tag();
-        g.new_consts_from_z_ptr(&mut cs, &z_nil);
-        let a_nil = g.get_allocated_ptr(nil_tag, *z_nil.value()).unwrap();
+        let nil_tag = nil.tag();
+        let a_nil = g.alloc_ptr(&mut cs, &nil, &store);
 
         let nil2 = construct_tuple2(
             &mut cs.namespace(|| "nil2"),
@@ -597,16 +598,10 @@ mod test {
     #[test]
     fn test_construct_list() {
         let mut cs = WitnessCS::new();
-        let mut g = GlobalAllocator::default();
+        let g = GlobalAllocator::default();
         let store = Store::<Fq>::default();
         let one = store.num_u64(1);
-        let nil = store.intern_nil();
-        let z_one = store.hash_ptr(&one);
-        let z_nil = store.hash_ptr(&nil);
-        g.new_consts_from_z_ptr(&mut cs, &z_nil);
-        g.new_consts_from_z_ptr(&mut cs, &z_one);
-        g.new_const_from_tag(&mut cs, &ExprTag::Cons);
-        let a_one = g.get_allocated_ptr(z_one.tag(), *z_one.value()).unwrap();
+        let a_one = g.alloc_ptr(&mut cs, &one, &store);
 
         // proper list
         let a_list = construct_list(&mut cs, &g, &store, &[&a_one, &a_one], None).unwrap();
@@ -677,15 +672,13 @@ mod test {
     #[test]
     fn test_car_cdr() {
         let mut cs = TestConstraintSystem::new();
-        let mut g = GlobalAllocator::default();
+        let g = GlobalAllocator::default();
         let store = Store::<Fq>::default();
         let nil = store.intern_nil();
         let z_nil = store.hash_ptr(&nil);
         let empty_str = store.intern_string("");
         let z_empty_str = store.hash_ptr(&empty_str);
         let not_dummy = Boolean::Constant(true);
-        g.new_consts_from_z_ptr(&mut cs, &z_nil);
-        g.new_consts_from_z_ptr(&mut cs, &z_empty_str);
 
         // nil
         let a_nil = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "nil"), || z_nil);
@@ -760,14 +753,12 @@ mod test {
     #[test]
     fn test_chain_car_cdr() {
         let mut cs = TestConstraintSystem::new();
-        let mut g = GlobalAllocator::default();
+        let g = GlobalAllocator::default();
         let store = Store::<Fq>::default();
         let nil = store.intern_nil();
         let z_nil = store.hash_ptr(&nil);
         let empty_str = store.intern_string("");
         let z_empty_str = store.hash_ptr(&empty_str);
-        g.new_consts_from_z_ptr(&mut cs, &z_nil);
-        g.new_consts_from_z_ptr(&mut cs, &z_empty_str);
         let not_dummy = Boolean::Constant(true);
 
         // string

@@ -742,7 +742,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
             }
 
-            let g = self.lurk_step.alloc_globals(cs, store)?;
+            let g = self.lurk_step.alloc_consts(cs, store);
 
             let allocated_output_result =
                 self.synthesize_frames(cs, store, allocated_input, frames, &g)?;
@@ -859,14 +859,14 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
                 assert_eq!(frames.len(), 1);
             }
             let store = self.store.expect("store missing");
-            let g = self.lurk_step.alloc_globals(cs, store)?;
+            let g = self.lurk_step.alloc_consts(cs, store);
             self.synthesize_frames(cs, store, input, frames, &g)?
         } else {
             assert!(self.store.is_none());
             let store = Store::default();
             let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
             let frames = vec![blank_frame; self.num_frames];
-            let g = self.lurk_step.alloc_globals(cs, &store)?;
+            let g = self.lurk_step.alloc_consts(cs, &store);
             self.synthesize_frames(cs, &store, input, &frames, &g)?
         };
 
@@ -1037,7 +1037,7 @@ mod tests {
                 }
             }
         }
-        let g = lurk_step.alloc_globals(&mut cs, &store).unwrap();
+        let g = lurk_step.alloc_consts(&mut cs, &store);
 
         // asserting equality of frames witnesses
         let frame = frames.first().unwrap();

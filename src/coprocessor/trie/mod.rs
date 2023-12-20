@@ -198,7 +198,7 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
             &s.inverse_poseidon_cache,
         )?;
 
-        let comm_tag = g.get_tag(&ExprTag::Comm)?;
+        let comm_tag = g.alloc_tag(cs, &ExprTag::Comm);
 
         Ok(AllocatedPtr::from_parts(
             comm_tag.clone(),
@@ -309,7 +309,7 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
             &s.inverse_poseidon_cache,
         )?;
 
-        let num_tag = g.get_tag(&ExprTag::Num)?;
+        let num_tag = g.alloc_tag(cs, &ExprTag::Num);
         Ok(AllocatedPtr::from_parts(num_tag.clone(), new_root_val))
     }
 }
