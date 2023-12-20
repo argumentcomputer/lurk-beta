@@ -289,7 +289,7 @@ Then run `lurk coprocessor --name {name} &lt;{}_FOLDER&gt;` to instantiate a new
                     SynthesisError::Unsatisfiable
                 })<span class="question-mark">?</span>;
             <span class="kw">let </span>output = circom_scotia::synthesize(cs, <span class="self">self</span>.config.r1cs.clone(), <span class="prelude-val">Some</span>(witness))<span class="question-mark">?</span>;
-            <span class="kw">let </span>num_tag = g.get_tag(<span class="kw-2">&amp;</span><span class="kw">crate</span>::tag::ExprTag::Num)<span class="question-mark">?</span>;
+            <span class="kw">let </span>num_tag = g.alloc_tag(cs, <span class="kw-2">&amp;</span><span class="kw">crate</span>::tag::ExprTag::Num);
             <span class="kw">let </span>res = AllocatedPtr::from_parts(num_tag.clone(), output);
 
             <span class="prelude-val">Ok</span>(res)

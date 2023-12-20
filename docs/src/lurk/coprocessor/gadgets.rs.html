@@ -809,15 +809,6 @@
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper gadgets for synthesis
 
 </span><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
@@ -840,14 +831,14 @@
 <span class="doccomment">/// Constructs an `AllocatedPtr` compound by two others
 </span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_tuple2&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
-    cs: CS,
+    cs: <span class="kw-2">&amp;mut </span>CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     tag: <span class="kw-2">&amp;</span>T,
     a: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     b: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>tag = g.get_tag_cloned(tag)<span class="question-mark">?</span>;
+    <span class="kw">let </span>tag = g.alloc_tag_cloned(cs, tag);
 
     <span class="kw">let </span>hash = hash_poseidon(
         cs,
@@ -866,7 +857,7 @@
 <span class="doccomment">/// Constructs an `AllocatedPtr` compound by three others
 </span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_tuple3&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
-    cs: CS,
+    cs: <span class="kw-2">&amp;mut </span>CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     tag: <span class="kw-2">&amp;</span>T,
@@ -874,7 +865,7 @@
     b: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     c: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>tag = g.get_tag_cloned(tag)<span class="question-mark">?</span>;
+    <span class="kw">let </span>tag = g.alloc_tag_cloned(cs, tag);
 
     <span class="kw">let </span>hash = hash_poseidon(
         cs,
@@ -895,7 +886,7 @@
 <span class="doccomment">/// Constructs an `AllocatedPtr` compound by four others
 </span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_tuple4&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
-    cs: CS,
+    cs: <span class="kw-2">&amp;mut </span>CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     tag: <span class="kw-2">&amp;</span>T,
@@ -904,7 +895,7 @@
     c: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     d: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>tag = g.get_tag_cloned(tag)<span class="question-mark">?</span>;
+    <span class="kw">let </span>tag = g.alloc_tag_cloned(cs, tag);
 
     <span class="kw">let </span>hash = hash_poseidon(
         cs,
@@ -928,7 +919,7 @@
 </span><span class="attr">#[allow(dead_code)]
 #[inline]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_cons&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
-    cs: CS,
+    cs: <span class="kw-2">&amp;mut </span>CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     car: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
@@ -949,13 +940,19 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
     <span class="kw">let </span>init = <span class="kw">match </span>last {
         <span class="prelude-val">Some</span>(last) =&gt; last,
-        <span class="prelude-val">None </span>=&gt; g.get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>store.intern_nil(), store)<span class="question-mark">?</span>,
+        <span class="prelude-val">None </span>=&gt; g.alloc_ptr(cs, <span class="kw-2">&amp;</span>store.intern_nil(), store),
     };
     elts.iter()
         .rev()
         .enumerate()
         .try_fold(init, |acc, (i, ptr)| {
-            construct_cons(cs.namespace(|| <span class="macro">format!</span>(<span class="string">"cons {i}"</span>)), g, store, ptr, <span class="kw-2">&amp;</span>acc)
+            construct_cons(
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"cons {i}"</span>)),
+                g,
+                store,
+                ptr,
+                <span class="kw-2">&amp;</span>acc,
+            )
         })
 }
 
@@ -1149,8 +1146,8 @@
         (ZPtr::dummy(), ZPtr::dummy())
     };
 
-    <span class="kw">let </span>nil = g.get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>store.intern_nil(), store)<span class="question-mark">?</span>;
-    <span class="kw">let </span>empty_str = g.get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>store.intern_string(<span class="string">""</span>), store)<span class="question-mark">?</span>;
+    <span class="kw">let </span>nil = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>store.intern_nil(), store);
+    <span class="kw">let </span>empty_str = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>store.intern_string(<span class="string">""</span>), store);
 
     <span class="kw">let </span>car = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"car"</span>), || car);
     <span class="kw">let </span>cdr = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"cdr"</span>), || cdr);
@@ -1262,14 +1259,12 @@
 /// };
 ///
 /// # let mut cs = TestConstraintSystem::new();
-/// # let mut g = GlobalAllocator::default();
+/// # let g = GlobalAllocator::default();
 /// let store = Store::&lt;Fq&gt;::default();
 /// let nil = store.intern_nil();
 /// let z_nil = store.hash_ptr(&amp;nil);
 /// let empty_str = store.intern_string("");
 /// let z_empty_str = store.hash_ptr(&amp;empty_str);
-/// # g.new_consts_from_z_ptr(&amp;mut cs, &amp;z_nil);
-/// # g.new_consts_from_z_ptr(&amp;mut cs, &amp;z_empty_str);
 /// let not_dummy = Boolean::Constant(true);
 ///
 /// let ab = store.intern_string("ab");
@@ -1307,7 +1302,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;AllocatedPtr&lt;F&gt;&gt;, AllocatedPtr&lt;F&gt;, AllocatedNum&lt;F&gt;), SynthesisError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>cars = Vec::with_capacity(n);
     <span class="kw">let </span><span class="kw-2">mut </span>cdr = data.clone();
-    <span class="kw">let </span><span class="kw-2">mut </span>length = g.get_const_cloned(F::ZERO)<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>length = g.alloc_const_cloned(cs, F::ZERO);
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
         <span class="kw">let </span>(car, new_cdr, not_empty) = car_cdr(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"car_cdr {i}"</span>)),
@@ -1355,7 +1350,6 @@
         },
         field::LurkField,
         lem::{circuit::GlobalAllocator, store::Store},
-        tag::ExprTag,
     };
 
     <span class="kw">use super</span>::{a_ptr_as_z_ptr, chain_car_cdr, construct_list, deconstruct_tuple2};
@@ -1363,13 +1357,11 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_construct_tuples() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = WitnessCS::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>g = GlobalAllocator::default();
+        <span class="kw">let </span>g = GlobalAllocator::default();
         <span class="kw">let </span>store = Store::&lt;Fq&gt;::default();
         <span class="kw">let </span>nil = store.intern_nil();
-        <span class="kw">let </span>z_nil = store.hash_ptr(<span class="kw-2">&amp;</span>nil);
-        <span class="kw">let </span>nil_tag = z_nil.tag();
-        g.new_consts_from_z_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>z_nil);
-        <span class="kw">let </span>a_nil = g.get_allocated_ptr(nil_tag, <span class="kw-2">*</span>z_nil.value()).unwrap();
+        <span class="kw">let </span>nil_tag = nil.tag();
+        <span class="kw">let </span>a_nil = g.alloc_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>nil, <span class="kw-2">&amp;</span>store);
 
         <span class="kw">let </span>nil2 = construct_tuple2(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"nil2"</span>),
@@ -1417,16 +1409,10 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_construct_list() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = WitnessCS::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>g = GlobalAllocator::default();
+        <span class="kw">let </span>g = GlobalAllocator::default();
         <span class="kw">let </span>store = Store::&lt;Fq&gt;::default();
         <span class="kw">let </span>one = store.num_u64(<span class="number">1</span>);
-        <span class="kw">let </span>nil = store.intern_nil();
-        <span class="kw">let </span>z_one = store.hash_ptr(<span class="kw-2">&amp;</span>one);
-        <span class="kw">let </span>z_nil = store.hash_ptr(<span class="kw-2">&amp;</span>nil);
-        g.new_consts_from_z_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>z_nil);
-        g.new_consts_from_z_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>z_one);
-        g.new_const_from_tag(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>ExprTag::Cons);
-        <span class="kw">let </span>a_one = g.get_allocated_ptr(z_one.tag(), <span class="kw-2">*</span>z_one.value()).unwrap();
+        <span class="kw">let </span>a_one = g.alloc_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>one, <span class="kw-2">&amp;</span>store);
 
         <span class="comment">// proper list
         </span><span class="kw">let </span>a_list = construct_list(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>a_one, <span class="kw-2">&amp;</span>a_one], <span class="prelude-val">None</span>).unwrap();
@@ -1497,15 +1483,13 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_car_cdr() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>g = GlobalAllocator::default();
+        <span class="kw">let </span>g = GlobalAllocator::default();
         <span class="kw">let </span>store = Store::&lt;Fq&gt;::default();
         <span class="kw">let </span>nil = store.intern_nil();
         <span class="kw">let </span>z_nil = store.hash_ptr(<span class="kw-2">&amp;</span>nil);
         <span class="kw">let </span>empty_str = store.intern_string(<span class="string">""</span>);
         <span class="kw">let </span>z_empty_str = store.hash_ptr(<span class="kw-2">&amp;</span>empty_str);
         <span class="kw">let </span>not_dummy = Boolean::Constant(<span class="bool-val">true</span>);
-        g.new_consts_from_z_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>z_nil);
-        g.new_consts_from_z_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>z_empty_str);
 
         <span class="comment">// nil
         </span><span class="kw">let </span>a_nil = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"nil"</span>), || z_nil);
@@ -1580,14 +1564,12 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_chain_car_cdr() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>g = GlobalAllocator::default();
+        <span class="kw">let </span>g = GlobalAllocator::default();
         <span class="kw">let </span>store = Store::&lt;Fq&gt;::default();
         <span class="kw">let </span>nil = store.intern_nil();
         <span class="kw">let </span>z_nil = store.hash_ptr(<span class="kw-2">&amp;</span>nil);
         <span class="kw">let </span>empty_str = store.intern_string(<span class="string">""</span>);
         <span class="kw">let </span>z_empty_str = store.hash_ptr(<span class="kw-2">&amp;</span>empty_str);
-        g.new_consts_from_z_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>z_nil);
-        g.new_consts_from_z_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>z_empty_str);
         <span class="kw">let </span>not_dummy = Boolean::Constant(<span class="bool-val">true</span>);
 
         <span class="comment">// string

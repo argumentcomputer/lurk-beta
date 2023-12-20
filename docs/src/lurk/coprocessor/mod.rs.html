@@ -476,9 +476,9 @@
             input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
             input_cont: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;, SynthesisError&gt; {
-            <span class="kw">let </span>num_tag = g.get_tag(<span class="kw-2">&amp;</span>ExprTag::Num)<span class="question-mark">?</span>;
+            <span class="kw">let </span>num_tag = g.alloc_tag(cs, <span class="kw-2">&amp;</span>ExprTag::Num);
 
-            <span class="kw">let </span>cont_err = g.get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>s.cont_error(), s)<span class="question-mark">?</span>;
+            <span class="kw">let </span>cont_err = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.cont_error(), s);
 
             <span class="kw">let </span>(expr, env, cont) =
                 <span class="self">self</span>.synthesize_aux(cs, input_exprs, input_env, input_cont, num_tag, <span class="kw-2">&amp;</span>cont_err)<span class="question-mark">?</span>;
@@ -535,7 +535,7 @@
 
         <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
-            _cs: <span class="kw-2">&amp;mut </span>CS,
+            cs: <span class="kw-2">&amp;mut </span>CS,
             g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
             s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
             _not_dummy: <span class="kw-2">&amp;</span>Boolean,
@@ -543,8 +543,8 @@
             env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
             _cont: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;, SynthesisError&gt; {
-            <span class="kw">let </span>nil = g.get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>s.intern_nil(), s)<span class="question-mark">?</span>;
-            <span class="kw">let </span>term = g.get_allocated_ptr_from_ptr(<span class="kw-2">&amp;</span>s.cont_terminal(), s)<span class="question-mark">?</span>;
+            <span class="kw">let </span>nil = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.intern_nil(), s);
+            <span class="kw">let </span>term = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.cont_terminal(), s);
             <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[nil, env.clone(), term])
         }
     }
