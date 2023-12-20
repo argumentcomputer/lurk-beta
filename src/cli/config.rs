@@ -89,13 +89,13 @@ impl CliSettings {
             // Then overwrite with any `LURK` environment variables
             .add_source(Environment::with_prefix("LURK"))
             // TODO: Derive config::Source for `cli_settings` and use `add_source` instead
-            .set_override_option(proofs, cli_settings.and_then(|s| s.get(proofs).map(|v| v.to_owned())))?
-            .set_override_option(commits, cli_settings.and_then(|s| s.get(commits).map(|v| v.to_owned())))?
-            .set_override_option(circom, cli_settings.and_then(|s| s.get(circom).map(|v| v.to_owned())))?
-            .set_override_option(backend, cli_settings.and_then(|s| s.get(backend).map(|v| v.to_owned())))?
-            .set_override_option(field, cli_settings.and_then(|s| s.get(field).map(|v| v.to_owned())))?
-            .set_override_option(rc, cli_settings.and_then(|s| s.get(rc).map(|v| v.to_owned())))?
-            .set_override_option(limit, cli_settings.and_then(|s| s.get(limit).map(|v| v.to_owned())))?
+            .set_override_option(proofs, cli_settings.and_then(|s| s.get(proofs).cloned()))?
+            .set_override_option(commits, cli_settings.and_then(|s| s.get(commits).cloned()))?
+            .set_override_option(circom, cli_settings.and_then(|s| s.get(circom).cloned()))?
+            .set_override_option(backend, cli_settings.and_then(|s| s.get(backend).cloned()))?
+            .set_override_option(field, cli_settings.and_then(|s| s.get(field).cloned()))?
+            .set_override_option(rc, cli_settings.and_then(|s| s.get(rc).cloned()))?
+            .set_override_option(limit, cli_settings.and_then(|s| s.get(limit).cloned()))?
             .build()
             .and_then(|c| c.try_deserialize())
     }

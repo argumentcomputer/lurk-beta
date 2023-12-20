@@ -168,7 +168,7 @@ fn self_evaluating() {
     let expr_key = ":key";
     let expt_key = s.key("key");
 
-    [
+    for (expr, expt) in [
         (expr_num, expt_num),
         (expr_u64, expt_u64),
         (expr_char, expt_char),
@@ -178,9 +178,9 @@ fn self_evaluating() {
         (expr_key, expt_key),
     ]
     .into_iter()
-    .for_each(|(expr, expt)| {
+    {
         test_aux::<Coproc<Fr>>(s, expr, Some(expt), None, None, None, &expect!["1"], &None);
-    });
+    }
 
     let fun = s.intern_fun(s.intern_user_symbol("x"), s.list(vec![expt_nil]), expt_nil);
     do_test_aux::<Coproc<Fr>>(s, &fun, Some(fun), None, None, None, &expect!["1"], &None);

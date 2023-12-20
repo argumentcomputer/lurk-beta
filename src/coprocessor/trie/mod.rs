@@ -323,9 +323,9 @@ pub fn install<F: LurkField>(state: &Rc<RefCell<State>>, lang: &mut Lang<F, Trie
 
     let trie_package_name: Symbol = ".lurk.trie".into();
     let mut package = Package::new(trie_package_name.into());
-    ["new", "lookup", "insert"].into_iter().for_each(|name| {
+    for name in ["new", "lookup", "insert"].into_iter() {
         package.intern(name);
-    });
+    }
     state.borrow_mut().add_package(package);
 }
 

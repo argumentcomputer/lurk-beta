@@ -3,7 +3,7 @@
 # TODO: Move dotenv-filename into justfile once the feature is available
 set dotenv-load
 
-commit := `git rev-parse HEAD`
+commit := $(git rev-parse HEAD)
 
 # Run CPU benchmarks
 bench +benches:
