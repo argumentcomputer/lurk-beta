@@ -80,7 +80,7 @@ impl Settings {
             // Then override with any `LURK` environment variables
             .add_source(Environment::with_prefix("LURK"))
             // Optionally override if settings were specified via CLI arg
-            .set_override_option(public_params, settings.and_then(|s| s.get(public_params).map(|v| v.to_owned())))?
+            .set_override_option(public_params, settings.and_then(|s| s.get(public_params).cloned()))?
             .build()
             .and_then(|c| c.try_deserialize())
     }

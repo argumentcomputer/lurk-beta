@@ -40,7 +40,7 @@ fn test_prove_self_evaluating() {
     let expr_key = ":key";
     let expt_key = s.key("key");
 
-    [
+    for (expr, expt) in [
         (expr_num, expt_num),
         (expr_u64, expt_u64),
         (expr_char, expt_char),
@@ -50,9 +50,9 @@ fn test_prove_self_evaluating() {
         (expr_key, expt_key),
     ]
     .into_iter()
-    .for_each(|(expr, expt)| {
+    {
         test_aux::<_, _, M1<'_, _>>(s, expr, Some(expt), None, None, None, &expect!["1"], &None);
-    });
+    }
 
     let fun = s.intern_fun(s.intern_user_symbol("x"), s.list(vec![expt_nil]), expt_nil);
     nova_test_full_aux2::<_, _, M1<'_, _>>(

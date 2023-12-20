@@ -161,35 +161,34 @@ where
 
     let maybe_aux_params = supernova_aux_params::<F, C, M>(instance_primary);
 
-    let pp = match (maybe_circuit_params_vec, maybe_aux_params) {
-        (Ok(circuit_params_vec), Ok(aux_params)) => {
-            println!("generating public params");
+    let pp = if let (Ok(circuit_params_vec), Ok(aux_params)) =
+        (maybe_circuit_params_vec, maybe_aux_params)
+    {
+        println!("generating public params");
 
-            let pp =
-                SuperNovaPublicParams::<F, M>::from_parts_unchecked(circuit_params_vec, aux_params);
-            let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
+        let pp =
+            SuperNovaPublicParams::<F, M>::from_parts_unchecked(circuit_params_vec, aux_params);
+        let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
 
-            supernova::PublicParams { pp, pk, vk }
+        supernova::PublicParams { pp, pk, vk }
+    } else {
+        println!("generating running claim params");
+        let pp = default(instance_primary);
+
+        let (circuit_params_vec, aux_params) = pp.pp.into_parts();
+
+        disk_cache.write_abomonated(instance_primary, &aux_params)?;
+
+        for (circuit_index, circuit_params) in circuit_params_vec.iter().enumerate() {
+            let instance = instance_primary.reindex(circuit_index);
+            disk_cache.write_abomonated(&instance, circuit_params)?;
         }
-        _ => {
-            println!("generating running claim params");
-            let pp = default(instance_primary);
 
-            let (circuit_params_vec, aux_params) = pp.pp.into_parts();
+        let pp =
+            SuperNovaPublicParams::<F, M>::from_parts_unchecked(circuit_params_vec, aux_params);
+        let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
 
-            disk_cache.write_abomonated(instance_primary, &aux_params)?;
-
-            for (circuit_index, circuit_params) in circuit_params_vec.iter().enumerate() {
-                let instance = instance_primary.reindex(circuit_index);
-                disk_cache.write_abomonated(&instance, circuit_params)?;
-            }
-
-            let pp =
-                SuperNovaPublicParams::<F, M>::from_parts_unchecked(circuit_params_vec, aux_params);
-            let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
-
-            supernova::PublicParams { pp, pk, vk }
-        }
+        supernova::PublicParams { pp, pk, vk }
     };
 
     Ok(pp)

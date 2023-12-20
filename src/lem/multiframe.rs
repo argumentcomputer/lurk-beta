@@ -178,7 +178,7 @@ fn generate_slots_witnesses<F: LurkField>(
     parallel: bool,
 ) -> Vec<Arc<SlotWitness<F>>> {
     let mut slots_data = Vec::with_capacity(frames.len() * num_slots_per_frame);
-    frames.iter().for_each(|frame| {
+    for frame in frames.iter() {
         [
             (&frame.hints.hash4, SlotType::Hash4),
             (&frame.hints.hash6, SlotType::Hash6),
@@ -188,7 +188,7 @@ fn generate_slots_witnesses<F: LurkField>(
         ]
         .into_iter()
         .for_each(|(sd_vec, st)| sd_vec.iter().for_each(|sd| slots_data.push((sd, st))));
-    });
+    }
     // precompute these values
     let hash4_witness_size = compute_witness_size(&SlotType::Hash4, store);
     let hash6_witness_size = compute_witness_size(&SlotType::Hash6, store);
@@ -395,7 +395,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     type AllocatedIO = Vec<AllocatedPtr<F>>;
 
     fn emitted(_store: &Store<F>, eval_frame: &Self::EvalFrame) -> Vec<Ptr> {
-        eval_frame.emitted.to_vec()
+        eval_frame.emitted.clone()
     }
 
     fn io_to_scalar_vector(
@@ -536,7 +536,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                         .last()
                         .expect("chunk must not be empty")
                         .output
-                        .to_vec();
+                        .clone();
                     let inner_frames = if chunk.len() < reduction_count {
                         let mut inner_frames = Vec::with_capacity(reduction_count);
                         inner_frames.extend(chunk.to_vec());
@@ -557,7 +557,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                         store: Some(store),
                         lurk_step: lurk_step.clone(),
                         cprocs: None,
-                        input: Some(chunk[0].input.to_vec()),
+                        input: Some(chunk[0].input.clone()),
                         output: Some(output),
                         frames: Some(inner_frames),
                         cached_witness: OnceCell::new(),
@@ -578,7 +578,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                     let first_frame = &frames[chunk_start_idx];
 
                     // Variables occurring in both branches
-                    let input = first_frame.input.to_vec();
+                    let input = first_frame.input.clone();
                     let output: Vec<_>;
                     let frames_to_add: Vec<_>;
 
@@ -616,7 +616,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                             .last()
                             .expect("empty inner_frames")
                             .output
-                            .to_vec();
+                            .clone();
 
                         if inner_frames.len() < reduction_count {
                             pad_frames(
@@ -632,7 +632,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                         frames_to_add = inner_frames;
                     } else {
                         chunk_start_idx += 1;
-                        output = first_frame.output.to_vec();
+                        output = first_frame.output.clone();
                         frames_to_add = vec![first_frame.clone()];
                         num_frames = 1;
                         pc = first_frame.pc;
@@ -763,27 +763,24 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
             Ok(())
         };
 
-        match self.store {
-            Some(store) => {
-                let input = self
-                    .input
-                    .as_ref()
-                    .ok_or_else(|| SynthesisError::AssignmentMissing)?;
-                let output = self
-                    .output
-                    .as_ref()
-                    .ok_or_else(|| SynthesisError::AssignmentMissing)?;
-                let frames = self.frames.as_ref().unwrap();
-                synth(store, frames, input, output)
-            }
-            None => {
-                assert!(self.frames.is_none());
-                let store = Store::default();
-                let dummy_io = [store.dummy(); 3];
-                let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
-                let frames = vec![blank_frame; self.num_frames];
-                synth(&store, &frames, &dummy_io, &dummy_io)
-            }
+        if let Some(store) = self.store {
+            let input = self
+                .input
+                .as_ref()
+                .ok_or_else(|| SynthesisError::AssignmentMissing)?;
+            let output = self
+                .output
+                .as_ref()
+                .ok_or_else(|| SynthesisError::AssignmentMissing)?;
+            let frames = self.frames.as_ref().unwrap();
+            synth(store, frames, input, output)
+        } else {
+            assert!(self.frames.is_none());
+            let store = Store::default();
+            let dummy_io = [store.dummy(); 3];
+            let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
+            let frames = vec![blank_frame; self.num_frames];
+            synth(&store, &frames, &dummy_io, &dummy_io)
         }
     }
 }
@@ -857,23 +854,20 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
             ));
         }
 
-        let output_ptrs = match self.frames.as_ref() {
-            Some(frames) => {
-                if self.pc != 0 {
-                    assert_eq!(frames.len(), 1);
-                }
-                let store = self.store.expect("store missing");
-                let g = self.lurk_step.alloc_globals(cs, store)?;
-                self.synthesize_frames(cs, store, input, frames, &g)?
+        let output_ptrs = if let Some(frames) = self.frames.as_ref() {
+            if self.pc != 0 {
+                assert_eq!(frames.len(), 1);
             }
-            None => {
-                assert!(self.store.is_none());
-                let store = Store::default();
-                let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
-                let frames = vec![blank_frame; self.num_frames];
-                let g = self.lurk_step.alloc_globals(cs, &store)?;
-                self.synthesize_frames(cs, &store, input, &frames, &g)?
-            }
+            let store = self.store.expect("store missing");
+            let g = self.lurk_step.alloc_globals(cs, store)?;
+            self.synthesize_frames(cs, store, input, frames, &g)?
+        } else {
+            assert!(self.store.is_none());
+            let store = Store::default();
+            let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
+            let frames = vec![blank_frame; self.num_frames];
+            let g = self.lurk_step.alloc_globals(cs, &store)?;
+            self.synthesize_frames(cs, &store, input, &frames, &g)?
         };
 
         let mut output = Vec::with_capacity(z.len());

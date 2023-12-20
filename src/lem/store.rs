@@ -1417,10 +1417,8 @@ mod tests {
                 Pos::No,
                 crate::UInt::U64(store.expect_f(idx).to_u64_unchecked()),
             ),
-            Ptr::Atom(Tag::Expr(ExprTag::Sym), _)
-            | Ptr::Atom(Tag::Expr(ExprTag::Key), _)
-            | Ptr::Tuple2(Tag::Expr(ExprTag::Sym), _)
-            | Ptr::Tuple2(Tag::Expr(ExprTag::Key), _) => {
+            Ptr::Atom(Tag::Expr(ExprTag::Sym | ExprTag::Key), _)
+            | Ptr::Tuple2(Tag::Expr(ExprTag::Sym | ExprTag::Key), _) => {
                 Syntax::Symbol(Pos::No, store.fetch_symbol(&ptr).unwrap().into())
             }
             Ptr::Atom(Tag::Expr(ExprTag::Str), _) | Ptr::Tuple2(Tag::Expr(ExprTag::Str), _) => {
