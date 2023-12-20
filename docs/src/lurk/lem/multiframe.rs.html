@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/multiframe.rs`."><title>multiframe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-804b98a1284a310a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (3f28fe133 2023-12-18)" data-channel="nightly" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/multiframe.rs`."><title>multiframe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-804b98a1284a310a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0-nightly (f704f3b93 2023-12-19)" data-channel="nightly" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
@@ -1117,12 +1117,6 @@
 <a href="#1116" id="1116">1116</a>
 <a href="#1117" id="1117">1117</a>
 <a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -1303,7 +1297,7 @@
     parallel: bool,
 ) -&gt; Vec&lt;Arc&lt;SlotWitness&lt;F&gt;&gt;&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>slots_data = Vec::with_capacity(frames.len() * num_slots_per_frame);
-    frames.iter().for_each(|frame| {
+    <span class="kw">for </span>frame <span class="kw">in </span>frames.iter() {
         [
             (<span class="kw-2">&amp;</span>frame.hints.hash4, SlotType::Hash4),
             (<span class="kw-2">&amp;</span>frame.hints.hash6, SlotType::Hash6),
@@ -1313,7 +1307,7 @@
         ]
         .into_iter()
         .for_each(|(sd_vec, st)| sd_vec.iter().for_each(|sd| slots_data.push((sd, st))));
-    });
+    }
     <span class="comment">// precompute these values
     </span><span class="kw">let </span>hash4_witness_size = compute_witness_size(<span class="kw-2">&amp;</span>SlotType::Hash4, store);
     <span class="kw">let </span>hash6_witness_size = compute_witness_size(<span class="kw-2">&amp;</span>SlotType::Hash6, store);
@@ -1520,7 +1514,7 @@
     <span class="kw">type </span>AllocatedIO = Vec&lt;AllocatedPtr&lt;F&gt;&gt;;
 
     <span class="kw">fn </span>emitted(_store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, eval_frame: <span class="kw-2">&amp;</span><span class="self">Self</span>::EvalFrame) -&gt; Vec&lt;Ptr&gt; {
-        eval_frame.emitted.to_vec()
+        eval_frame.emitted.clone()
     }
 
     <span class="kw">fn </span>io_to_scalar_vector(
@@ -1661,7 +1655,7 @@
                         .last()
                         .expect(<span class="string">"chunk must not be empty"</span>)
                         .output
-                        .to_vec();
+                        .clone();
                     <span class="kw">let </span>inner_frames = <span class="kw">if </span>chunk.len() &lt; reduction_count {
                         <span class="kw">let </span><span class="kw-2">mut </span>inner_frames = Vec::with_capacity(reduction_count);
                         inner_frames.extend(chunk.to_vec());
@@ -1682,7 +1676,7 @@
                         store: <span class="prelude-val">Some</span>(store),
                         lurk_step: lurk_step.clone(),
                         cprocs: <span class="prelude-val">None</span>,
-                        input: <span class="prelude-val">Some</span>(chunk[<span class="number">0</span>].input.to_vec()),
+                        input: <span class="prelude-val">Some</span>(chunk[<span class="number">0</span>].input.clone()),
                         output: <span class="prelude-val">Some</span>(output),
                         frames: <span class="prelude-val">Some</span>(inner_frames),
                         cached_witness: OnceCell::new(),
@@ -1703,7 +1697,7 @@
                     <span class="kw">let </span>first_frame = <span class="kw-2">&amp;</span>frames[chunk_start_idx];
 
                     <span class="comment">// Variables occurring in both branches
-                    </span><span class="kw">let </span>input = first_frame.input.to_vec();
+                    </span><span class="kw">let </span>input = first_frame.input.clone();
                     <span class="kw">let </span>output: Vec&lt;<span class="kw">_</span>&gt;;
                     <span class="kw">let </span>frames_to_add: Vec&lt;<span class="kw">_</span>&gt;;
 
@@ -1741,7 +1735,7 @@
                             .last()
                             .expect(<span class="string">"empty inner_frames"</span>)
                             .output
-                            .to_vec();
+                            .clone();
 
                         <span class="kw">if </span>inner_frames.len() &lt; reduction_count {
                             pad_frames(
@@ -1757,7 +1751,7 @@
                         frames_to_add = inner_frames;
                     } <span class="kw">else </span>{
                         chunk_start_idx += <span class="number">1</span>;
-                        output = first_frame.output.to_vec();
+                        output = first_frame.output.clone();
                         frames_to_add = <span class="macro">vec!</span>[first_frame.clone()];
                         num_frames = <span class="number">1</span>;
                         pc = first_frame.pc;
@@ -1888,27 +1882,24 @@
             <span class="prelude-val">Ok</span>(())
         };
 
-        <span class="kw">match </span><span class="self">self</span>.store {
-            <span class="prelude-val">Some</span>(store) =&gt; {
-                <span class="kw">let </span>input = <span class="self">self
-                    </span>.input
-                    .as_ref()
-                    .ok_or_else(|| SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
-                <span class="kw">let </span>output = <span class="self">self
-                    </span>.output
-                    .as_ref()
-                    .ok_or_else(|| SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
-                <span class="kw">let </span>frames = <span class="self">self</span>.frames.as_ref().unwrap();
-                synth(store, frames, input, output)
-            }
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">assert!</span>(<span class="self">self</span>.frames.is_none());
-                <span class="kw">let </span>store = Store::default();
-                <span class="kw">let </span>dummy_io = [store.dummy(); <span class="number">3</span>];
-                <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc, <span class="kw-2">&amp;</span>store);
-                <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.num_frames];
-                synth(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>dummy_io, <span class="kw-2">&amp;</span>dummy_io)
-            }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(store) = <span class="self">self</span>.store {
+            <span class="kw">let </span>input = <span class="self">self
+                </span>.input
+                .as_ref()
+                .ok_or_else(|| SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+            <span class="kw">let </span>output = <span class="self">self
+                </span>.output
+                .as_ref()
+                .ok_or_else(|| SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+            <span class="kw">let </span>frames = <span class="self">self</span>.frames.as_ref().unwrap();
+            synth(store, frames, input, output)
+        } <span class="kw">else </span>{
+            <span class="macro">assert!</span>(<span class="self">self</span>.frames.is_none());
+            <span class="kw">let </span>store = Store::default();
+            <span class="kw">let </span>dummy_io = [store.dummy(); <span class="number">3</span>];
+            <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc, <span class="kw-2">&amp;</span>store);
+            <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.num_frames];
+            synth(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>dummy_io, <span class="kw-2">&amp;</span>dummy_io)
         }
     }
 }
@@ -1982,24 +1973,21 @@
             ));
         }
 
-        <span class="kw">let </span>output_ptrs = <span class="kw">match </span><span class="self">self</span>.frames.as_ref() {
-            <span class="prelude-val">Some</span>(frames) =&gt; {
-                <span class="kw">if </span><span class="self">self</span>.pc != <span class="number">0 </span>{
-                    <span class="macro">assert_eq!</span>(frames.len(), <span class="number">1</span>);
-                }
-                <span class="kw">let </span>store = <span class="self">self</span>.store.expect(<span class="string">"store missing"</span>);
-                <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_globals(cs, store)<span class="question-mark">?</span>;
-                <span class="self">self</span>.synthesize_frames(cs, store, input, frames, <span class="kw-2">&amp;</span>g)<span class="question-mark">?
-            </span>}
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">assert!</span>(<span class="self">self</span>.store.is_none());
-                <span class="kw">let </span>store = Store::default();
-                <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc, <span class="kw-2">&amp;</span>store);
-                <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.num_frames];
-                <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_globals(cs, <span class="kw-2">&amp;</span>store)<span class="question-mark">?</span>;
-                <span class="self">self</span>.synthesize_frames(cs, <span class="kw-2">&amp;</span>store, input, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>g)<span class="question-mark">?
-            </span>}
-        };
+        <span class="kw">let </span>output_ptrs = <span class="kw">if let </span><span class="prelude-val">Some</span>(frames) = <span class="self">self</span>.frames.as_ref() {
+            <span class="kw">if </span><span class="self">self</span>.pc != <span class="number">0 </span>{
+                <span class="macro">assert_eq!</span>(frames.len(), <span class="number">1</span>);
+            }
+            <span class="kw">let </span>store = <span class="self">self</span>.store.expect(<span class="string">"store missing"</span>);
+            <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_globals(cs, store)<span class="question-mark">?</span>;
+            <span class="self">self</span>.synthesize_frames(cs, store, input, frames, <span class="kw-2">&amp;</span>g)<span class="question-mark">?
+        </span>} <span class="kw">else </span>{
+            <span class="macro">assert!</span>(<span class="self">self</span>.store.is_none());
+            <span class="kw">let </span>store = Store::default();
+            <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc, <span class="kw-2">&amp;</span>store);
+            <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.num_frames];
+            <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_globals(cs, <span class="kw-2">&amp;</span>store)<span class="question-mark">?</span>;
+            <span class="self">self</span>.synthesize_frames(cs, <span class="kw-2">&amp;</span>store, input, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>g)<span class="question-mark">?
+        </span>};
 
         <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::with_capacity(z.len());
         <span class="kw">for </span>ptr <span class="kw">in </span>output_ptrs {
