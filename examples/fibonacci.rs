@@ -18,7 +18,7 @@ fn fib_expr<F: LurkField>(store: &Store<F>) -> Ptr {
 // The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation contains a binding of the
 // nth Fibonacci number to `a`.
 fn fib_frame(n: usize) -> usize {
-    11 + 16 * n
+    11 + 10 * n
 }
 
 // Set the limit so the last step will be filled exactly, since Lurk currently only pads terminal/error continuations.
