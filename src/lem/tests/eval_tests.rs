@@ -278,7 +278,7 @@ fn evaluate_lambda2() {
         None,
         Some(terminal),
         None,
-        &expect!["9"],
+        &expect!["8"],
         &None,
     );
 }
@@ -339,7 +339,7 @@ fn evaluate_lambda5() {
         None,
         Some(terminal),
         None,
-        &expect!["13"],
+        &expect!["11"],
         &None,
     );
 }
@@ -481,7 +481,7 @@ fn evaluate_adder1() {
         None,
         Some(terminal),
         None,
-        &expect!["13"],
+        &expect!["10"],
         &None,
     );
 }
@@ -502,7 +502,7 @@ fn evaluate_adder2() {
         None,
         Some(terminal),
         None,
-        &expect!["15"],
+        &expect!["12"],
         &None,
     );
 }
@@ -561,7 +561,7 @@ fn evaluate_let() {
         None,
         Some(terminal),
         None,
-        &expect!["10"],
+        &expect!["8"],
         &None,
     );
 }
@@ -658,7 +658,7 @@ fn evaluate_arithmetic_let() {
         Some(new_env),
         Some(terminal),
         None,
-        &expect!["18"],
+        &expect!["15"],
         &None,
     );
 }
@@ -689,7 +689,7 @@ fn evaluate_fundamental_conditional() {
             None,
             Some(terminal),
             None,
-            &expect!["35"],
+            &expect!["28"],
             &None,
         );
     }
@@ -716,7 +716,7 @@ fn evaluate_fundamental_conditional() {
             None,
             Some(terminal),
             None,
-            &expect!["32"],
+            &expect!["26"],
             &None,
         );
     }
@@ -800,7 +800,7 @@ fn evaluate_recursion1() {
         None,
         Some(terminal),
         None,
-        &expect!["91"],
+        &expect!["76"],
         &None,
     );
 }
@@ -825,7 +825,7 @@ fn evaluate_recursion2() {
         None,
         Some(terminal),
         None,
-        &expect!["201"],
+        &expect!["163"],
         &None,
     );
 }
@@ -848,7 +848,7 @@ fn evaluate_recursion_multiarg() {
         None,
         Some(terminal),
         None,
-        &expect!["95"],
+        &expect!["68"],
         &None,
     );
 }
@@ -874,7 +874,7 @@ fn evaluate_recursion_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["75"],
+        &expect!["66"],
         &None,
     );
 }
@@ -899,7 +899,7 @@ fn evaluate_tail_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["129"],
+        &expect!["105"],
         &None,
     );
 }
@@ -927,7 +927,7 @@ fn evaluate_tail_recursion_somewhat_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["110"],
+        &expect!["92"],
         &None,
     );
 }
@@ -948,7 +948,7 @@ fn evaluate_multiple_letrec_bindings() {
         None,
         Some(terminal),
         None,
-        &expect!["22"],
+        &expect!["20"],
         &None,
     );
 }
@@ -969,7 +969,7 @@ fn evaluate_multiple_letrec_bindings_referencing() {
         None,
         Some(terminal),
         None,
-        &expect!["31"],
+        &expect!["28"],
         &None,
     );
 }
@@ -1001,7 +1001,7 @@ fn evaluate_multiple_letrec_bindings_recursive() {
         None,
         Some(terminal),
         None,
-        &expect!["242"],
+        &expect!["175"],
         &None,
     );
 }
@@ -1025,7 +1025,7 @@ fn nested_let_closure_regression() {
             None,
             Some(terminal),
             None,
-            &expect!["13"],
+            &expect!["11"],
             &None,
         );
     }
@@ -1042,7 +1042,7 @@ fn nested_let_closure_regression() {
             None,
             Some(terminal),
             None,
-            &expect!["14"],
+            &expect!["11"],
             &None,
         );
     }
@@ -1172,7 +1172,7 @@ fn evaluate_zero_arg_lambda() {
             None,
             Some(terminal),
             None,
-            &expect!["12"],
+            &expect!["10"],
             &None,
         );
     }
@@ -1185,7 +1185,7 @@ fn evaluate_zero_arg_lambda_variants() {
         let expr = "((lambda () 123) 1)";
 
         let error = s.cont_error();
-        test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
+        test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
     }
     {
         let s = &Store::<Fr>::default();
@@ -1235,7 +1235,7 @@ fn evaluate_make_tree() {
             None,
             Some(terminal),
             None,
-            &expect!["493"],
+            &expect!["445"],
             &None,
         );
     }
@@ -1281,7 +1281,7 @@ fn evaluate_map_tree_bug() {
             None,
             Some(terminal),
             None,
-            &expect!["170"],
+            &expect!["125"],
             &None,
         );
     }
@@ -1308,7 +1308,7 @@ fn evaluate_map_tree_numequal_bug() {
             None,
             Some(error),
             None,
-            &expect!["169"],
+            &expect!["125"],
             &None,
         );
     }
@@ -1343,7 +1343,7 @@ fn env_lost_bug() {
             None,
             Some(terminal),
             None,
-            &expect!["25"],
+            &expect!["22"],
             &None,
         );
     }
@@ -1368,7 +1368,7 @@ fn dont_discard_rest_env() {
             None,
             Some(terminal),
             None,
-            &expect!["22"],
+            &expect!["20"],
             &None,
         );
     }
@@ -1674,7 +1674,7 @@ fn go_translate() {
         None,
         None,
         None,
-        &expect!["1114"],
+        &expect!["840"],
         &None,
     );
 }
@@ -2388,7 +2388,7 @@ fn test_relational_edge_case_identity() {
             None,
             Some(terminal),
             None,
-            &expect!["19"],
+            &expect!["17"],
             &None,
         );
     }
@@ -2407,7 +2407,7 @@ fn test_relational_edge_case_identity() {
             None,
             Some(terminal),
             None,
-            &expect!["24"],
+            &expect!["22"],
             &None,
         );
     }
@@ -2431,7 +2431,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            &expect!["10"],
+            &expect!["8"],
             &None,
         );
     }
@@ -2564,7 +2564,7 @@ fn test_quoted_symbols() {
         None,
         Some(terminal),
         None,
-        &expect!["13"],
+        &expect!["11"],
         &None,
     );
 }
@@ -3337,7 +3337,7 @@ fn test_fold_cons_regression() {
         None,
         Some(terminal),
         None,
-        &expect!["152"],
+        &expect!["92"],
         &None,
     );
 }
@@ -3550,7 +3550,7 @@ fn test_eval_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        &expect!["3"],
+        &expect!["2"],
         &None,
     );
     test_aux::<Coproc<Fr>>(
@@ -3560,7 +3560,7 @@ fn test_eval_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        &expect!["3"],
+        &expect!["2"],
         &None,
     );
 }
@@ -3670,7 +3670,7 @@ fn test_dumb_lang() {
         None,
         Some(terminal),
         None,
-        &expect!["6"],
+        &expect!["5"],
         &Some(&lang),
     );
     test_aux(
