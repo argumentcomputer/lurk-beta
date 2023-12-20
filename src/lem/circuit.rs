@@ -30,10 +30,8 @@ use bellpepper_core::{
         num::AllocatedNum,
     },
 };
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use elsa::sync::FrozenMap;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::{
     circuit::gadgets::{
@@ -86,69 +84,78 @@ pub struct SlotWitness<F: LurkField> {
 
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
-pub struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
+pub struct GlobalAllocator<F: LurkField>(FrozenMap<FWrap<F>, Box<AllocatedNum<F>>>);
 
 impl<F: LurkField> GlobalAllocator<F> {
-    /// Checks if the allocation for a numeric variable has already been cached.
-    /// If so, don't do anything. Otherwise, allocate and cache it.
-    pub fn new_const<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, f: F) {
-        self.0
-            .entry(FWrap(f))
-            .or_insert_with(|| allocate_constant(&mut cs.namespace(|| f.hex_digits()), f));
+    /// Memoizes allocations for numerical constants in a constraint system
+    pub fn alloc_const<CS: ConstraintSystem<F>>(&self, cs: &mut CS, f: F) -> &AllocatedNum<F> {
+        let key = FWrap(f);
+        if let Some(allocated_const) = self.0.get(&key) {
+            allocated_const
+        } else {
+            let allocated_const = allocate_constant(&mut cs.namespace(|| f.hex_digits()), f);
+            self.0.insert(key, allocated_const.into())
+        }
     }
 
     #[inline]
-    pub fn new_const_from_tag<CS: ConstraintSystem<F>, T: Tag>(&mut self, cs: &mut CS, tag: &T) {
-        self.new_const(cs, tag.to_field());
-    }
-
-    #[inline]
-    pub fn new_consts_from_z_ptr<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, z_ptr: &ZPtr<F>) {
-        self.new_const_from_tag(cs, z_ptr.tag());
-        self.new_const(cs, *z_ptr.value());
-    }
-
-    #[inline]
-    pub fn get_const(&self, f: F) -> Result<&AllocatedNum<F>, SynthesisError> {
-        self.0
-            .get(&FWrap(f))
-            .ok_or_else(|| SynthesisError::AssignmentMissing)
-    }
-
-    #[inline]
-    pub fn get_const_cloned(&self, f: F) -> Result<AllocatedNum<F>, SynthesisError> {
-        self.get_const(f).cloned()
-    }
-
-    #[inline]
-    pub fn get_tag<T: Tag>(&self, tag: &T) -> Result<&AllocatedNum<F>, SynthesisError> {
-        self.get_const(tag.to_field())
-    }
-
-    #[inline]
-    pub fn get_tag_cloned<T: Tag>(&self, tag: &T) -> Result<AllocatedNum<F>, SynthesisError> {
-        self.get_tag(tag).cloned()
-    }
-
-    #[inline]
-    pub fn get_allocated_ptr<T: Tag>(
+    pub fn alloc_const_cloned<CS: ConstraintSystem<F>>(
         &self,
+        cs: &mut CS,
+        f: F,
+    ) -> AllocatedNum<F> {
+        self.alloc_const(cs, f).clone()
+    }
+
+    #[inline]
+    pub fn alloc_tag<CS: ConstraintSystem<F>, T: Tag>(
+        &self,
+        cs: &mut CS,
+        tag: &T,
+    ) -> &AllocatedNum<F> {
+        self.alloc_const(cs, tag.to_field())
+    }
+
+    #[inline]
+    pub fn alloc_tag_cloned<CS: ConstraintSystem<F>, T: Tag>(
+        &self,
+        cs: &mut CS,
+        tag: &T,
+    ) -> AllocatedNum<F> {
+        self.alloc_tag(cs, tag).clone()
+    }
+
+    #[inline]
+    pub fn alloc_z_ptr_from_parts<CS: ConstraintSystem<F>, T: Tag>(
+        &self,
+        cs: &mut CS,
         tag: &T,
         hash: F,
-    ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        Ok(AllocatedPtr::from_parts(
-            self.get_tag_cloned(tag)?,
-            self.get_const_cloned(hash)?,
-        ))
+    ) -> AllocatedPtr<F> {
+        AllocatedPtr::from_parts(
+            self.alloc_tag_cloned(cs, tag),
+            self.alloc_const_cloned(cs, hash),
+        )
     }
 
-    pub fn get_allocated_ptr_from_ptr(
+    #[inline]
+    pub fn alloc_z_ptr<CS: ConstraintSystem<F>>(
         &self,
+        cs: &mut CS,
+        z_ptr: ZPtr<F>,
+    ) -> AllocatedPtr<F> {
+        let crate::z_ptr::ZPtr(tag, hash) = z_ptr;
+        self.alloc_z_ptr_from_parts(cs, &tag, hash)
+    }
+
+    #[inline]
+    pub fn alloc_ptr<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
         ptr: &Ptr,
         store: &Store<F>,
-    ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        let crate::z_ptr::ZPtr(tag, hash) = store.hash_ptr(ptr);
-        self.get_allocated_ptr(&tag, hash)
+    ) -> AllocatedPtr<F> {
+        self.alloc_z_ptr(cs, store.hash_ptr(ptr))
     }
 }
 
@@ -372,45 +379,44 @@ pub fn build_slots_allocations<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 impl Block {
-    fn alloc_globals<F: LurkField, CS: ConstraintSystem<F>>(
+    fn alloc_consts<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        g: &mut GlobalAllocator<F>,
-    ) -> Result<(), SynthesisError> {
+        g: &GlobalAllocator<F>,
+    ) {
         for op in &self.ops {
             match op {
-                Op::Call(_, func, _) => func.body.alloc_globals(cs, store, g)?,
+                Op::Call(_, func, _) => func.body.alloc_consts(cs, store, g),
                 Op::Cons2(_, tag, _)
                 | Op::Cons3(_, tag, _)
                 | Op::Cons4(_, tag, _)
                 | Op::Cast(_, tag, _) => {
-                    g.new_const_from_tag(cs, tag);
+                    g.alloc_tag(cs, tag);
                 }
                 Op::Lit(_, lit) => {
                     let lit_ptr = lit.to_ptr(store);
-                    let lit_z_ptr = store.hash_ptr(&lit_ptr);
-                    g.new_consts_from_z_ptr(cs, &lit_z_ptr);
+                    g.alloc_ptr(cs, &lit_ptr, store);
                 }
                 Op::Zero(_, tag) => {
-                    g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, F::ZERO);
+                    g.alloc_tag(cs, tag);
+                    g.alloc_const(cs, F::ZERO);
                 }
                 Op::Hash3Zeros(_, tag) => {
-                    g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, *store.hash3zeros());
+                    g.alloc_tag(cs, tag);
+                    g.alloc_const(cs, *store.hash3zeros());
                 }
                 Op::Hash4Zeros(_, tag) => {
-                    g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, *store.hash4zeros());
+                    g.alloc_tag(cs, tag);
+                    g.alloc_const(cs, *store.hash4zeros());
                 }
                 Op::Hash6Zeros(_, tag) => {
-                    g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, *store.hash6zeros());
+                    g.alloc_tag(cs, tag);
+                    g.alloc_const(cs, *store.hash6zeros());
                 }
                 Op::Hash8Zeros(_, tag) => {
-                    g.new_const_from_tag(cs, tag);
-                    g.new_const(cs, *store.hash8zeros());
+                    g.alloc_tag(cs, tag);
+                    g.alloc_const(cs, *store.hash8zeros());
                 }
                 Op::Not(..)
                 | Op::And(..)
@@ -421,44 +427,43 @@ impl Block {
                 | Op::Lt(..)
                 | Op::Trunc(..)
                 | Op::DivRem64(..) => {
-                    g.new_const_from_tag(cs, &Num);
+                    g.alloc_tag(cs, &Num);
                 }
                 Op::Div(..) => {
-                    g.new_const_from_tag(cs, &Num);
-                    g.new_const(cs, F::ONE);
+                    g.alloc_tag(cs, &Num);
+                    g.alloc_const(cs, F::ONE);
                 }
                 Op::Hide(..) | Op::Open(..) => {
-                    g.new_const_from_tag(cs, &Num);
-                    g.new_const_from_tag(cs, &Comm);
+                    g.alloc_tag(cs, &Num);
+                    g.alloc_tag(cs, &Comm);
                 }
                 _ => (),
             }
         }
         match &self.ctrl {
             Ctrl::If(.., a, b) => {
-                a.alloc_globals(cs, store, g)?;
-                b.alloc_globals(cs, store, g)?;
+                a.alloc_consts(cs, store, g);
+                b.alloc_consts(cs, store, g);
             }
             Ctrl::MatchTag(_, cases, def) => {
                 for block in cases.values() {
-                    block.alloc_globals(cs, store, g)?;
+                    block.alloc_consts(cs, store, g);
                 }
                 if let Some(def) = def {
-                    def.alloc_globals(cs, store, g)?;
+                    def.alloc_consts(cs, store, g);
                 }
             }
             Ctrl::MatchSymbol(_, cases, def) => {
-                g.new_const_from_tag(cs, &Sym);
+                g.alloc_tag(cs, &Sym);
                 for block in cases.values() {
-                    block.alloc_globals(cs, store, g)?;
+                    block.alloc_consts(cs, store, g);
                 }
                 if let Some(def) = def {
-                    def.alloc_globals(cs, store, g)?;
+                    def.alloc_consts(cs, store, g);
                 }
             }
             Ctrl::Return(..) => (),
         }
-        Ok(())
     }
 }
 
@@ -521,7 +526,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
                 // Allocate the image tag if it hasn't been allocated before,
                 // create the full image pointer and add it to bound allocations
-                let img_tag = ctx.global_allocator.get_tag_cloned($tag)?;
+                let img_tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, $tag);
                 let AllocatedVal::Number(img_hash) = preallocated_img_hash else {
                     bail!("Expected number")
                 };
@@ -702,46 +707,59 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             Op::Zero(tgt, tag) => {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
-                    ctx.global_allocator.get_allocated_ptr(tag, F::ZERO)?,
+                    ctx.global_allocator
+                        .alloc_z_ptr_from_parts(&mut cs, tag, F::ZERO),
                 );
             }
             Op::Hash3Zeros(tgt, tag) => {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
-                    ctx.global_allocator
-                        .get_allocated_ptr(tag, *ctx.store.hash3zeros())?,
+                    ctx.global_allocator.alloc_z_ptr_from_parts(
+                        &mut cs,
+                        tag,
+                        *ctx.store.hash3zeros(),
+                    ),
                 );
             }
             Op::Hash4Zeros(tgt, tag) => {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
-                    ctx.global_allocator
-                        .get_allocated_ptr(tag, *ctx.store.hash4zeros())?,
+                    ctx.global_allocator.alloc_z_ptr_from_parts(
+                        &mut cs,
+                        tag,
+                        *ctx.store.hash4zeros(),
+                    ),
                 );
             }
             Op::Hash6Zeros(tgt, tag) => {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
-                    ctx.global_allocator
-                        .get_allocated_ptr(tag, *ctx.store.hash6zeros())?,
+                    ctx.global_allocator.alloc_z_ptr_from_parts(
+                        &mut cs,
+                        tag,
+                        *ctx.store.hash6zeros(),
+                    ),
                 );
             }
             Op::Hash8Zeros(tgt, tag) => {
                 bound_allocations.insert_ptr(
                     tgt.clone(),
-                    ctx.global_allocator
-                        .get_allocated_ptr(tag, *ctx.store.hash8zeros())?,
+                    ctx.global_allocator.alloc_z_ptr_from_parts(
+                        &mut cs,
+                        tag,
+                        *ctx.store.hash8zeros(),
+                    ),
                 );
             }
             Op::Lit(tgt, lit) => {
-                let allocated_ptr = ctx
-                    .global_allocator
-                    .get_allocated_ptr_from_ptr(&lit.to_ptr(ctx.store), ctx.store)?;
+                let allocated_ptr =
+                    ctx.global_allocator
+                        .alloc_ptr(&mut cs, &lit.to_ptr(ctx.store), ctx.store);
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
             Op::Cast(tgt, tag, src) => {
                 let src = bound_allocations.get_ptr(src)?;
-                let tag = ctx.global_allocator.get_tag_cloned(tag)?;
+                let tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, tag);
                 let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
@@ -783,7 +801,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let a_num = a.hash();
                 let b_num = b.hash();
                 let c_num = a_num.add(cs.namespace(|| "add"), b_num)?;
-                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
+                let tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Num);
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -793,7 +811,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let a_num = a.hash();
                 let b_num = b.hash();
                 let c_num = sub(cs.namespace(|| "sub"), a_num, b_num)?;
-                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
+                let tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Num);
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -803,7 +821,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let a_num = a.hash();
                 let b_num = b.hash();
                 let c_num = mul(cs.namespace(|| "mul"), a_num, b_num)?;
-                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
+                let tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Num);
                 let c = AllocatedPtr::from_parts(tag, c_num);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -814,7 +832,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let b_num = b.hash();
 
                 let b_is_zero = &alloc_is_zero(cs.namespace(|| "b_is_zero"), b_num)?;
-                let one = ctx.global_allocator.get_const(F::ONE)?;
+                let one = ctx.global_allocator.alloc_const(&mut cs, F::ONE);
 
                 let divisor = pick(
                     cs.namespace(|| "maybe-dummy divisor"),
@@ -825,7 +843,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
                 let quotient = div(cs.namespace(|| "quotient"), a_num, &divisor)?;
 
-                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
+                let tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Num);
                 let c = AllocatedPtr::from_parts(tag, quotient);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -928,7 +946,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     trunc_bits,
                     &trunc,
                 );
-                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
+                let tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Num);
                 let c = AllocatedPtr::from_parts(tag, trunc);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
@@ -957,7 +975,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 implies_u64(cs.namespace(|| "diff_u64"), not_dummy, &diff)?;
 
                 enforce_product_and_sum(&mut cs, || "enforce a = b * div + rem", b, &div, &rem, a);
-                let tag = ctx.global_allocator.get_tag_cloned(&Num)?;
+                let tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Num);
                 let div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
                 let rem_ptr = AllocatedPtr::from_parts(tag, rem);
                 bound_allocations.insert_ptr(tgt[0].clone(), div_ptr);
@@ -967,7 +985,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             Op::Hide(tgt, sec, pay) => {
                 let sec = bound_allocations.get_ptr(sec)?;
                 let pay = bound_allocations.get_ptr(pay)?;
-                let sec_tag = ctx.global_allocator.get_const(Num.to_field())?;
+                let sec_tag = ctx.global_allocator.alloc_tag(&mut cs, &Num);
                 let (preallocated_preimg, hash) =
                     &ctx.commitment_slots[next_slot.consume_commitment()];
                 let AllocatedVal::Number(hash) = hash else {
@@ -997,7 +1015,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     pay.hash(),
                     &preallocated_preimg[2],
                 );
-                let tag = ctx.global_allocator.get_tag_cloned(&Comm)?;
+                let tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Comm);
                 let allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
@@ -1005,7 +1023,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let comm = bound_allocations.get_ptr(comm)?;
                 let (preallocated_preimg, com_hash) =
                     &ctx.commitment_slots[next_slot.consume_commitment()];
-                let comm_tag = ctx.global_allocator.get_const(Comm.to_field())?;
+                let comm_tag = ctx.global_allocator.alloc_tag(&mut cs, &Comm);
                 let AllocatedVal::Number(com_hash) = com_hash else {
                     panic!("Excepted number")
                 };
@@ -1021,7 +1039,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     comm.hash(),
                     com_hash,
                 );
-                let sec_tag = ctx.global_allocator.get_tag_cloned(&Num)?;
+                let sec_tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Num);
                 let allocated_sec_ptr =
                     AllocatedPtr::from_parts(sec_tag, preallocated_preimg[0].clone());
                 let allocated_pay_ptr = AllocatedPtr::from_parts(
@@ -1204,7 +1222,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             )?;
 
             // Now we enforce `MatchSymbol`'s tag
-            let sym_tag = ctx.global_allocator.get_const(Sym.to_field())?;
+            let sym_tag = ctx.global_allocator.alloc_tag(cs, &Sym);
             implies_equal(
                 &mut cs.namespace(|| format!("implies equal {match_var}.tag")),
                 not_dummy,
@@ -1270,14 +1288,14 @@ impl Func {
         }
     }
 
-    pub fn alloc_globals<F: LurkField, CS: ConstraintSystem<F>>(
+    pub fn alloc_consts<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &Store<F>,
-    ) -> Result<GlobalAllocator<F>, SynthesisError> {
-        let mut g = GlobalAllocator::default();
-        self.body.alloc_globals(cs, store, &mut g)?;
-        Ok(g)
+    ) -> GlobalAllocator<F> {
+        let g = GlobalAllocator::default();
+        self.body.alloc_consts(cs, store, &g);
+        g
     }
 
     /// Create R1CS constraints for a LEM function given an evaluation frame. This
@@ -1380,7 +1398,7 @@ impl Func {
         lang: &Lang<F, C>,
     ) -> Result<()> {
         let bound_allocations = &mut BoundAllocations::new();
-        let global_allocator = self.alloc_globals(cs, store)?;
+        let global_allocator = self.alloc_consts(cs, store);
         self.allocate_input(cs, store, frame, bound_allocations);
         self.synthesize_frame(
             cs,

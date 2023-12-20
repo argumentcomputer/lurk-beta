@@ -118,7 +118,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
                     SynthesisError::Unsatisfiable
                 })?;
             let output = circom_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
-            let num_tag = g.get_tag(&crate::tag::ExprTag::Num)?;
+            let num_tag = g.alloc_tag(cs, &crate::tag::ExprTag::Num);
             let res = AllocatedPtr::from_parts(num_tag.clone(), output);
 
             Ok(res)
