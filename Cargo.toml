@@ -1,6 +1,6 @@
 [package]
 name = "lurk"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Lurk Lab Engineering <engineering@lurk-lab.com>"]
 license = "MIT OR Apache-2.0"
 description = "Turing-Complete Zero Knowledge"
