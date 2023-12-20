@@ -1443,18 +1443,6 @@
 <a href="#1442" id="1442">1442</a>
 <a href="#1443" id="1443">1443</a>
 <a href="#1444" id="1444">1444</a>
-<a href="#1445" id="1445">1445</a>
-<a href="#1446" id="1446">1446</a>
-<a href="#1447" id="1447">1447</a>
-<a href="#1448" id="1448">1448</a>
-<a href="#1449" id="1449">1449</a>
-<a href="#1450" id="1450">1450</a>
-<a href="#1451" id="1451">1451</a>
-<a href="#1452" id="1452">1452</a>
-<a href="#1453" id="1453">1453</a>
-<a href="#1454" id="1454">1454</a>
-<a href="#1455" id="1455">1455</a>
-<a href="#1456" id="1456">1456</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -1992,7 +1980,7 @@
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>intern_fun(<span class="kw-2">&amp;</span><span class="self">self</span>, arg: Ptr, body: Ptr, env: Ptr) -&gt; Ptr {
-        <span class="self">self</span>.intern_3_ptrs(Tag::Expr(Fun), arg, body, env)
+        <span class="self">self</span>.intern_4_ptrs(Tag::Expr(Fun), arg, body, env, <span class="self">self</span>.dummy())
     }
 
     <span class="attr">#[inline]
@@ -2464,32 +2452,20 @@
                         <span class="string">"&lt;Malformed U64&gt;"</span>.into()
                     }
                 }
-                Fun =&gt; <span class="kw">match </span><span class="self">self</span>.get_index3() {
+                Fun =&gt; <span class="kw">match </span><span class="self">self</span>.get_index4() {
                     <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;Malformed Fun&gt;"</span>.into(),
                     <span class="prelude-val">Some</span>(idx) =&gt; {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>((arg, bod, <span class="kw">_</span>)) = store.fetch_3_ptrs(idx) {
-                            <span class="kw">match </span>bod.tag() {
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>((vars, body, ..)) = store.fetch_4_ptrs(idx) {
+                            <span class="kw">match </span>vars.tag() {
                                 Tag::Expr(Nil) =&gt; {
-                                    <span class="macro">format!</span>(
-                                        <span class="string">"&lt;FUNCTION ({}) {}&gt;"</span>,
-                                        arg.fmt_to_string(store, state),
-                                        bod.fmt_to_string(store, state)
-                                    )
+                                    <span class="macro">format!</span>(<span class="string">"&lt;FUNCTION () {}&gt;"</span>, body.fmt_to_string(store, state))
                                 }
                                 Tag::Expr(Cons) =&gt; {
-                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(idx) = bod.get_index2() {
-                                        <span class="kw">if let </span><span class="prelude-val">Some</span>((bod, <span class="kw">_</span>)) = store.fetch_2_ptrs(idx) {
-                                            <span class="macro">format!</span>(
-                                                <span class="string">"&lt;FUNCTION ({}) {}&gt;"</span>,
-                                                arg.fmt_to_string(store, state),
-                                                bod.fmt_to_string(store, state)
-                                            )
-                                        } <span class="kw">else </span>{
-                                            <span class="string">"&lt;Opaque Fun&gt;"</span>.into()
-                                        }
-                                    } <span class="kw">else </span>{
-                                        <span class="string">"&lt;Malformed Fun&gt;"</span>.into()
-                                    }
+                                    <span class="macro">format!</span>(
+                                        <span class="string">"&lt;FUNCTION {} {}&gt;"</span>,
+                                        vars.fmt_to_string(store, state),
+                                        body.fmt_to_string(store, state)
+                                    )
                                 }
                                 <span class="kw">_ </span>=&gt; <span class="string">"&lt;Malformed Fun&gt;"</span>.into(),
                             }
