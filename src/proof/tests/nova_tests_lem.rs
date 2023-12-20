@@ -123,7 +123,7 @@ fn test_prove_arithmetic_let() {
         None,
         Some(terminal),
         None,
-        &expect!["18"],
+        &expect!["15"],
         &None,
     );
 }
@@ -357,7 +357,7 @@ fn test_prove_recursion1() {
         None,
         Some(terminal),
         None,
-        &expect!["66"],
+        &expect!["55"],
         &None,
     );
 }
@@ -381,7 +381,7 @@ fn test_prove_recursion2() {
         None,
         Some(terminal),
         None,
-        &expect!["93"],
+        &expect!["76"],
         &None,
     );
 }
@@ -511,7 +511,7 @@ fn test_prove_evaluate2() {
         None,
         Some(terminal),
         None,
-        &expect!["9"],
+        &expect!["8"],
         &None,
     );
 }
@@ -579,7 +579,7 @@ fn test_prove_evaluate5() {
         None,
         Some(terminal),
         None,
-        &expect!["13"],
+        &expect!["11"],
         &None,
     );
 }
@@ -811,7 +811,7 @@ fn test_prove_adder() {
         None,
         Some(terminal),
         None,
-        &expect!["13"],
+        &expect!["10"],
         &None,
     );
 }
@@ -912,7 +912,7 @@ fn test_prove_lambda_empty_error() {
         None,
         Some(error),
         None,
-        &expect!["3"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1081,7 +1081,7 @@ fn test_prove_let() {
         None,
         Some(terminal),
         None,
-        &expect!["18"],
+        &expect!["15"],
         &None,
     );
 }
@@ -1106,7 +1106,7 @@ fn test_prove_arithmetic() {
         None,
         Some(terminal),
         None,
-        &expect!["23"],
+        &expect!["18"],
         &None,
     );
 }
@@ -1128,7 +1128,7 @@ fn test_prove_comparison() {
         None,
         Some(terminal),
         None,
-        &expect!["21"],
+        &expect!["18"],
         &None,
     );
 }
@@ -1157,7 +1157,7 @@ fn test_prove_conditional() {
         None,
         Some(terminal),
         None,
-        &expect!["35"],
+        &expect!["28"],
         &None,
     );
 }
@@ -1186,7 +1186,7 @@ fn test_prove_conditional2() {
         None,
         Some(terminal),
         None,
-        &expect!["32"],
+        &expect!["26"],
         &None,
     );
 }
@@ -1212,7 +1212,7 @@ fn test_prove_fundamental_conditional_bug() {
         None,
         Some(terminal),
         None,
-        &expect!["32"],
+        &expect!["25"],
         &None,
     );
 }
@@ -1253,7 +1253,7 @@ fn test_prove_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["66"],
+        &expect!["55"],
         &None,
     );
 }
@@ -1275,7 +1275,7 @@ fn test_prove_recursion_multiarg() {
         None,
         Some(terminal),
         None,
-        &expect!["69"],
+        &expect!["49"],
         &None,
     );
 }
@@ -1300,7 +1300,7 @@ fn test_prove_recursion_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["56"],
+        &expect!["49"],
         &None,
     );
 }
@@ -1324,7 +1324,7 @@ fn test_prove_tail_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["93"],
+        &expect!["76"],
         &None,
     );
 }
@@ -1350,7 +1350,7 @@ fn test_prove_tail_recursion_somewhat_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["81"], &None
+        &expect!["68"], &None
     );
 }
 
@@ -1375,7 +1375,7 @@ fn test_prove_no_mutual_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["22"],
+        &expect!["21"],
         &None,
     );
 }
@@ -1400,7 +1400,7 @@ fn test_prove_no_mutual_recursion_error() {
         None,
         Some(error),
         None,
-        &expect!["25"],
+        &expect!["24"],
         &None,
     );
 }
@@ -1533,7 +1533,7 @@ fn test_prove_zero_arg_lambda2() {
         None,
         Some(terminal),
         None,
-        &expect!["10"],
+        &expect!["9"],
         &None,
     );
 }
@@ -1542,11 +1542,10 @@ fn test_prove_zero_arg_lambda2() {
 fn test_prove_zero_arg_lambda3() {
     let s = &Store::<Fr>::default();
     let expected = {
-        let arg = s.intern_user_symbol("x");
+        let args = s.list(vec![s.intern_user_symbol("x")]);
         let num = s.num_u64(123);
-        let body = s.list(vec![num]);
         let env = s.intern_nil();
-        s.intern_fun(arg, body, env)
+        s.intern_fun(args, num, env)
     };
     let terminal = s.cont_terminal();
     nova_test_full_aux::<_, _, M1<'_, _>>(
@@ -1575,7 +1574,7 @@ fn test_prove_zero_arg_lambda4() {
         None,
         Some(error),
         None,
-        &expect!["3"],
+        &expect!["2"],
         &None,
     );
 }
@@ -1630,7 +1629,7 @@ fn test_prove_nested_let_closure_regression() {
         None,
         Some(terminal),
         None,
-        &expect!["14"],
+        &expect!["11"],
         &None,
     );
 }
@@ -1653,7 +1652,7 @@ fn test_prove_minimal_tail_call() {
         None,
         Some(terminal),
         None,
-        &expect!["50"],
+        &expect!["47"],
         &None,
     );
 }
@@ -1675,7 +1674,7 @@ fn test_prove_cons_in_function1() {
         None,
         Some(terminal),
         None,
-        &expect!["15"],
+        &expect!["12"],
         &None,
     );
 }
@@ -1697,7 +1696,7 @@ fn test_prove_cons_in_function2() {
         None,
         Some(terminal),
         None,
-        &expect!["15"],
+        &expect!["12"],
         &None,
     );
 }
@@ -1739,7 +1738,7 @@ fn test_prove_multiple_letrec_bindings() {
         None,
         Some(terminal),
         None,
-        &expect!["78"],
+        &expect!["73"],
         &None,
     );
 }
@@ -1763,7 +1762,7 @@ fn test_prove_tail_call2() {
         None,
         Some(terminal),
         None,
-        &expect!["84"],
+        &expect!["78"],
         &None,
     );
 }
@@ -1783,7 +1782,7 @@ fn test_prove_multiple_letrecstar_bindings() {
         None,
         Some(terminal),
         None,
-        &expect!["22"],
+        &expect!["20"],
         &None,
     );
 }
@@ -1803,7 +1802,7 @@ fn test_prove_multiple_letrecstar_bindings_referencing() {
         None,
         Some(terminal),
         None,
-        &expect!["31"],
+        &expect!["28"],
         &None,
     );
 }
@@ -1834,7 +1833,7 @@ fn test_prove_multiple_letrecstar_bindings_recursive() {
         None,
         Some(terminal),
         None,
-        &expect!["242"],
+        &expect!["175"],
         &None,
     );
 }
@@ -1856,7 +1855,7 @@ fn test_prove_dont_discard_rest_env() {
         None,
         Some(terminal),
         None,
-        &expect!["22"],
+        &expect!["20"],
         &None,
     );
 }
@@ -1882,7 +1881,7 @@ fn test_prove_fibonacci() {
         None,
         Some(terminal),
         None,
-        &expect!["89"],
+        &expect!["60"],
         5,
         false,
         None,
@@ -1925,7 +1924,7 @@ fn test_prove_terminal_continuation_regression() {
         None,
         Some(terminal),
         None,
-        &expect!["9"],
+        &expect!["8"],
         &None,
     );
 }
@@ -1946,7 +1945,7 @@ fn test_prove_chained_functional_commitment() {
         None,
         Some(terminal),
         None,
-        &expect!["39"],
+        &expect!["30"],
         &None,
     );
 }
@@ -3001,7 +3000,7 @@ fn test_relational_edge_case_identity() {
         None,
         Some(terminal),
         None,
-        &expect!["19"],
+        &expect!["17"],
         &None,
     );
 }
@@ -3102,7 +3101,7 @@ fn test_prove_functional_commitment() {
         None,
         Some(terminal),
         None,
-        &expect!["25"],
+        &expect!["21"],
         &None,
     );
 }
@@ -3132,7 +3131,7 @@ fn test_prove_complicated_functional_commitment() {
         None,
         Some(terminal),
         None,
-        &expect!["108"],
+        &expect!["83"],
         &None,
     );
 }
@@ -3155,7 +3154,7 @@ fn test_prove_test_fold_cons_regression() {
         None,
         Some(terminal),
         None,
-        &expect!["152"],
+        &expect!["92"],
         &None,
     );
 }
@@ -3785,9 +3784,9 @@ fn test_prove_dotted_syntax_error() {
 fn test_prove_call_literal_fun() {
     let s = &Store::<Fr>::default();
     let empty_env = s.intern_nil();
-    let arg = s.intern_user_symbol("x");
-    let body = s.read_with_default_state("((+ x 1))").unwrap();
-    let fun = s.intern_3_ptrs(Tag::Expr(ExprTag::Fun), arg, body, empty_env);
+    let args = s.list(vec![s.intern_user_symbol("x")]);
+    let body = s.read_with_default_state("(+ x 1)").unwrap();
+    let fun = s.intern_4_ptrs(Tag::Expr(ExprTag::Fun), args, body, empty_env, s.dummy());
     let input = s.num_u64(9);
     let expr = s.list(vec![fun, input]);
     let res = s.num_u64(10);
@@ -3801,7 +3800,7 @@ fn test_prove_call_literal_fun() {
         None,
         Some(terminal),
         None,
-        &expect!["7"],
+        &expect!["6"],
         DEFAULT_REDUCTION_COUNT,
         false,
         None,
@@ -3841,7 +3840,7 @@ fn test_prove_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        &expect!["3"],
+        &expect!["2"],
         &None,
     );
     test_aux::<_, _, M1<'_, _>>(
@@ -3851,7 +3850,7 @@ fn test_prove_lambda_body_syntax() {
         None,
         Some(error),
         None,
-        &expect!["3"],
+        &expect!["2"],
         &None,
     );
 }
@@ -4077,7 +4076,7 @@ fn test_dumb_lang() {
         None,
         Some(terminal),
         None,
-        &expect!["6"],
+        &expect!["5"],
         &Some(lang.clone()),
     );
     test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
@@ -4336,7 +4335,7 @@ fn test_letrec_let_nesting() {
         None,
         Some(terminal),
         None,
-        &expect!["6"],
+        &expect!["5"],
         &None,
     );
 }
@@ -4368,7 +4367,7 @@ fn test_letrec_sequencing() {
         None,
         Some(terminal),
         None,
-        &expect!["8"],
+        &expect!["7"],
         &None,
     );
 }

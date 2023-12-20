@@ -674,20 +674,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         let env: Expr::Cons = cons2(smaller_rec_env, smaller_env);
         return (env)
     });
-    let extract_arg = func!(extract_arg(args): 2 => {
-        match args.tag {
-            Expr::Nil => {
-                let dummy = Symbol("dummy");
-                let nil = Symbol("nil");
-                let nil = cast(nil, Expr::Nil);
-                return (dummy, nil)
-            }
-            Expr::Cons => {
-                let (arg, rest) = decons2(args);
-                return (arg, rest)
-            }
-        }
-    });
     let expand_bindings = func!(expand_bindings(head, body, body1, rest_bindings): 1 => {
         match rest_bindings.tag {
             Expr::Nil => {
@@ -824,31 +810,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         };
         return (nil)
     });
-    let make_call = func!(make_call(head, rest, env, cont): 4 => {
-        let ret = Symbol("return");
-        let foo: Expr::Nil;
-        match rest.tag {
-            Expr::Nil => {
-                let cont: Cont::Call0 = cons4(env, cont, foo, foo);
-                return (head, env, cont, ret)
-            }
-            Expr::Cons => {
-                let (arg, more_args) = decons2(rest);
-                match more_args.tag {
-                    Expr::Nil => {
-                        let cont: Cont::Call = cons4(arg, env, cont, foo);
-                        return (head, env, cont, ret)
-                    }
-                };
-                let nil = Symbol("nil");
-                let nil = cast(nil, Expr::Nil);
-                let expanded_inner0: Expr::Cons = cons2(arg, nil);
-                let expanded_inner: Expr::Cons = cons2(head, expanded_inner0);
-                let expanded: Expr::Cons = cons2(expanded_inner, more_args);
-                return (expanded, env, cont, ret)
-            }
-        }
-    });
     let is_potentially_fun = func!(is_potentially_fun(head): 1 => {
         let fun: Expr::Fun;
         let cons: Expr::Cons;
@@ -935,12 +896,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         if eq_val {
                             return (val_or_more_rec_env, env, cont, apply)
                         }
-                        match cont.tag {
-                            Cont::Lookup => {
-                                return (expr, smaller_env, cont, ret)
-                            }
-                        };
-                        let cont: Cont::Lookup = cons4(env, cont, foo, foo);
                         return (expr, smaller_env, cont, ret)
                     }
                     Expr::Cons => {
@@ -951,10 +906,10 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                             match val2.tag {
                                 Expr::Fun => {
                                     // if `val2` is a closure, then extend its environment
-                                    let (arg, body, closed_env) = decons3(val2);
+                                    let (arg, body, closed_env, _foo) = decons4(val2);
                                     let extended: Expr::Cons = cons2(binding, closed_env);
                                     // and return the extended closure
-                                    let fun: Expr::Fun = cons3(arg, body, extended);
+                                    let fun: Expr::Fun = cons4(arg, body, extended, foo);
                                     return (fun, env, cont, apply)
                                 }
                             };
@@ -962,13 +917,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                             return (val2, env, cont, apply)
                         }
                         let (env_to_use) = env_to_use(smaller_env, val_or_more_rec_env);
-
-                        match cont.tag {
-                            Cont::Lookup => {
-                                return (expr, env_to_use, cont, ret)
-                            }
-                        };
-                        let cont: Cont::Lookup = cons4(env, cont, foo, foo);
                         return (expr, env_to_use, cont, ret)
                     }
                 };
@@ -1029,22 +977,30 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         }
                         match symbol head {
                             "lambda" => {
-                                let (args, body) = car_cdr(rest);
-                                let (arg, cdr_args) = extract_arg(args);
-
-                                match arg.tag {
-                                    Expr::Sym => {
-                                        match cdr_args.tag {
-                                            Expr::Nil => {
-                                                let function: Expr::Fun = cons3(arg, body, env);
-                                                return (function, env, cont, apply)
+                                let (vars, rest) = car_cdr(rest);
+                                let rest_nil = eq_tag(rest, nil);
+                                if rest_nil {
+                                    return (expr, env, err, errctrl)
+                                }
+                                let (body, end) = car_cdr(rest);
+                                let end_nil = eq_tag(end, nil);
+                                if !end_nil {
+                                    return (expr, env, err, errctrl)
+                                }
+                                match vars.tag {
+                                    Expr::Cons => {
+                                        let (var, _rest_vars) = decons2(vars);
+                                        match var.tag {
+                                            Expr::Sym => {
+                                                let fun: Expr::Fun = cons4(vars, body, env, foo);
+                                                return (fun, env, cont, apply)
                                             }
                                         };
-                                        let inner: Expr::Cons = cons2(cdr_args, body);
-                                        let l: Expr::Cons = cons2(head, inner);
-                                        let inner_body: Expr::Cons = cons2(l, nil);
-                                        let function: Expr::Fun = cons3(arg, inner_body, env);
-                                        return (function, env, cont, apply)
+                                        return (expr, env, err, errctrl)
+                                    }
+                                    Expr::Nil => {
+                                        let fun: Expr::Fun = cons4(vars, body, env, foo);
+                                        return (fun, env, cont, apply)
                                     }
                                 };
                                 return (expr, env, err, errctrl)
@@ -1095,7 +1051,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                         return (expr, env, err, errctrl)
                                     }
                                 };
-                                let cont: Cont::If = cons4(more, cont, foo, foo);
+                                let cont: Cont::If = cons4(more, env, cont, foo);
                                 return (condition, env, cont, ret)
                             }
                             "current-env" => {
@@ -1142,16 +1098,18 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         let is_cproc_is_t = eq_val(is_cproc, t);
                         if is_cproc_is_t {
                             if rest_is_nil {
-                                let cont: Cont::Cproc = cons4(head, nil, nil, cont);
+                                let args: Expr::Cons = cons2(nil, nil);
+                                let cont: Cont::Cproc = cons4(head, args, env, cont);
                                 return (nil, env, cont, apply);
                             }
                             let (arg, unevaled_args) = car_cdr(rest);
-                            let cont: Cont::Cproc = cons4(head, unevaled_args, nil, cont);
+                            let args: Expr::Cons = cons2(unevaled_args, nil);
+                            let cont: Cont::Cproc = cons4(head, args, env, cont);
                             return (arg, env, cont, ret);
                         }
                         // just call assuming that the symbol is bound to a function
-                        let (fun, env, cont, ret) = make_call(head, rest, env, cont);
-                        return (fun, env, cont, ret);
+                        let cont: Cont::Call = cons4(rest, env, cont, foo);
+                        return (head, env, cont, ret);
                     }
                 };
 
@@ -1159,8 +1117,8 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                 let (potentially_fun) = is_potentially_fun(head);
                 let eq_val = eq_val(potentially_fun, t);
                 if eq_val {
-                    let (fun, env, cont, ret) = make_call(head, rest, env, cont);
-                    return (fun, env, cont, ret);
+                    let cont: Cont::Call = cons4(rest, env, cont, foo);
+                    return (head, env, cont, ret);
                 }
                 return (expr, env, err, errctrl)
             }
@@ -1200,17 +1158,6 @@ fn choose_cproc_call(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
 
 fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     let car_cdr = car_cdr();
-    let make_tail_continuation = func!(make_tail_continuation(env, continuation): 1 => {
-        match continuation.tag {
-            Cont::Tail => {
-                return (continuation);
-            }
-        };
-        let foo: Expr::Nil;
-        let tail_continuation: Cont::Tail = cons4(env, continuation, foo, foo);
-        return (tail_continuation);
-    });
-
     let extend_rec = func!(extend_rec(env, var, result): 1 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
@@ -1272,15 +1219,6 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
         match symbol ctrl {
             "apply-continuation" => {
                 let makethunk = Symbol("make-thunk");
-                let lookup: Cont::Lookup;
-                let tail: Cont::Tail;
-                let cont_is_lookup = eq_tag(cont, lookup);
-                let cont_is_tail = eq_tag(cont, tail);
-                let cont_is_tail_or_lookup = or(cont_is_lookup, cont_is_tail);
-                if cont_is_tail_or_lookup {
-                    let (saved_env, continuation, _foo, _foo) = decons4(cont);
-                    return (result, saved_env, continuation, makethunk)
-                }
 
                 let errctrl = Symbol("error");
                 let ret = Symbol("return");
@@ -1296,71 +1234,79 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                 let term: Cont::Terminal = HASH_8_ZEROS;
                 match cont.tag {
                     Cont::Outermost => {
-                        return (result, env, term, ret)
+                        // We erase the environment as to not leak any information about internal variables.
+                        return (result, nil, term, ret)
                     }
                     Cont::Emit => {
                         let (cont, _rest, _foo, _foo) = decons4(cont);
                         return (result, env, cont, makethunk)
                     }
-                    Cont::Call0 => {
-                        let (saved_env, continuation, _foo, _foo) = decons4(cont);
-                        match result.tag {
-                            Expr::Fun => {
-                                let (arg, body, closed_env) = decons3(result);
-                                match symbol arg {
-                                    "dummy" => {
-                                        match body.tag {
-                                            Expr::Nil => {
-                                                return (result, env, err, errctrl)
-                                            }
-                                        };
-                                        let (body_form, end) = car_cdr(body);
-                                        match end.tag {
-                                            Expr::Nil => {
-                                                let (cont) = make_tail_continuation(saved_env, continuation);
-                                                return (body_form, closed_env, cont, ret)
-                                            }
-                                        };
-                                        return (result, env, err, errctrl)
-                                    }
-                                };
-                                return (result, env, continuation, ret)
-                            }
-                        };
-                        return (result, env, err, errctrl)
-                    }
                     Cont::Call => {
                         match result.tag {
                             Expr::Fun => {
-                                let (unevaled_arg, saved_env, continuation, _foo) = decons4(cont);
-                                let newer_cont: Cont::Call2 = cons4(result, saved_env, continuation, foo);
-                                return (unevaled_arg, env, newer_cont, ret)
+                                let (args, args_env, continuation, _foo) = decons4(cont);
+                                let (vars, body, fun_env, _foo) = decons4(result);
+                                match args.tag {
+                                    Expr::Cons => {
+                                        match vars.tag {
+                                            Expr::Nil => {
+                                                // Cannot apply non-zero number of arguments to a zero argument function
+                                                return (result, env, err, errctrl)
+                                            }
+                                            Expr::Cons => {
+                                                let (arg, rest_args) = decons2(args);
+                                                let newer_cont: Cont::Call2 = cons4(result, rest_args, args_env, continuation);
+                                                return (arg, args_env, newer_cont, ret)
+                                            }
+                                        }
+                                    }
+                                    Expr::Nil => {
+                                        match vars.tag {
+                                            Expr::Nil => {
+                                                return (body, fun_env, continuation, ret)
+                                            }
+                                            Expr::Cons => {
+                                                // TODO should we not fail here in an analogous way to the non-zero application
+                                                // on a zero argument function case?
+                                                return (result, env, continuation, ret)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         };
                         return (result, env, err, errctrl)
                     }
                     Cont::Call2 => {
-                        let (function, saved_env, continuation, _foo) = decons4(cont);
+                        let (function, args, args_env, continuation) = decons4(cont);
                         match function.tag {
                             Expr::Fun => {
-                                let (arg, body, closed_env) = decons3(function);
-                                match symbol arg {
-                                    "dummy" => {
-                                        return (result, env, err, errctrl)
+                                let (vars, body, fun_env, _foo) = decons4(function);
+                                // vars must be non-empty, so:
+                                let (var, rest_vars) = decons2(vars);
+                                let binding: Expr::Cons = cons2(var, result);
+                                let ext_env: Expr::Cons = cons2(binding, fun_env);
+                                let rest_vars_empty = eq_tag(rest_vars, nil);
+                                let args_empty = eq_tag(args, nil);
+                                if rest_vars_empty {
+                                    if args_empty {
+                                        return (body, ext_env, continuation, ret)
                                     }
-                                };
-                                match body.tag {
-                                    Expr::Nil => {
-                                        return (result, env, err, errctrl)
-                                    }
-                                };
-                                let (body_form, end) = decons2(body);
-                                match end.tag {
-                                    Expr::Nil => {
-                                        let binding: Expr::Cons = cons2(arg, result);
-                                        let newer_env: Expr::Cons = cons2(binding, closed_env);
-                                        let (cont) = make_tail_continuation(saved_env, continuation);
-                                        return (body_form, newer_env, cont, ret)
+                                    // Oversaturated call
+                                    let cont: Cont::Call = cons4(args, args_env, continuation, foo);
+                                    return (body, ext_env, cont, ret)
+                                }
+                                let ext_function: Expr::Fun = cons4(rest_vars, body, ext_env, foo);
+                                let (var, _rest_vars) = car_cdr(rest_vars);
+                                match var.tag {
+                                    Expr::Sym => {
+                                        if args_empty {
+                                            // Undersaturated call
+                                            return (ext_function, ext_env, continuation, ret)
+                                        }
+                                        let (arg, rest_args) = decons2(args);
+                                        let cont: Cont::Call2 = cons4(ext_function, rest_args, args_env, continuation);
+                                        return (arg, args_env, cont, ret)
                                     }
                                 };
                                 return (result, env, err, errctrl)
@@ -1371,14 +1317,12 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     Cont::Let => {
                         let (var, saved_env, body, cont) = decons4(cont);
                         let binding: Expr::Cons = cons2(var, result);
-                        let extended_env: Expr::Cons = cons2(binding, env);
-                        let (cont) = make_tail_continuation(saved_env, cont);
+                        let extended_env: Expr::Cons = cons2(binding, saved_env);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::LetRec => {
                         let (var, saved_env, body, cont) = decons4(cont);
-                        let (extended_env) = extend_rec(env, var, result);
-                        let (cont) = make_tail_continuation(saved_env, cont);
+                        let (extended_env) = extend_rec(saved_env, var, result);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::Unop => {
@@ -1721,41 +1665,43 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         return (result, env, err, errctrl)
                     }
                     Cont::If => {
-                        let (unevaled_args, continuation, _foo, _foo) = decons4(cont);
+                        let (unevaled_args, args_env, continuation, _foo) = decons4(cont);
                         let (arg1, more) = car_cdr(unevaled_args);
                         let (arg2, end) = car_cdr(more);
                         match end.tag {
                             Expr::Nil => {
                                 match result.tag {
                                     Expr::Nil => {
-                                        return (arg2, env, continuation, ret)
+                                        return (arg2, args_env, continuation, ret)
                                     }
                                 };
-                                return (arg1, env, continuation, ret)
+                                return (arg1, args_env, continuation, ret)
                             }
                         };
                         return (arg1, env, err, errctrl)
                     }
                     Cont::Cproc => {
-                        let (cproc_name, unevaled_args, evaluated_args, cont) = decons4(cont);
+                        let (cproc_name, args, saved_env, cont) = decons4(cont);
+                        let (unevaled_args, evaluated_args) = decons2(args);
                         // accumulate the evaluated arg (`result`)
                         let evaluated_args: Expr::Cons = cons2(result, evaluated_args);
                         match unevaled_args.tag {
                             Expr::Nil => {
                                 // nothing else to evaluate
-                                let (expr, env, cont, ctrl) = choose_cproc_call(cproc_name, evaluated_args, env, cont);
+                                let (expr, env, cont, ctrl) = choose_cproc_call(cproc_name, evaluated_args, saved_env, cont);
                                 return (expr, env, cont, ctrl);
                             }
                             Expr::Cons => {
                                 // pop the next argument that needs to be evaluated
                                 let (arg, unevaled_args) = decons2(unevaled_args);
+                                let args: Expr::Cons = cons2(unevaled_args, evaluated_args);
                                 let cont: Cont::Cproc = cons4(
                                     cproc_name,
-                                    unevaled_args,
-                                    evaluated_args,
+                                    args,
+                                    saved_env,
                                     cont
                                 );
-                                return (arg, env, cont, ret);
+                                return (arg, saved_env, cont, ret);
                             }
                         }
                     }
@@ -1771,15 +1717,11 @@ fn make_thunk() -> Func {
         match symbol ctrl {
             "make-thunk" => {
                 match cont.tag {
-                    Cont::Tail => {
-                        let (saved_env, saved_cont, _foo, _foo) = decons4(cont);
-                        let thunk: Expr::Thunk = cons2(expr, saved_cont);
-                        let cont: Cont::Dummy = HASH_8_ZEROS;
-                        return (thunk, saved_env, cont)
-                    }
                     Cont::Outermost => {
+                        let nil = Symbol("nil");
+                        let nil = cast(nil, Expr::Nil);
                         let cont: Cont::Terminal = HASH_8_ZEROS;
-                        return (expr, env, cont)
+                        return (expr, nil, cont)
                     }
                 };
                 let thunk: Expr::Thunk = cons2(expr, cont);
@@ -1814,8 +1756,8 @@ mod tests {
             func.slots_count,
             SlotsCounter {
                 hash4: 14,
-                hash6: 3,
-                hash8: 4,
+                hash6: 0,
+                hash8: 6,
                 commitment: 1,
                 bit_decomp: 3,
             }
@@ -1824,8 +1766,8 @@ mod tests {
             expected.assert_eq(&computed.to_string());
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9118"]);
-        expect_eq(cs.num_constraints(), expect!["11064"]);
+        expect_eq(cs.aux().len(), expect!["8823"]);
+        expect_eq(cs.num_constraints(), expect!["10628"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }

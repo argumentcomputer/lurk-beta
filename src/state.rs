@@ -215,7 +215,7 @@ const LURK_PACKAGE_SYMBOL_NAME: &str = "lurk";
 const USER_PACKAGE_SYMBOL_NAME: &str = "user";
 const META_PACKAGE_SYMBOL_NAME: &str = "meta";
 
-const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
+const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 35] = [
     "atom",
     "begin",
     "car",
@@ -251,7 +251,6 @@ const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
     ">",
     "<=",
     ">=",
-    "_",
 ];
 
 const META_PACKAGE_SYMBOLS_NAMES: [&str; 28] = [

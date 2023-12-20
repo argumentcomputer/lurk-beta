@@ -38,7 +38,7 @@ fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Pt
 // nth Fibonacci number to `a`.
 // means of computing it.]
 fn fib_frame(n: usize) -> usize {
-    11 + 16 * n
+    11 + 10 * n
 }
 
 // Set the limit so the last step will be filled exactly, since Lurk currently only pads terminal/error continuations.
