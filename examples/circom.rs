@@ -127,7 +127,7 @@ fn main() {
     println!("Beginning proof step...");
 
     let proof_start = Instant::now();
-    let (proof, z0, zi, num_steps) = nova_prover
+    let (proof, z0, zi, _num_steps) = nova_prover
         .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000)
         .unwrap();
     let proof_end = proof_start.elapsed();
@@ -137,7 +137,7 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    let res = proof.verify(&pp, &z0, &zi, num_steps).unwrap();
+    let res = proof.verify(&pp, &z0, &zi).unwrap();
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {verify_end:?}");

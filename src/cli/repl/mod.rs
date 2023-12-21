@@ -317,13 +317,12 @@ impl Repl<F> {
                     info!("Compressing proof");
                     let proof = proof.compress(&pp)?;
                     assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
-                    assert!(proof.verify(&pp, &public_inputs, &public_outputs, num_steps)?);
+                    assert!(proof.verify(&pp, &public_inputs, &public_outputs)?);
 
                     let lurk_proof = LurkProof::Nova {
                         proof,
                         public_inputs,
                         public_outputs,
-                        num_steps,
                         rc: self.rc,
                         lang: (*self.lang).clone(),
                     };

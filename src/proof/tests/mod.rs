@@ -139,16 +139,16 @@ where
 
     if check_nova {
         let pp = public_params::<_, _, M>(reduction_count, lang.clone());
-        let (proof, z0, zi, num_steps) = nova_prover.prove(&pp, &frames, s).unwrap();
+        let (proof, z0, zi, _num_steps) = nova_prover.prove(&pp, &frames, s).unwrap();
 
-        let res = proof.verify(&pp, &z0, &zi, num_steps);
+        let res = proof.verify(&pp, &z0, &zi);
         if res.is_err() {
             tracing::debug!("{:?}", &res);
         }
         assert!(res.unwrap());
 
         let compressed = proof.compress(&pp).unwrap();
-        let res2 = compressed.verify(&pp, &z0, &zi, num_steps);
+        let res2 = compressed.verify(&pp, &z0, &zi);
 
         assert!(res2.unwrap());
     }
