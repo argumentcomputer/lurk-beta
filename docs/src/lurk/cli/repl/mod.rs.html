@@ -615,6 +615,11 @@
 <a href="#614" id="614">614</a>
 <a href="#615" id="615">615</a>
 <a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
@@ -1046,9 +1051,14 @@
     }
 
     <span class="kw">fn </span>eval_expr_and_memoize(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize)&gt; {
-        <span class="kw">let </span>(frames, iterations) =
+        <span class="kw">let </span>frames =
             evaluate_with_env::&lt;F, Coproc&lt;F&gt;&gt;(<span class="prelude-val">None</span>, expr_ptr, <span class="self">self</span>.env, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="self">self</span>.limit)<span class="question-mark">?</span>;
-        <span class="kw">let </span>output = frames[frames.len() - <span class="number">1</span>].output.clone();
+        <span class="kw">let </span>iterations = frames.len();
+        <span class="kw">let </span>output = frames
+            .last()
+            .expect(<span class="string">"evaluation should return at least one frame"</span>)
+            .output
+            .clone();
         <span class="self">self</span>.evaluation = <span class="prelude-val">Some</span>(Evaluation { frames, iterations });
         <span class="prelude-val">Ok</span>((output, iterations))
     }

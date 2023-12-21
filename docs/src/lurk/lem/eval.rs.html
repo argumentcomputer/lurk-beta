@@ -1866,7 +1866,7 @@
     limit: usize,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
     log_fmt: LogFmt,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&gt;, usize)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>pc = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>frames = <span class="macro">vec!</span>[];
     <span class="kw">let </span><span class="kw-2">mut </span>iterations = <span class="number">0</span>;
@@ -1887,7 +1887,7 @@
         }
         pc = get_pc(<span class="kw-2">&amp;</span>expr, store, lang);
     }
-    <span class="prelude-val">Ok</span>((frames, iterations))
+    <span class="prelude-val">Ok</span>(frames)
 }
 
 <span class="doccomment">/// Faster version of `build_frames` that doesn't accumulate frames
@@ -1924,7 +1924,7 @@
     cont: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&gt;, usize)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
     <span class="kw">let </span>state = initial_lurk_state();
     <span class="kw">let </span>log_fmt = |i: usize, inp: <span class="kw-2">&amp;</span>[Ptr], emit: <span class="kw-2">&amp;</span>[Ptr], store: <span class="kw-2">&amp;</span>Store&lt;F&gt;| {
         <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="macro">format!</span>(
@@ -1960,7 +1960,7 @@
     env: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&gt;, usize)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
     evaluate_with_env_and_cont(func_lang, expr, env, store.cont_outermost(), store, limit)
 }
 
@@ -1970,7 +1970,7 @@
     expr: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&gt;, usize)&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
     evaluate_with_env_and_cont(
         func_lang,
         expr,
