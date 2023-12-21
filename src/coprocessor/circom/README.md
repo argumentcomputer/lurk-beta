@@ -2,14 +2,14 @@
 
 The [Circom](https://github.com/iden3/circom) Coprocessor is a special Coprocessor that is included in our library. It 
 allows users to use Circom-based circuits as the core circuit for a folding step  in the reduction process. This feature
-pushes forward the flexibility of our framework and opens it up to a myriad of developer and researchers already familiar
+pushes forward the flexibility of our stack and opens it up to a myriad of developer and researchers already familiar
 with this particular programing language.
 
 ## Overview
 
 There are two key components to have in mind when thinking about the Circom Coprocessor:
 - `CircomCoprocessor`: The actual Coprocessor that will be used during our reduction. It leverages [`circom-scotia`](https://github.com/lurk-lab/circom-scotia)
-to compile Circom-based circuits to [Bellpepper](https://github.com/lurk-lab/bellpepper), thus making them usable in our framework.
+to compile Circom-based circuits to [Bellpepper](https://github.com/lurk-lab/bellpepper), thus making them usable in our stack.
 - `CircomGadget`: An inner structure for the Circom Coprocessor. Refers to the r1cs and wasm files compiled from the targeted
 circom circuit that will be used in our proving flow.
 
