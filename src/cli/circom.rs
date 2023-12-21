@@ -82,7 +82,7 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, reference: &str)
 
     // We expect a format <AUTHOR>/<NAME> for the name.
     // TODO: should we switch to check regex: ^[a-zA-Z0-9]+([_-]?[a-zA-Z0-9]+)*\/[a-zA-Z0-9]+([_-]?[a-zA-Z0-9]+)*$ ?
-    let reference_split: Vec<&str> = reference.split("/").collect();
+    let reference_split: Vec<&str> = reference.split('/').collect();
     if reference_split.len() != 2 {
         bail!("Expected a reference of format \"<AUTHOR>/<NAME>\", got \"{reference}\"");
     }
