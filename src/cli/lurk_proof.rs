@@ -139,7 +139,6 @@ pub(crate) enum LurkProof<
         proof: nova::Proof<'a, F, C, M>,
         public_inputs: Vec<F>,
         public_outputs: Vec<F>,
-        num_steps: usize,
         rc: usize,
         lang: Lang<F, C>,
     },
@@ -209,7 +208,6 @@ where
                 proof,
                 public_inputs,
                 public_outputs,
-                num_steps,
                 rc,
                 lang,
             } => {
@@ -217,7 +215,7 @@ where
                 let instance =
                     Instance::new(*rc, Arc::new(lang.clone()), true, Kind::NovaPublicParams);
                 let pp = public_params(&instance)?;
-                Ok(proof.verify(&pp, public_inputs, public_outputs, *num_steps)?)
+                Ok(proof.verify(&pp, public_inputs, public_outputs)?)
             }
         }
     }

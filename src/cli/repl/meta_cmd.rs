@@ -860,7 +860,6 @@ enum ProtocolProof<
     Nova {
         args: LurkData<F>,
         proof: nova::Proof<'a, F, C, M>,
-        num_steps: usize,
     },
 }
 
@@ -1074,21 +1073,8 @@ impl MetaCmd<F> {
             match load::<LurkProof<'_, _, _, MultiFrame<'_, _, Coproc<F>>>>(&proof_path(
                 &proof_key,
             ))? {
-                LurkProof::Nova {
-                    proof,
-                    public_inputs: _,
-                    public_outputs: _,
-                    num_steps,
-                    ..
-                } => {
-                    dump(
-                        ProtocolProof::Nova {
-                            args,
-                            proof,
-                            num_steps,
-                        },
-                        &path,
-                    )?;
+                LurkProof::Nova { proof, .. } => {
+                    dump(ProtocolProof::Nova { args, proof }, &path)?;
                     println!("Protocol proof saved at {path}");
                     Ok(())
                 }
@@ -1122,7 +1108,6 @@ impl MetaCmd<F> {
                 ProtocolProof::Nova {
                     args: LurkData { z_ptr, z_dag },
                     proof,
-                    num_steps,
                 } => {
                     let args =
                         z_dag.populate_store(&z_ptr, &repl.store, &mut Default::default())?;
@@ -1141,7 +1126,6 @@ impl MetaCmd<F> {
                         &pp,
                         &repl.store.to_scalar_vector(&cek_io[..3]),
                         &repl.store.to_scalar_vector(&cek_io[3..]),
-                        num_steps,
                     )? {
                         bail!("Proof verification failed")
                     }

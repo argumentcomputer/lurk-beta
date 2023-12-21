@@ -87,7 +87,7 @@ fn main() {
 
     println!("Beginning proof step...");
     let proof_start = Instant::now();
-    let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
+    let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
         .in_scope(|| {
             nova_prover
                 .evaluate_and_prove(&pp, call, store.intern_nil(), store, 10000)
@@ -100,7 +100,7 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    assert!(proof.verify(&pp, &z0, &zi, num_steps).unwrap());
+    assert!(proof.verify(&pp, &z0, &zi).unwrap());
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {:?}", verify_end);
@@ -113,7 +113,7 @@ fn main() {
     println!("Compression took {:?}", compress_end);
 
     let compressed_verify_start = Instant::now();
-    let res = compressed_proof.verify(&pp, &z0, &zi, num_steps).unwrap();
+    let res = compressed_proof.verify(&pp, &z0, &zi).unwrap();
     let compressed_verify_end = compressed_verify_start.elapsed();
 
     println!("Final verification took {:?}", compressed_verify_end);

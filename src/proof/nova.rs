@@ -157,14 +157,18 @@ where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    /// A proof for the intermediate steps of a recursive computation
+    /// A proof for the intermediate steps of a recursive computation along with
+    /// the number of steps used for verification
     Recursive(
         Box<RecursiveSNARK<E1<F>, E2<F>, M, C2<F>>>,
+        usize,
         PhantomData<&'a C>,
     ),
-    /// A proof for the final step of a recursive computation
+    /// A proof for the final step of a recursive computation along with the number
+    /// of steps used for verification
     Compressed(
         Box<CompressedSNARK<E1<F>, E2<F>, M, C2<F>, SS1<F>, SS2<F>>>,
+        usize,
         PhantomData<&'a C>,
     ),
 }
@@ -235,11 +239,6 @@ where
 {
     type PublicParams = PublicParams<F, M>;
 
-    type ProveOutput = Self;
-
-    /// The number of steps
-    type ExtraVerifyInput = usize;
-
     type ErrorType = NovaError;
 
     #[tracing::instrument(skip_all, name = "nova::prove_recursively")]
@@ -261,7 +260,8 @@ where
         let (_circuit_primary, circuit_secondary): (M, TrivialCircuit<<E2<F> as Engine>::Scalar>) =
             circuits(reduction_count, lang);
 
-        tracing::debug!("steps.len: {}", steps.len());
+        let num_steps = steps.len();
+        tracing::debug!("steps.len: {num_steps}");
 
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<E1<F>, E2<F>, M, C2<F>>> = None;
@@ -353,38 +353,38 @@ where
 
         Ok(Self::Recursive(
             Box::new(recursive_snark.unwrap()),
+            num_steps,
             PhantomData,
         ))
     }
 
     fn compress(self, pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
-        match &self {
-            Self::Recursive(recursive_snark, _) => Ok(Self::Compressed(
+        match self {
+            Self::Recursive(recursive_snark, num_steps, _) => Ok(Self::Compressed(
                 Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
                     &pp.pp,
                     &pp.pk,
-                    recursive_snark,
+                    &recursive_snark,
                 )?),
+                num_steps,
                 PhantomData,
             )),
             Self::Compressed(..) => Ok(self),
         }
     }
 
-    fn verify(
-        &self,
-        pp: &Self::PublicParams,
-        z0: &[F],
-        zi: &[F],
-        num_steps: usize,
-    ) -> Result<bool, Self::ErrorType> {
+    fn verify(&self, pp: &Self::PublicParams, z0: &[F], zi: &[F]) -> Result<bool, Self::ErrorType> {
         let (z0_primary, zi_primary) = (z0, zi);
         let z0_secondary = Self::z0_secondary();
         let zi_secondary = &z0_secondary;
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p, _) => p.verify(&pp.pp, num_steps, z0_primary, &z0_secondary)?,
-            Self::Compressed(p, _) => p.verify(&pp.vk, num_steps, z0_primary, &z0_secondary)?,
+            Self::Recursive(p, num_steps, _) => {
+                p.verify(&pp.pp, *num_steps, z0_primary, &z0_secondary)?
+            }
+            Self::Compressed(p, num_steps, _) => {
+                p.verify(&pp.vk, *num_steps, z0_primary, &z0_secondary)?
+            }
         };
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == &zi_secondary_verified)
@@ -428,7 +428,6 @@ where
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, M>;
-    type ProveOutput = Proof<'a, F, C, M>;
     type RecursiveSnark = Proof<'a, F, C, M>;
 
     #[inline]

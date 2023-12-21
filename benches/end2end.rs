@@ -345,12 +345,12 @@ fn verify_benchmark(c: &mut Criterion) {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas_rc.clone());
             let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store).unwrap();
+            let (proof, z0, zi, _num_steps) = prover.prove(&pp, &frames, &store).unwrap();
 
             b.iter_batched(
                 || z0.clone(),
                 |z0| {
-                    let result = proof.verify(&pp, &z0, &zi[..], num_steps).unwrap();
+                    let result = proof.verify(&pp, &z0, &zi[..]).unwrap();
                     black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -397,16 +397,14 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas_rc.clone());
             let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
-            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store).unwrap();
+            let (proof, z0, zi, _num_steps) = prover.prove(&pp, &frames, &store).unwrap();
 
             let compressed_proof = proof.compress(&pp).unwrap();
 
             b.iter_batched(
                 || z0.clone(),
                 |z0| {
-                    let result = compressed_proof
-                        .verify(&pp, &z0, &zi[..], num_steps)
-                        .unwrap();
+                    let result = compressed_proof.verify(&pp, &z0, &zi[..]).unwrap();
                     black_box(result);
                 },
                 BatchSize::LargeInput,

@@ -180,12 +180,6 @@ pub trait RecursiveSNARKTrait<
     /// Associated type for public parameters
     type PublicParams;
 
-    /// Main output of `prove_recursively`, encoding the actual proof
-    type ProveOutput;
-
-    /// Extra input for `verify` to be defined as needed
-    type ExtraVerifyInput;
-
     /// Type for error potentially thrown during verification
     type ErrorType;
 
@@ -197,20 +191,13 @@ pub trait RecursiveSNARKTrait<
         store: &'a M::Store,
         reduction_count: usize,
         lang: Arc<Lang<F, C>>,
-    ) -> Result<Self::ProveOutput, ProofError>;
+    ) -> Result<Self, ProofError>;
 
     /// Compress a proof
     fn compress(self, pp: &Self::PublicParams) -> Result<Self, ProofError>;
 
     /// Verify the proof given the public parameters, the input and output values
-    /// and the extra custom argument defined by who implements this trait.
-    fn verify(
-        &self,
-        pp: &Self::PublicParams,
-        z0: &[F],
-        zi: &[F],
-        extra: Self::ExtraVerifyInput,
-    ) -> Result<bool, Self::ErrorType>;
+    fn verify(&self, pp: &Self::PublicParams, z0: &[F], zi: &[F]) -> Result<bool, Self::ErrorType>;
 
     /// Return the `z0_secondary`
     #[inline]
@@ -257,18 +244,8 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
     /// Associated type for public parameters
     type PublicParams;
 
-    /// Main output of `prove`, encoding the actual proof
-    type ProveOutput;
-
     /// Assiciated proof type, which must implement `RecursiveSNARKTrait`
-    type RecursiveSnark: RecursiveSNARKTrait<
-        'a,
-        F,
-        C,
-        M,
-        PublicParams = Self::PublicParams,
-        ProveOutput = Self::ProveOutput,
-    >;
+    type RecursiveSnark: RecursiveSNARKTrait<'a, F, C, M, PublicParams = Self::PublicParams>;
 
     /// Returns a reference to the prover's FoldingMode
     fn folding_mode(&self) -> &FoldingMode;
@@ -285,7 +262,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         pp: &Self::PublicParams,
         frames: &[M::EvalFrame],
         store: &'a M::Store,
-    ) -> Result<(Self::ProveOutput, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
         let z0 = M::io_to_scalar_vector(store, frames[0].input());
         let zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
@@ -318,7 +295,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         env: M::Ptr,
         store: &'a M::Store,
         limit: usize,
-    ) -> Result<(Self::ProveOutput, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         let eval_config = self.folding_mode().eval_config(self.lang());
         let frames = M::build_frames(expr, env, store, limit, &eval_config)?;
         self.prove(pp, &frames, store)
