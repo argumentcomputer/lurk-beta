@@ -1,3 +1,5 @@
+pub(crate) mod fib;
+
 use camino::Utf8PathBuf;
 use lurk::cli::paths::lurk_default_dir;
 use lurk::config::lurk_config;

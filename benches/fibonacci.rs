@@ -1,51 +1,29 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
-
 use anyhow::anyhow;
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
 };
-
 use pasta_curves::pallas;
+use std::{sync::Arc, time::Duration};
 
 use lurk::{
     eval::lang::{Coproc, Lang},
-    field::LurkField,
-    lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
+    lem::{eval::evaluate, multiframe::MultiFrame, store::Store},
     proof::nova::NovaProver,
     proof::Prover,
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
     },
-    state::State,
 };
 
 mod common;
-use common::set_bench_config;
+use common::{
+    fib::{fib_expr, fib_frame, fib_limit},
+    set_bench_config,
+};
 
-fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Ptr {
-    let program = r#"
-(letrec ((next (lambda (a b) (next b (+ a b))))
-           (fib (next 0 1)))
-  (fib))
-"#;
-
-    store.read(state, program).unwrap()
-}
-
-// The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation will contain a binding of the
-// nth Fibonacci number to `a`.
-// means of computing it.]
-fn fib_frame(n: usize) -> usize {
-    11 + 10 * n
-}
-
-// Set the limit so the last step will be filled exactly, since Lurk currently only pads terminal/error continuations.
-fn fib_limit(n: usize, rc: usize) -> usize {
-    let frame = fib_frame(n);
-    rc * (frame / rc + usize::from(frame % rc != 0))
-}
+use crate::common::fib::{test_coeffs, test_fib_io_matches};
 
 #[derive(Clone, Debug, Copy)]
 struct ProveParams {
@@ -105,7 +83,6 @@ fn noise_threshold_env() -> anyhow::Result<f64> {
 fn fibonacci_prove<M: measurement::Measurement>(
     prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
-    state: &Rc<RefCell<State>>,
 ) {
     let limit = fib_limit(prove_params.fib_n, prove_params.reduction_count);
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
@@ -133,11 +110,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
         |b, prove_params| {
             let store = Store::default();
 
-            let ptr = fib::<pasta_curves::Fq>(
-                &store,
-                state.clone(),
-                black_box(prove_params.fib_n as u64),
-            );
+            let ptr = fib_expr::<pasta_curves::Fq>(&store);
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
             let frames =
@@ -157,15 +130,18 @@ fn fibonacci_prove<M: measurement::Measurement>(
 }
 
 fn fibonacci_benchmark(c: &mut Criterion) {
+    // Running tests to make sure the constants are correct
+    test_coeffs();
+    test_fib_io_matches();
+
     // Uncomment to record the logs. May negatively impact performance
     //tracing_subscriber::fmt::init();
     set_bench_config();
+
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
     let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
     let batch_sizes = [100, 200];
-
-    let state = State::init_lurk_state().rccell();
 
     for reduction_count in reduction_counts.iter() {
         let mut group: BenchmarkGroup<'_, _> =
@@ -181,7 +157,7 @@ fn fibonacci_benchmark(c: &mut Criterion) {
                 date: env!("VERGEN_GIT_COMMIT_DATE"),
                 sha: env!("VERGEN_GIT_SHA"),
             };
-            fibonacci_prove(prove_params, &mut group, &state);
+            fibonacci_prove(prove_params, &mut group);
         }
     }
 }
