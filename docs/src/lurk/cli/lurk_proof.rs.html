@@ -221,8 +221,6 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>::nova::{
     supernova::NonUniformCircuit,
     traits::{circuit_supernova::StepCircuit <span class="kw">as </span>SuperStepCircuit, Engine},
@@ -364,7 +362,6 @@
         proof: nova::Proof&lt;<span class="lifetime">'a</span>, F, C, M&gt;,
         public_inputs: Vec&lt;F&gt;,
         public_outputs: Vec&lt;F&gt;,
-        num_steps: usize,
         rc: usize,
         lang: Lang&lt;F, C&gt;,
     },
@@ -434,7 +431,6 @@
                 proof,
                 public_inputs,
                 public_outputs,
-                num_steps,
                 rc,
                 lang,
             } =&gt; {
@@ -442,7 +438,7 @@
                 <span class="kw">let </span>instance =
                     Instance::new(<span class="kw-2">*</span>rc, Arc::new(lang.clone()), <span class="bool-val">true</span>, Kind::NovaPublicParams);
                 <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(proof.verify(<span class="kw-2">&amp;</span>pp, public_inputs, public_outputs, <span class="kw-2">*</span>num_steps)<span class="question-mark">?</span>)
+                <span class="prelude-val">Ok</span>(proof.verify(<span class="kw-2">&amp;</span>pp, public_inputs, public_outputs)<span class="question-mark">?</span>)
             }
         }
     }

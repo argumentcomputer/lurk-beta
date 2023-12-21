@@ -397,26 +397,6 @@
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -611,12 +591,6 @@
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F, M&gt;;
 
-    <span class="doccomment">/// Proving with SuperNova outputs the proof and the index of the last circuit
-    </span><span class="kw">type </span>ProveOutput = (<span class="self">Self</span>, usize);
-
-    <span class="doccomment">/// The index of the last circuit
-    </span><span class="kw">type </span>ExtraVerifyInput = usize;
-
     <span class="kw">type </span>ErrorType = SuperNovaError;
 
     <span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"supernova::prove_recursively"</span>)]
@@ -627,13 +601,11 @@
         _store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>&lt;M&gt;::Store,
         _reduction_count: usize,
         _lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, usize), ProofError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark_option: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
 
         <span class="kw">let </span>z0_primary = z0;
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
-
-        <span class="kw">let </span><span class="kw-2">mut </span>last_circuit_index = <span class="number">0</span>;
 
         <span class="kw">for </span>(i, step) <span class="kw">in </span>steps.iter().enumerate() {
             <span class="macro">info!</span>(<span class="string">"prove_recursively, step {i}"</span>);
@@ -658,17 +630,12 @@
                 .unwrap();
 
             recursive_snark_option = <span class="prelude-val">Some</span>(recursive_snark);
-
-            last_circuit_index = step.circuit_index();
         }
 
         <span class="comment">// This probably should be made unnecessary.
-        </span><span class="prelude-val">Ok</span>((
-            <span class="self">Self</span>::Recursive(Box::new(
-                recursive_snark_option.expect(<span class="string">"RecursiveSNARK missing"</span>),
-            )),
-            last_circuit_index,
-        ))
+        </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Recursive(Box::new(
+            recursive_snark_option.expect(<span class="string">"RecursiveSNARK missing"</span>),
+        )))
     }
 
     <span class="kw">fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
@@ -685,13 +652,7 @@
         }
     }
 
-    <span class="kw">fn </span>verify(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
-        z0: <span class="kw-2">&amp;</span>[F],
-        zi: <span class="kw-2">&amp;</span>[F],
-        _last_circuit_idx: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, <span class="self">Self</span>::ErrorType&gt; {
+    <span class="kw">fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams, z0: <span class="kw-2">&amp;</span>[F], zi: <span class="kw-2">&amp;</span>[F]) -&gt; <span class="prelude-ty">Result</span>&lt;bool, <span class="self">Self</span>::ErrorType&gt; {
         <span class="kw">let </span>(z0_primary, zi_primary) = (z0, zi);
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
         <span class="kw">let </span>zi_secondary = <span class="kw-2">&amp;</span>z0_secondary;
@@ -716,7 +677,6 @@
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F, M&gt;;
-    <span class="kw">type </span>ProveOutput = (Proof&lt;<span class="lifetime">'a</span>, F, C, M&gt;, usize);
     <span class="kw">type </span>RecursiveSnark = Proof&lt;<span class="lifetime">'a</span>, F, C, M&gt;;
 
     <span class="attr">#[inline]

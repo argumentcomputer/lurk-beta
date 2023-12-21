@@ -615,7 +615,6 @@
 <a href="#614" id="614">614</a>
 <a href="#615" id="615">615</a>
 <a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
@@ -935,13 +934,12 @@
                     <span class="macro">info!</span>(<span class="string">"Compressing proof"</span>);
                     <span class="kw">let </span>proof = proof.compress(<span class="kw-2">&amp;</span>pp)<span class="question-mark">?</span>;
                     <span class="macro">assert_eq!</span>(<span class="self">self</span>.rc * num_steps, pad(n_frames, <span class="self">self</span>.rc));
-                    <span class="macro">assert!</span>(proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs, num_steps)<span class="question-mark">?</span>);
+                    <span class="macro">assert!</span>(proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs)<span class="question-mark">?</span>);
 
                     <span class="kw">let </span>lurk_proof = LurkProof::Nova {
                         proof,
                         public_inputs,
                         public_outputs,
-                        num_steps,
                         rc: <span class="self">self</span>.rc,
                         lang: (<span class="kw-2">*</span><span class="self">self</span>.lang).clone(),
                     };
