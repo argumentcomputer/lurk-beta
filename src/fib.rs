@@ -1,7 +1,7 @@
 use crate::{
-    eval::lang::Coproc,
+    eval::lang::{Coproc, Lang},
     field::LurkField,
-    lem::{eval::evaluate_simple, pointers::Ptr, store::Store},
+    lem::{eval::{compute_frame, eval_step, evaluate_simple}, pointers::Ptr, store::Store},
 };
 
 pub fn fib_expr<F: LurkField>(store: &Store<F>) -> Ptr {
@@ -27,6 +27,21 @@ pub fn fib_frame(n: usize) -> usize {
 pub fn fib_limit(n: usize, rc: usize) -> usize {
     let frame = fib_frame(n);
     rc * (frame / rc + usize::from(frame % rc != 0))
+}
+
+pub fn compute_coeff<F: LurkField>(store: &Store<F>) -> (usize, usize) {
+    let mut input = vec![fib_expr(store), store.intern_nil(), store.cont_outermost()];
+    let lang: Lang<F, Coproc<F>> = Lang::new();
+    loop {
+        // TODO
+        let (frame, _) =
+            compute_frame(eval_step(), &[], &input, store, &lang, &mut vec![], 0).unwrap();
+
+        input = frame.output.clone();
+        let expr = frame.output[0];
+        break;
+    }
+    (0, 0)
 }
 
 pub fn lurk_fib<F: LurkField>(store: &Store<F>, n: usize) -> Ptr {
