@@ -9,12 +9,12 @@
 //!
 //! Now return to the `lurk-rs` directory and run the following commands
 //! ```
-//! cargo run --release -- circom --name sha256_2_test <PATH_TO_CIRCOMLIB>/test/circuits/
+//! cargo run --release -- circom --reference iden3/sha256_2_test <PATH_TO_CIRCOMLIB>/test/circuits/
 //! cargo run --release --example circom
 //! ```
 //!
 //! This compiles the circom project and processes it for lurk to interface with.
-//! The new `sha256_2_test` gadget is stored in `<CIRCOM_DIR>/sha256_2_test/*`.
+//! The new `sha256_2_test` gadget is stored in `<CIRCOM_DIR>/iden3/sha256_2_test/*`.
 //! To use the gadget, create a [CircomSha256] struct and implement the [CircomGadget] trait.
 //! Refer to the example code below. Finally, declare the sha256 coprocessor:
 //!
@@ -69,8 +69,8 @@ impl<F: LurkField> CircomSha256<F> {
 }
 
 impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
-    fn name(&self) -> &str {
-        "sha256_2_test"
+    fn reference(&self) -> &str {
+        "iden3/sha256_2_test"
     }
 
     fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
