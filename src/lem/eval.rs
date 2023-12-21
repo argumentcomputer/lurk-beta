@@ -56,7 +56,7 @@ fn get_pc<F: LurkField, C: Coprocessor<F>>(
     }
 }
 
-pub fn compute_frame<F: LurkField, C: Coprocessor<F>>(
+fn compute_frame<F: LurkField, C: Coprocessor<F>>(
     lurk_step: &Func,
     cprocs_run: &[Func],
     input: &[Ptr],
