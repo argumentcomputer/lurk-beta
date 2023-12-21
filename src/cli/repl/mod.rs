@@ -429,9 +429,14 @@ impl Repl<F> {
     }
 
     fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr) -> Result<(Vec<Ptr>, usize)> {
-        let (frames, iterations) =
+        let frames =
             evaluate_with_env::<F, Coproc<F>>(None, expr_ptr, self.env, &self.store, self.limit)?;
-        let output = frames[frames.len() - 1].output.clone();
+        let iterations = frames.len();
+        let output = frames
+            .last()
+            .expect("evaluation should return at least one frame")
+            .output
+            .clone();
         self.evaluation = Some(Evaluation { frames, iterations });
         Ok((output, iterations))
     }

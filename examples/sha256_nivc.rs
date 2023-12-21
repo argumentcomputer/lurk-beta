@@ -77,7 +77,7 @@ fn main() {
     let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang));
-    let (frames, _) = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
+    let frames = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
 
     let supernova_prover = SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
         REDUCTION_COUNT,

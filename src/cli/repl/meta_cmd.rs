@@ -1046,7 +1046,7 @@ impl MetaCmd<F> {
 
             Self::post_verify_check(repl, post_verify)?;
 
-            let (frames, iterations) = evaluate_with_env_and_cont::<F, Coproc<F>>(
+            let frames = evaluate_with_env_and_cont::<F, Coproc<F>>(
                 None,
                 cek_io[0],
                 cek_io[1],
@@ -1054,6 +1054,8 @@ impl MetaCmd<F> {
                 &repl.store,
                 repl.limit,
             )?;
+
+            let iterations = frames.len();
 
             {
                 // making sure the output matches expectation before proving
