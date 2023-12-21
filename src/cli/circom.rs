@@ -84,10 +84,7 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, reference: &str)
     // TODO: should we switch to check regex: ^[a-zA-Z0-9]+([_-]?[a-zA-Z0-9]+)*\/[a-zA-Z0-9]+([_-]?[a-zA-Z0-9]+)*$ ?
     let reference_split: Vec<&str> = reference.split("/").collect();
     if reference_split.len() != 2 {
-        return Err(anyhow!(
-            "Expected a reference of format \"<AUTHOR>/<NAME>\", got \"{}\"",
-            reference
-        ));
+        bail!("Expected a reference of format \"<AUTHOR>/<NAME>\", got \"{reference}\"");
     }
 
     let circom_file = circom_folder
@@ -103,7 +100,7 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, reference: &str)
         match lurk_field.as_str() {
             "PALLAS" => "vesta",
             "VESTA" => "pallas",
-            _ => bail!("unsupported field"),
+            _ => bail!("Unsupported field: {lurk_field}"),
         }
     } else {
         default_field
@@ -111,7 +108,7 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, reference: &str)
 
     println!("Running circom binary to generate r1cs and witness files to {circom_gadget:?}");
     fs::create_dir_all(&circom_gadget)
-        .map_err(|err| anyhow!("Couldn't create folder for static files: {}", err))?;
+        .map_err(|err| anyhow!("Couldn't create folder for static files: {err}"))?;
     let output = get_circom_binary()?
         .args(&[
             circom_file,
@@ -149,7 +146,7 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, reference: &str)
         )
     })?;
     fs::remove_dir_all(circom_gadget.join(format!("{}_js", &reference_split[1])))
-        .map_err(|err| anyhow!("Couldn't clean up temporary artifacts: {}", err))?;
+        .map_err(|err| anyhow!("Couldn't clean up temporary artifacts: {err}"))?;
 
     println!("{}", Green.bold().paint("Circom success"));
     Ok(())
