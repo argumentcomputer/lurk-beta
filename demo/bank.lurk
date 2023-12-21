@@ -192,7 +192,7 @@ ledger2
 
 ;; Now we can open the committed ledger transfer function on a transaction.
 
-!(call 0x014a94be6a32b6c74be26071f627aff0a06ef3caade04d335958b8a3bb818925 '(1 0 2))
+!(call 0x30ee7657cfa11c0dc69160195540297c50176a27baf2b407d6bf16d6284abaea '(1 0 2))
 
 ;; And the record reflects that Church sent one unit to Satoshi.
 
@@ -202,7 +202,7 @@ ledger2
 
 ;; We can verify the proof..
 
-!(verify "Nova_Pallas_10_3ec93e16c42eb6822e1597d915c0a1f284fea322297786eb506bd814e29e33d3")
+!(verify "Nova_Pallas_10_39457589f3ffd148aadaba23819641cdd914ab291a3c77d20dcb65f757c08925")
 
 ;; Unfortunately, this functional commitment doesn't let us maintain state.
 ;; Let's turn our single-transaction function into a chained function.
@@ -219,24 +219,24 @@ ledger2
 
 ;; Now we can transfer one unit from Church to Satoshi like before.
 
-!(chain 0x099f5f1cef164ac0a5ef8d6b0cefd930d2d0bf40666df3ae1b12abc33a5d297a '(1 0 2))
+!(chain 0x1aaf63ef4f853b935df9aad04424e0a8ba1e5bfd7220e5de842eca9d6e608f36 '(1 0 2))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_118481b08f97e5ea84499dd305d5c2b86089d5d5e5253e6c345119d55020bde3")
+!(verify "Nova_Pallas_10_27cf734c3a663d0c09a62e4150fe4813ebd7db2fb038589facd7e48ba6c76e1e")
 
 ;; Then we can transfer 5 more, proceeding from the new head of the chain.
 
-!(chain 0x11abc1857d88646e3a6a2d0be605a3639feca2b79191c65efb7c6c139465820e '(5 0 2))
+!(chain 0x242e4fb1434ce1f6b4a19d8e96651e36ca5f7daa2fa2796f6f5924f66c35cd31 '(5 0 2))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_3b5c0928297a8380b1003b343b2b35522b3c16a03fbf69b3deea91c50cbdfc66") 
+!(verify "Nova_Pallas_10_14a98bfb5ee8451accb717eca8dadaaeb1c21f95e7890d53bcd733b73224e0fc")
 
 ;; And once more, this time we'll transfer 20 from Turing to Church.
 
-!(chain 0x007f5ed09b15a2af11a0504a46884aff364eb7bb1e7e9543431443b962166cb5 '(20 1 0))
+!(chain 0x0f7247de19a2f52890cb4f165aaebe40934c09cc3466ab9ce2e03a8c21a32c7a '(20 1 0))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_3dc75e7fc1fd2a629b04e6e7469ed20711a4012b03c3f1205c18a351b9cdb7ca")
+!(verify "Nova_Pallas_10_21832c545de0ab0111c9006728ab9a1d4550d044b21c73f3076f60256a732db9")
