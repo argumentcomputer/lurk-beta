@@ -44,10 +44,10 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
     fn validate_gadget<F: LurkField, C: CircomGadget<F>>(gadget: &C) -> Result<()> {
         if !circom_dir().exists() {
             std::fs::create_dir_all(circom_dir())?;
-            return print_error(gadget.name(), &[]);
+            return print_error(gadget.reference(), &[]);
         }
 
-        let name = gadget.name();
+        let name = gadget.reference();
         let circom_folder = circom_dir().join(name);
 
         if circom_folder.exists() {
@@ -69,11 +69,11 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
             }
         }
 
-        if subdirs.contains(&gadget.name().into()) {
+        if subdirs.contains(&gadget.reference().into()) {
             return Ok(());
         }
 
-        print_error(gadget.name(), &subdirs)
+        print_error(gadget.reference(), &subdirs)
     }
 
     /// A concrete instantiation of a [CircomGadget] with a corresponding [CircomConfig] as a coprocessor.
@@ -141,30 +141,29 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
     }
 
     impl<F: LurkField, C: CircomGadget<F>> CircomCoprocessor<F, C> {
-        /// Creates a [CircomConfig] by loading in the data in `<CIRCOM_DIR>/<gadget.name>/*`
+        /// Creates a [CircomConfig] by loading in the r1cs and wasm data. It will first look locally,
+        /// then extend the search to a Github repository release if it has not been found.
         pub fn create(gadget: C) -> Result<Self> {
             validate_gadget(&gadget)?;
+            let gadget_name = gadget.reference().split("/").collect::<Vec<&str>>()[1];
+            let circom_folder = circom_dir().join(gadget.reference());
 
-            let name = gadget.name();
-            let circom_folder = circom_dir().join(name);
-
-            let r1cs = circom_folder.join(format!("{name}.r1cs"));
-            let wasm = circom_folder.join(name).with_extension("wasm");
-
+            let r1cs = circom_folder.join(gadget_name).with_extension("r1cs");
+            let wasm = circom_folder.join(gadget_name).with_extension("wasm");
             let config = CircomConfig::<F>::new(wasm, r1cs)?;
             let coprocessor = Self { config, gadget };
 
             Ok(coprocessor)
         }
 
-        /// Creates a [CircomCoprocessor] and panics if it fails
+        /// Creates a [CircomCoprocessor] and panics if it fails.
         pub fn new(gadget: C) -> Self {
             CircomCoprocessor::create(gadget).unwrap()
         }
 
-        /// The defined name of this coprocessor, which is just the inner gadget's name
+        /// The defined name of this coprocessor, which is just the inner gadget's name.
         pub fn name(&self) -> &str {
-            self.gadget.name()
+            self.gadget.reference()
         }
     }
 }
