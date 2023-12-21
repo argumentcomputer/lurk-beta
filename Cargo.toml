@@ -104,6 +104,7 @@ criterion = "0.5"
 expect-test = "1.4.1"
 hex = "0.4.3"
 pprof = { version = "0.13" }
+statrs = "0.16.0"
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
 tempfile = { workspace = true }
