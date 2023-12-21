@@ -50,11 +50,11 @@ pub mod non_wasm {
 
         let r1cs = circom_dir()
             .join(gadget.reference())
-            .join(gadget.reference().split("/").collect::<Vec<&str>>()[1])
+            .join(gadget.reference().split('/').collect::<Vec<&str>>()[1])
             .with_extension("r1cs");
         let wasm = circom_dir()
             .join(gadget.reference())
-            .join(gadget.reference().split("/").collect::<Vec<&str>>()[1])
+            .join(gadget.reference().split('/').collect::<Vec<&str>>()[1])
             .with_extension("wasm");
 
         if r1cs.exists() && wasm.exists() {
@@ -69,7 +69,7 @@ pub mod non_wasm {
     fn get_remote_gadget<F: LurkField, C: CircomGadget<F>>(
         gadget: &C,
     ) -> Result<Option<(Utf8PathBuf, Utf8PathBuf)>, CircomCoprocessorError> {
-        let name = gadget.reference().split("/").collect::<Vec<&str>>()[1];
+        let name = gadget.reference().split('/').collect::<Vec<&str>>()[1];
 
         // Check that we have a proper version for a remote release. If not, look if gadget repo exist
         // and return error accordingly.
@@ -89,12 +89,12 @@ pub mod non_wasm {
                 return Err(CircomCoprocessorError::GadgetNotFound {
                     reference: ref_as_string.clone(),
                     name: String::from(name),
-                    prelude: prelude.into(),
+                    prelude,
                 });
             }
 
             return Err(CircomCoprocessorError::MissingGadgetVersion {
-                prelude: prelude.into(),
+                prelude,
                 reference: ref_as_string.clone(),
             });
         }
@@ -109,7 +109,7 @@ pub mod non_wasm {
             })?;
         }
 
-        let name = gadget.reference().split("/").collect::<Vec<&str>>()[1];
+        let name = gadget.reference().split('/').collect::<Vec<&str>>()[1];
         let r1cs = circom_dir()
             .join(gadget.reference())
             .join(name)
@@ -131,7 +131,7 @@ pub mod non_wasm {
         release: &str,
         extension: &str,
     ) -> Result<(), CircomCoprocessorError> {
-        let name = repository.split("/").collect::<Vec<&str>>()[1];
+        let name = repository.split('/').collect::<Vec<&str>>()[1];
         let asset_url = format!(
             "https://github.com/{repository}/releases/download/{release}/{name}.{extension}"
         );
@@ -150,13 +150,12 @@ pub mod non_wasm {
             trace: format!("{}", err),
         })?;
 
-        let mut out = fs::File::create(&path).map_err(|err| {
-            CircomCoprocessorError::AssetCreationFailure {
+        let mut out =
+            fs::File::create(path).map_err(|err| CircomCoprocessorError::AssetCreationFailure {
                 prelude: error_prelude(),
                 reference: String::from(repository),
                 trace: format!("{}", err),
-            }
-        })?;
+            })?;
 
         let response_byte =
             &response
@@ -190,7 +189,7 @@ pub mod non_wasm {
                 Some(paths) => Ok(paths),
                 None => Err(CircomCoprocessorError::GadgetNotFound {
                     reference: String::from(gadget.reference()),
-                    name: String::from(gadget.reference().split("/").collect::<Vec<&str>>()[1]),
+                    name: String::from(gadget.reference().split('/').collect::<Vec<&str>>()[1]),
                     prelude: error_prelude(),
                 }),
             },

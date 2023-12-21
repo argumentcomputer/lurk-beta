@@ -1,9 +1,6 @@
 //! # Usage of circom coprocessors.
 //!
 //! See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
-
-pub mod keccak;
-
 use crate::{
     field::LurkField,
     lem::{pointers::Ptr, store::Store},
