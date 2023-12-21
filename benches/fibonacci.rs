@@ -8,7 +8,6 @@ use std::{sync::Arc, time::Duration};
 
 use lurk::{
     eval::lang::{Coproc, Lang},
-    fib::{fib_expr, fib_frame, fib_limit},
     lem::{eval::evaluate, multiframe::MultiFrame, store::Store},
     proof::nova::NovaProver,
     proof::Prover,
@@ -19,7 +18,10 @@ use lurk::{
 };
 
 mod common;
-use common::set_bench_config;
+use common::{
+    fib::{fib_expr, fib_frame, fib_limit},
+    set_bench_config,
+};
 
 #[derive(Clone, Debug, Copy)]
 struct ProveParams {
@@ -129,6 +131,7 @@ fn fibonacci_benchmark(c: &mut Criterion) {
     // Uncomment to record the logs. May negatively impact performance
     //tracing_subscriber::fmt::init();
     set_bench_config();
+
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
     let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
