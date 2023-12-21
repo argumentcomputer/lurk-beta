@@ -8,7 +8,6 @@ pub mod config;
 pub mod coprocessor;
 pub mod error;
 pub mod eval;
-pub mod fib;
 pub mod field;
 mod hash;
 pub mod lem;
