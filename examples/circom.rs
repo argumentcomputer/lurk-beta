@@ -69,7 +69,11 @@ impl<F: LurkField> CircomSha256<F> {
 
 impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
     fn reference(&self) -> &str {
-        "iden3/sha256_2_test"
+        "tchataigner/keccak-256"
+    }
+
+    fn version(&self) -> Option<&str> {
+        Some("v0.0.31")
     }
 
     fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {

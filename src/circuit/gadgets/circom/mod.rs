@@ -17,14 +17,20 @@ use super::pointer::AllocatedPtr;
 ///     The reference _must_ either exist into the  file system (loaded via the CLI with
 ///     `lurk coprocessor --name <NAME> <CIRCOM_FOLDER>`) or be a valid gadget repository following
 ///     our standard layout.
-///  2. A defined way to take a list of Lurk input pointers
+///  2. The desired release of the gadget to use. This is only relevant when dealing with remote gadget,
+///     not for gadget only existing on the file system.
+///  3. A defined way to take a list of Lurk input pointers
 ///     and turn them into a Circom input. We do not enforce
 ///     the shapes of either the Lurk end or the Circom end,
 ///     so users should take care to define what shape they expect.
-///  3. A defined way *Lurk* should evaluate what this gadget does.
+///  4. A defined way *Lurk* should evaluate what this gadget does.
 ///     This is then the implementation used in the `Coprocessor` trait.
 pub trait CircomGadget<F: LurkField>: Send + Sync + Clone {
     fn reference(&self) -> &str;
+
+    fn version(&self) -> Option<&str> {
+        None
+    }
 
     fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)>;
 
