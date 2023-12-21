@@ -123,7 +123,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
     // Track the number of `Lurk frames / sec`
     let rc = prove_params.reduction_count as u64;
     c.throughput(criterion::Throughput::Elements(
-        rc * u64::div_ceil((11 + 16 * prove_params.fib_n) as u64, rc),
+        rc * u64::div_ceil(fib_frame(prove_params.fib_n) as u64, rc),
     ));
     let (name, params) = prove_params.name_params();
 
