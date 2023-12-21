@@ -580,7 +580,7 @@ impl MetaCmd<F> {
         description: &[],
         example: &[
             "(commit (lambda (x) x))",
-            "!(call 0x39a14e7823d7af7275e83f0cb74f80ca4217c6c6930761b0bbd6879b123dbbc2 0)",
+            "!(call 0x2f14c82533e8347d128b07e6610d0fc901f71418c2a6ea3e618cfe654f73f4b1 0)",
         ],
         run: Self::call,
     };
@@ -601,7 +601,7 @@ impl MetaCmd<F> {
                        (let ((counter (+ counter x)))
                          (cons counter (commit (add counter)))))))
                (add 0)))",
-            "!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 1)",
+            "!(chain 0x14cb06e2d3c594af90d5b670e73595791d7462b20442c24cd56ba2919947d769 1)",
         ],
         run: |repl: &mut Repl<F>, args: &Ptr| {
             Self::call(repl, args)?;

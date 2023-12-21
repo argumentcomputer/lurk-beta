@@ -10,7 +10,7 @@
 
 ;; We open the functional commitment on input 5: Evaluate f(5).
 
-!(call 0x178453ec28175e52c42a6467520df4a1322dd03e06abb3dfc829425ac590e48c 5)
+!(call 0x3636a3820b53c834ce46a2d608c3b732681ccbc343b5154862f11f989d1a41e5 5)
 
 ;; We can prove the functional-commitment opening.
 
@@ -18,12 +18,12 @@
 
 ;; We can inspect the input/output expressions of the proof.
 
-!(inspect "Nova_Pallas_10_02058c301605abc546248c543d450e07172690e7fb6be0fa27be6d5a898817e0")
+!(inspect "Nova_Pallas_10_2f90a649f3a2a7861fdf6499309edc0c8e72b61ff3f40f2a11bd027749df4b04")
 
 ;; Or the full proof claim
 
-!(inspect-full "Nova_Pallas_10_02058c301605abc546248c543d450e07172690e7fb6be0fa27be6d5a898817e0")
+!(inspect-full "Nova_Pallas_10_2f90a649f3a2a7861fdf6499309edc0c8e72b61ff3f40f2a11bd027749df4b04")
 
 ;; Finally, and most importantly, we can verify the proof.
 
-!(verify "Nova_Pallas_10_02058c301605abc546248c543d450e07172690e7fb6be0fa27be6d5a898817e0")
+!(verify "Nova_Pallas_10_2f90a649f3a2a7861fdf6499309edc0c8e72b61ff3f40f2a11bd027749df4b04")

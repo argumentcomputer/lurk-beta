@@ -9,7 +9,7 @@
 
 ;; We chain a next commitment by applying the committed function to a value of 9.
 
-!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 9)
+!(chain 0x14cb06e2d3c594af90d5b670e73595791d7462b20442c24cd56ba2919947d769 9)
 
 ;; The new counter value is 9, and the function returns a new functional commitment.
 
@@ -21,11 +21,11 @@
 
 ;; We can verify the proof.
 
-!(verify "Nova_Pallas_10_241f5c936d5c11e9c99b52017354738f9024c084fdfe49da9ad4a39fb2fe6619")
+!(verify "Nova_Pallas_10_38f55f6f5c92197e331c92971ba13514f621cf1e0de66133574fe3c1d2d71114")
 
 ;; Now let's chain another call to the new head, adding 12 to the counter.
 
-!(chain 0x251ccd3ecf6ae912eeb6558733b04b50e0b0c374a2dd1b797fcca84b0d9a8794 12)
+!(chain 0x26f9a6e61ea91163545a0472304d5ad42825ce1f6873ea10301e26dfd84f3ea6 12)
 
 ;; Now the counter is 21, and we have a new head commitment.
 
@@ -35,11 +35,11 @@
 
 ;; And verify.
 
-!(verify "Nova_Pallas_10_369621a97ad8521369e49e773e0a531b0162d2f193877fbdfb308d3b2a23eea2")
+!(verify "Nova_Pallas_10_141e90709e746411b9d0b3557758fe7543aafc33ed9cc25ee22606adab7d8e6f")
 
 ;; One more time, we'll add 14 to the head commitment's internal state.
 
-!(chain 0x281605259696cd2529c00806465c9726d81df4ccd2c3500312c991c1fd572592 14)
+!(chain 0x2adacaf2ae7983d45e6855fa6c6577e73ca4657c33e45286cbfb8e44d68e351c 14)
 
 ;; 21 + 14 = 35, as expected.
 
@@ -49,9 +49,8 @@
 
 ;; Verify.
 
-!(verify "Nova_Pallas_10_057ebe2b592d6d82c1badc86493f6118a70c81aebb3b53a054d9b2517ad118f2")
+!(verify "Nova_Pallas_10_3fe9b0d562d982f0614cb96e4cbb88f56733442524f6c42a29ef8cf5ab8a6c7e")
 
 ;; Repeat indefinitely.
 
 ;; At every step, we have proof that the head commitment was correctly derived from the previous and some input.
-
