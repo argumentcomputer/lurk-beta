@@ -36,7 +36,7 @@ For remote gadgets, the `CircomCoprocessor` will use the _reference_  of the `Ci
 Github repository. In this case, there are a few constraints that needs to be followed:
 1. _reference_ format:  **must** be formatted as `<AUTHOR>/<NAME>` as would a Github repository
 2. Static files available in a release: the static files, r1cs and wasm, **must** be made available in an official release
-in the repository. To help fulfill this constraint, we provide a template of a Gadget repository.
+in the repository. To help fulfill this constraint, we provide [a template of a Gadget repository](https://github.com/lurk-lab/template-circom-gadget).
 3. Static files names: The name of the static files **must** be the same as the repository (e.g.: `lurk-lab/keccak` -> `keccak.wasm` & `keccak.r1cs`).
 This effectively limits the number of circuit available per repository to one.
 4. _version_ specification: As we are looking for file in a specific release the `CircomGadget` **must** be specified with
