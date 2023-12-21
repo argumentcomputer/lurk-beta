@@ -7,3 +7,6 @@ Cargo.lock
 
 # Configurations for VSCode
 .vscode/
+
+# Configuration for Jetbrains
+.idea/
