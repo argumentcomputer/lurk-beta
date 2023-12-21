@@ -50,7 +50,7 @@ fn synthesize<M: measurement::Measurement>(
             let store = Store::default();
             let fib_n = (reduction_count / 3) as u64; // Heuristic, since one fib is 35 iterations.
             let ptr = fib::<pasta_curves::Fq>(&store, state.clone(), black_box(fib_n));
-            let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+            let frames = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
             let folding_config =
                 Arc::new(FoldingConfig::new_ivc(lang_rc.clone(), *reduction_count));

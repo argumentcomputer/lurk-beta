@@ -142,8 +142,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
 
             let frames =
                 &evaluate::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>(None, ptr, &store, limit)
-                    .unwrap()
-                    .0;
+                    .unwrap();
 
             b.iter_batched(
                 || frames,

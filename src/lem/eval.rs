@@ -92,7 +92,7 @@ fn build_frames<
     limit: usize,
     lang: &Lang<F, C>,
     log_fmt: LogFmt,
-) -> Result<(Vec<Frame>, usize)> {
+) -> Result<Vec<Frame>> {
     let mut pc = 0;
     let mut frames = vec![];
     let mut iterations = 0;
@@ -113,7 +113,7 @@ fn build_frames<
         }
         pc = get_pc(&expr, store, lang);
     }
-    Ok((frames, iterations))
+    Ok(frames)
 }
 
 /// Faster version of `build_frames` that doesn't accumulate frames
@@ -150,7 +150,7 @@ pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
     cont: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Frame>, usize)> {
+) -> Result<Vec<Frame>> {
     let state = initial_lurk_state();
     let log_fmt = |i: usize, inp: &[Ptr], emit: &[Ptr], store: &Store<F>| {
         let mut out = format!(
@@ -186,7 +186,7 @@ pub fn evaluate_with_env<F: LurkField, C: Coprocessor<F>>(
     env: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Frame>, usize)> {
+) -> Result<Vec<Frame>> {
     evaluate_with_env_and_cont(func_lang, expr, env, store.cont_outermost(), store, limit)
 }
 
@@ -196,7 +196,7 @@ pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Frame>, usize)> {
+) -> Result<Vec<Frame>> {
     evaluate_with_env_and_cont(
         func_lang,
         expr,

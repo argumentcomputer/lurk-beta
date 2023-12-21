@@ -134,9 +134,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
-                .unwrap()
-                .0;
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit).unwrap();
 
             b.iter_batched(
                 || frames,
@@ -217,9 +215,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
-                .unwrap()
-                .0;
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit).unwrap();
 
             b.iter_batched(
                 || frames,
@@ -302,9 +298,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
 
             let prover = SuperNovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit)
-                .unwrap()
-                .0;
+            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit).unwrap();
 
             b.iter_batched(
                 || frames,
