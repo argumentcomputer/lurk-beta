@@ -23,7 +23,7 @@ pub(crate) fn fib_expr<F: LurkField>(store: &Store<F>) -> Ptr {
 }
 
 const LIN_COEF: usize = 7;
-const ANG_COEF: usize = 10;
+const ANG_COEF: usize = 7;
 
 // The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation contains a binding of the
 // nth Fibonacci number to `a`.
