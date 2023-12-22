@@ -8,6 +8,8 @@ commit := `git rev-parse HEAD`
 # Run CPU benchmarks
 bench +benches:
   #!/bin/sh
+  # Ensure the cargo env is passed to `just`
+  export PATH=${CARGO_HOME:-$HOME/.cargo}/bin:$PATH
   printenv LURK
   if [ '{{benches}}' != '' ]; then
     for bench in {{benches}}; do
@@ -20,6 +22,8 @@ bench +benches:
 # Run CUDA benchmarks on GPU
 gpu-bench +benches:
   #!/bin/sh
+  # Ensure the cargo env is passed to `just`
+  export PATH=${CARGO_HOME:-$HOME/.cargo}/bin:$PATH
   # The `compute`/`sm` number corresponds to the Nvidia GPU architecture
   # In this case, the self-hosted machine uses the Ampere architecture, but we want this to be configurable
   # See https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/

@@ -34,7 +34,7 @@ concurrency:
 
 jobs:
   linux:
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: buildjet-16vcpu-ubuntu-2204
     env:
       RUSTFLAGS: -D warnings
     steps:
