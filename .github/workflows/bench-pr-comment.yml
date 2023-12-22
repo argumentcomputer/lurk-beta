@@ -33,7 +33,7 @@ jobs:
       # Install dependencies
       - name: Install dependencies
         run: sudo apt-get install -y pkg-config libssl-dev
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Load env vars
         run: |
@@ -84,7 +84,7 @@ jobs:
       # This must also be compatible with the GPU architecture, see above link
       - run: nvcc --version
       # Install dependencies
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Set output type
         run: echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
