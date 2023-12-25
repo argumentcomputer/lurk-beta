@@ -13,7 +13,7 @@ proc-macro = true
 [dependencies]
 proc-macro2 = "1.0.66"
 quote = "1.0.31"
-syn = { version = "1.0.109", features = ["derive", "extra-traits", "full"] }
+syn = { version = "2.0.43", features = ["derive", "extra-traits", "full"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
