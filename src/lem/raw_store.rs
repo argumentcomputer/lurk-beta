@@ -151,17 +151,29 @@ impl<F: LurkField> Store<F> {
         self.f_elts.insert_probe(Box::new(FWrap(f)))
     }
 
-    /// Creates an atom `Ptr` which points to a cached element of the finite
+    /// Creates an atom `RawPtr` which points to a cached element of the finite
     /// field `F`
     pub fn intern_atom(&self, f: F) -> RawPtr {
         let (idx, _) = self.intern_f(f);
         RawPtr::Atom(idx)
     }
 
-    /// Creates a `Ptr` that's a parent of 3 children
-    pub fn intern_3_ptrs(&self, ptrs: [RawPtr; 3]) -> RawPtr {
-        let (idx, inserted) = self.hash3.insert_probe(Box::new(ptrs));
-        let ptr = RawPtr::Hash3(idx);
+    /// Creates a `RawPtr` that's a parent of `ARITY` children
+    pub fn intern_raw_ptrs<const ARITY: usize>(&self, ptrs: [RawPtr; ARITY]) -> RawPtr {
+        macro_rules! intern {
+            ($Hash:ident, $hash:ident, $n:expr) => {{
+                let ptrs: &[RawPtr; $n] = unsafe { std::mem::transmute(&ptrs) };
+                let (idx, inserted) = self.$hash.insert_probe(Box::new(*ptrs));
+                (RawPtr::$Hash(idx), inserted)
+            }};
+        }
+        let (ptr, inserted) = match ARITY {
+            3 => intern!(Hash3, hash3, 3),
+            4 => intern!(Hash4, hash4, 4),
+            6 => intern!(Hash6, hash6, 6),
+            8 => intern!(Hash8, hash8, 8),
+            _ => unimplemented!(),
+        };
         if inserted {
             // this is for `hydrate_z_cache`
             self.dehydrated.load().push(Box::new(ptr));
@@ -169,81 +181,80 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    /// Similar to `intern_3_ptrs` but doesn't add the resulting pointer to
+    /// Similar to `intern_raw_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    pub fn intern_3_ptrs_hydrated(&self, ptrs: [RawPtr; 3], z: FWrap<F>) -> RawPtr {
-        let (idx, _) = self.hash3.insert_probe(Box::new(ptrs));
-        let ptr = RawPtr::Hash3(idx);
-        self.z_cache.insert(ptr, Box::new(z));
-        self.inverse_z_cache.insert(z, Box::new(ptr));
-        ptr
-    }
-
-    /// Creates a `Ptr` that's a parent of 4 children
-    pub fn intern_4_ptrs(&self, ptrs: [RawPtr; 4]) -> RawPtr {
-        let (idx, inserted) = self.hash4.insert_probe(Box::new(ptrs));
-        let ptr = RawPtr::Hash4(idx);
-        if inserted {
-            // this is for `hydrate_z_cache`
-            self.dehydrated.load().push(Box::new(ptr));
+    pub fn intern_raw_ptrs_hydrated<const ARITY: usize>(
+        &self,
+        ptrs: [RawPtr; ARITY],
+        z: FWrap<F>,
+    ) -> RawPtr {
+        macro_rules! intern {
+            ($Hash:ident, $hash:ident, $n:expr) => {{
+                let ptrs: &[RawPtr; $n] = unsafe { std::mem::transmute(&ptrs) };
+                let (idx, _) = self.$hash.insert_probe(Box::new(*ptrs));
+                RawPtr::$Hash(idx)
+            }};
         }
-        ptr
-    }
-
-    /// Similar to `intern_4_ptrs` but doesn't add the resulting pointer to
-    /// `dehydrated`. This function is used when converting a `ZStore` to a
-    /// `Store`.
-    pub fn intern_4_ptrs_hydrated(&self, ptrs: [RawPtr; 4], z: FWrap<F>) -> RawPtr {
-        let (idx, _) = self.hash4.insert_probe(Box::new(ptrs));
-        let ptr = RawPtr::Hash4(idx);
+        let ptr = match ARITY {
+            3 => intern!(Hash3, hash3, 3),
+            4 => intern!(Hash4, hash4, 4),
+            6 => intern!(Hash6, hash6, 6),
+            8 => intern!(Hash8, hash8, 8),
+            _ => unimplemented!(),
+        };
         self.z_cache.insert(ptr, Box::new(z));
         self.inverse_z_cache.insert(z, Box::new(ptr));
         ptr
     }
 
-    /// Creates a `Ptr` that's a parent of 6 children
-    pub fn intern_6_ptrs(&self, ptrs: [RawPtr; 6]) -> RawPtr {
-        let (idx, inserted) = self.hash6.insert_probe(Box::new(ptrs));
-        let ptr = RawPtr::Hash6(idx);
-        if inserted {
-            // this is for `hydrate_z_cache`
-            self.dehydrated.load().push(Box::new(ptr));
+    /// Creates a `Ptr` that's a parent of `ARITY` children
+    pub fn intern_ptrs<const ARITY: usize>(&self, tag: Tag, ptrs: [Ptr; ARITY]) -> Ptr {
+        macro_rules! intern {
+            ($n:expr) => {{
+                let mut raw_ptrs = [self.zero(); $n * 2];
+                for i in 0..$n {
+                    raw_ptrs[2 * i] = self.tag(*ptrs[i].tag());
+                    raw_ptrs[2 * i + 1] = *ptrs[i].pay();
+                }
+                self.intern_raw_ptrs::<{ $n * 2 }>(raw_ptrs)
+            }};
         }
-        ptr
+        let pay = match ARITY {
+            2 => intern!(2),
+            3 => intern!(3),
+            4 => intern!(4),
+            _ => unimplemented!(),
+        };
+        Ptr::new(tag, pay)
     }
 
-    /// Similar to `intern_6_ptrs` but doesn't add the resulting pointer to
+    /// Similar to `intern_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    pub fn intern_6_ptrs_hydrated(&self, ptrs: [RawPtr; 6], z: FWrap<F>) -> RawPtr {
-        let (idx, _) = self.hash6.insert_probe(Box::new(ptrs));
-        let ptr = RawPtr::Hash6(idx);
-        self.z_cache.insert(ptr, Box::new(z));
-        self.inverse_z_cache.insert(z, Box::new(ptr));
-        ptr
-    }
-
-    /// Creates a `Ptr` that's a parent of 8 children
-    pub fn intern_8_ptrs(&self, ptrs: [RawPtr; 8]) -> RawPtr {
-        let (idx, inserted) = self.hash8.insert_probe(Box::new(ptrs));
-        let ptr = RawPtr::Hash8(idx);
-        if inserted {
-            // this is for `hydrate_z_cache`
-            self.dehydrated.load().push(Box::new(ptr));
+    pub fn intern_ptrs_hydrated<const ARITY: usize>(
+        &self,
+        tag: Tag,
+        ptrs: [Ptr; ARITY],
+        z: FWrap<F>,
+    ) -> Ptr {
+        macro_rules! intern {
+            ($n:expr) => {{
+                let mut raw_ptrs = [self.zero(); $n * 2];
+                for i in 0..$n {
+                    raw_ptrs[2 * i] = self.tag(*ptrs[i].tag());
+                    raw_ptrs[2 * i + 1] = *ptrs[i].pay();
+                }
+                self.intern_raw_ptrs_hydrated::<{ $n * 2 }>(raw_ptrs, z)
+            }};
         }
-        ptr
-    }
-
-    /// Similar to `intern_8_ptrs` but doesn't add the resulting pointer to
-    /// `dehydrated`. This function is used when converting a `ZStore` to a
-    /// `Store`.
-    pub fn intern_8_ptrs_hydrated(&self, ptrs: [RawPtr; 8], z: FWrap<F>) -> RawPtr {
-        let (idx, _) = self.hash8.insert_probe(Box::new(ptrs));
-        let ptr = RawPtr::Hash8(idx);
-        self.z_cache.insert(ptr, Box::new(z));
-        self.inverse_z_cache.insert(z, Box::new(ptr));
-        ptr
+        let pay = match ARITY {
+            2 => intern!(2),
+            3 => intern!(3),
+            4 => intern!(4),
+            _ => unimplemented!(),
+        };
+        Ptr::new(tag, pay)
     }
 
     #[inline]
@@ -252,23 +263,21 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn fetch_3_ptrs(&self, idx: usize) -> Option<&[RawPtr; 3]> {
-        self.hash3.get_index(idx)
-    }
-
-    #[inline]
-    pub fn fetch_4_ptrs(&self, idx: usize) -> Option<&[RawPtr; 4]> {
-        self.hash4.get_index(idx)
-    }
-
-    #[inline]
-    pub fn fetch_6_ptrs(&self, idx: usize) -> Option<&[RawPtr; 6]> {
-        self.hash6.get_index(idx)
-    }
-
-    #[inline]
-    pub fn fetch_8_ptrs(&self, idx: usize) -> Option<&[RawPtr; 8]> {
-        self.hash8.get_index(idx)
+    pub fn fetch_raw_ptrs<const ARITY: usize>(&self, idx: usize) -> Option<&[RawPtr; ARITY]> {
+        macro_rules! fetch {
+            ($hash:ident, $n:expr) => {{
+                let ptrs = self.$hash.get_index(idx)?;
+                let ptrs: &[RawPtr; ARITY] = unsafe { std::mem::transmute(&ptrs) };
+                Some(ptrs)
+            }};
+        }
+        match ARITY {
+            3 => fetch!(hash3, 3),
+            4 => fetch!(hash4, 4),
+            6 => fetch!(hash6, 6),
+            8 => fetch!(hash8, 8),
+            _ => unimplemented!(),
+        }
     }
 
     #[inline]
@@ -277,23 +286,8 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn expect_3_ptrs(&self, idx: usize) -> &[RawPtr; 3] {
-        self.fetch_3_ptrs(idx).expect("Index missing from store")
-    }
-
-    #[inline]
-    pub fn expect_4_ptrs(&self, idx: usize) -> &[RawPtr; 4] {
-        self.fetch_4_ptrs(idx).expect("Index missing from store")
-    }
-
-    #[inline]
-    pub fn expect_6_ptrs(&self, idx: usize) -> &[RawPtr; 6] {
-        self.fetch_6_ptrs(idx).expect("Index missing from store")
-    }
-
-    #[inline]
-    pub fn expect_8_ptrs(&self, idx: usize) -> &[RawPtr; 8] {
-        self.fetch_8_ptrs(idx).expect("Index missing from store")
+    pub fn expect_raw_ptrs<const ARITY: usize>(&self, idx: usize) -> &[RawPtr; ARITY] {
+        self.fetch_raw_ptrs::<ARITY>(idx).expect("Index missing from store")
     }
 
     #[inline]
@@ -351,8 +345,8 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn dummy(&self) -> RawPtr {
-        self.zero()
+    pub fn dummy(&self) -> Ptr {
+        Ptr::new(Tag::Expr(Nil), self.zero())
     }
 
     /// Creates an atom pointer from a `ZPtr`, with its hash. Hashing
@@ -366,16 +360,11 @@ impl<F: LurkField> Store<F> {
         if let Some(ptr) = self.string_ptr_cache.get(s) {
             *ptr
         } else {
-            let pay = s.chars().rev().fold(self.zero(), |acc, c| {
-                let ptrs = [
-                    self.tag(Tag::Expr(Char)),
-                    *self.char(c).pay(),
-                    self.tag(Tag::Expr(Str)),
-                    acc,
-                ];
-                self.intern_4_ptrs(ptrs)
+            let nil_str = Ptr::new(Tag::Expr(Str), self.zero());
+            let ptr = s.chars().rev().fold(nil_str, |acc, c| {
+                let ptrs = [self.char(c), acc];
+                self.intern_ptrs::<2>(Tag::Expr(Str), ptrs)
             });
-            let ptr = Ptr::new(Tag::Expr(Str), pay);
             self.string_ptr_cache.insert(s.to_string(), Box::new(ptr));
             self.ptr_string_cache.insert(ptr, s.to_string());
             ptr
@@ -402,7 +391,7 @@ impl<F: LurkField> Store<F> {
                         }
                     }
                     RawPtr::Hash4(idx) => {
-                        let [car_tag, car, cdr_tag, cdr] = self.fetch_4_ptrs(idx)?;
+                        let [car_tag, car, cdr_tag, cdr] = self.fetch_raw_ptrs(idx)?;
                         assert_eq!(*car_tag, self.tag(Tag::Expr(Char)));
                         assert_eq!(*cdr_tag, self.tag(Tag::Expr(Str)));
                         match car {
@@ -420,15 +409,11 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_symbol_path(&self, path: &[String]) -> RawPtr {
-        path.iter().fold(self.zero(), |acc, s| {
-            let ptrs = [
-                self.tag(Tag::Expr(Str)),
-                *self.intern_string(s).pay(),
-                self.tag(Tag::Expr(Sym)),
-                acc,
-            ];
-            self.intern_4_ptrs(ptrs)
+    pub fn intern_symbol_path(&self, path: &[String]) -> Ptr {
+        let zero_sym = Ptr::new(Tag::Expr(Sym), self.zero());
+        path.iter().fold(zero_sym, |acc, s| {
+            let ptrs = [self.intern_string(s), acc];
+            self.intern_ptrs::<2>(Tag::Expr(Sym), ptrs)
         })
     }
 
@@ -438,11 +423,11 @@ impl<F: LurkField> Store<F> {
         } else {
             let path_ptr = self.intern_symbol_path(sym.path());
             let sym_ptr = if sym == &lurk_sym("nil") {
-                Ptr::new(Tag::Expr(Nil), path_ptr)
+                Ptr::new(Tag::Expr(Nil), *path_ptr.pay())
             } else if sym.is_keyword() {
-                Ptr::new(Tag::Expr(Key), path_ptr)
+                Ptr::new(Tag::Expr(Key), *path_ptr.pay())
             } else {
-                Ptr::new(Tag::Expr(Sym), path_ptr)
+                path_ptr
             };
             self.symbol_ptr_cache.insert(sym.clone(), Box::new(sym_ptr));
             self.ptr_symbol_cache.insert(sym_ptr, Box::new(sym.clone()));
@@ -454,7 +439,7 @@ impl<F: LurkField> Store<F> {
     fn fetch_symbol_path(&self, mut idx: usize) -> Option<Vec<String>> {
         let mut path = vec![];
         loop {
-            let [car_tag, car, cdr_tag, cdr] = self.fetch_4_ptrs(idx)?;
+            let [car_tag, car, cdr_tag, cdr] = self.fetch_raw_ptrs(idx)?;
             assert_eq!(*car_tag, self.tag(Tag::Expr(Str)));
             assert_eq!(*cdr_tag, self.tag(Tag::Expr(Sym)));
             let string = self.fetch_string(&Ptr::new(Tag::Expr(Str), *car))?;
@@ -582,28 +567,14 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn cons(&self, car: Ptr, cdr: Ptr) -> Ptr {
-        let ptrs = [
-            self.tag(*car.tag()),
-            *car.pay(),
-            self.tag(*cdr.tag()),
-            *cdr.pay(),
-        ];
-        Ptr::new(Tag::Expr(Cons), self.intern_4_ptrs(ptrs))
+        let ptrs = [car, cdr];
+        self.intern_ptrs::<2>(Tag::Expr(Cons), ptrs)
     }
 
     #[inline]
     pub fn intern_fun(&self, arg: Ptr, body: Ptr, env: Ptr) -> Ptr {
-        let ptrs = [
-            self.tag(*arg.tag()),
-            *arg.pay(),
-            self.tag(*body.tag()),
-            *body.pay(),
-            self.tag(*env.tag()),
-            *env.pay(),
-            self.tag(Tag::Expr(Nil)),
-            self.dummy(),
-        ];
-        Ptr::new(Tag::Expr(Fun), self.intern_8_ptrs(ptrs))
+        let ptrs = [arg, body, env, self.dummy()];
+        self.intern_ptrs::<4>(Tag::Expr(Fun), ptrs)
     }
 
     #[inline]
@@ -631,7 +602,7 @@ impl<F: LurkField> Store<F> {
                 let Some(idx) = ptr.pay().get_hash4() else {
                     bail!("malformed cons pointer")
                 };
-                match self.fetch_4_ptrs(idx) {
+                match self.fetch_raw_ptrs(idx) {
                     Some([car_tag, car, cdr_tag, cdr]) => {
                         let car_ptr = self.raw_to_ptr(car_tag, car).context("Not a pointer")?;
                         let cdr_ptr = self.raw_to_ptr(cdr_tag, cdr).context("Not a pointer")?;
@@ -648,7 +619,7 @@ impl<F: LurkField> Store<F> {
                     let Some(idx) = ptr.pay().get_hash4() else {
                         bail!("malformed str pointer")
                     };
-                    match self.fetch_4_ptrs(idx) {
+                    match self.fetch_raw_ptrs(idx) {
                         Some([car_tag, car, cdr_tag, cdr]) => {
                             let car_ptr = self.raw_to_ptr(car_tag, car).context("Not a pointer")?;
                             let cdr_ptr = self.raw_to_ptr(cdr_tag, cdr).context("Not a pointer")?;
@@ -696,7 +667,7 @@ impl<F: LurkField> Store<F> {
             (Tag::Expr(Cons), RawPtr::Hash4(mut idx)) => {
                 let mut list = vec![];
                 let mut last = None;
-                while let Some([car_tag, car, cdr_tag, cdr]) = self.fetch_4_ptrs(idx) {
+                while let Some([car_tag, car, cdr_tag, cdr]) = self.fetch_raw_ptrs(idx) {
                     let car_ptr = self.raw_to_ptr(car_tag, car)?;
                     let cdr_ptr = self.raw_to_ptr(cdr_tag, cdr)?;
                     list.push(car_ptr);
@@ -790,7 +761,7 @@ impl<F: LurkField> Store<F> {
                 if let Some(z) = self.z_cache.get(ptr) {
                     *z
                 } else {
-                    let children_ptrs = self.expect_3_ptrs(*idx);
+                    let children_ptrs = self.expect_raw_ptrs::<3>(*idx);
                     let mut children_zs = [F::ZERO; 3];
                     for (idx, child_ptr) in children_ptrs.iter().enumerate() {
                         children_zs[idx] = self.hash_ptr_unsafe(child_ptr).0;
@@ -805,7 +776,7 @@ impl<F: LurkField> Store<F> {
                 if let Some(z) = self.z_cache.get(ptr) {
                     *z
                 } else {
-                    let children_ptrs = self.expect_4_ptrs(*idx);
+                    let children_ptrs = self.expect_raw_ptrs::<4>(*idx);
                     let mut children_zs = [F::ZERO; 4];
                     for (idx, child_ptr) in children_ptrs.iter().enumerate() {
                         children_zs[idx] = self.hash_ptr_unsafe(child_ptr).0;
@@ -820,7 +791,7 @@ impl<F: LurkField> Store<F> {
                 if let Some(z) = self.z_cache.get(ptr) {
                     *z
                 } else {
-                    let children_ptrs = self.expect_6_ptrs(*idx);
+                    let children_ptrs = self.expect_raw_ptrs::<6>(*idx);
                     let mut children_zs = [F::ZERO; 6];
                     for (idx, child_ptr) in children_ptrs.iter().enumerate() {
                         children_zs[idx] = self.hash_ptr_unsafe(child_ptr).0;
@@ -835,7 +806,7 @@ impl<F: LurkField> Store<F> {
                 if let Some(z) = self.z_cache.get(ptr) {
                     *z
                 } else {
-                    let children_ptrs = self.expect_8_ptrs(*idx);
+                    let children_ptrs = self.expect_raw_ptrs::<8>(*idx);
                     let mut children_zs = [F::ZERO; 8];
                     for (idx, child_ptr) in children_ptrs.iter().enumerate() {
                         children_zs[idx] = self.hash_ptr_unsafe(child_ptr).0;
@@ -909,25 +880,25 @@ impl<F: LurkField> Store<F> {
             match ptr {
                 RawPtr::Atom(..) => (),
                 RawPtr::Hash3(idx) => {
-                    let ptrs = self.expect_3_ptrs(*idx);
+                    let ptrs = self.expect_raw_ptrs::<3>(*idx);
                     for ptr in ptrs {
                         feed_loop!(ptr)
                     }
                 }
                 RawPtr::Hash4(idx) => {
-                    let ptrs = self.expect_4_ptrs(*idx);
+                    let ptrs = self.expect_raw_ptrs::<4>(*idx);
                     for ptr in ptrs {
                         feed_loop!(ptr)
                     }
                 }
                 RawPtr::Hash6(idx) => {
-                    let ptrs = self.expect_6_ptrs(*idx);
+                    let ptrs = self.expect_raw_ptrs::<6>(*idx);
                     for ptr in ptrs {
                         feed_loop!(ptr)
                     }
                 }
                 RawPtr::Hash8(idx) => {
-                    let ptrs = self.expect_8_ptrs(*idx);
+                    let ptrs = self.expect_raw_ptrs::<8>(*idx);
                     for ptr in ptrs {
                         feed_loop!(ptr)
                     }
