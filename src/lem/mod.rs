@@ -66,6 +66,8 @@ mod macros;
 pub mod multiframe;
 mod path;
 pub mod pointers;
+pub mod raw_pointers;
+pub mod raw_store;
 mod slot;
 pub mod store;
 mod var_map;
