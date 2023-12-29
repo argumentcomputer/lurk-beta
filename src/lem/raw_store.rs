@@ -27,7 +27,7 @@ use crate::{
     tag::Tag as TagTrait,
 };
 
-use super::raw_pointers::{Ptr, RawPtr};
+use super::raw_pointers::{Ptr, RawPtr, ZPtr};
 
 #[derive(Debug)]
 pub struct Store<F: LurkField> {
@@ -153,21 +153,25 @@ impl<F: LurkField> Store<F> {
 
     /// Creates an atom `RawPtr` which points to a cached element of the finite
     /// field `F`
-    pub fn intern_atom(&self, f: F) -> RawPtr {
+    pub fn intern_raw_atom(&self, f: F) -> RawPtr {
         let (idx, _) = self.intern_f(f);
         RawPtr::Atom(idx)
     }
 
-    /// Creates a `RawPtr` that's a parent of `ARITY` children
-    pub fn intern_raw_ptrs<const ARITY: usize>(&self, ptrs: [RawPtr; ARITY]) -> RawPtr {
+    pub fn intern_atom(&self, tag: Tag, f: F) -> Ptr {
+        Ptr::new(tag, self.intern_raw_atom(f))
+    }
+
+    /// Creates a `RawPtr` that's a parent of `N` children
+    pub fn intern_raw_ptrs<const N: usize>(&self, ptrs: [RawPtr; N]) -> RawPtr {
         macro_rules! intern {
             ($Hash:ident, $hash:ident, $n:expr) => {{
-                let ptrs: &[RawPtr; $n] = unsafe { std::mem::transmute(&ptrs) };
+                let ptrs = unsafe { std::mem::transmute::<&[RawPtr; N], &[RawPtr; $n]>(&ptrs) };
                 let (idx, inserted) = self.$hash.insert_probe(Box::new(*ptrs));
                 (RawPtr::$Hash(idx), inserted)
             }};
         }
-        let (ptr, inserted) = match ARITY {
+        let (ptr, inserted) = match N {
             3 => intern!(Hash3, hash3, 3),
             4 => intern!(Hash4, hash4, 4),
             6 => intern!(Hash6, hash6, 6),
@@ -184,19 +188,19 @@ impl<F: LurkField> Store<F> {
     /// Similar to `intern_raw_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    pub fn intern_raw_ptrs_hydrated<const ARITY: usize>(
+    pub fn intern_raw_ptrs_hydrated<const N: usize>(
         &self,
-        ptrs: [RawPtr; ARITY],
+        ptrs: [RawPtr; N],
         z: FWrap<F>,
     ) -> RawPtr {
         macro_rules! intern {
             ($Hash:ident, $hash:ident, $n:expr) => {{
-                let ptrs: &[RawPtr; $n] = unsafe { std::mem::transmute(&ptrs) };
+                let ptrs = unsafe { std::mem::transmute::<&[RawPtr; N], &[RawPtr; $n]>(&ptrs) };
                 let (idx, _) = self.$hash.insert_probe(Box::new(*ptrs));
                 RawPtr::$Hash(idx)
             }};
         }
-        let ptr = match ARITY {
+        let ptr = match N {
             3 => intern!(Hash3, hash3, 3),
             4 => intern!(Hash4, hash4, 4),
             6 => intern!(Hash6, hash6, 6),
@@ -208,11 +212,11 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    /// Creates a `Ptr` that's a parent of `ARITY` children
-    pub fn intern_ptrs<const ARITY: usize>(&self, tag: Tag, ptrs: [Ptr; ARITY]) -> Ptr {
+    /// Creates a `Ptr` that's a parent of `N` children
+    pub fn intern_ptrs<const N: usize>(&self, tag: Tag, ptrs: [Ptr; N]) -> Ptr {
         macro_rules! intern {
             ($n:expr) => {{
-                let mut raw_ptrs = [self.zero(); $n * 2];
+                let mut raw_ptrs = [self.raw_zero(); $n * 2];
                 for i in 0..$n {
                     raw_ptrs[2 * i] = self.tag(*ptrs[i].tag());
                     raw_ptrs[2 * i + 1] = *ptrs[i].pay();
@@ -220,7 +224,7 @@ impl<F: LurkField> Store<F> {
                 self.intern_raw_ptrs::<{ $n * 2 }>(raw_ptrs)
             }};
         }
-        let pay = match ARITY {
+        let pay = match N {
             2 => intern!(2),
             3 => intern!(3),
             4 => intern!(4),
@@ -232,15 +236,15 @@ impl<F: LurkField> Store<F> {
     /// Similar to `intern_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    pub fn intern_ptrs_hydrated<const ARITY: usize>(
+    pub fn intern_ptrs_hydrated<const N: usize>(
         &self,
         tag: Tag,
-        ptrs: [Ptr; ARITY],
+        ptrs: [Ptr; N],
         z: FWrap<F>,
     ) -> Ptr {
         macro_rules! intern {
             ($n:expr) => {{
-                let mut raw_ptrs = [self.zero(); $n * 2];
+                let mut raw_ptrs = [self.raw_zero(); $n * 2];
                 for i in 0..$n {
                     raw_ptrs[2 * i] = self.tag(*ptrs[i].tag());
                     raw_ptrs[2 * i + 1] = *ptrs[i].pay();
@@ -248,7 +252,7 @@ impl<F: LurkField> Store<F> {
                 self.intern_raw_ptrs_hydrated::<{ $n * 2 }>(raw_ptrs, z)
             }};
         }
-        let pay = match ARITY {
+        let pay = match N {
             2 => intern!(2),
             3 => intern!(3),
             4 => intern!(4),
@@ -263,15 +267,15 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn fetch_raw_ptrs<const ARITY: usize>(&self, idx: usize) -> Option<&[RawPtr; ARITY]> {
+    pub fn fetch_raw_ptrs<const N: usize>(&self, idx: usize) -> Option<&[RawPtr; N]> {
         macro_rules! fetch {
             ($hash:ident, $n:expr) => {{
                 let ptrs = self.$hash.get_index(idx)?;
-                let ptrs: &[RawPtr; ARITY] = unsafe { std::mem::transmute(&ptrs) };
+                let ptrs = unsafe { std::mem::transmute::<&[RawPtr; $n], &[RawPtr; N]>(ptrs) };
                 Some(ptrs)
             }};
         }
-        match ARITY {
+        match N {
             3 => fetch!(hash3, 3),
             4 => fetch!(hash4, 4),
             6 => fetch!(hash6, 6),
@@ -281,18 +285,100 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    pub fn fetch_ptrs<const N: usize, const P: usize>(&self, idx: usize) -> Option<[Ptr; P]> {
+        assert_eq!(P * 2, N);
+        let raw_ptrs = self
+            .fetch_raw_ptrs::<N>(idx)
+            .expect("Index missing from store");
+        let mut ptrs = [self.dummy(); P];
+        for i in 0..P {
+            let tag = self.fetch_tag(&raw_ptrs[2 * i])?;
+            ptrs[i] = Ptr::new(tag, raw_ptrs[2 * i + 1])
+        }
+        Some(ptrs)
+    }
+
+    #[inline]
     pub fn expect_f(&self, idx: usize) -> &F {
         self.fetch_f(idx).expect("Index missing from f_elts")
     }
 
     #[inline]
-    pub fn expect_raw_ptrs<const ARITY: usize>(&self, idx: usize) -> &[RawPtr; ARITY] {
-        self.fetch_raw_ptrs::<ARITY>(idx).expect("Index missing from store")
+    pub fn expect_raw_ptrs<const N: usize>(&self, idx: usize) -> &[RawPtr; N] {
+        self.fetch_raw_ptrs::<N>(idx)
+            .expect("Index missing from store")
+    }
+
+    #[inline]
+    pub fn expect_ptrs<const N: usize, const P: usize>(&self, idx: usize) -> [Ptr; P] {
+        self.fetch_ptrs::<N, P>(idx)
+            .expect("Index missing from store")
+    }
+
+    // TODO remove these functions
+    pub fn intern_atom_hydrated(&self, tag: Tag, f: F, _: ZPtr<F>) -> Ptr {
+        Ptr::new(tag, self.intern_raw_atom(f))
+    }
+    #[inline]
+    pub fn intern_2_ptrs(&self, tag: Tag, a: Ptr, b: Ptr) -> Ptr {
+        self.intern_ptrs::<2>(tag, [a, b])
+    }
+    #[inline]
+    pub fn intern_3_ptrs(&self, tag: Tag, a: Ptr, b: Ptr, c: Ptr) -> Ptr {
+        self.intern_ptrs::<3>(tag, [a, b, c])
+    }
+    #[inline]
+    pub fn intern_4_ptrs(&self, tag: Tag, a: Ptr, b: Ptr, c: Ptr, d: Ptr) -> Ptr {
+        self.intern_ptrs::<4>(tag, [a, b, c, d])
+    }
+    #[inline]
+    pub fn intern_2_ptrs_hydrated(&self, tag: Tag, a: Ptr, b: Ptr, z: ZPtr<F>) -> Ptr {
+        self.intern_ptrs_hydrated::<2>(tag, [a, b], FWrap(*z.value()))
+    }
+    #[inline]
+    pub fn intern_3_ptrs_hydrated(&self, tag: Tag, a: Ptr, b: Ptr, c: Ptr, z: ZPtr<F>) -> Ptr {
+        self.intern_ptrs_hydrated::<3>(tag, [a, b, c], FWrap(*z.value()))
+    }
+    #[inline]
+    pub fn intern_4_ptrs_hydrated(
+        &self,
+        tag: Tag,
+        a: Ptr,
+        b: Ptr,
+        c: Ptr,
+        d: Ptr,
+        z: ZPtr<F>,
+    ) -> Ptr {
+        self.intern_ptrs_hydrated::<4>(tag, [a, b, c, d], FWrap(*z.value()))
+    }
+    #[inline]
+    pub fn fetch_2_ptrs(&self, idx: usize) -> Option<[Ptr; 2]> {
+        self.fetch_ptrs::<4, 2>(idx)
+    }
+    #[inline]
+    pub fn fetch_3_ptrs(&self, idx: usize) -> Option<[Ptr; 3]> {
+        self.fetch_ptrs::<6, 3>(idx)
+    }
+    #[inline]
+    pub fn fetch_4_ptrs(&self, idx: usize) -> Option<[Ptr; 4]> {
+        self.fetch_ptrs::<8, 4>(idx)
+    }
+    #[inline]
+    pub fn expect_2_ptrs(&self, idx: usize) -> [Ptr; 2] {
+        self.fetch_2_ptrs(idx).expect("Index missing from store")
+    }
+    #[inline]
+    pub fn expect_3_ptrs(&self, idx: usize) -> [Ptr; 3] {
+        self.fetch_3_ptrs(idx).expect("Index missing from store")
+    }
+    #[inline]
+    pub fn expect_4_ptrs(&self, idx: usize) -> [Ptr; 4] {
+        self.fetch_4_ptrs(idx).expect("Index missing from store")
     }
 
     #[inline]
     pub fn tag(&self, tag: Tag) -> RawPtr {
-        self.intern_atom(tag.to_field())
+        self.intern_raw_atom(tag.to_field())
     }
 
     #[inline]
@@ -309,32 +395,37 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn num(&self, f: F) -> Ptr {
-        Ptr::new(Tag::Expr(Num), self.intern_atom(f))
+        self.intern_atom(Tag::Expr(Num), f)
     }
 
     #[inline]
     pub fn num_u64(&self, u: u64) -> Ptr {
-        Ptr::new(Tag::Expr(Num), self.intern_atom(F::from_u64(u)))
+        self.intern_atom(Tag::Expr(Num), F::from_u64(u))
     }
 
     #[inline]
     pub fn u64(&self, u: u64) -> Ptr {
-        Ptr::new(Tag::Expr(U64), self.intern_atom(F::from_u64(u)))
+        self.intern_atom(Tag::Expr(U64), F::from_u64(u))
     }
 
     #[inline]
     pub fn char(&self, c: char) -> Ptr {
-        Ptr::new(Tag::Expr(Char), self.intern_atom(F::from_char(c)))
+        self.intern_atom(Tag::Expr(Char), F::from_char(c))
     }
 
     #[inline]
     pub fn comm(&self, hash: F) -> Ptr {
-        Ptr::new(Tag::Expr(Comm), self.intern_atom(hash))
+        self.intern_atom(Tag::Expr(Comm), hash)
     }
 
     #[inline]
-    pub fn zero(&self) -> RawPtr {
-        self.intern_atom(F::ZERO)
+    pub fn raw_zero(&self) -> RawPtr {
+        self.intern_raw_atom(F::ZERO)
+    }
+
+    #[inline]
+    pub fn zero(&self, tag: Tag) -> Ptr {
+        Ptr::new(tag, self.raw_zero())
     }
 
     pub fn is_zero(&self, ptr: &RawPtr) -> bool {
@@ -346,21 +437,21 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn dummy(&self) -> Ptr {
-        Ptr::new(Tag::Expr(Nil), self.zero())
+        Ptr::new(Tag::Expr(Nil), self.raw_zero())
     }
 
     /// Creates an atom pointer from a `ZPtr`, with its hash. Hashing
     /// such pointer will result on the same original `ZPtr`
     #[inline]
     pub fn opaque(&self, z: FWrap<F>) -> RawPtr {
-        self.intern_atom(z.0)
+        self.intern_raw_atom(z.0)
     }
 
     pub fn intern_string(&self, s: &str) -> Ptr {
         if let Some(ptr) = self.string_ptr_cache.get(s) {
             *ptr
         } else {
-            let nil_str = Ptr::new(Tag::Expr(Str), self.zero());
+            let nil_str = Ptr::new(Tag::Expr(Str), self.raw_zero());
             let ptr = s.chars().rev().fold(nil_str, |acc, c| {
                 let ptrs = [self.char(c), acc];
                 self.intern_ptrs::<2>(Tag::Expr(Str), ptrs)
@@ -410,7 +501,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_symbol_path(&self, path: &[String]) -> Ptr {
-        let zero_sym = Ptr::new(Tag::Expr(Sym), self.zero());
+        let zero_sym = Ptr::new(Tag::Expr(Sym), self.raw_zero());
         path.iter().fold(zero_sym, |acc, s| {
             let ptrs = [self.intern_string(s), acc];
             self.intern_ptrs::<2>(Tag::Expr(Sym), ptrs)
@@ -545,6 +636,15 @@ impl<F: LurkField> Store<F> {
         self.comm(self.hide_ptr(secret, payload))
     }
 
+    pub fn hide_and_return_z_payload(&self, secret: F, payload: Ptr) -> (F, ZPtr<F>) {
+        let z_ptr = self.hash_ptr(&payload);
+        let hash = self
+            .poseidon_cache
+            .hash3(&[secret, z_ptr.tag_field(), *z_ptr.value()]);
+        self.add_comm(hash, secret, payload);
+        (hash, z_ptr)
+    }
+
     #[inline]
     pub fn commit(&self, payload: Ptr) -> Ptr {
         self.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
@@ -559,7 +659,7 @@ impl<F: LurkField> Store<F> {
         let hash = self.poseidon_cache.hash3(&[
             secret,
             payload.tag().to_field(),
-            self.hash_ptr(payload.pay()).0,
+            self.hash_raw_ptr(payload.pay()).0,
         ]);
         self.add_comm(hash, secret, payload);
         hash
@@ -613,7 +713,7 @@ impl<F: LurkField> Store<F> {
             }
             Tag::Expr(Str) => {
                 if self.is_zero(ptr.pay()) {
-                    let nil_str = Ptr::new(Tag::Expr(Str), self.zero());
+                    let nil_str = Ptr::new(Tag::Expr(Str), self.raw_zero());
                     Ok((self.intern_nil(), nil_str))
                 } else {
                     let Some(idx) = ptr.pay().get_hash4() else {
@@ -754,7 +854,7 @@ impl<F: LurkField> Store<F> {
     /// Warning: without cache hits, this function might blow up Rust's recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`
     /// beforehand or by using `hash_ptr` instead, which is slightly slower.
-    fn hash_ptr_unsafe(&self, ptr: &RawPtr) -> FWrap<F> {
+    fn hash_raw_ptr_unsafe(&self, ptr: &RawPtr) -> FWrap<F> {
         match ptr {
             RawPtr::Atom(idx) => FWrap(*self.expect_f(*idx)),
             RawPtr::Hash3(idx) => {
@@ -764,7 +864,7 @@ impl<F: LurkField> Store<F> {
                     let children_ptrs = self.expect_raw_ptrs::<3>(*idx);
                     let mut children_zs = [F::ZERO; 3];
                     for (idx, child_ptr) in children_ptrs.iter().enumerate() {
-                        children_zs[idx] = self.hash_ptr_unsafe(child_ptr).0;
+                        children_zs[idx] = self.hash_raw_ptr_unsafe(child_ptr).0;
                     }
                     let z = FWrap(self.poseidon_cache.hash3(&children_zs));
                     self.z_cache.insert(*ptr, Box::new(z));
@@ -779,7 +879,7 @@ impl<F: LurkField> Store<F> {
                     let children_ptrs = self.expect_raw_ptrs::<4>(*idx);
                     let mut children_zs = [F::ZERO; 4];
                     for (idx, child_ptr) in children_ptrs.iter().enumerate() {
-                        children_zs[idx] = self.hash_ptr_unsafe(child_ptr).0;
+                        children_zs[idx] = self.hash_raw_ptr_unsafe(child_ptr).0;
                     }
                     let z = FWrap(self.poseidon_cache.hash4(&children_zs));
                     self.z_cache.insert(*ptr, Box::new(z));
@@ -794,7 +894,7 @@ impl<F: LurkField> Store<F> {
                     let children_ptrs = self.expect_raw_ptrs::<6>(*idx);
                     let mut children_zs = [F::ZERO; 6];
                     for (idx, child_ptr) in children_ptrs.iter().enumerate() {
-                        children_zs[idx] = self.hash_ptr_unsafe(child_ptr).0;
+                        children_zs[idx] = self.hash_raw_ptr_unsafe(child_ptr).0;
                     }
                     let z = FWrap(self.poseidon_cache.hash6(&children_zs));
                     self.z_cache.insert(*ptr, Box::new(z));
@@ -809,7 +909,7 @@ impl<F: LurkField> Store<F> {
                     let children_ptrs = self.expect_raw_ptrs::<8>(*idx);
                     let mut children_zs = [F::ZERO; 8];
                     for (idx, child_ptr) in children_ptrs.iter().enumerate() {
-                        children_zs[idx] = self.hash_ptr_unsafe(child_ptr).0;
+                        children_zs[idx] = self.hash_raw_ptr_unsafe(child_ptr).0;
                     }
                     let z = FWrap(self.poseidon_cache.hash8(&children_zs));
                     self.z_cache.insert(*ptr, Box::new(z));
@@ -829,7 +929,7 @@ impl<F: LurkField> Store<F> {
     fn hydrate_z_cache_with_ptrs(&self, ptrs: &[&RawPtr]) {
         ptrs.chunks(256).for_each(|chunk| {
             chunk.par_iter().for_each(|ptr| {
-                self.hash_ptr_unsafe(ptr);
+                self.hash_raw_ptr_unsafe(ptr);
             });
         });
     }
@@ -857,11 +957,11 @@ impl<F: LurkField> Store<F> {
     /// Safe version of `hash_ptr_unsafe` that doesn't hit a stack overflow by
     /// precomputing the pointers that need to be hashed in order to hash the
     /// provided `ptr`
-    pub fn hash_ptr(&self, ptr: &RawPtr) -> FWrap<F> {
+    pub fn hash_raw_ptr(&self, ptr: &RawPtr) -> FWrap<F> {
         if self.is_below_safe_threshold() {
             // just run `hash_ptr_unsafe` for extra speed when the dehydrated
             // queue is small enough
-            return self.hash_ptr_unsafe(ptr);
+            return self.hash_raw_ptr_unsafe(ptr);
         }
         let mut ptrs: IndexSet<&RawPtr> = IndexSet::default();
         let mut stack = vec![ptr];
@@ -908,18 +1008,38 @@ impl<F: LurkField> Store<F> {
         ptrs.reverse();
         self.hydrate_z_cache_with_ptrs(&ptrs.into_iter().collect::<Vec<_>>());
         // Now it's okay to call `hash_ptr_unsafe`
-        self.hash_ptr_unsafe(ptr)
+        self.hash_raw_ptr_unsafe(ptr)
+    }
+
+    pub fn hash_ptr(&self, ptr: &Ptr) -> ZPtr<F> {
+        ZPtr::from_parts(*ptr.tag(), self.hash_raw_ptr(ptr.pay()).0)
     }
 
     /// Constructs a vector of scalars that correspond to tags and hashes computed
     /// from a slice of `Ptr`s turned into `ZPtr`s
-    pub fn to_scalar_vector(&self, ptrs: &[RawPtr]) -> Vec<F> {
-        ptrs.iter().map(|ptr| self.hash_ptr(ptr).0).collect()
+    pub fn to_scalar_vector(&self, ptrs: &[Ptr]) -> Vec<F> {
+        ptrs.iter()
+            .fold(Vec::with_capacity(2 * ptrs.len()), |mut acc, ptr| {
+                let tag = ptr.tag().to_field();
+                let pay = self.hash_raw_ptr(ptr.pay()).0;
+                acc.push(tag);
+                acc.push(pay);
+                acc
+            })
+    }
+
+    pub fn to_scalar_vector_raw(&self, ptrs: &[RawPtr]) -> Vec<F> {
+        ptrs.iter().map(|ptr| self.hash_raw_ptr(ptr).0).collect()
     }
 
     /// Equality of the content-addressed versions of two pointers
     #[inline]
-    pub fn ptr_eq(&self, a: &RawPtr, b: &RawPtr) -> bool {
+    pub fn raw_ptr_eq(&self, a: &RawPtr, b: &RawPtr) -> bool {
+        self.hash_raw_ptr(a) == self.hash_raw_ptr(b)
+    }
+
+    #[inline]
+    pub fn ptr_eq(&self, a: &Ptr, b: &Ptr) -> bool {
         self.hash_ptr(a) == self.hash_ptr(b)
     }
 
@@ -927,15 +1047,19 @@ impl<F: LurkField> Store<F> {
     /// `inverse_z_cache`. If the mapping is not there, returns an atom pointer
     /// with the same tag and value
     #[inline]
-    pub fn to_ptr(&self, z: &FWrap<F>) -> RawPtr {
+    pub fn to_raw_ptr(&self, z: &FWrap<F>) -> RawPtr {
         self.inverse_z_cache
             .get(z)
             .cloned()
             .unwrap_or_else(|| self.opaque(*z))
     }
+
+    #[inline]
+    pub fn to_ptr(&self, z_ptr: &ZPtr<F>) -> Ptr {
+        Ptr::new(*z_ptr.tag(), self.to_raw_ptr(&FWrap(*z_ptr.value())))
+    }
 }
 
-/*
 impl Ptr {
     pub fn fmt_to_string<F: LurkField>(&self, store: &Store<F>, state: &State) -> String {
         match self.tag() {
@@ -970,6 +1094,7 @@ impl Ptr {
                 }
                 Char => {
                     if let Some(c) = self
+                        .pay()
                         .get_atom()
                         .map(|idx| store.expect_f(idx))
                         .and_then(F::to_char)
@@ -999,7 +1124,7 @@ impl Ptr {
                     }
                 }
                 Num => {
-                    if let Some(f) = self.get_atom().map(|idx| store.expect_f(idx)) {
+                    if let Some(f) = self.pay().get_atom().map(|idx| store.expect_f(idx)) {
                         if let Some(u) = f.to_u64() {
                             u.to_string()
                         } else {
@@ -1011,6 +1136,7 @@ impl Ptr {
                 }
                 U64 => {
                     if let Some(u) = self
+                        .pay()
                         .get_atom()
                         .map(|idx| store.expect_f(idx))
                         .and_then(F::to_u64)
@@ -1020,10 +1146,10 @@ impl Ptr {
                         "<Malformed U64>".into()
                     }
                 }
-                Fun => match self.get_index4() {
+                Fun => match self.pay().get_hash8() {
                     None => "<Malformed Fun>".into(),
                     Some(idx) => {
-                        if let Some((vars, body, ..)) = store.fetch_4_ptrs(idx) {
+                        if let Some([vars, body, _, _]) = store.fetch_ptrs::<8, 4>(idx) {
                             match vars.tag() {
                                 Tag::Expr(Nil) => {
                                     format!("<FUNCTION () {}>", body.fmt_to_string(store, state))
@@ -1042,10 +1168,10 @@ impl Ptr {
                         }
                     }
                 },
-                Thunk => match self.get_index2() {
+                Thunk => match self.pay().get_hash4() {
                     None => "<Malformed Thunk>".into(),
                     Some(idx) => {
-                        if let Some((val, cont)) = store.fetch_2_ptrs(idx) {
+                        if let Some([val, cont]) = store.fetch_ptrs::<4, 2>(idx) {
                             format!(
                                 "Thunk{{ value: {} => cont: {} }}",
                                 val.fmt_to_string(store, state),
@@ -1056,7 +1182,7 @@ impl Ptr {
                         }
                     }
                 },
-                Comm => match self.get_atom() {
+                Comm => match self.pay().get_atom() {
                     Some(idx) => {
                         let f = store.expect_f(idx);
                         if store.comms.get(&FWrap(*f)).is_some() {
@@ -1067,10 +1193,10 @@ impl Ptr {
                     }
                     None => "<Malformed Comm>".into(),
                 },
-                Cproc => match self.get_index2() {
+                Cproc => match self.pay().get_hash4() {
                     None => "<Malformed Cproc>".into(),
                     Some(idx) => {
-                        if let Some((cproc_name, args)) = store.fetch_2_ptrs(idx) {
+                        if let Some([cproc_name, args]) = store.fetch_ptrs::<4, 2>(idx) {
                             format!(
                                 "<COPROC {} {}>",
                                 cproc_name.fmt_to_string(store, state),
@@ -1129,10 +1255,10 @@ impl Ptr {
         store: &Store<F>,
         state: &State,
     ) -> String {
-        match self.get_index4() {
+        match self.pay().get_hash8() {
             None => format!("<Malformed {name}>"),
             Some(idx) => {
-                if let Some((a, cont, ..)) = store.fetch_4_ptrs(idx) {
+                if let Some([a, cont, _, _]) = store.fetch_ptrs::<8, 4>(idx) {
                     format!(
                         "{name}{{ {field}: {}, continuation: {} }}",
                         a.fmt_to_string(store, state),
@@ -1152,10 +1278,10 @@ impl Ptr {
         store: &Store<F>,
         state: &State,
     ) -> String {
-        match self.get_index4() {
+        match self.pay().get_hash8() {
             None => format!("<Malformed {name}>"),
             Some(idx) => {
-                if let Some((a, b, cont, _)) = store.fetch_4_ptrs(idx) {
+                if let Some([a, b, cont, _]) = store.fetch_ptrs::<8, 4>(idx) {
                     let (fa, fb) = fields;
                     format!(
                         "{name}{{ {fa}: {}, {fb}: {}, continuation: {} }}",
@@ -1177,10 +1303,10 @@ impl Ptr {
         store: &Store<F>,
         state: &State,
     ) -> String {
-        match self.get_index4() {
+        match self.pay().get_hash8() {
             None => format!("<Malformed {name}>"),
             Some(idx) => {
-                if let Some((a, b, c, cont)) = store.fetch_4_ptrs(idx) {
+                if let Some([a, b, c, cont]) = store.fetch_ptrs::<8, 4>(idx) {
                     let (fa, fb, fc) = fields;
                     format!(
                         "{name}{{ {fa}: {}, {fb}: {}, {fc}: {}, continuation: {} }}",
@@ -1196,4 +1322,3 @@ impl Ptr {
         }
     }
 }
-*/
