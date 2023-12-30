@@ -21,7 +21,7 @@ use crate::{
 
 use super::{
     interpreter::{Frame, Hints},
-    pointers::Ptr,
+    pointers::{Ptr, RawPtr},
     store::Store,
     Ctrl, Func, Op, Tag, Var,
 };
@@ -40,9 +40,9 @@ fn get_pc<F: LurkField, C: Coprocessor<F>>(
     store: &Store<F>,
     lang: &Lang<F, C>,
 ) -> usize {
-    match expr {
-        Ptr::Tuple2(Tag::Expr(Cproc), idx) => {
-            let (cproc, _) = store
+    match expr.parts() {
+        (Tag::Expr(Cproc), RawPtr::Hash4(idx)) => {
+            let [cproc, _] = &store
                 .fetch_2_ptrs(*idx)
                 .expect("Coprocessor expression is not interned");
             let cproc_sym = store

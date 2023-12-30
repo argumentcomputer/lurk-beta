@@ -7,6 +7,65 @@ use crate::{
 
 use super::Tag;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum RawPtr {
+    Atom(usize),
+    Hash3(usize),
+    Hash4(usize),
+    Hash6(usize),
+    Hash8(usize),
+}
+
+impl RawPtr {
+    #[inline]
+    pub fn is_hash(&self) -> bool {
+        matches!(
+            self,
+            RawPtr::Hash3(..) | RawPtr::Hash4(..) | RawPtr::Hash6(..) | RawPtr::Hash8(..)
+        )
+    }
+
+    #[inline]
+    pub fn get_atom(&self) -> Option<usize> {
+        match self {
+            RawPtr::Atom(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn get_hash3(&self) -> Option<usize> {
+        match self {
+            RawPtr::Hash3(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn get_hash4(&self) -> Option<usize> {
+        match self {
+            RawPtr::Hash4(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn get_hash6(&self) -> Option<usize> {
+        match self {
+            RawPtr::Hash6(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn get_hash8(&self) -> Option<usize> {
+        match self {
+            RawPtr::Hash8(x) => Some(*x),
+            _ => None,
+        }
+    }
+}
+
 /// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
 /// as a building block for trees that represent Lurk data. A pointer can be a
 /// atom that contains data encoded as an element of a `LurkField` or it can have
@@ -19,20 +78,31 @@ use super::Tag;
 /// hashing operations can plug any tag to the resulting pointer. Thus, the
 /// number of children have to be made explicit as the `Ptr` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub enum Ptr {
-    Atom(Tag, usize),
-    Tuple2(Tag, usize),
-    Tuple3(Tag, usize),
-    Tuple4(Tag, usize),
+pub struct Ptr {
+    tag: Tag,
+    pay: RawPtr,
 }
 
 impl Ptr {
+    #[inline]
+    pub fn new(tag: Tag, pay: RawPtr) -> Self {
+        Ptr { tag, pay }
+    }
+
+    #[inline]
     pub fn tag(&self) -> &Tag {
-        match self {
-            Ptr::Atom(tag, _) | Ptr::Tuple2(tag, _) | Ptr::Tuple3(tag, _) | Ptr::Tuple4(tag, _) => {
-                tag
-            }
-        }
+        &self.tag
+    }
+
+    #[inline]
+    pub fn pay(&self) -> &RawPtr {
+        &self.pay
+    }
+
+    #[inline]
+    pub fn parts(&self) -> (&Tag, &RawPtr) {
+        let Ptr { tag, pay } = self;
+        (tag, pay)
     }
 
     #[inline]
@@ -77,48 +147,34 @@ impl Ptr {
 
     #[inline]
     pub fn cast(self, tag: Tag) -> Self {
-        match self {
-            Ptr::Atom(_, x) => Ptr::Atom(tag, x),
-            Ptr::Tuple2(_, x) => Ptr::Tuple2(tag, x),
-            Ptr::Tuple3(_, x) => Ptr::Tuple3(tag, x),
-            Ptr::Tuple4(_, x) => Ptr::Tuple4(tag, x),
-        }
-    }
-
-    #[inline]
-    pub fn is_tuple(&self) -> bool {
-        matches!(self, Ptr::Tuple2(..) | Ptr::Tuple3(..) | Ptr::Tuple4(..))
+        Ptr { tag, pay: self.pay }
     }
 
     #[inline]
     pub fn get_atom(&self) -> Option<usize> {
-        match self {
-            Ptr::Atom(_, x) => Some(*x),
-            _ => None,
-        }
+        self.pay().get_atom()
     }
 
     #[inline]
     pub fn get_index2(&self) -> Option<usize> {
-        match self {
-            Ptr::Tuple2(_, x) => Some(*x),
-            _ => None,
-        }
+        self.pay().get_hash4()
     }
 
     #[inline]
     pub fn get_index3(&self) -> Option<usize> {
-        match self {
-            Ptr::Tuple3(_, x) => Some(*x),
-            _ => None,
-        }
+        self.pay().get_hash6()
     }
 
     #[inline]
     pub fn get_index4(&self) -> Option<usize> {
-        match self {
-            Ptr::Tuple4(_, x) => Some(*x),
-            _ => None,
+        self.pay().get_hash8()
+    }
+
+    #[inline]
+    pub fn atom(tag: Tag, idx: usize) -> Ptr {
+        Ptr {
+            tag,
+            pay: RawPtr::Atom(idx),
         }
     }
 }

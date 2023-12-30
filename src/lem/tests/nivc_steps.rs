@@ -78,12 +78,12 @@ fn test_nivc_steps() {
     let expr = cproc_input.pop().unwrap();
 
     let idx = expr.get_index2().unwrap();
-    let (_, args) = store.expect_2_ptrs(idx);
+    let [_, args] = store.expect_2_ptrs(idx);
     let new_name = user_sym("cproc-dumb-not");
     let new_expr = store.intern_2_ptrs(
         Tag::Expr(ExprTag::Cproc),
         store.intern_symbol(&new_name),
-        *args,
+        args,
     );
 
     // `cproc` can't reduce the altered cproc input (with the wrong name)

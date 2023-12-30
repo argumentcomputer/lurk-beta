@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use crate::{
     field::{FWrap, LurkField},
     lem::{
-        pointers::{Ptr, ZPtr},
+        pointers::{Ptr, RawPtr, ZPtr},
         store::Store,
     },
 };
@@ -38,17 +38,21 @@ impl<F: LurkField> ZDag<F> {
             if let Some(z_ptr) = cache.get(ptr) {
                 *z_ptr
             } else {
-                let z_ptr = match ptr {
-                    Ptr::Atom(tag, idx) => {
+                let tag = ptr.tag();
+                let z_ptr = match ptr.pay() {
+                    RawPtr::Atom(idx) => {
                         let f = store.expect_f(*idx);
                         let z_ptr = ZPtr::from_parts(*tag, *f);
                         self.0.insert(z_ptr, ZPtrType::Atom);
                         z_ptr
                     }
-                    Ptr::Tuple2(tag, idx) => {
-                        let (a, b) = store.expect_2_ptrs(*idx);
-                        let a = self.populate_with(a, store, cache);
-                        let b = self.populate_with(b, store, cache);
+                    RawPtr::Hash3(_) => {
+                        todo!()
+                    }
+                    RawPtr::Hash4(idx) => {
+                        let [a, b] = store.expect_2_ptrs(*idx);
+                        let a = self.populate_with(&a, store, cache);
+                        let b = self.populate_with(&b, store, cache);
                         let z_ptr = ZPtr::from_parts(
                             *tag,
                             store.poseidon_cache.hash4(&[
@@ -61,11 +65,11 @@ impl<F: LurkField> ZDag<F> {
                         self.0.insert(z_ptr, ZPtrType::Tuple2(a, b));
                         z_ptr
                     }
-                    Ptr::Tuple3(tag, idx) => {
-                        let (a, b, c) = store.expect_3_ptrs(*idx);
-                        let a = self.populate_with(a, store, cache);
-                        let b = self.populate_with(b, store, cache);
-                        let c = self.populate_with(c, store, cache);
+                    RawPtr::Hash6(idx) => {
+                        let [a, b, c] = store.expect_3_ptrs(*idx);
+                        let a = self.populate_with(&a, store, cache);
+                        let b = self.populate_with(&b, store, cache);
+                        let c = self.populate_with(&c, store, cache);
                         let z_ptr = ZPtr::from_parts(
                             *tag,
                             store.poseidon_cache.hash6(&[
@@ -80,12 +84,12 @@ impl<F: LurkField> ZDag<F> {
                         self.0.insert(z_ptr, ZPtrType::Tuple3(a, b, c));
                         z_ptr
                     }
-                    Ptr::Tuple4(tag, idx) => {
-                        let (a, b, c, d) = store.expect_4_ptrs(*idx);
-                        let a = self.populate_with(a, store, cache);
-                        let b = self.populate_with(b, store, cache);
-                        let c = self.populate_with(c, store, cache);
-                        let d = self.populate_with(d, store, cache);
+                    RawPtr::Hash8(idx) => {
+                        let [a, b, c, d] = store.expect_4_ptrs(*idx);
+                        let a = self.populate_with(&a, store, cache);
+                        let b = self.populate_with(&b, store, cache);
+                        let c = self.populate_with(&c, store, cache);
+                        let d = self.populate_with(&d, store, cache);
                         let z_ptr = ZPtr::from_parts(
                             *tag,
                             store.poseidon_cache.hash8(&[

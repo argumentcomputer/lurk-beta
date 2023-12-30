@@ -178,7 +178,7 @@ pub(crate) fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
     let (a, b) = if not_dummy.get_value() == Some(true) {
         let idx = get_ptr(tuple, store)?.get_index2().expect("invalid Ptr");
-        let (a, b) = store.expect_2_ptrs(idx);
+        let [a, b] = &store.expect_2_ptrs(idx);
         (store.hash_ptr(a), store.hash_ptr(b))
     } else {
         (ZPtr::dummy(), ZPtr::dummy())
@@ -221,7 +221,7 @@ pub(crate) fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
     let (a, b, c) = if not_dummy.get_value() == Some(true) {
         let idx = get_ptr(tuple, store)?.get_index3().expect("invalid Ptr");
-        let (a, b, c) = store.expect_3_ptrs(idx);
+        let [a, b, c] = &store.expect_3_ptrs(idx);
         (store.hash_ptr(a), store.hash_ptr(b), store.hash_ptr(c))
     } else {
         (ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy())
@@ -275,7 +275,7 @@ pub(crate) fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
 > {
     let (a, b, c, d) = if not_dummy.get_value() == Some(true) {
         let idx = get_ptr(tuple, store)?.get_index4().expect("invalid Ptr");
-        let (a, b, c, d) = store.expect_4_ptrs(idx);
+        let [a, b, c, d] = &store.expect_4_ptrs(idx);
         (
             store.hash_ptr(a),
             store.hash_ptr(b),

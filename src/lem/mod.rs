@@ -66,8 +66,6 @@ mod macros;
 pub mod multiframe;
 mod path;
 pub mod pointers;
-pub mod raw_pointers;
-pub mod raw_store;
 mod slot;
 pub mod store;
 mod var_map;
@@ -122,6 +120,10 @@ impl TryFrom<u16> for Tag {
             Ok(Tag::Expr(tag))
         } else if let Ok(tag) = ContTag::try_from(val) {
             Ok(Tag::Cont(tag))
+        } else if let Ok(tag) = Op1::try_from(val) {
+            Ok(Tag::Op1(tag))
+        } else if let Ok(tag) = Op2::try_from(val) {
+            Ok(Tag::Op2(tag))
         } else {
             bail!("Invalid u16 for Tag: {val}")
         }

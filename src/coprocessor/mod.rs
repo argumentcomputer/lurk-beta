@@ -113,7 +113,7 @@ pub(crate) mod test {
 
     use super::*;
     use crate::circuit::gadgets::constraints::{alloc_equal, mul};
-    use crate::lem::Tag as LEMTag;
+    use crate::lem::{pointers::RawPtr, Tag as LEMTag};
     use crate::tag::{ExprTag, Tag};
     use std::marker::PhantomData;
 
@@ -209,11 +209,11 @@ pub(crate) mod test {
         }
 
         fn evaluate(&self, s: &Store<F>, args: &[Ptr], env: &Ptr, cont: &Ptr) -> Vec<Ptr> {
-            let Ptr::Atom(LEMTag::Expr(ExprTag::Num), a) = &args[0] else {
+            let (LEMTag::Expr(ExprTag::Num), RawPtr::Atom(a)) = args[0].parts() else {
                 return vec![args[0], *env, s.cont_error()];
             };
             let a = s.expect_f(*a);
-            let Ptr::Atom(LEMTag::Expr(ExprTag::Num), b) = &args[1] else {
+            let (LEMTag::Expr(ExprTag::Num), RawPtr::Atom(b)) = args[1].parts() else {
                 return vec![args[1], *env, s.cont_error()];
             };
             let b = s.expect_f(*b);

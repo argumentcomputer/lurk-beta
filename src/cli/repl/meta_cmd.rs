@@ -18,7 +18,7 @@ use crate::{
     lem::{
         eval::evaluate_with_env_and_cont,
         multiframe::MultiFrame,
-        pointers::{Ptr, ZPtr},
+        pointers::{Ptr, RawPtr, ZPtr},
         Tag,
     },
     package::{Package, SymbolRef},
@@ -275,13 +275,13 @@ impl MetaCmd<F> {
             let (second_io, ..) = repl
                 .eval_expr(second)
                 .with_context(|| "evaluating second arg")?;
-            let Ptr::Atom(Tag::Expr(ExprTag::Num), secret) = first_io[0] else {
+            let (Tag::Expr(ExprTag::Num), RawPtr::Atom(secret)) = first_io[0].parts() else {
                 bail!(
                     "Secret must be a number. Got {}",
                     first_io[0].fmt_to_string(&repl.store, &repl.state.borrow())
                 )
             };
-            let secret = *repl.store.expect_f(secret);
+            let secret = *repl.store.expect_f(*secret);
             repl.hide(secret, second_io[0])?;
             Ok(())
         },
@@ -613,10 +613,10 @@ impl MetaCmd<F> {
                 .get_result()
                 .expect("evaluation result must have been set");
             let (_, comm) = repl.store.car_cdr(result)?;
-            let Ptr::Atom(Tag::Expr(ExprTag::Comm), hash) = comm else {
+            let (Tag::Expr(ExprTag::Comm), RawPtr::Atom(hash)) = comm.parts() else {
                 bail!("Second component of a chain must be a commitment")
             };
-            let hash = *repl.store.expect_f(hash);
+            let hash = *repl.store.expect_f(*hash);
             // retrieve from store to persist
             let (secret, fun) = repl
                 .store
@@ -892,10 +892,11 @@ impl MetaCmd<F> {
 
         let (fun, rest) = repl.store.car_cdr(ptcl)?;
 
-        let (Ptr::Atom(Tag::Expr(ExprTag::Num), rc_idx), _) = repl.store.car_cdr(&rest)? else {
+        let (car, _) = repl.store.car_cdr(&rest)?;
+        let (Tag::Expr(ExprTag::Num), RawPtr::Atom(rc_idx)) = car.parts() else {
             bail!("Reduction count must be a Num")
         };
-        let Some(rc) = repl.store.expect_f(rc_idx).to_u64().map(|u| u as usize) else {
+        let Some(rc) = repl.store.expect_f(*rc_idx).to_u64().map(|u| u as usize) else {
             bail!("Invalid value for reduction count")
         };
         Ok((fun, rc))
@@ -938,13 +939,13 @@ impl MetaCmd<F> {
             .eval_expr_with_env(apply_call, repl.store.intern_nil())
             .with_context(|| "evaluating protocol function call")?;
 
-        let Ptr::Tuple2(Tag::Expr(ExprTag::Cons), idx) = &io[0] else {
+        let (Tag::Expr(ExprTag::Cons), RawPtr::Hash4(idx)) = &io[0].parts() else {
             bail!(
                 "Protocol function must return a pair. Got {}",
                 io[0].fmt_to_string(&repl.store, &repl.state.borrow())
             )
         };
-        let (pre_verify, post_verify) = repl.store.fetch_2_ptrs(*idx).unwrap();
+        let [pre_verify, post_verify] = &repl.store.expect_2_ptrs(*idx);
 
         if pre_verify.is_nil() {
             bail!("Pre-verification predicate rejected the input")
