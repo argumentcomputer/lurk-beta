@@ -43,8 +43,6 @@ pub struct Store<F: LurkField> {
     ptr_string_cache: FrozenMap<Ptr, String>,
     ptr_symbol_cache: FrozenMap<Ptr, Box<Symbol>>,
 
-    comms: FrozenMap<FWrap<F>, Box<(F, Ptr)>>, // hash -> (secret, src)
-
     pub poseidon_cache: PoseidonCache<F>,
     pub inverse_poseidon_cache: InversePoseidonCache<F>,
 
@@ -83,7 +81,6 @@ impl<F: LurkField> Default for Store<F> {
             symbol_ptr_cache: Default::default(),
             ptr_string_cache: Default::default(),
             ptr_symbol_cache: Default::default(),
-            comms: Default::default(),
             poseidon_cache,
             inverse_poseidon_cache: Default::default(),
             dehydrated: Default::default(),
@@ -146,6 +143,35 @@ impl<F: LurkField> Store<F> {
         self.expect_f(self.hash8zeros_idx)
     }
 
+    // Since the `generic_const_exprs` feature is still unstable, we cannot substitute `N * 2`
+    // for generic const `P` and remove it completely, so we must keep it and do a dynamic assertion
+    // that it equals `N * 2`. This is not very ergonomic though, since we must add turbofishes
+    // like `::<6, 3>` instead of the simpler `::<3>`. Could we maybe create a macro for these functions?
+    #[inline]
+    pub fn ptrs_to_raw_ptrs<const N: usize, const P: usize>(&self, ptrs: &[Ptr; P]) -> [RawPtr; N] {
+        assert_eq!(P * 2, N);
+        let mut raw_ptrs = [self.raw_zero(); N];
+        for i in 0..P {
+            raw_ptrs[2 * i] = self.tag(*ptrs[i].tag());
+            raw_ptrs[2 * i + 1] = *ptrs[i].pay();
+        }
+        raw_ptrs
+    }
+
+    #[inline]
+    pub fn raw_ptrs_to_ptrs<const N: usize, const P: usize>(
+        &self,
+        raw_ptrs: &[RawPtr; N],
+    ) -> Option<[Ptr; P]> {
+        assert_eq!(P * 2, N);
+        let mut ptrs = [self.dummy(); P];
+        for i in 0..P {
+            let tag = self.fetch_tag(&raw_ptrs[2 * i])?;
+            ptrs[i] = Ptr::new(tag, raw_ptrs[2 * i + 1])
+        }
+        Some(ptrs)
+    }
+
     #[inline]
     pub fn intern_f(&self, f: F) -> (usize, bool) {
         self.f_elts.insert_probe(Box::new(FWrap(f)))
@@ -164,20 +190,7 @@ impl<F: LurkField> Store<F> {
 
     /// Creates a `RawPtr` that's a parent of `N` children
     pub fn intern_raw_ptrs<const N: usize>(&self, ptrs: [RawPtr; N]) -> RawPtr {
-        macro_rules! intern {
-            ($Hash:ident, $hash:ident, $n:expr) => {{
-                let ptrs = unsafe { std::mem::transmute::<&[RawPtr; N], &[RawPtr; $n]>(&ptrs) };
-                let (idx, inserted) = self.$hash.insert_probe(Box::new(*ptrs));
-                (RawPtr::$Hash(idx), inserted)
-            }};
-        }
-        let (ptr, inserted) = match N {
-            3 => intern!(Hash3, hash3, 3),
-            4 => intern!(Hash4, hash4, 4),
-            6 => intern!(Hash6, hash6, 6),
-            8 => intern!(Hash8, hash8, 8),
-            _ => unimplemented!(),
-        };
+        let (ptr, inserted) = self.intern_raw_ptrs_internal::<N>(ptrs);
         if inserted {
             // this is for `hydrate_z_cache`
             self.dehydrated.load().push(Box::new(ptr));
@@ -193,71 +206,48 @@ impl<F: LurkField> Store<F> {
         ptrs: [RawPtr; N],
         z: FWrap<F>,
     ) -> RawPtr {
-        macro_rules! intern {
-            ($Hash:ident, $hash:ident, $n:expr) => {{
-                let ptrs = unsafe { std::mem::transmute::<&[RawPtr; N], &[RawPtr; $n]>(&ptrs) };
-                let (idx, _) = self.$hash.insert_probe(Box::new(*ptrs));
-                RawPtr::$Hash(idx)
-            }};
-        }
-        let ptr = match N {
-            3 => intern!(Hash3, hash3, 3),
-            4 => intern!(Hash4, hash4, 4),
-            6 => intern!(Hash6, hash6, 6),
-            8 => intern!(Hash8, hash8, 8),
-            _ => unimplemented!(),
-        };
+        let (ptr, _) = self.intern_raw_ptrs_internal::<N>(ptrs);
         self.z_cache.insert(ptr, Box::new(z));
         self.inverse_z_cache.insert(z, Box::new(ptr));
         ptr
     }
 
-    /// Creates a `Ptr` that's a parent of `N` children
-    pub fn intern_ptrs<const N: usize>(&self, tag: Tag, ptrs: [Ptr; N]) -> Ptr {
+    #[inline]
+    fn intern_raw_ptrs_internal<const N: usize>(&self, ptrs: [RawPtr; N]) -> (RawPtr, bool) {
         macro_rules! intern {
-            ($n:expr) => {{
-                let mut raw_ptrs = [self.raw_zero(); $n * 2];
-                for i in 0..$n {
-                    raw_ptrs[2 * i] = self.tag(*ptrs[i].tag());
-                    raw_ptrs[2 * i + 1] = *ptrs[i].pay();
-                }
-                self.intern_raw_ptrs::<{ $n * 2 }>(raw_ptrs)
+            ($Hash:ident, $hash:ident, $n:expr) => {{
+                let ptrs = unsafe { std::mem::transmute::<&[RawPtr; N], &[RawPtr; $n]>(&ptrs) };
+                let (idx, inserted) = self.$hash.insert_probe(Box::new(*ptrs));
+                (RawPtr::$Hash(idx), inserted)
             }};
         }
-        let pay = match N {
-            2 => intern!(2),
-            3 => intern!(3),
-            4 => intern!(4),
+        match N {
+            3 => intern!(Hash3, hash3, 3),
+            4 => intern!(Hash4, hash4, 4),
+            6 => intern!(Hash6, hash6, 6),
+            8 => intern!(Hash8, hash8, 8),
             _ => unimplemented!(),
-        };
+        }
+    }
+
+    /// Creates a `Ptr` that's a parent of `N` children
+    pub fn intern_ptrs<const N: usize, const P: usize>(&self, tag: Tag, ptrs: [Ptr; P]) -> Ptr {
+        let raw_ptrs = self.ptrs_to_raw_ptrs::<N, P>(&ptrs);
+        let pay = self.intern_raw_ptrs::<N>(raw_ptrs);
         Ptr::new(tag, pay)
     }
 
     /// Similar to `intern_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    pub fn intern_ptrs_hydrated<const N: usize>(
+    pub fn intern_ptrs_hydrated<const N: usize, const P: usize>(
         &self,
         tag: Tag,
-        ptrs: [Ptr; N],
+        ptrs: [Ptr; P],
         z: FWrap<F>,
     ) -> Ptr {
-        macro_rules! intern {
-            ($n:expr) => {{
-                let mut raw_ptrs = [self.raw_zero(); $n * 2];
-                for i in 0..$n {
-                    raw_ptrs[2 * i] = self.tag(*ptrs[i].tag());
-                    raw_ptrs[2 * i + 1] = *ptrs[i].pay();
-                }
-                self.intern_raw_ptrs_hydrated::<{ $n * 2 }>(raw_ptrs, z)
-            }};
-        }
-        let pay = match N {
-            2 => intern!(2),
-            3 => intern!(3),
-            4 => intern!(4),
-            _ => unimplemented!(),
-        };
+        let raw_ptrs = self.ptrs_to_raw_ptrs::<N, P>(&ptrs);
+        let pay = self.intern_raw_ptrs_hydrated::<N>(raw_ptrs, z);
         Ptr::new(tag, pay)
     }
 
@@ -287,15 +277,8 @@ impl<F: LurkField> Store<F> {
     #[inline]
     pub fn fetch_ptrs<const N: usize, const P: usize>(&self, idx: usize) -> Option<[Ptr; P]> {
         assert_eq!(P * 2, N);
-        let raw_ptrs = self
-            .fetch_raw_ptrs::<N>(idx)
-            .expect("Index missing from store");
-        let mut ptrs = [self.dummy(); P];
-        for i in 0..P {
-            let tag = self.fetch_tag(&raw_ptrs[2 * i])?;
-            ptrs[i] = Ptr::new(tag, raw_ptrs[2 * i + 1])
-        }
-        Some(ptrs)
+        let raw_ptrs = self.fetch_raw_ptrs::<N>(idx)?;
+        self.raw_ptrs_to_ptrs(raw_ptrs)
     }
 
     #[inline]
@@ -315,29 +298,26 @@ impl<F: LurkField> Store<F> {
             .expect("Index missing from store")
     }
 
-    // TODO remove these functions
-    pub fn intern_atom_hydrated(&self, tag: Tag, f: F, _: ZPtr<F>) -> Ptr {
-        Ptr::new(tag, self.intern_raw_atom(f))
-    }
+    // TODO eventually deprecate these functions
     #[inline]
     pub fn intern_2_ptrs(&self, tag: Tag, a: Ptr, b: Ptr) -> Ptr {
-        self.intern_ptrs::<2>(tag, [a, b])
+        self.intern_ptrs::<4, 2>(tag, [a, b])
     }
     #[inline]
     pub fn intern_3_ptrs(&self, tag: Tag, a: Ptr, b: Ptr, c: Ptr) -> Ptr {
-        self.intern_ptrs::<3>(tag, [a, b, c])
+        self.intern_ptrs::<6, 3>(tag, [a, b, c])
     }
     #[inline]
     pub fn intern_4_ptrs(&self, tag: Tag, a: Ptr, b: Ptr, c: Ptr, d: Ptr) -> Ptr {
-        self.intern_ptrs::<4>(tag, [a, b, c, d])
+        self.intern_ptrs::<8, 4>(tag, [a, b, c, d])
     }
     #[inline]
     pub fn intern_2_ptrs_hydrated(&self, tag: Tag, a: Ptr, b: Ptr, z: ZPtr<F>) -> Ptr {
-        self.intern_ptrs_hydrated::<2>(tag, [a, b], FWrap(*z.value()))
+        self.intern_ptrs_hydrated::<4, 2>(tag, [a, b], FWrap(*z.value()))
     }
     #[inline]
     pub fn intern_3_ptrs_hydrated(&self, tag: Tag, a: Ptr, b: Ptr, c: Ptr, z: ZPtr<F>) -> Ptr {
-        self.intern_ptrs_hydrated::<3>(tag, [a, b, c], FWrap(*z.value()))
+        self.intern_ptrs_hydrated::<6, 3>(tag, [a, b, c], FWrap(*z.value()))
     }
     #[inline]
     pub fn intern_4_ptrs_hydrated(
@@ -349,7 +329,7 @@ impl<F: LurkField> Store<F> {
         d: Ptr,
         z: ZPtr<F>,
     ) -> Ptr {
-        self.intern_ptrs_hydrated::<4>(tag, [a, b, c, d], FWrap(*z.value()))
+        self.intern_ptrs_hydrated::<8, 4>(tag, [a, b, c, d], FWrap(*z.value()))
     }
     #[inline]
     pub fn fetch_2_ptrs(&self, idx: usize) -> Option<[Ptr; 2]> {
@@ -454,7 +434,7 @@ impl<F: LurkField> Store<F> {
             let nil_str = Ptr::new(Tag::Expr(Str), self.raw_zero());
             let ptr = s.chars().rev().fold(nil_str, |acc, c| {
                 let ptrs = [self.char(c), acc];
-                self.intern_ptrs::<2>(Tag::Expr(Str), ptrs)
+                self.intern_ptrs::<4, 2>(Tag::Expr(Str), ptrs)
             });
             self.string_ptr_cache.insert(s.to_string(), Box::new(ptr));
             self.ptr_string_cache.insert(ptr, s.to_string());
@@ -504,7 +484,7 @@ impl<F: LurkField> Store<F> {
         let zero_sym = Ptr::new(Tag::Expr(Sym), self.raw_zero());
         path.iter().fold(zero_sym, |acc, s| {
             let ptrs = [self.intern_string(s), acc];
-            self.intern_ptrs::<2>(Tag::Expr(Sym), ptrs)
+            self.intern_ptrs::<4, 2>(Tag::Expr(Sym), ptrs)
         })
     }
 
@@ -628,7 +608,16 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn add_comm(&self, hash: F, secret: F, payload: Ptr) {
-        self.comms.insert(FWrap(hash), Box::new((secret, payload)));
+        let ptrs = [
+            self.intern_raw_atom(secret),
+            self.tag(*payload.tag()),
+            *payload.pay(),
+        ];
+        let (idx, _) = self.hash3.insert_probe(Box::new(ptrs));
+        let ptr = RawPtr::Hash3(idx);
+        let z = FWrap(hash);
+        self.z_cache.insert(ptr, Box::new(z));
+        self.inverse_z_cache.insert(z, Box::new(ptr));
     }
 
     #[inline]
@@ -651,8 +640,12 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn open(&self, hash: F) -> Option<&(F, Ptr)> {
-        self.comms.get(&FWrap(hash))
+    pub fn open(&self, hash: F) -> Option<(F, Ptr)> {
+        let cached = self.inverse_z_cache.get(&FWrap(hash))?;
+        let [f, tag, pay] = self.fetch_raw_ptrs::<3>(cached.get_hash3()?)?;
+        let f = self.fetch_f(f.get_atom()?)?;
+        let ptr = self.raw_to_ptr(tag, pay)?;
+        Some((*f, ptr))
     }
 
     pub fn hide_ptr(&self, secret: F, payload: Ptr) -> F {
@@ -668,13 +661,13 @@ impl<F: LurkField> Store<F> {
     #[inline]
     pub fn cons(&self, car: Ptr, cdr: Ptr) -> Ptr {
         let ptrs = [car, cdr];
-        self.intern_ptrs::<2>(Tag::Expr(Cons), ptrs)
+        self.intern_ptrs::<4, 2>(Tag::Expr(Cons), ptrs)
     }
 
     #[inline]
     pub fn intern_fun(&self, arg: Ptr, body: Ptr, env: Ptr) -> Ptr {
         let ptrs = [arg, body, env, self.dummy()];
-        self.intern_ptrs::<4>(Tag::Expr(Fun), ptrs)
+        self.intern_ptrs::<8, 4>(Tag::Expr(Fun), ptrs)
     }
 
     #[inline]
@@ -1185,7 +1178,7 @@ impl Ptr {
                 Comm => match self.pay().get_atom() {
                     Some(idx) => {
                         let f = store.expect_f(idx);
-                        if store.comms.get(&FWrap(*f)).is_some() {
+                        if store.inverse_z_cache.get(&FWrap(*f)).is_some() {
                             format!("(comm 0x{})", f.hex_digits())
                         } else {
                             format!("<Opaque Comm 0x{}>", f.hex_digits())

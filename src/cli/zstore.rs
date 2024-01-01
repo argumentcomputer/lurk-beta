@@ -130,9 +130,7 @@ impl<F: LurkField> ZDag<F> {
             } else {
                 let ptr = match self.get_type(z_ptr) {
                     None => bail!("Couldn't find ZPtr on ZStore"),
-                    Some(ZPtrType::Atom) => {
-                        store.intern_atom_hydrated(*z_ptr.tag(), *z_ptr.value(), *z_ptr)
-                    }
+                    Some(ZPtrType::Atom) => store.intern_atom(*z_ptr.tag(), *z_ptr.value()),
                     Some(ZPtrType::Tuple2(z1, z2)) => {
                         let ptr1 = self.populate_store(z1, store, cache)?;
                         let ptr2 = self.populate_store(z2, store, cache)?;

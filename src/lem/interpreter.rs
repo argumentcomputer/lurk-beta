@@ -427,7 +427,7 @@ impl Block {
                         bail!("{comm} is not a comm pointer")
                     };
                     let hash = *store.expect_f(*hash);
-                    let Some((secret, ptr)) = store.open(hash).cloned() else {
+                    let Some((secret, ptr)) = store.open(hash) else {
                         bail!("No committed data for hash {}", &hash.hex_digits())
                     };
                     bindings.insert_ptr(tgt_ptr.clone(), ptr);

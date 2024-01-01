@@ -622,7 +622,7 @@ impl MetaCmd<F> {
                 .store
                 .open(hash)
                 .expect("data must have been committed");
-            repl.hide(*secret, *fun)
+            repl.hide(secret, fun)
         },
     };
 }
