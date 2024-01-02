@@ -80,13 +80,13 @@ impl RawPtr {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Ptr {
     tag: Tag,
-    pay: RawPtr,
+    raw: RawPtr,
 }
 
 impl Ptr {
     #[inline]
-    pub fn new(tag: Tag, pay: RawPtr) -> Self {
-        Ptr { tag, pay }
+    pub fn new(tag: Tag, raw: RawPtr) -> Self {
+        Ptr { tag, raw }
     }
 
     #[inline]
@@ -95,14 +95,14 @@ impl Ptr {
     }
 
     #[inline]
-    pub fn pay(&self) -> &RawPtr {
-        &self.pay
+    pub fn raw(&self) -> &RawPtr {
+        &self.raw
     }
 
     #[inline]
     pub fn parts(&self) -> (&Tag, &RawPtr) {
-        let Ptr { tag, pay } = self;
-        (tag, pay)
+        let Ptr { tag, raw } = self;
+        (tag, raw)
     }
 
     #[inline]
@@ -147,34 +147,34 @@ impl Ptr {
 
     #[inline]
     pub fn cast(self, tag: Tag) -> Self {
-        Ptr { tag, pay: self.pay }
+        Ptr { tag, raw: self.raw }
     }
 
     #[inline]
     pub fn get_atom(&self) -> Option<usize> {
-        self.pay().get_atom()
+        self.raw().get_atom()
     }
 
     #[inline]
     pub fn get_index2(&self) -> Option<usize> {
-        self.pay().get_hash4()
+        self.raw().get_hash4()
     }
 
     #[inline]
     pub fn get_index3(&self) -> Option<usize> {
-        self.pay().get_hash6()
+        self.raw().get_hash6()
     }
 
     #[inline]
     pub fn get_index4(&self) -> Option<usize> {
-        self.pay().get_hash8()
+        self.raw().get_hash8()
     }
 
     #[inline]
     pub fn atom(tag: Tag, idx: usize) -> Ptr {
         Ptr {
             tag,
-            pay: RawPtr::Atom(idx),
+            raw: RawPtr::Atom(idx),
         }
     }
 }

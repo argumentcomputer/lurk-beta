@@ -229,8 +229,8 @@ impl Block {
                     bindings.insert_bool(tgt.clone(), a || b);
                 }
                 Op::Add(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.pay();
-                    let b = *bindings.get_ptr(b)?.pay();
+                    let a = *bindings.get_ptr(a)?.raw();
+                    let b = *bindings.get_ptr(b)?.raw();
                     let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         let (f, g) = (store.expect_f(f), store.expect_f(g));
                         store.intern_atom(Tag::Expr(Num), *f + *g)
@@ -240,8 +240,8 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Sub(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.pay();
-                    let b = *bindings.get_ptr(b)?.pay();
+                    let a = *bindings.get_ptr(a)?.raw();
+                    let b = *bindings.get_ptr(b)?.raw();
                     let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         let (f, g) = (store.expect_f(f), store.expect_f(g));
                         store.intern_atom(Tag::Expr(Num), *f - *g)
@@ -251,8 +251,8 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Mul(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.pay();
-                    let b = *bindings.get_ptr(b)?.pay();
+                    let a = *bindings.get_ptr(a)?.raw();
+                    let b = *bindings.get_ptr(b)?.raw();
                     let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         let (f, g) = (store.expect_f(f), store.expect_f(g));
                         store.intern_atom(Tag::Expr(Num), *f * *g)
@@ -262,8 +262,8 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Div(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.pay();
-                    let b = *bindings.get_ptr(b)?.pay();
+                    let a = *bindings.get_ptr(a)?.raw();
+                    let b = *bindings.get_ptr(b)?.raw();
                     let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         let (f, g) = (store.expect_f(f), store.expect_f(g));
                         if g == &F::ZERO {
@@ -276,8 +276,8 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Lt(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.pay();
-                    let b = *bindings.get_ptr(b)?.pay();
+                    let a = *bindings.get_ptr(a)?.raw();
+                    let b = *bindings.get_ptr(b)?.raw();
                     let c = if let (RawPtr::Atom(f_idx), RawPtr::Atom(g_idx)) = (a, b) {
                         let f = *store.expect_f(f_idx);
                         let g = *store.expect_f(g_idx);
@@ -301,7 +301,7 @@ impl Block {
                 }
                 Op::Trunc(tgt, a, n) => {
                     assert!(*n <= 64);
-                    let a = *bindings.get_ptr(a)?.pay();
+                    let a = *bindings.get_ptr(a)?.raw();
                     let c = if let RawPtr::Atom(f_idx) = a {
                         let f = *store.expect_f(f_idx);
                         hints.bit_decomp.push(Some(SlotData {
@@ -315,8 +315,8 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::DivRem64(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.pay();
-                    let b = *bindings.get_ptr(b)?.pay();
+                    let a = *bindings.get_ptr(a)?.raw();
+                    let b = *bindings.get_ptr(b)?.raw();
                     let (c1, c2) = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         let f = *store.expect_f(f);
                         let g = *store.expect_f(g);

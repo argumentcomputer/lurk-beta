@@ -39,7 +39,7 @@ impl<F: LurkField> ZDag<F> {
                 *z_ptr
             } else {
                 let tag = ptr.tag();
-                let z_ptr = match ptr.pay() {
+                let z_ptr = match ptr.raw() {
                     RawPtr::Atom(idx) => {
                         let f = store.expect_f(*idx);
                         let z_ptr = ZPtr::from_parts(*tag, *f);
@@ -47,7 +47,10 @@ impl<F: LurkField> ZDag<F> {
                         z_ptr
                     }
                     RawPtr::Hash3(_) => {
-                        todo!()
+                        // `Hash3` is currently only used for commit caches, and in particular, they
+                        // never appear as part of expressions, since commits are not pointers, but
+                        // field elements
+                        unreachable!()
                     }
                     RawPtr::Hash4(idx) => {
                         let [a, b] = store.expect_2_ptrs(*idx);
