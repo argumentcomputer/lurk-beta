@@ -29,6 +29,16 @@ use crate::{
 
 use super::pointers::{Ptr, RawPtr, ZPtr};
 
+/// The `Store` is a crucial part of Lurk's implementation and tries to be a
+/// vesatile data structure for many parts of Lurk's data pipeline.
+///
+/// It holds Lurk data structured as graphs of `RawPtr`s. When a `RawPtr` has
+/// children, we store them in its respective `IndexSet`. These data structures
+/// speed up LEM interpretation because lookups by indices are fast, and leave
+/// all the hashing to be done by the hydration step in multiple threads.
+///
+/// The `Store` also provides an infra to speed up interning strings and symbols.
+/// This data is saved in `string_ptr_cache` and `symbol_ptr_cache`.
 #[derive(Debug)]
 pub struct Store<F: LurkField> {
     f_elts: FrozenIndexSet<Box<FWrap<F>>>,
@@ -849,7 +859,7 @@ impl<F: LurkField> Store<F> {
     ///
     /// Warning: without cache hits, this function might blow up Rust's recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`
-    /// beforehand or by using `hash_ptr` instead, which is slightly slower.
+    /// beforehand or by using `hash_raw_ptr` instead, which is slightly slower.
     fn hash_raw_ptr_unsafe(&self, ptr: &RawPtr) -> FWrap<F> {
         macro_rules! hash_raw {
             ($hash:ident, $n:expr, $idx:expr) => {{
@@ -880,8 +890,8 @@ impl<F: LurkField> Store<F> {
     /// Hashes pointers in parallel, consuming chunks of length 256, which is a
     /// reasonably safe limit. The danger of longer chunks is that the rightmost
     /// pointers are the ones which are more likely to reach the recursion depth
-    /// limit in `hash_ptr_unsafe`. So we move in smaller chunks from left to
-    /// right, populating the `z_cache`, which can rescue `hash_ptr_unsafe` from
+    /// limit in `hash_raw_ptr_unsafe`. So we move in smaller chunks from left to
+    /// right, populating the `z_cache`, which can rescue `hash_raw_ptr_unsafe` from
     /// dangerously deep recursions
     fn hydrate_z_cache_with_ptrs(&self, ptrs: &[&RawPtr]) {
         ptrs.chunks(256).for_each(|chunk| {
@@ -891,8 +901,8 @@ impl<F: LurkField> Store<F> {
         });
     }
 
-    /// Hashes enqueued `Ptr` trees from the bottom to the top, avoiding deep
-    /// recursions in `hash_ptr`. Resets the `dehydrated` queue afterwards.
+    /// Hashes enqueued `RawPtr` trees from the bottom to the top, avoiding deep
+    /// recursions in `hash_raw_ptr`. Resets the `dehydrated` queue afterwards.
     pub fn hydrate_z_cache(&self) {
         self.hydrate_z_cache_with_ptrs(&self.dehydrated.load().iter().collect::<Vec<_>>());
         self.dehydrated.swap(Arc::new(FrozenVec::default()));
@@ -911,12 +921,12 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    /// Safe version of `hash_ptr_unsafe` that doesn't hit a stack overflow by
+    /// Safe version of `hash_raw_ptr_unsafe` that doesn't hit a stack overflow by
     /// precomputing the pointers that need to be hashed in order to hash the
     /// provided `ptr`
     pub fn hash_raw_ptr(&self, ptr: &RawPtr) -> FWrap<F> {
         if self.is_below_safe_threshold() {
-            // just run `hash_ptr_unsafe` for extra speed when the dehydrated
+            // just run `hash_raw_ptr_unsafe` for extra speed when the dehydrated
             // queue is small enough
             return self.hash_raw_ptr_unsafe(ptr);
         }
@@ -964,10 +974,12 @@ impl<F: LurkField> Store<F> {
         }
         ptrs.reverse();
         self.hydrate_z_cache_with_ptrs(&ptrs.into_iter().collect::<Vec<_>>());
-        // Now it's okay to call `hash_ptr_unsafe`
+        // Now it's okay to call `hash_raw_ptr_unsafe`
         self.hash_raw_ptr_unsafe(ptr)
     }
 
+    /// Hydrates a `Ptr`. That is, creates a `ZPtr` with the tag of the pointer
+    /// and the hash of its raw pointer
     pub fn hash_ptr(&self, ptr: &Ptr) -> ZPtr<F> {
         ZPtr::from_parts(*ptr.tag(), self.hash_raw_ptr(ptr.raw()).0)
     }
@@ -1000,9 +1012,9 @@ impl<F: LurkField> Store<F> {
         self.hash_ptr(a) == self.hash_ptr(b)
     }
 
-    /// Attempts to recover the `Ptr` that corresponds to `z_ptr` from
-    /// `inverse_z_cache`. If the mapping is not there, returns an atom pointer
-    /// with the same tag and value
+    /// Attempts to recover the `RawPtr` that corresponds to a field element `z`
+    /// from `inverse_z_cache`. If the mapping is not there, returns a raw atom
+    /// pointer with value
     #[inline]
     pub fn to_raw_ptr(&self, z: &FWrap<F>) -> RawPtr {
         self.inverse_z_cache
@@ -1011,6 +1023,8 @@ impl<F: LurkField> Store<F> {
             .unwrap_or_else(|| self.intern_raw_atom(z.0))
     }
 
+    /// Attempts to recover the `Ptr` that corresponds to a `ZPtr`. If the mapping
+    /// is not there, returns an atom pointer with the same tag and value
     #[inline]
     pub fn to_ptr(&self, z_ptr: &ZPtr<F>) -> Ptr {
         Ptr::new(*z_ptr.tag(), self.to_raw_ptr(&FWrap(*z_ptr.value())))
@@ -1428,13 +1442,13 @@ mod tests {
         let string = String::from_utf8(vec![b'0'; 4096]).unwrap();
         let store = Store::<Fr>::default();
         let ptr = store.intern_string(&string);
-        // `hash_ptr_unsafe` would overflow the stack, whereas `hash_ptr` works
+        // `hash_raw_ptr_unsafe` would overflow the stack, whereas `hash_raw_ptr` works
         let x = store.hash_raw_ptr(ptr.raw());
 
         let store = Store::<Fr>::default();
         let ptr = store.intern_string(&string);
         store.hydrate_z_cache();
-        // but `hash_ptr_unsafe` works just fine after manual hydration
+        // but `hash_raw_ptr_unsafe` works just fine after manual hydration
         let y = store.hash_raw_ptr_unsafe(ptr.raw());
 
         // and, of course, those functions result on the same `ZPtr`

@@ -7,6 +7,9 @@ use crate::{
 
 use super::Tag;
 
+/// `RawPtr` is the basic pointer type of the LEM store. An `Atom` points to a field
+/// element, and a `HashN` points to `N` children, which are also raw pointers. Thus,
+/// they are a building block for graphs that represent Lurk data.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum RawPtr {
     Atom(usize),
@@ -66,17 +69,9 @@ impl RawPtr {
     }
 }
 
-/// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
-/// as a building block for trees that represent Lurk data. A pointer can be a
-/// atom that contains data encoded as an element of a `LurkField` or it can have
-/// children. For performance, the children of a pointer are stored on an
-/// `IndexSet` and the resulding index is carried by the pointer itself.
-///
-/// A pointer also has a tag, which says what kind of data it encodes. On
-/// previous implementations, the tag would be used to infer the number of
-/// children a pointer has. However, LEMs require extra flexibility because LEM
-/// hashing operations can plug any tag to the resulting pointer. Thus, the
-/// number of children have to be made explicit as the `Ptr` enum.
+/// `Ptr` is a tagged pointer. The tag is there to say what kind of data it encodes.
+/// Since tags can be encoded as field elements, they are also able to be expressed
+/// as raw pointers. A `Ptr` can thus be seen as a tuple of `RawPtr`s.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Ptr {
     tag: Tag,
@@ -179,15 +174,18 @@ impl Ptr {
     }
 }
 
-/// A `ZPtr` is the result of "hydrating" a `Ptr`. This process is better
-/// explained in the store but, in short, we want to know the Poseidon hash of
-/// the children of a `Ptr`.
+/// A `ZPtr` is the result of "hydrating" a `Ptr`, which is a process of replacing
+/// indices by hashes. That is, a `ZPtr` is a content-addressed, tagged, pointer.
+/// By analogy, we can view ordinary field elements as hydrated raw pointers.
 ///
-/// `ZPtr`s are used mainly for proofs, but they're also useful when we want
-/// to content-address a store.
+/// With `ZPtr`s we are able to content-address arbitrary DAGs, and thus be able to
+/// represent these data structures as field elements. This is how we can prove facts
+/// about data structures only using field elements. `ZPtr`s are also useful when we
+/// want to content-address the store.
 ///
-/// An important note is that computing the respective `ZPtr` of a `Ptr` can be
-/// expensive because of the Poseidon hashes. That's why we operate on `Ptr`s
+/// In principle, `ZPtr`s could be used in place of `Ptr`, but it is important to
+/// note that content-addressing can be expensive, especially in the context of
+/// interpretation, because of the Poseidon hashes. That's why we operate on `Ptr`s
 /// when interpreting LEMs and delay the need for `ZPtr`s as much as possible.
 pub type ZPtr<F> = crate::z_data::z_ptr::ZPtr<Tag, F>;
 
