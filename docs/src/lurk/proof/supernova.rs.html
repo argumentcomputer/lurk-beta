@@ -398,6 +398,7 @@
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -527,6 +528,7 @@
 
 <span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
+#[serde(bound = <span class="string">""</span>)]
 </span><span class="kw">pub enum </span>Proof&lt;
     <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
