@@ -26,10 +26,10 @@ config = "0.13.3"
 dashmap = "5.5.0"
 ff = { workspace = true }
 fxhash = "0.2.1"
-generic-array = "0.14.7"
+generic-array = "1.0"
 hex = { version = "0.4.3", features = ["serde"] }
 indexmap = { version = "2.1.0", features = ["rayon", "serde"] }
-itertools = "0.11"
+itertools = "0.12"
 lurk-macros = { version = "0.2.0", path = "lurk-macros" }
 lurk-metrics = { version = "0.2.0", path = "lurk-metrics" }
 metrics = { workspace = true }
@@ -48,7 +48,7 @@ rand = { workspace = true }
 rand_core = { version = "0.6.4", default-features = false }
 rand_xorshift = "0.3.0"
 rayon = "1.7.0"
-rustyline-derive = "0.9.0"
+rustyline-derive = "0.10"
 serde = { workspace = true, features = ["derive"] }
 serde_bytes = "0.11.12"
 serde_json = { workspace = true }
@@ -76,7 +76,7 @@ pasta-msm = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = "0.8.5"
-rustyline = { version = "11.0", features = [
+rustyline = { version = "13.0", features = [
     "derive",
     "with-file-history",
 ], default-features = false }
@@ -85,7 +85,7 @@ halo2curves = { version = "0.5.0", features = ["bits", "derive_serde"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
-rustyline = { version = "11.0", features = ["derive"], default-features = false }
+rustyline = { version = "13.0", features = ["derive"], default-features = false }
 halo2curves = { version = "0.5.0", default-features = false, features = ["bits", "derive_serde"] }
 
 [features]
@@ -136,7 +136,7 @@ pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch = "dev
 pasta-msm = { git = "https://github.com/lurk-lab/pasta-msm", branch = "dev" }
 grumpkin-msm = { git = "https://github.com/lurk-lab/grumpkin-msm", branch = "dev", features = ["dont-implement-sort"] }
 proptest = "1.2.0"
-proptest-derive = "0.3.0"
+proptest-derive = "0.3"
 rand = "0.8"
 serde = "1.0"
 serde_json = { version = "1.0" }
