@@ -42,7 +42,6 @@ use super::pointers::{Ptr, RawPtr, ZPtr};
 #[derive(Debug)]
 pub struct Store<F: LurkField> {
     f_elts: FrozenIndexSet<Box<FWrap<F>>>,
-    hash3: FrozenIndexSet<Box<[RawPtr; 3]>>,
     hash4: FrozenIndexSet<Box<[RawPtr; 4]>>,
     hash6: FrozenIndexSet<Box<[RawPtr; 6]>>,
     hash8: FrozenIndexSet<Box<[RawPtr; 8]>>,
@@ -52,6 +51,8 @@ pub struct Store<F: LurkField> {
 
     ptr_string_cache: FrozenMap<Ptr, String>,
     ptr_symbol_cache: FrozenMap<Ptr, Box<Symbol>>,
+
+    comms: FrozenMap<FWrap<F>, Box<(F, Ptr)>>, // hash -> (secret, src)
 
     pub poseidon_cache: PoseidonCache<F>,
     pub inverse_poseidon_cache: InversePoseidonCache<F>,
@@ -83,7 +84,6 @@ impl<F: LurkField> Default for Store<F> {
 
         Self {
             f_elts,
-            hash3: Default::default(),
             hash4: Default::default(),
             hash6: Default::default(),
             hash8: Default::default(),
@@ -91,6 +91,7 @@ impl<F: LurkField> Default for Store<F> {
             symbol_ptr_cache: Default::default(),
             ptr_string_cache: Default::default(),
             ptr_symbol_cache: Default::default(),
+            comms: Default::default(),
             poseidon_cache,
             inverse_poseidon_cache: Default::default(),
             dehydrated: Default::default(),
@@ -273,7 +274,6 @@ impl<F: LurkField> Store<F> {
             }};
         }
         match N {
-            3 => intern!(Hash3, hash3, 3),
             4 => intern!(Hash4, hash4, 4),
             6 => intern!(Hash6, hash6, 6),
             8 => intern!(Hash8, hash8, 8),
@@ -317,7 +317,6 @@ impl<F: LurkField> Store<F> {
             }};
         }
         match N {
-            3 => fetch!(hash3, 3),
             4 => fetch!(hash4, 4),
             6 => fetch!(hash6, 6),
             8 => fetch!(hash8, 8),
@@ -599,21 +598,13 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn add_comm(&self, hash: F, secret: F, payload: Ptr) {
-        let ptrs = [
-            self.intern_raw_atom(secret),
-            self.tag(*payload.tag()),
-            *payload.raw(),
-        ];
-        let (idx, _) = self.hash3.insert_probe(Box::new(ptrs));
-        let ptr = RawPtr::Hash3(idx);
-        let z = FWrap(hash);
-        self.z_cache.insert(ptr, Box::new(z));
-        self.inverse_z_cache.insert(z, Box::new(ptr));
+        self.comms
+            .insert(FWrap::<F>(hash), Box::new((secret, payload)));
     }
 
     #[inline]
     pub fn hide(&self, secret: F, payload: Ptr) -> Ptr {
-        self.comm(self.hide_ptr(secret, payload))
+        self.comm(self.hide_and_return_z_payload(secret, payload).0)
     }
 
     pub fn hide_and_return_z_payload(&self, secret: F, payload: Ptr) -> (F, ZPtr<F>) {
@@ -631,22 +622,8 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn open(&self, hash: F) -> Option<(F, Ptr)> {
-        let cached = self.inverse_z_cache.get(&FWrap(hash))?;
-        let [f, tag, pay] = self.fetch_raw_ptrs::<3>(cached.get_hash3()?)?;
-        let f = self.fetch_f(f.get_atom()?)?;
-        let ptr = self.raw_to_ptr(tag, pay)?;
-        Some((*f, ptr))
-    }
-
-    pub fn hide_ptr(&self, secret: F, payload: Ptr) -> F {
-        let hash = self.poseidon_cache.hash3(&[
-            secret,
-            payload.tag().to_field(),
-            self.hash_raw_ptr(payload.raw()).0,
-        ]);
-        self.add_comm(hash, secret, payload);
-        hash
+    pub fn open(&self, hash: F) -> Option<&(F, Ptr)> {
+        self.comms.get(&FWrap(hash))
     }
 
     #[inline]
@@ -856,7 +833,6 @@ impl<F: LurkField> Store<F> {
         }
         match ptr {
             RawPtr::Atom(idx) => FWrap(*self.expect_f(*idx)),
-            RawPtr::Hash3(idx) => hash_raw!(hash3, 3, *idx),
             RawPtr::Hash4(idx) => hash_raw!(hash4, 4, *idx),
             RawPtr::Hash6(idx) => hash_raw!(hash6, 6, *idx),
             RawPtr::Hash8(idx) => hash_raw!(hash8, 8, *idx),
@@ -922,12 +898,6 @@ impl<F: LurkField> Store<F> {
         while let Some(ptr) = stack.pop() {
             match ptr {
                 RawPtr::Atom(..) => (),
-                RawPtr::Hash3(idx) => {
-                    let ptrs = self.expect_raw_ptrs::<3>(*idx);
-                    for ptr in ptrs {
-                        feed_loop!(ptr)
-                    }
-                }
                 RawPtr::Hash4(idx) => {
                     let ptrs = self.expect_raw_ptrs::<4>(*idx);
                     for ptr in ptrs {

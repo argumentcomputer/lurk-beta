@@ -46,12 +46,6 @@ impl<F: LurkField> ZDag<F> {
                         self.0.insert(z_ptr, ZPtrType::Atom);
                         z_ptr
                     }
-                    RawPtr::Hash3(_) => {
-                        // `Hash3` is currently only used for commit caches, and in particular, they
-                        // never appear as part of expressions, since commits are not pointers, but
-                        // field elements
-                        unreachable!()
-                    }
                     RawPtr::Hash4(idx) => {
                         let [a, b] = expect_ptrs!(store, 2, *idx);
                         let a = self.populate_with(&a, store, cache);

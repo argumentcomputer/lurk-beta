@@ -431,13 +431,13 @@ impl Block {
                     let Some((secret, ptr)) = store.open(hash) else {
                         bail!("No committed data for hash {}", &hash.hex_digits())
                     };
-                    bindings.insert_ptr(tgt_ptr.clone(), ptr);
+                    bindings.insert_ptr(tgt_ptr.clone(), *ptr);
                     bindings.insert_ptr(
                         tgt_secret.clone(),
-                        store.intern_atom(Tag::Expr(Num), secret),
+                        store.intern_atom(Tag::Expr(Num), *secret),
                     );
-                    let secret_idx = store.intern_f(secret).0;
-                    let vals = vec![Val::Num(secret_idx), Val::Pointer(ptr)];
+                    let secret_idx = store.intern_f(*secret).0;
+                    let vals = vec![Val::Num(secret_idx), Val::Pointer(*ptr)];
                     hints.commitment.push(Some(SlotData { vals }));
                 }
                 Op::Unit(f) => f(),

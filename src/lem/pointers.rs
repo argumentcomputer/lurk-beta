@@ -13,7 +13,6 @@ use super::Tag;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum RawPtr {
     Atom(usize),
-    Hash3(usize),
     Hash4(usize),
     Hash6(usize),
     Hash8(usize),
@@ -24,7 +23,7 @@ impl RawPtr {
     pub fn is_hash(&self) -> bool {
         matches!(
             self,
-            RawPtr::Hash3(..) | RawPtr::Hash4(..) | RawPtr::Hash6(..) | RawPtr::Hash8(..)
+            RawPtr::Hash4(..) | RawPtr::Hash6(..) | RawPtr::Hash8(..)
         )
     }
 
@@ -32,14 +31,6 @@ impl RawPtr {
     pub fn get_atom(&self) -> Option<usize> {
         match self {
             RawPtr::Atom(x) => Some(*x),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn get_hash3(&self) -> Option<usize> {
-        match self {
-            RawPtr::Hash3(x) => Some(*x),
             _ => None,
         }
     }
