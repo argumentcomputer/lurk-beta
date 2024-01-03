@@ -4,7 +4,10 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
     eval::lang::{Coproc, Lang},
-    lem::{store::Store, Tag},
+    lem::{
+        store::{intern_ptrs, Store},
+        Tag,
+    },
     num::Num,
     proof::nova::C1LEM,
     state::user_sym,
@@ -3786,7 +3789,7 @@ fn test_prove_call_literal_fun() {
     let empty_env = s.intern_nil();
     let args = s.list(vec![s.intern_user_symbol("x")]);
     let body = s.read_with_default_state("(+ x 1)").unwrap();
-    let fun = s.intern_4_ptrs(Tag::Expr(ExprTag::Fun), args, body, empty_env, s.dummy());
+    let fun = intern_ptrs!(s, Tag::Expr(ExprTag::Fun), args, body, empty_env, s.dummy());
     let input = s.num_u64(9);
     let expr = s.list(vec![fun, input]);
     let res = s.num_u64(10);

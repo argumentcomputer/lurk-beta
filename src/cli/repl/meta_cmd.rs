@@ -19,6 +19,7 @@ use crate::{
         eval::evaluate_with_env_and_cont,
         multiframe::MultiFrame,
         pointers::{Ptr, RawPtr, ZPtr},
+        store::expect_ptrs,
         Tag,
     },
     package::{Package, SymbolRef},
@@ -945,7 +946,7 @@ impl MetaCmd<F> {
                 io[0].fmt_to_string(&repl.store, &repl.state.borrow())
             )
         };
-        let [pre_verify, post_verify] = &repl.store.expect_2_ptrs(*idx);
+        let [pre_verify, post_verify] = &expect_ptrs!(repl.store, 2, *idx);
 
         if pre_verify.is_nil() {
             bail!("Pre-verification predicate rejected the input")

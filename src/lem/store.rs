@@ -104,6 +104,44 @@ impl<F: LurkField> Default for Store<F> {
     }
 }
 
+// These are utility macros for store methods on `Ptr`s, especially because
+// they contain two const generic variables (more on this later)
+macro_rules! count {
+    () => (0);
+    ( $_x:tt $($xs:tt)* ) => (1 + crate::lem::store::count!($($xs)*));
+}
+pub(crate) use count;
+
+macro_rules! intern_ptrs {
+    ($store:expr, $tag:expr, $($ptrs:expr),*) => {{
+        const N: usize = crate::lem::store::count!($($ptrs)*);
+        ($store).intern_ptrs::<{2*N}, N>($tag, [$($ptrs),*])
+    }}
+}
+pub(crate) use intern_ptrs;
+
+macro_rules! intern_ptrs_hydrated {
+    ($store:expr, $tag:expr, $z:expr, $($ptrs:expr),*) => {{
+        const N: usize = crate::lem::store::count!($($ptrs)*);
+        ($store).intern_ptrs_hydrated::<{2*N}, N>($tag, [$($ptrs),*], $z)
+    }}
+}
+pub(crate) use intern_ptrs_hydrated;
+
+macro_rules! fetch_ptrs {
+    ($store:expr, $n:expr, $idx:expr) => {{
+        ($store).fetch_ptrs::<{ 2 * $n }, $n>($idx)
+    }};
+}
+pub(crate) use fetch_ptrs;
+
+macro_rules! expect_ptrs {
+    ($store:expr, $n:expr, $idx:expr) => {{
+        ($store).expect_ptrs::<{ 2 * $n }, $n>($idx)
+    }};
+}
+pub(crate) use expect_ptrs;
+
 impl<F: LurkField> Store<F> {
     /// Cost of poseidon hash with arity 3, including the input
     #[inline]
@@ -157,7 +195,7 @@ impl<F: LurkField> Store<F> {
     /// Since the `generic_const_exprs` feature is still unstable, we cannot substitute `N * 2`
     /// for generic const `P` and remove it completely, so we must keep it and do a dynamic assertion
     /// that it equals `N * 2`. This is not very ergonomic though, since we must add turbofishes
-    /// like `::<6, 3>` instead of the simpler `::<3>`. Could we maybe create a macro for these functions?
+    /// like `::<6, 3>` instead of the simpler `::<3>`.
     #[inline]
     pub fn ptrs_to_raw_ptrs<const N: usize, const P: usize>(&self, ptrs: &[Ptr; P]) -> [RawPtr; N] {
         assert_eq!(P * 2, N);
@@ -257,10 +295,10 @@ impl<F: LurkField> Store<F> {
         &self,
         tag: Tag,
         ptrs: [Ptr; P],
-        z: FWrap<F>,
+        z: ZPtr<F>,
     ) -> Ptr {
         let raw_ptrs = self.ptrs_to_raw_ptrs::<N, P>(&ptrs);
-        let payload = self.intern_raw_ptrs_hydrated::<N>(raw_ptrs, z);
+        let payload = self.intern_raw_ptrs_hydrated::<N>(raw_ptrs, FWrap(*z.value()));
         Ptr::new(tag, payload)
     }
 
@@ -309,64 +347,6 @@ impl<F: LurkField> Store<F> {
     pub fn expect_ptrs<const N: usize, const P: usize>(&self, idx: usize) -> [Ptr; P] {
         self.fetch_ptrs::<N, P>(idx)
             .expect("Index missing from store")
-    }
-
-    // TODO eventually deprecate these functions
-    #[inline]
-    pub fn intern_2_ptrs(&self, tag: Tag, a: Ptr, b: Ptr) -> Ptr {
-        self.intern_ptrs::<4, 2>(tag, [a, b])
-    }
-    #[inline]
-    pub fn intern_3_ptrs(&self, tag: Tag, a: Ptr, b: Ptr, c: Ptr) -> Ptr {
-        self.intern_ptrs::<6, 3>(tag, [a, b, c])
-    }
-    #[inline]
-    pub fn intern_4_ptrs(&self, tag: Tag, a: Ptr, b: Ptr, c: Ptr, d: Ptr) -> Ptr {
-        self.intern_ptrs::<8, 4>(tag, [a, b, c, d])
-    }
-    #[inline]
-    pub fn intern_2_ptrs_hydrated(&self, tag: Tag, a: Ptr, b: Ptr, z: ZPtr<F>) -> Ptr {
-        self.intern_ptrs_hydrated::<4, 2>(tag, [a, b], FWrap(*z.value()))
-    }
-    #[inline]
-    pub fn intern_3_ptrs_hydrated(&self, tag: Tag, a: Ptr, b: Ptr, c: Ptr, z: ZPtr<F>) -> Ptr {
-        self.intern_ptrs_hydrated::<6, 3>(tag, [a, b, c], FWrap(*z.value()))
-    }
-    #[inline]
-    pub fn intern_4_ptrs_hydrated(
-        &self,
-        tag: Tag,
-        a: Ptr,
-        b: Ptr,
-        c: Ptr,
-        d: Ptr,
-        z: ZPtr<F>,
-    ) -> Ptr {
-        self.intern_ptrs_hydrated::<8, 4>(tag, [a, b, c, d], FWrap(*z.value()))
-    }
-    #[inline]
-    pub fn fetch_2_ptrs(&self, idx: usize) -> Option<[Ptr; 2]> {
-        self.fetch_ptrs::<4, 2>(idx)
-    }
-    #[inline]
-    pub fn fetch_3_ptrs(&self, idx: usize) -> Option<[Ptr; 3]> {
-        self.fetch_ptrs::<6, 3>(idx)
-    }
-    #[inline]
-    pub fn fetch_4_ptrs(&self, idx: usize) -> Option<[Ptr; 4]> {
-        self.fetch_ptrs::<8, 4>(idx)
-    }
-    #[inline]
-    pub fn expect_2_ptrs(&self, idx: usize) -> [Ptr; 2] {
-        self.fetch_2_ptrs(idx).expect("Index missing from store")
-    }
-    #[inline]
-    pub fn expect_3_ptrs(&self, idx: usize) -> [Ptr; 3] {
-        self.fetch_3_ptrs(idx).expect("Index missing from store")
-    }
-    #[inline]
-    pub fn expect_4_ptrs(&self, idx: usize) -> [Ptr; 4] {
-        self.fetch_4_ptrs(idx).expect("Index missing from store")
     }
 
     #[inline]
@@ -446,8 +426,7 @@ impl<F: LurkField> Store<F> {
         } else {
             let empty_str = Ptr::new(Tag::Expr(Str), self.raw_zero());
             let ptr = s.chars().rev().fold(empty_str, |acc, c| {
-                let ptrs = [self.char(c), acc];
-                self.intern_ptrs::<4, 2>(Tag::Expr(Str), ptrs)
+                intern_ptrs!(self, Tag::Expr(Str), self.char(c), acc)
             });
             self.string_ptr_cache.insert(s.to_string(), Box::new(ptr));
             self.ptr_string_cache.insert(ptr, s.to_string());
@@ -496,8 +475,7 @@ impl<F: LurkField> Store<F> {
     pub fn intern_symbol_path(&self, path: &[String]) -> Ptr {
         let zero_sym = Ptr::new(Tag::Expr(Sym), self.raw_zero());
         path.iter().fold(zero_sym, |acc, s| {
-            let ptrs = [self.intern_string(s), acc];
-            self.intern_ptrs::<4, 2>(Tag::Expr(Sym), ptrs)
+            intern_ptrs!(self, Tag::Expr(Sym), self.intern_string(s), acc)
         })
     }
 
@@ -673,14 +651,12 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn cons(&self, car: Ptr, cdr: Ptr) -> Ptr {
-        let ptrs = [car, cdr];
-        self.intern_ptrs::<4, 2>(Tag::Expr(Cons), ptrs)
+        intern_ptrs!(self, Tag::Expr(Cons), car, cdr)
     }
 
     #[inline]
     pub fn intern_fun(&self, arg: Ptr, body: Ptr, env: Ptr) -> Ptr {
-        let ptrs = [arg, body, env, self.dummy()];
-        self.intern_ptrs::<8, 4>(Tag::Expr(Fun), ptrs)
+        intern_ptrs!(self, Tag::Expr(Fun), arg, body, env, self.dummy())
     }
 
     #[inline]
@@ -1120,7 +1096,7 @@ impl Ptr {
                 Fun => match self.raw().get_hash8() {
                     None => "<Malformed Fun>".into(),
                     Some(idx) => {
-                        if let Some([vars, body, _, _]) = store.fetch_ptrs::<8, 4>(idx) {
+                        if let Some([vars, body, _, _]) = fetch_ptrs!(store, 4, idx) {
                             match vars.tag() {
                                 Tag::Expr(Nil) => {
                                     format!("<FUNCTION () {}>", body.fmt_to_string(store, state))
@@ -1142,7 +1118,7 @@ impl Ptr {
                 Thunk => match self.raw().get_hash4() {
                     None => "<Malformed Thunk>".into(),
                     Some(idx) => {
-                        if let Some([val, cont]) = store.fetch_ptrs::<4, 2>(idx) {
+                        if let Some([val, cont]) = fetch_ptrs!(store, 2, idx) {
                             format!(
                                 "Thunk{{ value: {} => cont: {} }}",
                                 val.fmt_to_string(store, state),
@@ -1167,7 +1143,7 @@ impl Ptr {
                 Cproc => match self.raw().get_hash4() {
                     None => "<Malformed Cproc>".into(),
                     Some(idx) => {
-                        if let Some([cproc_name, args]) = store.fetch_ptrs::<4, 2>(idx) {
+                        if let Some([cproc_name, args]) = fetch_ptrs!(store, 2, idx) {
                             format!(
                                 "<COPROC {} {}>",
                                 cproc_name.fmt_to_string(store, state),
@@ -1229,7 +1205,7 @@ impl Ptr {
         match self.raw().get_hash8() {
             None => format!("<Malformed {name}>"),
             Some(idx) => {
-                if let Some([a, cont, _, _]) = store.fetch_ptrs::<8, 4>(idx) {
+                if let Some([a, cont, _, _]) = fetch_ptrs!(store, 4, idx) {
                     format!(
                         "{name}{{ {field}: {}, continuation: {} }}",
                         a.fmt_to_string(store, state),
@@ -1252,7 +1228,7 @@ impl Ptr {
         match self.raw().get_hash8() {
             None => format!("<Malformed {name}>"),
             Some(idx) => {
-                if let Some([a, b, cont, _]) = store.fetch_ptrs::<8, 4>(idx) {
+                if let Some([a, b, cont, _]) = fetch_ptrs!(store, 4, idx) {
                     let (fa, fb) = fields;
                     format!(
                         "{name}{{ {fa}: {}, {fb}: {}, continuation: {} }}",
@@ -1277,7 +1253,7 @@ impl Ptr {
         match self.raw().get_hash8() {
             None => format!("<Malformed {name}>"),
             Some(idx) => {
-                if let Some([a, b, c, cont]) = store.fetch_ptrs::<8, 4>(idx) {
+                if let Some([a, b, c, cont]) = fetch_ptrs!(store, 4, idx) {
                     let (fa, fb, fc) = fields;
                     format!(
                         "{name}{{ {fa}: {}, {fb}: {}, {fc}: {}, continuation: {} }}",
@@ -1394,17 +1370,17 @@ mod tests {
             &store.poseidon_cache.hash3(&[zero; 3])
         );
 
-        let ptr2 = store.intern_2_ptrs(zero_tag, foo, foo);
+        let ptr2 = intern_ptrs!(store, zero_tag, foo, foo);
         let z_ptr2 = store.hash_ptr(&ptr2);
         assert_eq!(z_ptr2.tag(), &zero_tag);
         assert_eq!(z_ptr2.value(), &store.poseidon_cache.hash4(&[zero; 4]));
 
-        let ptr3 = store.intern_3_ptrs(zero_tag, foo, foo, foo);
+        let ptr3 = intern_ptrs!(store, zero_tag, foo, foo, foo);
         let z_ptr3 = store.hash_ptr(&ptr3);
         assert_eq!(z_ptr3.tag(), &zero_tag);
         assert_eq!(z_ptr3.value(), &store.poseidon_cache.hash6(&[zero; 6]));
 
-        let ptr4 = store.intern_4_ptrs(zero_tag, foo, foo, foo, foo);
+        let ptr4 = intern_ptrs!(store, zero_tag, foo, foo, foo, foo);
         let z_ptr4 = store.hash_ptr(&ptr4);
         assert_eq!(z_ptr4.tag(), &zero_tag);
         assert_eq!(z_ptr4.value(), &store.poseidon_cache.hash8(&[zero; 8]));

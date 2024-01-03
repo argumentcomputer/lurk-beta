@@ -12,7 +12,7 @@ use crate::{
     lem::{
         circuit::GlobalAllocator,
         pointers::{Ptr, ZPtr},
-        store::Store,
+        store::{expect_ptrs, Store},
     },
     tag::{ExprTag, Tag},
 };
@@ -178,7 +178,7 @@ pub(crate) fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
     let (a, b) = if not_dummy.get_value() == Some(true) {
         let idx = get_ptr(tuple, store)?.get_index2().expect("invalid Ptr");
-        let [a, b] = &store.expect_2_ptrs(idx);
+        let [a, b] = &expect_ptrs!(store, 2, idx);
         (store.hash_ptr(a), store.hash_ptr(b))
     } else {
         (ZPtr::dummy(), ZPtr::dummy())
@@ -221,7 +221,7 @@ pub(crate) fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
     let (a, b, c) = if not_dummy.get_value() == Some(true) {
         let idx = get_ptr(tuple, store)?.get_index3().expect("invalid Ptr");
-        let [a, b, c] = &store.expect_3_ptrs(idx);
+        let [a, b, c] = &expect_ptrs!(store, 3, idx);
         (store.hash_ptr(a), store.hash_ptr(b), store.hash_ptr(c))
     } else {
         (ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy())
@@ -275,7 +275,7 @@ pub(crate) fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
 > {
     let (a, b, c, d) = if not_dummy.get_value() == Some(true) {
         let idx = get_ptr(tuple, store)?.get_index4().expect("invalid Ptr");
-        let [a, b, c, d] = &store.expect_4_ptrs(idx);
+        let [a, b, c, d] = &expect_ptrs!(store, 4, idx);
         (
             store.hash_ptr(a),
             store.hash_ptr(b),
@@ -538,7 +538,10 @@ mod test {
             deconstruct_tuple4,
         },
         field::LurkField,
-        lem::{circuit::GlobalAllocator, store::Store},
+        lem::{
+            circuit::GlobalAllocator,
+            store::{intern_ptrs, Store},
+        },
     };
 
     use super::{a_ptr_as_z_ptr, chain_car_cdr, construct_list, deconstruct_tuple2};
@@ -561,7 +564,7 @@ mod test {
             &a_nil,
         )
         .unwrap();
-        let nil2_ptr = store.intern_2_ptrs(*nil_tag, nil, nil);
+        let nil2_ptr = intern_ptrs!(store, *nil_tag, nil, nil);
         let z_nil2_ptr = store.hash_ptr(&nil2_ptr);
         assert_eq!(a_ptr_as_z_ptr(&nil2), Some(z_nil2_ptr));
 
@@ -575,7 +578,7 @@ mod test {
             &a_nil,
         )
         .unwrap();
-        let nil3_ptr = store.intern_3_ptrs(*nil_tag, nil, nil, nil);
+        let nil3_ptr = intern_ptrs!(store, *nil_tag, nil, nil, nil);
         let z_nil3_ptr = store.hash_ptr(&nil3_ptr);
         assert_eq!(a_ptr_as_z_ptr(&nil3), Some(z_nil3_ptr));
 
@@ -590,7 +593,7 @@ mod test {
             &a_nil,
         )
         .unwrap();
-        let nil4_ptr = store.intern_4_ptrs(*nil_tag, nil, nil, nil, nil);
+        let nil4_ptr = intern_ptrs!(store, *nil_tag, nil, nil, nil, nil);
         let z_nil4_ptr = store.hash_ptr(&nil4_ptr);
         assert_eq!(a_ptr_as_z_ptr(&nil4), Some(z_nil4_ptr));
     }
@@ -624,7 +627,7 @@ mod test {
         let nil_tag = *nil.tag();
         let not_dummy = Boolean::Constant(true);
 
-        let tuple2 = store.intern_2_ptrs(nil_tag, nil, nil);
+        let tuple2 = intern_ptrs!(store, nil_tag, nil, nil);
         let z_tuple2 = store.hash_ptr(&tuple2);
         let a_tuple2 = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "tuple2"), || z_tuple2);
         let (a, b) = deconstruct_tuple2(
@@ -637,7 +640,7 @@ mod test {
         assert_eq!(a_ptr_as_z_ptr(&a), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&b), Some(z_nil));
 
-        let tuple3 = store.intern_3_ptrs(nil_tag, nil, nil, nil);
+        let tuple3 = intern_ptrs!(store, nil_tag, nil, nil, nil);
         let z_tuple3 = store.hash_ptr(&tuple3);
         let a_tuple3 = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "tuple3"), || z_tuple3);
         let (a, b, c) = deconstruct_tuple3(
@@ -651,7 +654,7 @@ mod test {
         assert_eq!(a_ptr_as_z_ptr(&b), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&c), Some(z_nil));
 
-        let tuple4 = store.intern_4_ptrs(nil_tag, nil, nil, nil, nil);
+        let tuple4 = intern_ptrs!(store, nil_tag, nil, nil, nil, nil);
         let z_tuple4 = store.hash_ptr(&tuple4);
         let a_tuple4 = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "tuple4"), || z_tuple4);
         let (a, b, c, d) = deconstruct_tuple4(

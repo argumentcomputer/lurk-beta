@@ -4,7 +4,7 @@ use super::{
     path::Path,
     pointers::{Ptr, RawPtr},
     slot::{SlotData, Val},
-    store::Store,
+    store::{fetch_ptrs, intern_ptrs, Store},
     var_map::VarMap,
     Block, Ctrl, Func, Op, Tag, Var,
 };
@@ -341,7 +341,7 @@ impl Block {
                 }
                 Op::Cons2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
-                    let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
+                    let tgt_ptr = intern_ptrs!(store, *tag, preimg_ptrs[0], preimg_ptrs[1]);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
                     hints.hash4.push(Some(SlotData { vals }));
@@ -349,19 +349,20 @@ impl Block {
                 Op::Cons3(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
                     let tgt_ptr =
-                        store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
+                        intern_ptrs!(store, *tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
                     hints.hash6.push(Some(SlotData { vals }));
                 }
                 Op::Cons4(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
-                    let tgt_ptr = store.intern_4_ptrs(
+                    let tgt_ptr = intern_ptrs!(
+                        store,
                         *tag,
                         preimg_ptrs[0],
                         preimg_ptrs[1],
                         preimg_ptrs[2],
-                        preimg_ptrs[3],
+                        preimg_ptrs[3]
                     );
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
@@ -372,7 +373,7 @@ impl Block {
                     let Some(idx) = img_ptr.get_index2() else {
                         bail!("{img} isn't a Tree2 pointer");
                     };
-                    let Some(preimg_ptrs) = store.fetch_2_ptrs(idx) else {
+                    let Some(preimg_ptrs) = fetch_ptrs!(store, 2, idx) else {
                         bail!("Couldn't fetch {img}'s children")
                     };
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
@@ -386,7 +387,7 @@ impl Block {
                     let Some(idx) = img_ptr.get_index3() else {
                         bail!("{img} isn't a Tree3 pointer");
                     };
-                    let Some(preimg_ptrs) = store.fetch_3_ptrs(idx) else {
+                    let Some(preimg_ptrs) = fetch_ptrs!(store, 3, idx) else {
                         bail!("Couldn't fetch {img}'s children")
                     };
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
@@ -400,7 +401,7 @@ impl Block {
                     let Some(idx) = img_ptr.get_index4() else {
                         bail!("{img} isn't a Tree4 pointer");
                     };
-                    let Some(preimg_ptrs) = store.fetch_4_ptrs(idx) else {
+                    let Some(preimg_ptrs) = fetch_ptrs!(store, 4, idx) else {
                         bail!("Couldn't fetch {img}'s children")
                     };
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
