@@ -116,6 +116,9 @@ fn main() {
 
     println!("Compression took {:?}", compress_end);
 
+    let buf = bincode::serialize(&compressed_proof).unwrap();
+    println!("proof size : {:}B", buf.len());
+
     let compressed_verify_start = Instant::now();
     let res = compressed_proof.verify(&pp, &z0, &zi).unwrap();
     let compressed_verify_end = compressed_verify_start.elapsed();

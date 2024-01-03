@@ -127,6 +127,7 @@ where
 
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
+#[serde(bound = "")]
 pub enum Proof<
     'a,
     F: CurveCycleEquipped,
