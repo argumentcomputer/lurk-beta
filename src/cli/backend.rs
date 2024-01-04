@@ -20,9 +20,9 @@ impl std::fmt::Display for Backend {
 
 impl Backend {
     fn compatible_fields(&self) -> Vec<LanguageField> {
-        use LanguageField::{Pallas, Vesta};
+        use LanguageField::{Pallas, BN256};
         match self {
-            Self::Nova => vec![Pallas, Vesta],
+            Self::Nova => vec![BN256, Pallas],
         }
     }
 

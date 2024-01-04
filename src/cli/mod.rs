@@ -11,6 +11,7 @@ mod zstore;
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
 use clap::{Args, Parser, Subcommand};
+use halo2curves::bn256;
 use pasta_curves::pallas;
 
 use std::{
@@ -353,10 +354,9 @@ impl ReplCli {
         validate_non_zero("rc", rc)?;
         backend.validate_field(field)?;
         match field {
+            LanguageField::BN256 => repl!(rc, limit, bn256::Fr, backend.clone()),
             LanguageField::Pallas => repl!(rc, limit, pallas::Scalar, backend.clone()),
-            LanguageField::Vesta => todo!(),
-            LanguageField::BN256 => todo!(),
-            LanguageField::Grumpkin => todo!(),
+            LanguageField::Grumpkin | LanguageField::Vesta => unreachable!(),
         }
     }
 }
@@ -407,10 +407,9 @@ impl LoadCli {
         validate_non_zero("rc", rc)?;
         backend.validate_field(field)?;
         match field {
+            LanguageField::BN256 => load!(rc, limit, bn256::Fr, backend.clone()),
             LanguageField::Pallas => load!(rc, limit, pallas::Scalar, backend.clone()),
-            LanguageField::Vesta => todo!(),
-            LanguageField::BN256 => todo!(),
-            LanguageField::Grumpkin => todo!(),
+            LanguageField::Grumpkin | LanguageField::Vesta => unreachable!(),
         }
     }
 }
