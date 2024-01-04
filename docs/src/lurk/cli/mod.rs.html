@@ -657,7 +657,6 @@
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>backend;
 <span class="kw">mod </span>circom;
 <span class="kw">mod </span>commitment;
@@ -671,6 +670,7 @@
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::Utf8PathBuf;
 <span class="kw">use </span>clap::{Args, Parser, Subcommand};
+<span class="kw">use </span>halo2curves::bn256;
 <span class="kw">use </span>pasta_curves::pallas;
 
 <span class="kw">use </span>std::{
@@ -1013,10 +1013,9 @@
         validate_non_zero(<span class="string">"rc"</span>, rc)<span class="question-mark">?</span>;
         backend.validate_field(field)<span class="question-mark">?</span>;
         <span class="kw">match </span>field {
+            LanguageField::BN256 =&gt; <span class="macro">repl!</span>(rc, limit, bn256::Fr, backend.clone()),
             LanguageField::Pallas =&gt; <span class="macro">repl!</span>(rc, limit, pallas::Scalar, backend.clone()),
-            LanguageField::Vesta =&gt; <span class="macro">todo!</span>(),
-            LanguageField::BN256 =&gt; <span class="macro">todo!</span>(),
-            LanguageField::Grumpkin =&gt; <span class="macro">todo!</span>(),
+            LanguageField::Grumpkin | LanguageField::Vesta =&gt; <span class="macro">unreachable!</span>(),
         }
     }
 }
@@ -1067,10 +1066,9 @@
         validate_non_zero(<span class="string">"rc"</span>, rc)<span class="question-mark">?</span>;
         backend.validate_field(field)<span class="question-mark">?</span>;
         <span class="kw">match </span>field {
+            LanguageField::BN256 =&gt; <span class="macro">load!</span>(rc, limit, bn256::Fr, backend.clone()),
             LanguageField::Pallas =&gt; <span class="macro">load!</span>(rc, limit, pallas::Scalar, backend.clone()),
-            LanguageField::Vesta =&gt; <span class="macro">todo!</span>(),
-            LanguageField::BN256 =&gt; <span class="macro">todo!</span>(),
-            LanguageField::Grumpkin =&gt; <span class="macro">todo!</span>(),
+            LanguageField::Grumpkin | LanguageField::Vesta =&gt; <span class="macro">unreachable!</span>(),
         }
     }
 }

@@ -621,10 +621,22 @@
 <a href="#619" id="619">619</a>
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
+<span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
+<span class="kw">use </span>ff::PrimeField;
+<span class="kw">use </span>nova::traits::Engine;
 <span class="kw">use </span>rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -632,6 +644,7 @@
     Config, Editor,
 };
 <span class="kw">use </span>rustyline_derive::{Completer, Helper, Highlighter, Hinter};
+<span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 <span class="kw">use </span>std::{
     cell::{OnceCell, RefCell},
     collections::HashMap,
@@ -654,7 +667,10 @@
         Tag,
     },
     parser,
-    proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
+    proof::{
+        nova::{CurveCycleEquipped, NovaProver},
+        Prover, RecursiveSNARKTrait,
+    },
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
@@ -772,9 +788,11 @@
     }
 }
 
-<span class="kw">type </span>F = pasta_curves::pallas::Scalar; <span class="comment">// TODO: generalize this
-
-</span><span class="kw">impl </span>Repl&lt;F&gt; {
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped + Serialize + DeserializeOwned&gt; Repl&lt;F&gt;
+<span class="kw">where
+    </span>&lt;F <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;&lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::E2 <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
+{
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(store: Store&lt;F&gt;, rc: usize, limit: usize, backend: Backend) -&gt; Repl&lt;F&gt; {
         <span class="kw">let </span>limit = pad(limit, rc);
         <span class="macro">info!</span>(
