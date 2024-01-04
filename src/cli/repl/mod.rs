@@ -1,7 +1,10 @@
 mod meta_cmd;
 
+use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
+use ff::PrimeField;
+use nova::traits::Engine;
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -9,6 +12,7 @@ use rustyline::{
     Config, Editor,
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
+use serde::{de::DeserializeOwned, Serialize};
 use std::{
     cell::{OnceCell, RefCell},
     collections::HashMap,
@@ -31,7 +35,10 @@ use crate::{
         Tag,
     },
     parser,
-    proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
+    proof::{
+        nova::{CurveCycleEquipped, NovaProver},
+        Prover, RecursiveSNARKTrait,
+    },
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
@@ -149,9 +156,11 @@ impl<F: LurkField> Repl<F> {
     }
 }
 
-type F = pasta_curves::pallas::Scalar; // TODO: generalize this
-
-impl Repl<F> {
+impl<F: CurveCycleEquipped + Serialize + DeserializeOwned> Repl<F>
+where
+    <F as PrimeField>::Repr: Abomonation,
+    <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+{
     pub(crate) fn new(store: Store<F>, rc: usize, limit: usize, backend: Backend) -> Repl<F> {
         let limit = pad(limit, rc);
         info!(

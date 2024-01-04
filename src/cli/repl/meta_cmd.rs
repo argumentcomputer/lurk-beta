@@ -2,6 +2,7 @@ use ::nova::traits::Engine;
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::Utf8PathBuf;
+use ff::PrimeField;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, process};
 
@@ -44,9 +45,11 @@ pub(super) struct MetaCmd<F: LurkField> {
     pub(super) run: fn(repl: &mut Repl<F>, args: &Ptr) -> Result<()>,
 }
 
-type F = pasta_curves::pallas::Scalar; // TODO: generalize this
-
-impl MetaCmd<F> {
+impl<F: CurveCycleEquipped + Serialize + DeserializeOwned> MetaCmd<F>
+where
+    <F as PrimeField>::Repr: Abomonation,
+    <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+{
     const LOAD: MetaCmd<F> = MetaCmd {
         name: "load",
         summary: "Load lurk expressions from a file.",
@@ -62,9 +65,7 @@ impl MetaCmd<F> {
             }
         },
     };
-}
 
-impl MetaCmd<F> {
     const DEF: MetaCmd<F> = MetaCmd {
         name: "def",
         summary: "Extends env with a non-recursive binding.",
@@ -89,9 +90,7 @@ impl MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const DEFREC: MetaCmd<F> = MetaCmd {
         name: "defrec",
         summary: "Extends the env with a recursive binding.",
@@ -119,9 +118,7 @@ impl MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const ASSERT: MetaCmd<F> = MetaCmd {
         name: "assert",
         summary: "Assert that an expression evaluates to true.",
@@ -141,9 +138,7 @@ impl MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const ASSERT_EQ: MetaCmd<F> = MetaCmd {
         name: "assert-eq",
         summary: "Assert that two expressions evaluate to the same value.",
@@ -172,9 +167,7 @@ impl MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const ASSERT_EMITTED: MetaCmd<F> = MetaCmd {
         name:
             "assert-emitted",
@@ -211,9 +204,7 @@ impl MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const ASSERT_ERROR: MetaCmd<F> = MetaCmd {
         name: "assert-error",
         summary: "Assert that a evaluation of <expr> fails.",
@@ -233,9 +224,7 @@ impl MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const COMMIT: MetaCmd<F> = MetaCmd {
         name:
             "commit",
@@ -254,9 +243,7 @@ impl MetaCmd<F> {
             repl.hide(F::NON_HIDING_COMMITMENT_SECRET, first_io[0])
         }
     };
-}
 
-impl MetaCmd<F> {
     const HIDE: MetaCmd<F> = MetaCmd {
         name: "hide",
         summary: "Return and persist the commitment of <exp> using secret <secret>.",
@@ -286,9 +273,7 @@ impl MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const FETCH: MetaCmd<F> = MetaCmd {
         name: "fetch",
         summary: "Add data from a commitment to the repl store.",
@@ -303,9 +288,7 @@ impl MetaCmd<F> {
             repl.fetch(&hash, false)
         },
     };
-}
 
-impl MetaCmd<F> {
     const OPEN: MetaCmd<F> = MetaCmd {
         name: "open",
         summary: "Open a commitment.",
@@ -320,9 +303,7 @@ impl MetaCmd<F> {
             repl.fetch(&hash, true)
         },
     };
-}
 
-impl<F: LurkField> MetaCmd<F> {
     const CLEAR: MetaCmd<F> = MetaCmd {
         name: "clear",
         summary: "Reset the current environment to be empty.",
@@ -334,9 +315,7 @@ impl<F: LurkField> MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const SET_ENV: MetaCmd<F> = MetaCmd {
         name: "set-env",
         summary: "Set the env to the result of evaluating the first argument.",
@@ -350,9 +329,7 @@ impl MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const PROVE: MetaCmd<F> = MetaCmd {
         name:
             "prove",
@@ -376,13 +353,7 @@ impl MetaCmd<F> {
             Ok(())
         }
     };
-}
 
-impl<F: CurveCycleEquipped + Serialize + DeserializeOwned> MetaCmd<F>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
     const VERIFY: MetaCmd<F> = MetaCmd {
         name: "verify",
         summary: "Verify a proof",
@@ -401,9 +372,7 @@ where
             )
         }
     };
-}
 
-impl<F: LurkField> MetaCmd<F> {
     const DEFPACKAGE: MetaCmd<F> = MetaCmd {
         name: "defpackage",
         summary: "Add a package to the state.",
@@ -424,9 +393,7 @@ impl<F: LurkField> MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl<F: LurkField> MetaCmd<F> {
     const IMPORT: MetaCmd<F> = MetaCmd {
         name: "import",
         summary: "Import a single or several packages.",
@@ -457,9 +424,7 @@ impl<F: LurkField> MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl<F: LurkField> MetaCmd<F> {
     const IN_PACKAGE: MetaCmd<F> = MetaCmd {
         name: "in-package",
         summary: "set the current package.",
@@ -493,9 +458,7 @@ impl<F: LurkField> MetaCmd<F> {
             }
         },
     };
-}
 
-impl<F: LurkField> MetaCmd<F> {
     const HELP: MetaCmd<F> = MetaCmd {
         name: "help",
         summary: "Print help message.",
@@ -520,7 +483,7 @@ impl<F: LurkField> MetaCmd<F> {
                 Tag::Expr(ExprTag::Nil) => {
                     use itertools::Itertools;
                     println!("Available commands:");
-                    for (_, i) in MetaCmd::cmds().iter().sorted_by_key(|x| x.0) {
+                    for (_, i) in MetaCmd::<F>::cmds().iter().sorted_by_key(|x| x.0) {
                         println!("  {} - {}", i.name, i.summary);
                     }
                 }
@@ -531,7 +494,7 @@ impl<F: LurkField> MetaCmd<F> {
     };
 
     fn meta_help(cmd: &str) {
-        match MetaCmd::cmds().get(cmd) {
+        match MetaCmd::<F>::cmds().get(cmd) {
             Some(i) => {
                 println!("{} - {}", i.name, i.summary);
                 for &e in i.description.iter() {
@@ -548,9 +511,7 @@ impl<F: LurkField> MetaCmd<F> {
             None => println!("unknown command {}", cmd),
         }
     }
-}
 
-impl MetaCmd<F> {
     fn call(repl: &mut Repl<F>, args: &Ptr) -> Result<()> {
         let (hash_ptr, args) = repl.store.car_cdr(args)?;
         let hash_expr = match hash_ptr.tag() {
@@ -584,9 +545,7 @@ impl MetaCmd<F> {
         ],
         run: Self::call,
     };
-}
 
-impl MetaCmd<F> {
     const CHAIN: MetaCmd<F> = MetaCmd {
         name: "chain",
         summary: "Chain a functional commitment by applying the provided arguments to it",
@@ -625,9 +584,7 @@ impl MetaCmd<F> {
             repl.hide(*secret, *fun)
         },
     };
-}
 
-impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
     fn inspect(repl: &mut Repl<F>, args: &Ptr, full: bool) -> Result<()> {
         let first = repl.peek1(args)?;
         let proof_id = repl.get_string(&first)?;
@@ -651,9 +608,7 @@ impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
             Self::inspect(repl, args, false)
         }
     };
-}
 
-impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
     const INSPECT_FULL: MetaCmd<F> = MetaCmd {
         name: "inspect-full",
         summary: "Print a proof claim",
@@ -667,35 +622,7 @@ impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
             Self::inspect(repl, args, true)
         }
     };
-}
 
-#[derive(Serialize, Deserialize)]
-struct LurkData<F: LurkField> {
-    z_ptr: ZPtr<F>,
-    z_dag: ZDag<F>,
-}
-
-impl<F: LurkField> HasFieldModulus for LurkData<F> {
-    fn field_modulus() -> String {
-        F::MODULUS.to_string()
-    }
-}
-
-/// Returns a `Utf8PathBuf` from a pointer
-///
-/// # Errors
-/// Errors if a string can't be fetched with the pointer
-fn get_path<F: LurkField>(repl: &Repl<F>, path: &Ptr) -> Result<Utf8PathBuf> {
-    let Some(path) = repl.store.fetch_string(path) else {
-        bail!(
-            "Path must be a string. Got {}",
-            path.fmt_to_string(&repl.store, &repl.state.borrow())
-        )
-    };
-    Ok(Utf8PathBuf::from(path))
-}
-
-impl MetaCmd<F> {
     const DUMP_DATA: MetaCmd<F> = MetaCmd {
         name: "dump-data",
         summary: "Write Lurk data to the file system",
@@ -713,9 +640,7 @@ impl MetaCmd<F> {
             dump(LurkData { z_ptr, z_dag }, &path)
         },
     };
-}
 
-impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
     const DEF_LOAD_DATA: MetaCmd<F> = MetaCmd {
         name: "def-load-data",
         summary: "Read Lurk data from the file system and bind it to a symbol",
@@ -738,9 +663,7 @@ impl<F: LurkField + DeserializeOwned> MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-impl MetaCmd<F> {
     const DEFPROTOCOL: MetaCmd<F> = MetaCmd {
         name: "defprotocol",
         summary: "Defines a protocol",
@@ -841,44 +764,7 @@ impl MetaCmd<F> {
             Ok(())
         },
     };
-}
 
-/// Contains the data needed for proof validation (according to some protocol)
-/// and verification
-#[non_exhaustive]
-#[derive(Serialize, Deserialize)]
-#[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-enum ProtocolProof<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + Serialize + DeserializeOwned,
-    M: MultiFrameTrait<'a, F, C>,
-> where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
-    Nova {
-        args: LurkData<F>,
-        proof: nova::Proof<'a, F, C, M>,
-    },
-}
-
-impl<
-        'a,
-        F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'a + Serialize + DeserializeOwned,
-        M: MultiFrameTrait<'a, F, C>,
-    > HasFieldModulus for ProtocolProof<'a, F, C, M>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
-    fn field_modulus() -> String {
-        F::MODULUS.to_owned()
-    }
-}
-
-impl MetaCmd<F> {
     /// Returns the protocol function and reduction count
     ///
     /// # Errors
@@ -1083,9 +969,7 @@ impl MetaCmd<F> {
             }
         },
     };
-}
 
-impl MetaCmd<F> {
     const VERIFY_PROTOCOL: MetaCmd<F> = MetaCmd {
         name: "verify-protocol",
         summary: "Verifies a proof for a protocol",
@@ -1139,9 +1023,7 @@ impl MetaCmd<F> {
             }
         },
     };
-}
 
-impl MetaCmd<F> {
     const CMDS: [MetaCmd<F>; 28] = [
         MetaCmd::LOAD,
         MetaCmd::DEF,
@@ -1175,5 +1057,66 @@ impl MetaCmd<F> {
 
     pub(super) fn cmds() -> std::collections::HashMap<&'static str, MetaCmd<F>> {
         HashMap::from(Self::CMDS.map(|x| (x.name, x)))
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct LurkData<F: LurkField> {
+    z_ptr: ZPtr<F>,
+    z_dag: ZDag<F>,
+}
+
+impl<F: LurkField> HasFieldModulus for LurkData<F> {
+    fn field_modulus() -> String {
+        F::MODULUS.to_string()
+    }
+}
+
+/// Returns a `Utf8PathBuf` from a pointer
+///
+/// # Errors
+/// Errors if a string can't be fetched with the pointer
+fn get_path<F: LurkField>(repl: &Repl<F>, path: &Ptr) -> Result<Utf8PathBuf> {
+    let Some(path) = repl.store.fetch_string(path) else {
+        bail!(
+            "Path must be a string. Got {}",
+            path.fmt_to_string(&repl.store, &repl.state.borrow())
+        )
+    };
+    Ok(Utf8PathBuf::from(path))
+}
+
+/// Contains the data needed for proof validation (according to some protocol)
+/// and verification
+#[non_exhaustive]
+#[derive(Serialize, Deserialize)]
+#[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
+enum ProtocolProof<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + Serialize + DeserializeOwned,
+    M: MultiFrameTrait<'a, F, C>,
+> where
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    Nova {
+        args: LurkData<F>,
+        proof: nova::Proof<'a, F, C, M>,
+    },
+}
+
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a + Serialize + DeserializeOwned,
+        M: MultiFrameTrait<'a, F, C>,
+    > HasFieldModulus for ProtocolProof<'a, F, C, M>
+where
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    fn field_modulus() -> String {
+        F::MODULUS.to_owned()
     }
 }
