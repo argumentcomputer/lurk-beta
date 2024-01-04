@@ -831,8 +831,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                 }
                 return (expr, smaller_env, not_found, binding)
             }
-            // This is a hack to signal that the binding came from a letrec
-            Expr::Thunk => {
+            Expr::RecVar => {
                 let eq_val = eq_val(var, expr);
                 if eq_val {
                     return (val, env, rec, binding)
@@ -1299,8 +1298,8 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     }
                     Cont::LetRec => {
                         let (var, saved_env, body, cont) = decons4(cont);
-                        // This is a hack to signal that the binding came from a letrec
-                        let var = cast(var, Expr::Thunk);
+                        // Since the variable came from a letrec, it is a recursive variable
+                        let var = cast(var, Expr::RecVar);
                         let binding: Expr::Cons = cons2(var, result);
                         let extended_env: Expr::Cons = cons2(binding, saved_env);
                         return (body, extended_env, cont, ret)
@@ -1746,8 +1745,8 @@ mod tests {
             expected.assert_eq(&computed.to_string());
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["8883"]);
-        expect_eq(cs.num_constraints(), expect!["10830"]);
+        expect_eq(cs.aux().len(), expect!["8884"]);
+        expect_eq(cs.num_constraints(), expect!["10831"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
