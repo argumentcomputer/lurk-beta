@@ -24,7 +24,6 @@ use crate::{
         Tail, Terminal, Unop,
     },
     tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
-    tag::Tag as TagTrait,
 };
 
 use super::pointers::{Ptr, RawPtr, ZPtr};
@@ -76,7 +75,17 @@ impl<F: LurkField> Default for Store<F> {
         let hash6zeros = poseidon_cache.hash6(&[F::ZERO; 6]);
         let hash8zeros = poseidon_cache.hash8(&[F::ZERO; 8]);
 
+        // Since tags are used very often, we will allocate them at the beginning
+        // in order, so that we do not need to use the `f_elts` when we have a tag
+        // This is similar to the `hashNzeros` optimization
         let f_elts = FrozenIndexSet::default();
+        let mut i = 0;
+        while let Some(tag) = Tag::pos(i) {
+            let (j, _) = f_elts.insert_probe(FWrap(tag.to_field()).into());
+            // This is to make sure the indices are ordered
+            assert_eq!(i, j);
+            i += 1;
+        }
         let (hash3zeros_idx, _) = f_elts.insert_probe(FWrap(hash3zeros).into());
         let (hash4zeros_idx, _) = f_elts.insert_probe(FWrap(hash4zeros).into());
         let (hash6zeros_idx, _) = f_elts.insert_probe(FWrap(hash6zeros).into());
@@ -350,14 +359,14 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn tag(&self, tag: Tag) -> RawPtr {
-        self.intern_raw_atom(tag.to_field())
+        // Tags are interned in order, so their index is the store index
+        RawPtr::Atom(tag.index())
     }
 
     #[inline]
     pub fn fetch_tag(&self, ptr: &RawPtr) -> Option<Tag> {
         let idx = ptr.get_atom()?;
-        let f = self.fetch_f(idx)?;
-        TagTrait::from_field(f)
+        Tag::pos(idx)
     }
 
     pub fn raw_to_ptr(&self, tag: &RawPtr, raw: &RawPtr) -> Option<Ptr> {
