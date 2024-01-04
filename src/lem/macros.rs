@@ -30,16 +30,16 @@ macro_rules! lit {
 #[macro_export]
 macro_rules! tag {
     ( Expr::$tag:ident ) => {
-        $crate::lem::Tag::Expr($crate::tag::ExprTag::$tag)
+        $crate::lem::tag::Tag::Expr($crate::tag::ExprTag::$tag)
     };
     ( Cont::$tag:ident ) => {
-        $crate::lem::Tag::Cont($crate::tag::ContTag::$tag)
+        $crate::lem::tag::Tag::Cont($crate::tag::ContTag::$tag)
     };
     ( Op1::$tag:ident ) => {
-        $crate::lem::Tag::Op1($crate::tag::Op1::$tag)
+        $crate::lem::tag::Tag::Op1($crate::tag::Op1::$tag)
     };
     ( Op2::$tag:ident ) => {
-        $crate::lem::Tag::Op2($crate::tag::Op2::$tag)
+        $crate::lem::tag::Tag::Op2($crate::tag::Op2::$tag)
     };
 }
 

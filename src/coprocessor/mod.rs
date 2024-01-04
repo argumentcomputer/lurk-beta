@@ -113,7 +113,7 @@ pub(crate) mod test {
 
     use super::*;
     use crate::circuit::gadgets::constraints::{alloc_equal, mul};
-    use crate::lem::{pointers::RawPtr, Tag as LEMTag};
+    use crate::lem::{pointers::RawPtr, tag::Tag as LEMTag};
     use crate::tag::{ExprTag, Tag};
     use std::marker::PhantomData;
 

@@ -20,7 +20,7 @@ use crate::{
         multiframe::MultiFrame,
         pointers::{Ptr, RawPtr, ZPtr},
         store::expect_ptrs,
-        Tag,
+        tag::Tag,
     },
     package::{Package, SymbolRef},
     proof::{

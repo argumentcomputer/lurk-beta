@@ -6,7 +6,7 @@ use crate::{
     eval::lang::{Coproc, Lang},
     lem::{
         store::{intern_ptrs, Store},
-        Tag,
+        tag::Tag,
     },
     num::Num,
     proof::nova::C1LEM,

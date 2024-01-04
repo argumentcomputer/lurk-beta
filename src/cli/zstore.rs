@@ -278,7 +278,7 @@ mod tests {
         lem::{
             pointers::Ptr,
             store::{intern_ptrs, Store},
-            Tag,
+            tag::Tag,
         },
         tag::{ContTag, ExprTag, Op1, Op2},
     };

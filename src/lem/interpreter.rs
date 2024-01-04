@@ -5,8 +5,9 @@ use super::{
     pointers::{Ptr, RawPtr},
     slot::{SlotData, Val},
     store::{fetch_ptrs, intern_ptrs, Store},
+    tag::Tag,
     var_map::VarMap,
-    Block, Ctrl, Func, Op, Tag, Var,
+    Block, Ctrl, Func, Op, Var,
 };
 
 use crate::{

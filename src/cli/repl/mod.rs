@@ -28,7 +28,7 @@ use crate::{
         multiframe::MultiFrame,
         pointers::{Ptr, RawPtr},
         store::Store,
-        Tag,
+        tag::Tag,
     },
     parser,
     proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
