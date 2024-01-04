@@ -44,8 +44,8 @@ use std::{
 
 use ::nova::{
     constants::NUM_HASH_BITS,
-    supernova::NonUniformCircuit,
-    traits::{circuit_supernova::StepCircuit as SuperStepCircuit, Engine},
+    supernova::{NonUniformCircuit, StepCircuit as SuperStepCircuit},
+    traits::Engine,
 };
 use abomonation::Abomonation;
 use camino::Utf8Path;

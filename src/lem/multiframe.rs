@@ -871,9 +871,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit_supernova::StepCircuit<F>
-    for MultiFrame<'a, F, C>
-{
+impl<'a, F: LurkField, C: Coprocessor<F>> nova::supernova::StepCircuit<F> for MultiFrame<'a, F, C> {
     fn arity(&self) -> usize {
         2 * self.lurk_step.input_params.len()
     }

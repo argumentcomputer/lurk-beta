@@ -1,6 +1,6 @@
 use ::nova::{
-    supernova::NonUniformCircuit,
-    traits::{circuit_supernova::StepCircuit as SuperStepCircuit, Engine},
+    supernova::{NonUniformCircuit, StepCircuit as SuperStepCircuit},
+    traits::Engine,
 };
 use abomonation::Abomonation;
 use anyhow::{bail, Result};

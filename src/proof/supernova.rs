@@ -8,9 +8,9 @@ use nova::{
         error::SuperNovaError,
         snark::{CompressedSNARK, ProverKey, VerifierKey},
         AuxParams, CircuitDigests, NonUniformCircuit, RecursiveSNARK,
+        StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit,
     },
     traits::{
-        circuit_supernova::{StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit},
         snark::{BatchedRelaxedR1CSSNARKTrait, RelaxedR1CSSNARKTrait},
         Engine,
     },

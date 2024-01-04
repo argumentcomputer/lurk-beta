@@ -134,7 +134,7 @@ where
 
 /// Attempts to extract abomonated public parameters.
 use ::nova::supernova::NonUniformCircuit;
-use ::nova::traits::circuit_supernova::StepCircuit as SuperStepCircuit;
+use ::nova::supernova::StepCircuit as SuperStepCircuit;
 use supernova::C2;
 pub fn supernova_public_params<
     'a,
