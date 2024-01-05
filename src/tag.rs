@@ -3,6 +3,7 @@ use lurk_macros::TryFromRepr;
 use proptest_derive::Arbitrary;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::{convert::TryFrom, fmt};
+use strum::{EnumCount, EnumIter};
 
 use crate::field::LurkField;
 
@@ -20,14 +21,25 @@ pub trait Tag:
     }
 }
 
+pub(crate) const EXPR_TAG_INIT: u16 = 0b0000_0000_0000_0000;
 /// A tag for expressions. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
 #[derive(
-    Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr, TryFromRepr,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize_repr,
+    Deserialize_repr,
+    TryFromRepr,
+    EnumCount,
+    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum ExprTag {
-    Nil = 0b0000_0000_0000_0000,
+    Nil = EXPR_TAG_INIT,
     Cons,
     Sym,
     Fun,
@@ -89,14 +101,25 @@ impl Tag for ExprTag {
     }
 }
 
+pub(crate) const CONT_TAG_INIT: u16 = 0b0001_0000_0000_0000;
 /// A tag for continuations. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
 #[derive(
-    Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, TryFromRepr,
+    Serialize_repr,
+    Deserialize_repr,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    TryFromRepr,
+    EnumCount,
+    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum ContTag {
-    Outermost = 0b0001_0000_0000_0000,
+    Outermost = CONT_TAG_INIT,
     Call0,
     Call,
     Call2,
@@ -168,6 +191,7 @@ impl fmt::Display for ContTag {
     }
 }
 
+pub(crate) const OP1_TAG_INIT: u16 = 0b0010_0000_0000_0000;
 #[derive(
     Copy,
     Clone,
@@ -179,11 +203,13 @@ impl fmt::Display for ContTag {
     Serialize_repr,
     Deserialize_repr,
     TryFromRepr,
+    EnumCount,
+    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum Op1 {
-    Car = 0b0010_0000_0000_0000,
+    Car = OP1_TAG_INIT,
     Cdr,
     Atom,
     Emit,
@@ -297,6 +323,7 @@ impl fmt::Display for Op1 {
     }
 }
 
+pub(crate) const OP2_TAG_INIT: u16 = 0b0011_0000_0000_0000;
 #[derive(
     Copy,
     Clone,
@@ -308,11 +335,13 @@ impl fmt::Display for Op1 {
     Serialize_repr,
     Deserialize_repr,
     TryFromRepr,
+    EnumCount,
+    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum Op2 {
-    Sum = 0b0011_0000_0000_0000,
+    Sum = OP2_TAG_INIT,
     Diff,
     Product,
     Quotient,

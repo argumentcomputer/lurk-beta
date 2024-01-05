@@ -68,23 +68,19 @@ mod path;
 pub mod pointers;
 mod slot;
 pub mod store;
+pub mod tag;
 mod var_map;
 
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 #[cfg(test)]
 mod tests;
 
-use crate::{
-    field::LurkField,
-    symbol::Symbol,
-    tag::{ContTag, ExprTag, Op1, Op2, Tag as TagTrait},
-};
+use crate::{field::LurkField, symbol::Symbol};
 
-use self::{pointers::Ptr, slot::SlotsCounter, store::Store, var_map::VarMap};
+use self::{pointers::Ptr, slot::SlotsCounter, store::Store, tag::Tag, var_map::VarMap};
 
 pub type AString = Arc<str>;
 
@@ -102,74 +98,6 @@ pub struct Func {
 /// LEM variables
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct Var(AString);
-
-/// The LEM `Tag` is a wrapper around other types that are used as tags
-#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash, Serialize, Deserialize)]
-pub enum Tag {
-    Expr(ExprTag),
-    Cont(ContTag),
-    Op1(Op1),
-    Op2(Op2),
-}
-
-impl TryFrom<u16> for Tag {
-    type Error = anyhow::Error;
-
-    fn try_from(val: u16) -> Result<Self, Self::Error> {
-        if let Ok(tag) = ExprTag::try_from(val) {
-            Ok(Tag::Expr(tag))
-        } else if let Ok(tag) = ContTag::try_from(val) {
-            Ok(Tag::Cont(tag))
-        } else {
-            bail!("Invalid u16 for Tag: {val}")
-        }
-    }
-}
-
-impl From<Tag> for u16 {
-    fn from(val: Tag) -> Self {
-        match val {
-            Tag::Expr(tag) => tag.into(),
-            Tag::Cont(tag) => tag.into(),
-            Tag::Op1(tag) => tag.into(),
-            Tag::Op2(tag) => tag.into(),
-        }
-    }
-}
-
-impl TagTrait for Tag {
-    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
-        Self::try_from(f.to_u16()?).ok()
-    }
-
-    fn to_field<F: LurkField>(&self) -> F {
-        Tag::to_field(self)
-    }
-}
-
-impl Tag {
-    #[inline]
-    pub fn to_field<F: LurkField>(&self) -> F {
-        match self {
-            Tag::Expr(tag) => tag.to_field(),
-            Tag::Cont(tag) => tag.to_field(),
-            Tag::Op1(tag) => tag.to_field(),
-            Tag::Op2(tag) => tag.to_field(),
-        }
-    }
-}
-
-impl std::fmt::Display for Tag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use Tag::{Cont, Expr, Op1, Op2};
-        match self {
-            Expr(tag) => write!(f, "expr.{}", tag),
-            Cont(tag) => write!(f, "cont.{}", tag),
-            Op1(tag) => write!(f, "op1.{}", tag),
-            Op2(tag) => write!(f, "op2.{}", tag),
-        }
-    }
-}
 
 /// LEM literals
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]

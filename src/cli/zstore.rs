@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use crate::{
     field::{FWrap, LurkField},
     lem::{
-        pointers::{Ptr, ZPtr},
-        store::Store,
+        pointers::{Ptr, RawPtr, ZPtr},
+        store::{expect_ptrs, intern_ptrs_hydrated, Store},
     },
 };
 
@@ -38,17 +38,18 @@ impl<F: LurkField> ZDag<F> {
             if let Some(z_ptr) = cache.get(ptr) {
                 *z_ptr
             } else {
-                let z_ptr = match ptr {
-                    Ptr::Atom(tag, idx) => {
+                let tag = ptr.tag();
+                let z_ptr = match ptr.raw() {
+                    RawPtr::Atom(idx) => {
                         let f = store.expect_f(*idx);
                         let z_ptr = ZPtr::from_parts(*tag, *f);
                         self.0.insert(z_ptr, ZPtrType::Atom);
                         z_ptr
                     }
-                    Ptr::Tuple2(tag, idx) => {
-                        let (a, b) = store.expect_2_ptrs(*idx);
-                        let a = self.populate_with(a, store, cache);
-                        let b = self.populate_with(b, store, cache);
+                    RawPtr::Hash4(idx) => {
+                        let [a, b] = expect_ptrs!(store, 2, *idx);
+                        let a = self.populate_with(&a, store, cache);
+                        let b = self.populate_with(&b, store, cache);
                         let z_ptr = ZPtr::from_parts(
                             *tag,
                             store.poseidon_cache.hash4(&[
@@ -61,11 +62,11 @@ impl<F: LurkField> ZDag<F> {
                         self.0.insert(z_ptr, ZPtrType::Tuple2(a, b));
                         z_ptr
                     }
-                    Ptr::Tuple3(tag, idx) => {
-                        let (a, b, c) = store.expect_3_ptrs(*idx);
-                        let a = self.populate_with(a, store, cache);
-                        let b = self.populate_with(b, store, cache);
-                        let c = self.populate_with(c, store, cache);
+                    RawPtr::Hash6(idx) => {
+                        let [a, b, c] = expect_ptrs!(store, 3, *idx);
+                        let a = self.populate_with(&a, store, cache);
+                        let b = self.populate_with(&b, store, cache);
+                        let c = self.populate_with(&c, store, cache);
                         let z_ptr = ZPtr::from_parts(
                             *tag,
                             store.poseidon_cache.hash6(&[
@@ -80,12 +81,12 @@ impl<F: LurkField> ZDag<F> {
                         self.0.insert(z_ptr, ZPtrType::Tuple3(a, b, c));
                         z_ptr
                     }
-                    Ptr::Tuple4(tag, idx) => {
-                        let (a, b, c, d) = store.expect_4_ptrs(*idx);
-                        let a = self.populate_with(a, store, cache);
-                        let b = self.populate_with(b, store, cache);
-                        let c = self.populate_with(c, store, cache);
-                        let d = self.populate_with(d, store, cache);
+                    RawPtr::Hash8(idx) => {
+                        let [a, b, c, d] = expect_ptrs!(store, 4, *idx);
+                        let a = self.populate_with(&a, store, cache);
+                        let b = self.populate_with(&b, store, cache);
+                        let c = self.populate_with(&c, store, cache);
+                        let d = self.populate_with(&d, store, cache);
                         let z_ptr = ZPtr::from_parts(
                             *tag,
                             store.poseidon_cache.hash8(&[
@@ -126,26 +127,24 @@ impl<F: LurkField> ZDag<F> {
             } else {
                 let ptr = match self.get_type(z_ptr) {
                     None => bail!("Couldn't find ZPtr on ZStore"),
-                    Some(ZPtrType::Atom) => {
-                        store.intern_atom_hydrated(*z_ptr.tag(), *z_ptr.value(), *z_ptr)
-                    }
+                    Some(ZPtrType::Atom) => store.intern_atom(*z_ptr.tag(), *z_ptr.value()),
                     Some(ZPtrType::Tuple2(z1, z2)) => {
                         let ptr1 = self.populate_store(z1, store, cache)?;
                         let ptr2 = self.populate_store(z2, store, cache)?;
-                        store.intern_2_ptrs_hydrated(*z_ptr.tag(), ptr1, ptr2, *z_ptr)
+                        intern_ptrs_hydrated!(store, *z_ptr.tag(), *z_ptr, ptr1, ptr2)
                     }
                     Some(ZPtrType::Tuple3(z1, z2, z3)) => {
                         let ptr1 = self.populate_store(z1, store, cache)?;
                         let ptr2 = self.populate_store(z2, store, cache)?;
                         let ptr3 = self.populate_store(z3, store, cache)?;
-                        store.intern_3_ptrs_hydrated(*z_ptr.tag(), ptr1, ptr2, ptr3, *z_ptr)
+                        intern_ptrs_hydrated!(store, *z_ptr.tag(), *z_ptr, ptr1, ptr2, ptr3)
                     }
                     Some(ZPtrType::Tuple4(z1, z2, z3, z4)) => {
                         let ptr1 = self.populate_store(z1, store, cache)?;
                         let ptr2 = self.populate_store(z2, store, cache)?;
                         let ptr3 = self.populate_store(z3, store, cache)?;
                         let ptr4 = self.populate_store(z4, store, cache)?;
-                        store.intern_4_ptrs_hydrated(*z_ptr.tag(), ptr1, ptr2, ptr3, ptr4, *z_ptr)
+                        intern_ptrs_hydrated!(store, *z_ptr.tag(), *z_ptr, ptr1, ptr2, ptr3, ptr4)
                     }
                 };
                 cache.insert(*z_ptr, ptr);
@@ -276,7 +275,11 @@ mod tests {
 
     use crate::{
         field::LurkField,
-        lem::{pointers::Ptr, store::Store, Tag},
+        lem::{
+            pointers::Ptr,
+            store::{intern_ptrs, Store},
+            tag::Tag,
+        },
         tag::{ContTag, ExprTag, Op1, Op2},
     };
 
@@ -297,23 +300,26 @@ mod tests {
         } else {
             match rnd % 4 {
                 0 => store.intern_atom(tag, Fp::from_u64(rnd)),
-                1 => store.intern_2_ptrs(
+                1 => intern_ptrs!(
+                    store,
                     tag,
                     rng_interner(rng, max_depth - 1, store),
-                    rng_interner(rng, max_depth - 1, store),
+                    rng_interner(rng, max_depth - 1, store)
                 ),
-                2 => store.intern_3_ptrs(
+                2 => intern_ptrs!(
+                    store,
                     tag,
                     rng_interner(rng, max_depth - 1, store),
                     rng_interner(rng, max_depth - 1, store),
-                    rng_interner(rng, max_depth - 1, store),
+                    rng_interner(rng, max_depth - 1, store)
                 ),
-                3 => store.intern_4_ptrs(
+                3 => intern_ptrs!(
+                    store,
                     tag,
                     rng_interner(rng, max_depth - 1, store),
                     rng_interner(rng, max_depth - 1, store),
                     rng_interner(rng, max_depth - 1, store),
-                    rng_interner(rng, max_depth - 1, store),
+                    rng_interner(rng, max_depth - 1, store)
                 ),
                 _ => unreachable!(),
             }

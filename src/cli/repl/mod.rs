@@ -30,9 +30,9 @@ use crate::{
         eval::{evaluate_simple_with_env, evaluate_with_env},
         interpreter::Frame,
         multiframe::MultiFrame,
-        pointers::Ptr,
+        pointers::{Ptr, RawPtr},
         store::Store,
-        Tag,
+        tag::Tag,
     },
     parser,
     proof::{
@@ -457,7 +457,7 @@ where
         let (expr_io, ..) = self
             .eval_expr(expr)
             .with_context(|| "evaluating first arg")?;
-        let Ptr::Atom(Tag::Expr(ExprTag::Num), hash_idx) = &expr_io[0] else {
+        let (Tag::Expr(ExprTag::Num), RawPtr::Atom(hash_idx)) = &expr_io[0].parts() else {
             bail!("hash must be a number")
         };
         Ok(self.store.expect_f(*hash_idx))
