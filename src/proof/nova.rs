@@ -13,7 +13,7 @@ use nova::{
         snark::RelaxedR1CSSNARKTrait,
         Engine,
     },
-    CircuitShape, CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
+    CompressedSNARK, ProverKey, R1CSWithArity, RecursiveSNARK, VerifierKey,
 };
 use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
@@ -102,7 +102,7 @@ pub type C1LEM<'a, F, C> = crate::lem::multiframe::MultiFrame<'a, F, C>;
 pub type C2<F> = TrivialCircuit<<E2<F> as Engine>::Scalar>;
 
 /// Type alias for Nova Circuit Parameters with the curve cycle types defined above.
-pub type NovaCircuitShape<F> = CircuitShape<E1<F>>;
+pub type NovaCircuitShape<F> = R1CSWithArity<E1<F>>;
 
 /// Type alias for Nova Public Parameters with the curve cycle types defined above.
 pub type NovaPublicParams<F, C1> = nova::PublicParams<E1<F>, E2<F>, C1, C2<F>>;
