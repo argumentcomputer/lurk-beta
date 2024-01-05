@@ -1768,10 +1768,6 @@
 <a href="#1766" id="1766">1766</a>
 <a href="#1767" id="1767">1767</a>
 <a href="#1768" id="1768">1768</a>
-<a href="#1769" id="1769">1769</a>
-<a href="#1770" id="1770">1770</a>
-<a href="#1771" id="1771">1771</a>
-<a href="#1772" id="1772">1772</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -1831,7 +1827,7 @@
 
 <span class="kw">fn </span>compute_frame&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     lurk_step: <span class="kw-2">&amp;</span>Func,
-    cprocs_run: <span class="kw-2">&amp;</span>[Func],
+    cprocs: <span class="kw-2">&amp;</span>[Func],
     input: <span class="kw-2">&amp;</span>[Ptr],
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
@@ -1841,9 +1837,7 @@
     <span class="kw">let </span>func = <span class="kw">if </span>pc == <span class="number">0 </span>{
         lurk_step
     } <span class="kw">else </span>{
-        cprocs_run
-            .get(pc - <span class="number">1</span>)
-            .expect(<span class="string">"Program counter outside range"</span>)
+        cprocs.get(pc - <span class="number">1</span>).expect(<span class="string">"Program counter outside range"</span>)
     };
     <span class="macro">assert_eq!</span>(func.input_params.len(), input.len());
     <span class="kw">let </span>preimages = Hints::new_from_func(func);
@@ -1859,7 +1853,7 @@
     LogFmt: Fn(usize, <span class="kw-2">&amp;</span>[Ptr], <span class="kw-2">&amp;</span>[Ptr], <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String,
 &gt;(
     lurk_step: <span class="kw-2">&amp;</span>Func,
-    cprocs_run: <span class="kw-2">&amp;</span>[Func],
+    cprocs: <span class="kw-2">&amp;</span>[Func],
     <span class="kw-2">mut </span>input: Vec&lt;Ptr&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
@@ -1873,7 +1867,7 @@
     <span class="kw">for _ in </span><span class="number">0</span>..limit {
         <span class="kw">let </span><span class="kw-2">mut </span>emitted = <span class="macro">vec!</span>[];
         <span class="kw">let </span>(frame, must_break) =
-            compute_frame(lurk_step, cprocs_run, <span class="kw-2">&amp;</span>input, store, lang, <span class="kw-2">&amp;mut </span>emitted, pc)<span class="question-mark">?</span>;
+            compute_frame(lurk_step, cprocs, <span class="kw-2">&amp;</span>input, store, lang, <span class="kw-2">&amp;mut </span>emitted, pc)<span class="question-mark">?</span>;
 
         iterations += <span class="number">1</span>;
         input = frame.output.clone();
@@ -1892,7 +1886,7 @@
 <span class="doccomment">/// Faster version of `build_frames` that doesn't accumulate frames
 </span><span class="kw">fn </span>traverse_frames&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     lurk_step: <span class="kw-2">&amp;</span>Func,
-    cprocs_run: <span class="kw-2">&amp;</span>[Func],
+    cprocs: <span class="kw-2">&amp;</span>[Func],
     <span class="kw-2">mut </span>input: Vec&lt;Ptr&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
@@ -1903,7 +1897,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>emitted = <span class="macro">vec!</span>[];
     <span class="kw">for _ in </span><span class="number">0</span>..limit {
         <span class="kw">let </span>(frame, must_break) =
-            compute_frame(lurk_step, cprocs_run, <span class="kw-2">&amp;</span>input, store, lang, <span class="kw-2">&amp;mut </span>emitted, pc)<span class="question-mark">?</span>;
+            compute_frame(lurk_step, cprocs, <span class="kw-2">&amp;</span>input, store, lang, <span class="kw-2">&amp;mut </span>emitted, pc)<span class="question-mark">?</span>;
 
         iterations += <span class="number">1</span>;
         input = frame.output.clone();
@@ -1917,7 +1911,7 @@
 }
 
 <span class="kw">pub fn </span>evaluate_with_env_and_cont&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
-    func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
+    lang_setup: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>[Func], <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
     expr: Ptr,
     env: Ptr,
     cont: Ptr,
@@ -1940,38 +1934,37 @@
 
     <span class="kw">let </span>input = <span class="macro">vec!</span>[expr, env, cont];
 
-    <span class="kw">match </span>func_lang {
+    <span class="kw">match </span>lang_setup {
         <span class="prelude-val">None </span>=&gt; {
             <span class="kw">let </span>lang: Lang&lt;F, C&gt; = Lang::new();
             build_frames(eval_step(), <span class="kw-2">&amp;</span>[], input, store, limit, <span class="kw-2">&amp;</span>lang, log_fmt)
         }
-        <span class="prelude-val">Some</span>((func, lang)) =&gt; {
-            <span class="kw">let </span>funcs = make_cprocs_funcs_from_lang(lang);
-            build_frames(func, <span class="kw-2">&amp;</span>funcs, input, store, limit, lang, log_fmt)
+        <span class="prelude-val">Some</span>((lurk_step, cprocs, lang)) =&gt; {
+            build_frames(lurk_step, cprocs, input, store, limit, lang, log_fmt)
         }
     }
 }
 
 <span class="attr">#[inline]
 </span><span class="kw">pub fn </span>evaluate_with_env&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
-    func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
+    lang_setup: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>[Func], <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
     expr: Ptr,
     env: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
-    evaluate_with_env_and_cont(func_lang, expr, env, store.cont_outermost(), store, limit)
+    evaluate_with_env_and_cont(lang_setup, expr, env, store.cont_outermost(), store, limit)
 }
 
 <span class="attr">#[inline]
 </span><span class="kw">pub fn </span>evaluate&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
-    func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
+    lang_setup: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>[Func], <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
     expr: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
     evaluate_with_env_and_cont(
-        func_lang,
+        lang_setup,
         expr,
         store.intern_nil(),
         store.cont_outermost(),
@@ -1981,33 +1974,32 @@
 }
 
 <span class="kw">pub fn </span>evaluate_simple_with_env&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
-    func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
+    lang_setup: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>[Func], <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
     expr: Ptr,
     env: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
     <span class="kw">let </span>input = <span class="macro">vec!</span>[expr, env, store.cont_outermost()];
-    <span class="kw">match </span>func_lang {
+    <span class="kw">match </span>lang_setup {
         <span class="prelude-val">None </span>=&gt; {
             <span class="kw">let </span>lang: Lang&lt;F, C&gt; = Lang::new();
             traverse_frames(eval_step(), <span class="kw-2">&amp;</span>[], input, store, limit, <span class="kw-2">&amp;</span>lang)
         }
-        <span class="prelude-val">Some</span>((func, lang)) =&gt; {
-            <span class="kw">let </span>funcs = make_cprocs_funcs_from_lang(lang);
-            traverse_frames(func, <span class="kw-2">&amp;</span>funcs, input, store, limit, lang)
+        <span class="prelude-val">Some</span>((lurk_step, cprocs, lang)) =&gt; {
+            traverse_frames(lurk_step, cprocs, input, store, limit, lang)
         }
     }
 }
 
 <span class="attr">#[inline]
 </span><span class="kw">pub fn </span>evaluate_simple&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
-    func_lang: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
+    lang_setup: <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>[Func], <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;)&gt;,
     expr: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
-    evaluate_simple_with_env(func_lang, expr, store.intern_nil(), store, limit)
+    evaluate_simple_with_env(lang_setup, expr, store.intern_nil(), store, limit)
 }
 
 <span class="kw">pub struct </span>EvalConfig&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
@@ -2229,7 +2221,7 @@
 /// coprocessor in the `Lang` will have its own specialized `Func`
 </span><span class="kw">pub fn </span>make_cprocs_funcs_from_lang&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
-) -&gt; std::sync::Arc&lt;[Func]&gt; {
+) -&gt; Vec&lt;Func&gt; {
     lang.coprocessors()
         .iter()
         .map(|(name, c)| run_cproc(name.clone(), c.arity()))

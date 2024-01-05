@@ -1107,6 +1107,15 @@
 <a href="#1105" id="1105">1105</a>
 <a href="#1106" id="1106">1106</a>
 <a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -1609,7 +1618,7 @@
             ),
             FoldingConfig::NIVC(lang, rc) =&gt; (
                 Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_nivc(lang))),
-                <span class="prelude-val">Some</span>(make_cprocs_funcs_from_lang(lang)),
+                <span class="prelude-val">Some</span>(make_cprocs_funcs_from_lang(lang).into()),
                 <span class="kw-2">*</span>rc,
             ),
         };
@@ -1681,7 +1690,7 @@
             }
             FoldingConfig::NIVC(lang, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_nivc(lang)));
-                <span class="kw">let </span>cprocs = make_cprocs_funcs_from_lang(lang);
+                <span class="kw">let </span>cprocs: Arc&lt;[Func]&gt; = make_cprocs_funcs_from_lang(lang).into();
                 <span class="kw">let </span><span class="kw-2">mut </span>chunk_start_idx = <span class="number">0</span>;
                 <span class="kw">while </span>chunk_start_idx &lt; frames.len() {
                     <span class="kw">let </span>first_frame = <span class="kw-2">&amp;</span>frames[chunk_start_idx];
@@ -1778,8 +1787,17 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="self">Self</span>::EvalFrame&gt;, ProofError&gt; {
         <span class="kw">let </span>cont = store.cont_outermost();
         <span class="kw">let </span>lurk_step = make_eval_step_from_config(ec);
-        evaluate_with_env_and_cont(<span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>lurk_step, ec.lang())), expr, env, cont, store, limit)
-            .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
+        <span class="kw">let </span>lang = ec.lang();
+        <span class="kw">let </span>cprocs = make_cprocs_funcs_from_lang(lang);
+        evaluate_with_env_and_cont(
+            <span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>lurk_step, <span class="kw-2">&amp;</span>cprocs, lang)),
+            expr,
+            env,
+            cont,
+            store,
+            limit,
+        )
+        .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
     }
 
     <span class="kw">fn </span>significant_frame_count(frames: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::EvalFrame]) -&gt; usize {

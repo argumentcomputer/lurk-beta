@@ -630,6 +630,38 @@
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>abomonation::Abomonation;
@@ -656,15 +688,20 @@
 <span class="kw">use </span>tracing::info;
 
 <span class="kw">use crate</span>::{
-    eval::lang::{Coproc, Lang},
+    coprocessor::Coprocessor,
+    eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::{evaluate_simple_with_env, evaluate_with_env},
+        eval::{
+            evaluate_simple_with_env, evaluate_with_env, make_cprocs_funcs_from_lang,
+            make_eval_step_from_config, EvalConfig,
+        },
         interpreter::Frame,
         multiframe::MultiFrame,
         pointers::{Ptr, RawPtr},
         store::Store,
         tag::Tag,
+        Func,
     },
     parser,
     proof::{
@@ -716,17 +753,19 @@
 }
 
 <span class="attr">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Repl&lt;F: LurkField&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Repl&lt;F: LurkField, C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned&gt; {
     store: Store&lt;F&gt;,
     state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
+    lurk_step: Func,
+    cprocs: Vec&lt;Func&gt;,
     env: Ptr,
-    lang: Arc&lt;Lang&lt;F, Coproc&lt;F&gt;&gt;&gt;,
     rc: usize,
     limit: usize,
     backend: Backend,
     evaluation: <span class="prelude-ty">Option</span>&lt;Evaluation&gt;,
     pwd_path: Utf8PathBuf,
-    meta: HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, MetaCmd&lt;F&gt;&gt;,
+    meta: HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, MetaCmd&lt;F, C&gt;&gt;,
     apply_fn: OnceCell&lt;Ptr&gt;,
 }
 
@@ -745,7 +784,7 @@
     (a + m - <span class="number">1</span>) / m * m
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Repl&lt;F&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned&gt; Repl&lt;F, C&gt; {
     <span class="kw">fn </span>get_evaluation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Evaluation&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.evaluation
     }
@@ -788,12 +827,21 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: CurveCycleEquipped + Serialize + DeserializeOwned&gt; Repl&lt;F&gt;
+<span class="kw">impl</span>&lt;
+        F: CurveCycleEquipped + Serialize + DeserializeOwned,
+        C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">'static</span>,
+    &gt; Repl&lt;F, C&gt;
 <span class="kw">where
     </span>&lt;F <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;&lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::E2 <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(store: Store&lt;F&gt;, rc: usize, limit: usize, backend: Backend) -&gt; Repl&lt;F&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
+        store: Store&lt;F&gt;,
+        lang: Lang&lt;F, C&gt;,
+        rc: usize,
+        limit: usize,
+        backend: Backend,
+    ) -&gt; Repl&lt;F, C&gt; {
         <span class="kw">let </span>limit = pad(limit, rc);
         <span class="macro">info!</span>(
             <span class="string">"Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}"</span>,
@@ -803,11 +851,15 @@
         <span class="kw">let </span>pwd_path =
             Utf8PathBuf::from_path_buf(current_dir).expect(<span class="string">"path contains invalid Unicode"</span>);
         <span class="kw">let </span>env = store.intern_nil();
+        <span class="kw">let </span>lurk_step = make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(<span class="kw-2">&amp;</span>lang));
+        <span class="kw">let </span>cprocs = make_cprocs_funcs_from_lang(<span class="kw-2">&amp;</span>lang);
         Repl {
             store,
             state: State::init_lurk_state().rccell(),
+            lang: Arc::new(lang),
+            lurk_step,
+            cprocs,
             env,
-            lang: Arc::new(Lang::new()),
             rc,
             limit,
             backend,
@@ -816,6 +868,10 @@
             meta: MetaCmd::cmds(),
             apply_fn: OnceCell::new(),
         }
+    }
+
+    <span class="kw">fn </span>lang_setup(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (<span class="kw-2">&amp;</span>Func, <span class="kw-2">&amp;</span>[Func], <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;) {
+        (<span class="kw-2">&amp;</span><span class="self">self</span>.lurk_step, <span class="kw-2">&amp;</span><span class="self">self</span>.cprocs, <span class="kw-2">&amp;</span><span class="self">self</span>.lang)
     }
 
     <span class="kw">fn </span>get_apply_fn(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Ptr {
@@ -939,7 +995,7 @@
                     z_dag,
                 };
 
-                <span class="kw">if </span>LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">'_</span>, <span class="kw">_</span>, Coproc&lt;F&gt;&gt;&gt;::is_cached(<span class="kw-2">&amp;</span>proof_key) {
+                <span class="kw">if </span>LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">'_</span>, <span class="kw">_</span>, C&gt;&gt;::is_cached(<span class="kw-2">&amp;</span>proof_key) {
                     <span class="macro">info!</span>(<span class="string">"Proof already cached"</span>);
                 } <span class="kw">else </span>{
                     <span class="macro">info!</span>(<span class="string">"Proof not cached. Loading public parameters"</span>);
@@ -947,10 +1003,8 @@
                         Instance::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone(), <span class="bool-val">true</span>, Kind::NovaPublicParams);
                     <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
 
-                    <span class="kw">let </span>prover = NovaProver::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">'_</span>, F, Coproc&lt;F&gt;&gt;&gt;::new(
-                        <span class="self">self</span>.rc,
-                        <span class="self">self</span>.lang.clone(),
-                    );
+                    <span class="kw">let </span>prover =
+                        NovaProver::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">'_</span>, F, C&gt;&gt;::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone());
 
                     <span class="macro">info!</span>(<span class="string">"Proving"</span>);
                     <span class="kw">let </span>(proof, public_inputs, public_outputs, num_steps) =
@@ -1028,8 +1082,13 @@
     }
 
     <span class="kw">fn </span>eval_expr_with_env(<span class="kw-2">&amp;</span><span class="self">self</span>, expr: Ptr, env: Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
-        <span class="kw">let </span>(ptrs, iterations, emitted) =
-            evaluate_simple_with_env::&lt;F, Coproc&lt;F&gt;&gt;(<span class="prelude-val">None</span>, expr, env, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="self">self</span>.limit)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(ptrs, iterations, emitted) = evaluate_simple_with_env::&lt;F, C&gt;(
+            <span class="prelude-val">Some</span>(<span class="self">self</span>.lang_setup()),
+            expr,
+            env,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.store,
+            <span class="self">self</span>.limit,
+        )<span class="question-mark">?</span>;
         <span class="kw">match </span>ptrs[<span class="number">2</span>].tag() {
             Tag::Cont(ContTag::Terminal) =&gt; <span class="prelude-val">Ok</span>((ptrs, iterations, emitted)),
             t =&gt; {
@@ -1052,8 +1111,8 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         expr_ptr: Ptr,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
-        <span class="kw">let </span>(ptrs, iterations, emitted) = evaluate_simple_with_env::&lt;F, Coproc&lt;F&gt;&gt;(
-            <span class="prelude-val">None</span>,
+        <span class="kw">let </span>(ptrs, iterations, emitted) = evaluate_simple_with_env::&lt;F, C&gt;(
+            <span class="prelude-val">Some</span>(<span class="self">self</span>.lang_setup()),
             expr_ptr,
             <span class="self">self</span>.env,
             <span class="kw-2">&amp;</span><span class="self">self</span>.store,
@@ -1070,8 +1129,13 @@
     }
 
     <span class="kw">fn </span>eval_expr_and_memoize(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize)&gt; {
-        <span class="kw">let </span>frames =
-            evaluate_with_env::&lt;F, Coproc&lt;F&gt;&gt;(<span class="prelude-val">None</span>, expr_ptr, <span class="self">self</span>.env, <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="self">self</span>.limit)<span class="question-mark">?</span>;
+        <span class="kw">let </span>frames = evaluate_with_env::&lt;F, C&gt;(
+            <span class="prelude-val">Some</span>(<span class="self">self</span>.lang_setup()),
+            expr_ptr,
+            <span class="self">self</span>.env,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.store,
+            <span class="self">self</span>.limit,
+        )<span class="question-mark">?</span>;
         <span class="kw">let </span>iterations = frames.len();
         <span class="kw">let </span>output = frames
             .last()

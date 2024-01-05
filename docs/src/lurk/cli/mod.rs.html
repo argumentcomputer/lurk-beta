@@ -657,6 +657,35 @@
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>backend;
 <span class="kw">mod </span>circom;
 <span class="kw">mod </span>commitment;
@@ -681,7 +710,7 @@
 };
 
 <span class="kw">use crate</span>::{
-    eval::lang::Coproc,
+    eval::lang::{Coproc, Lang},
     field::{LanguageField, LurkField},
     lem::{multiframe::MultiFrame, store::Store},
     public_parameters::disk_cache::public_params_dir,
@@ -753,7 +782,7 @@
     </span><span class="attr">#[clap(long, value_enum)]
     </span>backend: <span class="prelude-ty">Option</span>&lt;Backend&gt;,
 
-    <span class="doccomment">/// Arithmetic field (defaults to the backend's standard field)
+    <span class="doccomment">/// Arithmetic field (defaults to "Pallas")
     </span><span class="attr">#[clap(long, value_enum)]
     </span>field: <span class="prelude-ty">Option</span>&lt;LanguageField&gt;,
 
@@ -866,7 +895,7 @@
     </span><span class="attr">#[clap(long, value_enum)]
     </span>backend: <span class="prelude-ty">Option</span>&lt;Backend&gt;,
 
-    <span class="doccomment">/// Arithmetic field (defaults to the backend's standard field)
+    <span class="doccomment">/// Arithmetic field (defaults to "Pallas")
     </span><span class="attr">#[clap(long, value_enum)]
     </span>field: <span class="prelude-ty">Option</span>&lt;LanguageField&gt;,
 
@@ -964,7 +993,9 @@
 <span class="macro">macro_rules! </span>new_repl {
     ( <span class="macro-nonterminal">$cli</span>: expr, <span class="macro-nonterminal">$rc</span>: expr, <span class="macro-nonterminal">$limit</span>: expr, <span class="macro-nonterminal">$field</span>: path, <span class="macro-nonterminal">$backend</span>: expr ) =&gt; {{
         <span class="kw">let </span>store = get_store(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$cli</span>.zstore).with_context(|| <span class="string">"reading store from file"</span>)<span class="question-mark">?</span>;
-        Repl::&lt;<span class="macro-nonterminal">$field</span>&gt;::new(store, <span class="macro-nonterminal">$rc</span>, <span class="macro-nonterminal">$limit</span>, <span class="macro-nonterminal">$backend</span>)
+        <span class="comment">// TODO: pick a predefined `Lang` according to a CLI parameter
+        </span><span class="kw">let </span>lang = Lang::new();
+        Repl::&lt;<span class="macro-nonterminal">$field</span>, Coproc&lt;<span class="macro-nonterminal">$field</span>&gt;&gt;::new(store, lang, <span class="macro-nonterminal">$rc</span>, <span class="macro-nonterminal">$limit</span>, <span class="macro-nonterminal">$backend</span>)
     }};
 }
 
@@ -1079,6 +1110,10 @@
     </span><span class="attr">#[clap(value_parser)]
     </span>proof_key: String,
 
+    <span class="doccomment">/// Arithmetic field (defaults to "Pallas")
+    </span><span class="attr">#[clap(long, value_enum)]
+    </span>field: <span class="prelude-ty">Option</span>&lt;LanguageField&gt;,
+
     <span class="doccomment">/// Path to public parameters directory
     </span><span class="attr">#[clap(long, value_parser)]
     </span>public_params_dir: <span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
@@ -1097,6 +1132,10 @@
     <span class="doccomment">/// Key of the proof to be inspected
     </span><span class="attr">#[clap(value_parser)]
     </span>proof_key: String,
+
+    <span class="doccomment">/// Arithmetic field (defaults to "Pallas")
+    </span><span class="attr">#[clap(long, value_enum)]
+    </span>field: <span class="prelude-ty">Option</span>&lt;LanguageField&gt;,
 
     <span class="doccomment">/// Flag to show the entire proof meta-data
     </span><span class="attr">#[arg(long)]
@@ -1252,9 +1291,20 @@
                 }
                 cli_config(verify_args.config.as_ref(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cli_settings));
 
-                LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">'_</span>, <span class="kw">_</span>, Coproc&lt;pallas::Scalar&gt;&gt;&gt;::verify_proof(
-                    <span class="kw-2">&amp;</span>verify_args.proof_key,
-                )
+                <span class="comment">// TODO: pick a predefined `Lang` according to a CLI parameter
+                </span><span class="kw">match </span>verify_args.field.unwrap_or_default() {
+                    LanguageField::BN256 =&gt; {
+                        LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">'_</span>, <span class="kw">_</span>, Coproc&lt;bn256::Fr&gt;&gt;&gt;::verify_proof(
+                            <span class="kw-2">&amp;</span>verify_args.proof_key,
+                        )
+                    }
+                    LanguageField::Pallas =&gt; {
+                        LurkProof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, MultiFrame&lt;<span class="lifetime">'_</span>, <span class="kw">_</span>, Coproc&lt;pallas::Scalar&gt;&gt;&gt;::verify_proof(
+                            <span class="kw-2">&amp;</span>verify_args.proof_key,
+                        )
+                    }
+                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+                }
             }
             <span class="attr">#[allow(unused_variables)]
             </span>Command::Inspect(inspect_args) =&gt; {
@@ -1265,11 +1315,19 @@
                 }
                 cli_config(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cli_settings));
 
-                LurkProofMeta::&lt;pallas::Scalar&gt;::inspect_proof(
-                    <span class="kw-2">&amp;</span>inspect_args.proof_key,
-                    <span class="prelude-val">None</span>,
-                    inspect_args.full,
-                )
+                <span class="kw">match </span>inspect_args.field.unwrap_or_default() {
+                    LanguageField::BN256 =&gt; LurkProofMeta::&lt;bn256::Fr&gt;::inspect_proof(
+                        <span class="kw-2">&amp;</span>inspect_args.proof_key,
+                        <span class="prelude-val">None</span>,
+                        inspect_args.full,
+                    ),
+                    LanguageField::Pallas =&gt; LurkProofMeta::&lt;pallas::Scalar&gt;::inspect_proof(
+                        <span class="kw-2">&amp;</span>inspect_args.proof_key,
+                        <span class="prelude-val">None</span>,
+                        inspect_args.full,
+                    ),
+                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+                }
             }
             Command::Circom(circom_args) =&gt; {
                 <span class="kw">use </span><span class="kw">crate</span>::cli::circom::create_circom_gadget;
