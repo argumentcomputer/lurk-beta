@@ -3,6 +3,7 @@ use lurk_macros::TryFromRepr;
 use proptest_derive::Arbitrary;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::{convert::TryFrom, fmt};
+use strum::{EnumCount, EnumIter};
 
 use crate::field::LurkField;
 
@@ -23,7 +24,17 @@ pub trait Tag:
 pub(crate) const EXPR_TAG_INIT: u16 = 0b0000_0000_0000_0000;
 /// A tag for expressions. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
 #[derive(
-    Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr, TryFromRepr,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize_repr,
+    Deserialize_repr,
+    TryFromRepr,
+    EnumCount,
+    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
@@ -93,7 +104,17 @@ impl Tag for ExprTag {
 pub(crate) const CONT_TAG_INIT: u16 = 0b0001_0000_0000_0000;
 /// A tag for continuations. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
 #[derive(
-    Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, TryFromRepr,
+    Serialize_repr,
+    Deserialize_repr,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    TryFromRepr,
+    EnumCount,
+    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
@@ -182,6 +203,8 @@ pub(crate) const OP1_TAG_INIT: u16 = 0b0010_0000_0000_0000;
     Serialize_repr,
     Deserialize_repr,
     TryFromRepr,
+    EnumCount,
+    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
@@ -312,6 +335,8 @@ pub(crate) const OP2_TAG_INIT: u16 = 0b0011_0000_0000_0000;
     Serialize_repr,
     Deserialize_repr,
     TryFromRepr,
+    EnumCount,
+    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
