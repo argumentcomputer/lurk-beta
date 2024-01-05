@@ -24,15 +24,20 @@ use std::{
 use tracing::info;
 
 use crate::{
-    eval::lang::{Coproc, Lang},
+    coprocessor::Coprocessor,
+    eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::{evaluate_simple_with_env, evaluate_with_env},
+        eval::{
+            evaluate_simple_with_env, evaluate_with_env, make_cprocs_funcs_from_lang,
+            make_eval_step_from_config, EvalConfig,
+        },
         interpreter::Frame,
         multiframe::MultiFrame,
         pointers::{Ptr, RawPtr},
         store::Store,
         tag::Tag,
+        Func,
     },
     parser,
     proof::{
@@ -84,17 +89,19 @@ impl Evaluation {
 }
 
 #[allow(dead_code)]
-pub(crate) struct Repl<F: LurkField> {
+pub(crate) struct Repl<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> {
     store: Store<F>,
     state: Rc<RefCell<State>>,
+    lang: Arc<Lang<F, C>>,
+    lurk_step: Func,
+    cprocs: Vec<Func>,
     env: Ptr,
-    lang: Arc<Lang<F, Coproc<F>>>,
     rc: usize,
     limit: usize,
     backend: Backend,
     evaluation: Option<Evaluation>,
     pwd_path: Utf8PathBuf,
-    meta: HashMap<&'static str, MetaCmd<F>>,
+    meta: HashMap<&'static str, MetaCmd<F, C>>,
     apply_fn: OnceCell<Ptr>,
 }
 
@@ -113,7 +120,7 @@ fn pad(a: usize, m: usize) -> usize {
     (a + m - 1) / m * m
 }
 
-impl<F: LurkField> Repl<F> {
+impl<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> Repl<F, C> {
     fn get_evaluation(&self) -> &Option<Evaluation> {
         &self.evaluation
     }
@@ -156,12 +163,21 @@ impl<F: LurkField> Repl<F> {
     }
 }
 
-impl<F: CurveCycleEquipped + Serialize + DeserializeOwned> Repl<F>
+impl<
+        F: CurveCycleEquipped + Serialize + DeserializeOwned,
+        C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
+    > Repl<F, C>
 where
     <F as PrimeField>::Repr: Abomonation,
     <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
-    pub(crate) fn new(store: Store<F>, rc: usize, limit: usize, backend: Backend) -> Repl<F> {
+    pub(crate) fn new(
+        store: Store<F>,
+        lang: Lang<F, C>,
+        rc: usize,
+        limit: usize,
+        backend: Backend,
+    ) -> Repl<F, C> {
         let limit = pad(limit, rc);
         info!(
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
@@ -171,11 +187,15 @@ where
         let pwd_path =
             Utf8PathBuf::from_path_buf(current_dir).expect("path contains invalid Unicode");
         let env = store.intern_nil();
+        let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
+        let cprocs = make_cprocs_funcs_from_lang(&lang);
         Repl {
             store,
             state: State::init_lurk_state().rccell(),
+            lang: Arc::new(lang),
+            lurk_step,
+            cprocs,
             env,
-            lang: Arc::new(Lang::new()),
             rc,
             limit,
             backend,
@@ -184,6 +204,10 @@ where
             meta: MetaCmd::cmds(),
             apply_fn: OnceCell::new(),
         }
+    }
+
+    fn lang_setup(&self) -> (&Func, &[Func], &Lang<F, C>) {
+        (&self.lurk_step, &self.cprocs, &self.lang)
     }
 
     fn get_apply_fn(&self) -> &Ptr {
@@ -307,7 +331,7 @@ where
                     z_dag,
                 };
 
-                if LurkProof::<_, _, MultiFrame<'_, _, Coproc<F>>>::is_cached(&proof_key) {
+                if LurkProof::<_, _, MultiFrame<'_, _, C>>::is_cached(&proof_key) {
                     info!("Proof already cached");
                 } else {
                     info!("Proof not cached. Loading public parameters");
@@ -315,10 +339,8 @@ where
                         Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
                     let pp = public_params(&instance)?;
 
-                    let prover = NovaProver::<_, _, MultiFrame<'_, F, Coproc<F>>>::new(
-                        self.rc,
-                        self.lang.clone(),
-                    );
+                    let prover =
+                        NovaProver::<_, _, MultiFrame<'_, F, C>>::new(self.rc, self.lang.clone());
 
                     info!("Proving");
                     let (proof, public_inputs, public_outputs, num_steps) =
@@ -396,8 +418,13 @@ where
     }
 
     fn eval_expr_with_env(&self, expr: Ptr, env: Ptr) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-        let (ptrs, iterations, emitted) =
-            evaluate_simple_with_env::<F, Coproc<F>>(None, expr, env, &self.store, self.limit)?;
+        let (ptrs, iterations, emitted) = evaluate_simple_with_env::<F, C>(
+            Some(self.lang_setup()),
+            expr,
+            env,
+            &self.store,
+            self.limit,
+        )?;
         match ptrs[2].tag() {
             Tag::Cont(ContTag::Terminal) => Ok((ptrs, iterations, emitted)),
             t => {
@@ -420,8 +447,8 @@ where
         &mut self,
         expr_ptr: Ptr,
     ) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-        let (ptrs, iterations, emitted) = evaluate_simple_with_env::<F, Coproc<F>>(
-            None,
+        let (ptrs, iterations, emitted) = evaluate_simple_with_env::<F, C>(
+            Some(self.lang_setup()),
             expr_ptr,
             self.env,
             &self.store,
@@ -438,8 +465,13 @@ where
     }
 
     fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr) -> Result<(Vec<Ptr>, usize)> {
-        let frames =
-            evaluate_with_env::<F, Coproc<F>>(None, expr_ptr, self.env, &self.store, self.limit)?;
+        let frames = evaluate_with_env::<F, C>(
+            Some(self.lang_setup()),
+            expr_ptr,
+            self.env,
+            &self.store,
+            self.limit,
+        )?;
         let iterations = frames.len();
         let output = frames
             .last()

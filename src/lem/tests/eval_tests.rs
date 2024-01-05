@@ -6,7 +6,9 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     lem::{
-        eval::{evaluate_simple, make_eval_step_from_config, EvalConfig},
+        eval::{
+            evaluate_simple, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig,
+        },
         pointers::Ptr,
         store::Store,
         Tag,
@@ -114,7 +116,8 @@ fn do_test<C: Coprocessor<Fr>>(
         evaluate_simple::<Fr, C>(None, *expr, s, limit).unwrap()
     } else {
         let func = make_eval_step_from_config(&EvalConfig::new_ivc(lang));
-        evaluate_simple(Some((&func, lang)), *expr, s, limit).unwrap()
+        let cprocs = make_cprocs_funcs_from_lang(lang);
+        evaluate_simple(Some((&func, &cprocs, lang)), *expr, s, limit).unwrap()
     };
     let new_expr = output[0];
     let new_env = output[1];

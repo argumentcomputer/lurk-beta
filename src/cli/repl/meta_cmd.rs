@@ -14,7 +14,6 @@ use crate::{
         zstore::ZDag,
     },
     coprocessor::Coprocessor,
-    eval::lang::Coproc,
     field::LurkField,
     lem::{
         eval::evaluate_with_env_and_cont,
@@ -37,21 +36,24 @@ use crate::{
 
 use super::Repl;
 
-pub(super) struct MetaCmd<F: LurkField> {
+pub(super) struct MetaCmd<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> {
     name: &'static str,
     summary: &'static str,
     format: &'static str,
     description: &'static [&'static str],
     example: &'static [&'static str],
-    pub(super) run: fn(repl: &mut Repl<F>, args: &Ptr) -> Result<()>,
+    pub(super) run: fn(repl: &mut Repl<F, C>, args: &Ptr) -> Result<()>,
 }
 
-impl<F: CurveCycleEquipped + Serialize + DeserializeOwned> MetaCmd<F>
+impl<
+        F: CurveCycleEquipped + Serialize + DeserializeOwned,
+        C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
+    > MetaCmd<F, C>
 where
     <F as PrimeField>::Repr: Abomonation,
     <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
-    const LOAD: MetaCmd<F> = MetaCmd {
+    const LOAD: MetaCmd<F, C> = MetaCmd {
         name: "load",
         summary: "Load lurk expressions from a file.",
         format: "!(load <string>)",
@@ -67,7 +69,7 @@ where
         },
     };
 
-    const DEF: MetaCmd<F> = MetaCmd {
+    const DEF: MetaCmd<F, C> = MetaCmd {
         name: "def",
         summary: "Extends env with a non-recursive binding.",
         format: "!(def <binding> <body>)",
@@ -76,7 +78,7 @@ where
             "The state's env is set to the result.",
         ],
         example: &["!(def foo (lambda () 123))"],
-        run: |repl: &mut Repl<F>, args: &Ptr| {
+        run: |repl: &mut Repl<F, C>, args: &Ptr| {
             let (first, second) = repl.peek2(args)?;
             let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
             let l = repl.store.intern_lurk_symbol("let");
@@ -92,7 +94,7 @@ where
         },
     };
 
-    const DEFREC: MetaCmd<F> = MetaCmd {
+    const DEFREC: MetaCmd<F, C> = MetaCmd {
         name: "defrec",
         summary: "Extends the env with a recursive binding.",
         format: "!(defrec <binding> <body>)",
@@ -120,7 +122,7 @@ where
         },
     };
 
-    const ASSERT: MetaCmd<F> = MetaCmd {
+    const ASSERT: MetaCmd<F, C> = MetaCmd {
         name: "assert",
         summary: "Assert that an expression evaluates to true.",
         format: "!(assert <expr>)",
@@ -140,7 +142,7 @@ where
         },
     };
 
-    const ASSERT_EQ: MetaCmd<F> = MetaCmd {
+    const ASSERT_EQ: MetaCmd<F, C> = MetaCmd {
         name: "assert-eq",
         summary: "Assert that two expressions evaluate to the same value.",
         format: "!(assert-eq <expr> <expr>)",
@@ -169,7 +171,7 @@ where
         },
     };
 
-    const ASSERT_EMITTED: MetaCmd<F> = MetaCmd {
+    const ASSERT_EMITTED: MetaCmd<F, C> = MetaCmd {
         name:
             "assert-emitted",
         summary:
@@ -206,7 +208,7 @@ where
         },
     };
 
-    const ASSERT_ERROR: MetaCmd<F> = MetaCmd {
+    const ASSERT_ERROR: MetaCmd<F, C> = MetaCmd {
         name: "assert-error",
         summary: "Assert that a evaluation of <expr> fails.",
         format: "!(assert-error <expr>)",
@@ -226,7 +228,7 @@ where
         },
     };
 
-    const COMMIT: MetaCmd<F> = MetaCmd {
+    const COMMIT: MetaCmd<F, C> = MetaCmd {
         name:
             "commit",
         summary:
@@ -245,7 +247,7 @@ where
         }
     };
 
-    const HIDE: MetaCmd<F> = MetaCmd {
+    const HIDE: MetaCmd<F, C> = MetaCmd {
         name: "hide",
         summary: "Return and persist the commitment of <exp> using secret <secret>.",
         format: "!(hide <secret> <expr>)",
@@ -275,7 +277,7 @@ where
         },
     };
 
-    const FETCH: MetaCmd<F> = MetaCmd {
+    const FETCH: MetaCmd<F, C> = MetaCmd {
         name: "fetch",
         summary: "Add data from a commitment to the repl store.",
         format: "!(fetch <commitment>)",
@@ -290,7 +292,7 @@ where
         },
     };
 
-    const OPEN: MetaCmd<F> = MetaCmd {
+    const OPEN: MetaCmd<F, C> = MetaCmd {
         name: "open",
         summary: "Open a commitment.",
         format: "!(open <commitment>)",
@@ -305,7 +307,7 @@ where
         },
     };
 
-    const CLEAR: MetaCmd<F> = MetaCmd {
+    const CLEAR: MetaCmd<F, C> = MetaCmd {
         name: "clear",
         summary: "Reset the current environment to be empty.",
         format: "!(clear)",
@@ -317,7 +319,7 @@ where
         },
     };
 
-    const SET_ENV: MetaCmd<F> = MetaCmd {
+    const SET_ENV: MetaCmd<F, C> = MetaCmd {
         name: "set-env",
         summary: "Set the env to the result of evaluating the first argument.",
         format: "!(set-env <expr>)",
@@ -331,7 +333,7 @@ where
         },
     };
 
-    const PROVE: MetaCmd<F> = MetaCmd {
+    const PROVE: MetaCmd<F, C> = MetaCmd {
         name:
             "prove",
         summary:
@@ -355,7 +357,7 @@ where
         }
     };
 
-    const VERIFY: MetaCmd<F> = MetaCmd {
+    const VERIFY: MetaCmd<F, C> = MetaCmd {
         name: "verify",
         summary: "Verify a proof",
         format: "!(verify <string>)",
@@ -368,13 +370,13 @@ where
         run: |repl, args| {
             let first = repl.peek1(args)?;
             let proof_id = repl.get_string(&first)?;
-            LurkProof::<_, _, MultiFrame<'_, _, Coproc<F>>>::verify_proof(
+            LurkProof::<_, _, MultiFrame<'_, _, C>>::verify_proof(
                 &proof_id,
             )
         }
     };
 
-    const DEFPACKAGE: MetaCmd<F> = MetaCmd {
+    const DEFPACKAGE: MetaCmd<F, C> = MetaCmd {
         name: "defpackage",
         summary: "Add a package to the state.",
         format: "!(defpackage <string|symbol>)",
@@ -395,7 +397,7 @@ where
         },
     };
 
-    const IMPORT: MetaCmd<F> = MetaCmd {
+    const IMPORT: MetaCmd<F, C> = MetaCmd {
         name: "import",
         summary: "Import a single or several packages.",
         format: "!(import <string|package> ...)",
@@ -426,7 +428,7 @@ where
         },
     };
 
-    const IN_PACKAGE: MetaCmd<F> = MetaCmd {
+    const IN_PACKAGE: MetaCmd<F, C> = MetaCmd {
         name: "in-package",
         summary: "set the current package.",
         format: "!(in-package <string|symbol>)",
@@ -460,7 +462,7 @@ where
         },
     };
 
-    const HELP: MetaCmd<F> = MetaCmd {
+    const HELP: MetaCmd<F, C> = MetaCmd {
         name: "help",
         summary: "Print help message.",
         format: "!(help <string|symbol>)",
@@ -484,7 +486,7 @@ where
                 Tag::Expr(ExprTag::Nil) => {
                     use itertools::Itertools;
                     println!("Available commands:");
-                    for (_, i) in MetaCmd::<F>::cmds().iter().sorted_by_key(|x| x.0) {
+                    for (_, i) in MetaCmd::<F, C>::cmds().iter().sorted_by_key(|x| x.0) {
                         println!("  {} - {}", i.name, i.summary);
                     }
                 }
@@ -495,7 +497,7 @@ where
     };
 
     fn meta_help(cmd: &str) {
-        match MetaCmd::<F>::cmds().get(cmd) {
+        match MetaCmd::<F, C>::cmds().get(cmd) {
             Some(i) => {
                 println!("{} - {}", i.name, i.summary);
                 for &e in i.description.iter() {
@@ -513,7 +515,7 @@ where
         }
     }
 
-    fn call(repl: &mut Repl<F>, args: &Ptr) -> Result<()> {
+    fn call(repl: &mut Repl<F, C>, args: &Ptr) -> Result<()> {
         let (hash_ptr, args) = repl.store.car_cdr(args)?;
         let hash_expr = match hash_ptr.tag() {
             Tag::Expr(ExprTag::Cons) => hash_ptr,
@@ -535,7 +537,7 @@ where
         repl.handle_non_meta(repl.store.list(expr_vec))
     }
 
-    const CALL: MetaCmd<F> = MetaCmd {
+    const CALL: MetaCmd<F, C> = MetaCmd {
         name: "call",
         summary: "Open a functional commitment then apply arguments to it",
         format: "!(call <hash> <args>)",
@@ -547,7 +549,7 @@ where
         run: Self::call,
     };
 
-    const CHAIN: MetaCmd<F> = MetaCmd {
+    const CHAIN: MetaCmd<F, C> = MetaCmd {
         name: "chain",
         summary: "Chain a functional commitment by applying the provided arguments to it",
         format: "!(chain <hash> <args>)",
@@ -563,7 +565,7 @@ where
                (add 0)))",
             "!(chain 0x14cb06e2d3c594af90d5b670e73595791d7462b20442c24cd56ba2919947d769 1)",
         ],
-        run: |repl: &mut Repl<F>, args: &Ptr| {
+        run: |repl: &mut Repl<F, C>, args: &Ptr| {
             Self::call(repl, args)?;
             let ev = repl
                 .get_evaluation()
@@ -586,7 +588,7 @@ where
         },
     };
 
-    fn inspect(repl: &mut Repl<F>, args: &Ptr, full: bool) -> Result<()> {
+    fn inspect(repl: &mut Repl<F, C>, args: &Ptr, full: bool) -> Result<()> {
         let first = repl.peek1(args)?;
         let proof_id = repl.get_string(&first)?;
         LurkProofMeta::<F>::inspect_proof(
@@ -596,7 +598,7 @@ where
         )
     }
 
-    const INSPECT: MetaCmd<F> = MetaCmd {
+    const INSPECT: MetaCmd<F, C> = MetaCmd {
         name: "inspect",
         summary: "Print part of a proof claim",
         format: "!(inspect <string>)",
@@ -610,7 +612,7 @@ where
         }
     };
 
-    const INSPECT_FULL: MetaCmd<F> = MetaCmd {
+    const INSPECT_FULL: MetaCmd<F, C> = MetaCmd {
         name: "inspect-full",
         summary: "Print a proof claim",
         format: "!(inspect-full <string>)",
@@ -624,7 +626,7 @@ where
         }
     };
 
-    const DUMP_DATA: MetaCmd<F> = MetaCmd {
+    const DUMP_DATA: MetaCmd<F, C> = MetaCmd {
         name: "dump-data",
         summary: "Write Lurk data to the file system",
         format: "!(dump-data <expr> <string>)",
@@ -642,7 +644,7 @@ where
         },
     };
 
-    const DEF_LOAD_DATA: MetaCmd<F> = MetaCmd {
+    const DEF_LOAD_DATA: MetaCmd<F, C> = MetaCmd {
         name: "def-load-data",
         summary: "Read Lurk data from the file system and bind it to a symbol",
         format: "!(def-load-data <symbol> <string>)",
@@ -665,7 +667,7 @@ where
         },
     };
 
-    const DEFPROTOCOL: MetaCmd<F> = MetaCmd {
+    const DEFPROTOCOL: MetaCmd<F, C> = MetaCmd {
         name: "defprotocol",
         summary: "Defines a protocol",
         format: "!(defprotocol <symbol> <vars> <body> options...)",
@@ -726,7 +728,7 @@ where
 
             let prop_map = repl.get_properties(&props, &["rc", "lang", "description"])?;
 
-            let get_prop = |key, accepts: fn(&Ptr) -> bool, def: fn(&Repl<F>) -> Ptr| -> Result<Ptr> {
+            let get_prop = |key, accepts: fn(&Ptr) -> bool, def: fn(&Repl<F, C>) -> Ptr| -> Result<Ptr> {
                 match prop_map.get(key) {
                     Some(val) => {
                         if accepts(val) {
@@ -771,7 +773,7 @@ where
     /// # Errors
     /// * If the protocol evaluation fails
     /// * If the reduction count is not a number or can't be converted to `u64`
-    fn get_fun_and_rc(repl: &Repl<F>, ptcl: Ptr) -> Result<(Ptr, usize)> {
+    fn get_fun_and_rc(repl: &Repl<F, C>, ptcl: Ptr) -> Result<(Ptr, usize)> {
         let (io, ..) = repl
             .eval_expr(ptcl)
             .with_context(|| "evaluating protocol")?;
@@ -793,7 +795,7 @@ where
     ///
     /// # Errors
     /// Errors if the the list of arguments is not proper
-    fn get_args_vec(repl: &Repl<F>, args: &Ptr) -> Result<Vec<Ptr>> {
+    fn get_args_vec(repl: &Repl<F, C>, args: &Ptr) -> Result<Vec<Ptr>> {
         let Some((args_vec, None)) = repl.store.fetch_list(args) else {
             bail!("Protocol arguments must be a list")
         };
@@ -811,7 +813,7 @@ where
     /// * If the proof input can't be built (first component of the pair is nil)
     /// * If the proof input is not a list with length 6
     fn get_cek_io_and_post_verify_fn(
-        repl: &Repl<F>,
+        repl: &Repl<F, C>,
         fun: Ptr,
         args: Ptr,
     ) -> Result<(Vec<Ptr>, Ptr)> {
@@ -853,7 +855,7 @@ where
     /// * If the predicate is not a function
     /// * If the predicate evaluation fails
     /// * If the predicate rejects the proof (evaluation returns nil)
-    fn post_verify_check(repl: &Repl<F>, post_verify: Ptr) -> Result<()> {
+    fn post_verify_check(repl: &Repl<F, C>, post_verify: Ptr) -> Result<()> {
         if !post_verify.is_nil() {
             let call = repl.store.list(vec![post_verify]);
             let (io, ..) = repl
@@ -871,7 +873,7 @@ where
     ///
     /// # Errors
     /// Errors if the continuation specifier does not represent a valid continuation
-    fn get_cont_ptr(repl: &Repl<F>, cont_key: &Ptr) -> Result<Ptr> {
+    fn get_cont_ptr(repl: &Repl<F, C>, cont_key: &Ptr) -> Result<Ptr> {
         let store = &repl.store;
         if cont_key == &store.key("outermost") {
             Ok(store.cont_outermost())
@@ -887,7 +889,7 @@ where
         }
     }
 
-    const PROVE_PROTOCOL: MetaCmd<F> = MetaCmd {
+    const PROVE_PROTOCOL: MetaCmd<F, C> = MetaCmd {
         name: "prove-protocol",
         summary: "Creates a proof for a protocol",
         format: "!(prove-protocol <protocol> <string> args...)",
@@ -934,8 +936,8 @@ where
 
             Self::post_verify_check(repl, post_verify)?;
 
-            let frames = evaluate_with_env_and_cont::<F, Coproc<F>>(
-                None,
+            let frames = evaluate_with_env_and_cont::<F, C>(
+                Some(repl.lang_setup()),
                 cek_io[0],
                 cek_io[1],
                 Self::get_cont_ptr(repl, &cek_io[2])?,
@@ -960,9 +962,7 @@ where
             let mut z_dag = ZDag::default();
             let z_ptr = z_dag.populate_with(&args, &repl.store, &mut Default::default());
             let args = LurkData { z_ptr, z_dag };
-            match load::<LurkProof<'_, _, _, MultiFrame<'_, _, Coproc<F>>>>(&proof_path(
-                &proof_key,
-            ))? {
+            match load::<LurkProof<'_, _, _, MultiFrame<'_, _, C>>>(&proof_path(&proof_key))? {
                 LurkProof::Nova { proof, .. } => {
                     dump(ProtocolProof::Nova { args, proof }, &path)?;
                     println!("Protocol proof saved at {path}");
@@ -972,7 +972,7 @@ where
         },
     };
 
-    const VERIFY_PROTOCOL: MetaCmd<F> = MetaCmd {
+    const VERIFY_PROTOCOL: MetaCmd<F, C> = MetaCmd {
         name: "verify-protocol",
         summary: "Verifies a proof for a protocol",
         format: "!(verify-protocol <protocol> <string>)",
@@ -992,7 +992,7 @@ where
 
             let (fun, proto_rc) = Self::get_fun_and_rc(repl, ptcl)?;
 
-            match load::<ProtocolProof<'_, _, _, MultiFrame<'_, _, Coproc<F>>>>(&path)? {
+            match load::<ProtocolProof<'_, _, _, MultiFrame<'_, _, C>>>(&path)? {
                 ProtocolProof::Nova {
                     args: LurkData { z_ptr, z_dag },
                     proof,
@@ -1026,7 +1026,7 @@ where
         },
     };
 
-    const CMDS: [MetaCmd<F>; 28] = [
+    const CMDS: [MetaCmd<F, C>; 28] = [
         MetaCmd::LOAD,
         MetaCmd::DEF,
         MetaCmd::DEFREC,
@@ -1057,7 +1057,7 @@ where
         MetaCmd::VERIFY_PROTOCOL,
     ];
 
-    pub(super) fn cmds() -> std::collections::HashMap<&'static str, MetaCmd<F>> {
+    pub(super) fn cmds() -> std::collections::HashMap<&'static str, MetaCmd<F, C>> {
         HashMap::from(Self::CMDS.map(|x| (x.name, x)))
     }
 }
@@ -1078,7 +1078,10 @@ impl<F: LurkField> HasFieldModulus for LurkData<F> {
 ///
 /// # Errors
 /// Errors if a string can't be fetched with the pointer
-fn get_path<F: LurkField>(repl: &Repl<F>, path: &Ptr) -> Result<Utf8PathBuf> {
+fn get_path<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned>(
+    repl: &Repl<F, C>,
+    path: &Ptr,
+) -> Result<Utf8PathBuf> {
     let Some(path) = repl.store.fetch_string(path) else {
         bail!(
             "Path must be a string. Got {}",
