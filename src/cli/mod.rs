@@ -22,7 +22,7 @@ use std::{
 };
 
 use crate::{
-    eval::lang::Coproc,
+    eval::lang::{Coproc, Lang},
     field::{LanguageField, LurkField},
     lem::{multiframe::MultiFrame, store::Store},
     public_parameters::disk_cache::public_params_dir,
@@ -94,7 +94,7 @@ struct LoadArgs {
     #[clap(long, value_enum)]
     backend: Option<Backend>,
 
-    /// Arithmetic field (defaults to the backend's standard field)
+    /// Arithmetic field (defaults to "Pallas")
     #[clap(long, value_enum)]
     field: Option<LanguageField>,
 
@@ -207,7 +207,7 @@ struct ReplArgs {
     #[clap(long, value_enum)]
     backend: Option<Backend>,
 
-    /// Arithmetic field (defaults to the backend's standard field)
+    /// Arithmetic field (defaults to "Pallas")
     #[clap(long, value_enum)]
     field: Option<LanguageField>,
 
@@ -305,7 +305,9 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
 macro_rules! new_repl {
     ( $cli: expr, $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
         let store = get_store(&$cli.zstore).with_context(|| "reading store from file")?;
-        Repl::<$field>::new(store, $rc, $limit, $backend)
+        // TODO: pick a predefined `Lang` according to a CLI parameter
+        let lang = Lang::new();
+        Repl::<$field, Coproc<$field>>::new(store, lang, $rc, $limit, $backend)
     }};
 }
 
@@ -420,6 +422,10 @@ struct VerifyArgs {
     #[clap(value_parser)]
     proof_key: String,
 
+    /// Arithmetic field (defaults to "Pallas")
+    #[clap(long, value_enum)]
+    field: Option<LanguageField>,
+
     /// Path to public parameters directory
     #[clap(long, value_parser)]
     public_params_dir: Option<Utf8PathBuf>,
@@ -438,6 +444,10 @@ struct InspectArgs {
     /// Key of the proof to be inspected
     #[clap(value_parser)]
     proof_key: String,
+
+    /// Arithmetic field (defaults to "Pallas")
+    #[clap(long, value_enum)]
+    field: Option<LanguageField>,
 
     /// Flag to show the entire proof meta-data
     #[arg(long)]
@@ -593,9 +603,20 @@ impl Cli {
                 }
                 cli_config(verify_args.config.as_ref(), Some(&cli_settings));
 
-                LurkProof::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>::verify_proof(
-                    &verify_args.proof_key,
-                )
+                // TODO: pick a predefined `Lang` according to a CLI parameter
+                match verify_args.field.unwrap_or_default() {
+                    LanguageField::BN256 => {
+                        LurkProof::<_, _, MultiFrame<'_, _, Coproc<bn256::Fr>>>::verify_proof(
+                            &verify_args.proof_key,
+                        )
+                    }
+                    LanguageField::Pallas => {
+                        LurkProof::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>::verify_proof(
+                            &verify_args.proof_key,
+                        )
+                    }
+                    _ => unreachable!(),
+                }
             }
             #[allow(unused_variables)]
             Command::Inspect(inspect_args) => {
@@ -606,11 +627,19 @@ impl Cli {
                 }
                 cli_config(None, Some(&cli_settings));
 
-                LurkProofMeta::<pallas::Scalar>::inspect_proof(
-                    &inspect_args.proof_key,
-                    None,
-                    inspect_args.full,
-                )
+                match inspect_args.field.unwrap_or_default() {
+                    LanguageField::BN256 => LurkProofMeta::<bn256::Fr>::inspect_proof(
+                        &inspect_args.proof_key,
+                        None,
+                        inspect_args.full,
+                    ),
+                    LanguageField::Pallas => LurkProofMeta::<pallas::Scalar>::inspect_proof(
+                        &inspect_args.proof_key,
+                        None,
+                        inspect_args.full,
+                    ),
+                    _ => unreachable!(),
+                }
             }
             Command::Circom(circom_args) => {
                 use crate::cli::circom::create_circom_gadget;

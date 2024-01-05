@@ -57,7 +57,7 @@ fn get_pc<F: LurkField, C: Coprocessor<F>>(
 
 fn compute_frame<F: LurkField, C: Coprocessor<F>>(
     lurk_step: &Func,
-    cprocs_run: &[Func],
+    cprocs: &[Func],
     input: &[Ptr],
     store: &Store<F>,
     lang: &Lang<F, C>,
@@ -67,9 +67,7 @@ fn compute_frame<F: LurkField, C: Coprocessor<F>>(
     let func = if pc == 0 {
         lurk_step
     } else {
-        cprocs_run
-            .get(pc - 1)
-            .expect("Program counter outside range")
+        cprocs.get(pc - 1).expect("Program counter outside range")
     };
     assert_eq!(func.input_params.len(), input.len());
     let preimages = Hints::new_from_func(func);
@@ -85,7 +83,7 @@ fn build_frames<
     LogFmt: Fn(usize, &[Ptr], &[Ptr], &Store<F>) -> String,
 >(
     lurk_step: &Func,
-    cprocs_run: &[Func],
+    cprocs: &[Func],
     mut input: Vec<Ptr>,
     store: &Store<F>,
     limit: usize,
@@ -99,7 +97,7 @@ fn build_frames<
     for _ in 0..limit {
         let mut emitted = vec![];
         let (frame, must_break) =
-            compute_frame(lurk_step, cprocs_run, &input, store, lang, &mut emitted, pc)?;
+            compute_frame(lurk_step, cprocs, &input, store, lang, &mut emitted, pc)?;
 
         iterations += 1;
         input = frame.output.clone();
@@ -118,7 +116,7 @@ fn build_frames<
 /// Faster version of `build_frames` that doesn't accumulate frames
 fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
     lurk_step: &Func,
-    cprocs_run: &[Func],
+    cprocs: &[Func],
     mut input: Vec<Ptr>,
     store: &Store<F>,
     limit: usize,
@@ -129,7 +127,7 @@ fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
     let mut emitted = vec![];
     for _ in 0..limit {
         let (frame, must_break) =
-            compute_frame(lurk_step, cprocs_run, &input, store, lang, &mut emitted, pc)?;
+            compute_frame(lurk_step, cprocs, &input, store, lang, &mut emitted, pc)?;
 
         iterations += 1;
         input = frame.output.clone();
@@ -143,7 +141,7 @@ fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
 }
 
 pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
-    func_lang: Option<(&Func, &Lang<F, C>)>,
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
     expr: Ptr,
     env: Ptr,
     cont: Ptr,
@@ -166,38 +164,37 @@ pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
 
     let input = vec![expr, env, cont];
 
-    match func_lang {
+    match lang_setup {
         None => {
             let lang: Lang<F, C> = Lang::new();
             build_frames(eval_step(), &[], input, store, limit, &lang, log_fmt)
         }
-        Some((func, lang)) => {
-            let funcs = make_cprocs_funcs_from_lang(lang);
-            build_frames(func, &funcs, input, store, limit, lang, log_fmt)
+        Some((lurk_step, cprocs, lang)) => {
+            build_frames(lurk_step, cprocs, input, store, limit, lang, log_fmt)
         }
     }
 }
 
 #[inline]
 pub fn evaluate_with_env<F: LurkField, C: Coprocessor<F>>(
-    func_lang: Option<(&Func, &Lang<F, C>)>,
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
     expr: Ptr,
     env: Ptr,
     store: &Store<F>,
     limit: usize,
 ) -> Result<Vec<Frame>> {
-    evaluate_with_env_and_cont(func_lang, expr, env, store.cont_outermost(), store, limit)
+    evaluate_with_env_and_cont(lang_setup, expr, env, store.cont_outermost(), store, limit)
 }
 
 #[inline]
 pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
-    func_lang: Option<(&Func, &Lang<F, C>)>,
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
     expr: Ptr,
     store: &Store<F>,
     limit: usize,
 ) -> Result<Vec<Frame>> {
     evaluate_with_env_and_cont(
-        func_lang,
+        lang_setup,
         expr,
         store.intern_nil(),
         store.cont_outermost(),
@@ -207,33 +204,32 @@ pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
 }
 
 pub fn evaluate_simple_with_env<F: LurkField, C: Coprocessor<F>>(
-    func_lang: Option<(&Func, &Lang<F, C>)>,
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
     expr: Ptr,
     env: Ptr,
     store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
     let input = vec![expr, env, store.cont_outermost()];
-    match func_lang {
+    match lang_setup {
         None => {
             let lang: Lang<F, C> = Lang::new();
             traverse_frames(eval_step(), &[], input, store, limit, &lang)
         }
-        Some((func, lang)) => {
-            let funcs = make_cprocs_funcs_from_lang(lang);
-            traverse_frames(func, &funcs, input, store, limit, lang)
+        Some((lurk_step, cprocs, lang)) => {
+            traverse_frames(lurk_step, cprocs, input, store, limit, lang)
         }
     }
 }
 
 #[inline]
 pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
-    func_lang: Option<(&Func, &Lang<F, C>)>,
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
     expr: Ptr,
     store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-    evaluate_simple_with_env(func_lang, expr, store.intern_nil(), store, limit)
+    evaluate_simple_with_env(lang_setup, expr, store.intern_nil(), store, limit)
 }
 
 pub struct EvalConfig<'a, F: LurkField, C: Coprocessor<F>> {
@@ -455,7 +451,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
 /// coprocessor in the `Lang` will have its own specialized `Func`
 pub fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
     lang: &Lang<F, C>,
-) -> std::sync::Arc<[Func]> {
+) -> Vec<Func> {
     lang.coprocessors()
         .iter()
         .map(|(name, c)| run_cproc(name.clone(), c.arity()))

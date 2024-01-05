@@ -18,7 +18,7 @@ use lurk::{
     eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::{evaluate, make_eval_step_from_config, EvalConfig},
+        eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
         multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
@@ -134,7 +134,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit).unwrap();
+            let frames = &evaluate(Some((&lurk_step, &[], &lang)), ptr, store, limit).unwrap();
 
             b.iter_batched(
                 || frames,
@@ -215,7 +215,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit).unwrap();
+            let frames = &evaluate(Some((&lurk_step, &[], &lang)), ptr, store, limit).unwrap();
 
             b.iter_batched(
                 || frames,
@@ -274,6 +274,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
+    let cprocs = make_cprocs_funcs_from_lang(&lang);
 
     // use cached public params
     let instance = Instance::new(
@@ -298,7 +299,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
 
             let prover = SuperNovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate(Some((&lurk_step, &lang)), ptr, store, limit).unwrap();
+            let frames = &evaluate(Some((&lurk_step, &cprocs, &lang)), ptr, store, limit).unwrap();
 
             b.iter_batched(
                 || frames,

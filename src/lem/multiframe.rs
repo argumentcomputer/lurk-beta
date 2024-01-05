@@ -500,7 +500,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
             ),
             FoldingConfig::NIVC(lang, rc) => (
                 Arc::new(make_eval_step_from_config(&EvalConfig::new_nivc(lang))),
-                Some(make_cprocs_funcs_from_lang(lang)),
+                Some(make_cprocs_funcs_from_lang(lang).into()),
                 *rc,
             ),
         };
@@ -572,7 +572,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
             }
             FoldingConfig::NIVC(lang, _) => {
                 let lurk_step = Arc::new(make_eval_step_from_config(&EvalConfig::new_nivc(lang)));
-                let cprocs = make_cprocs_funcs_from_lang(lang);
+                let cprocs: Arc<[Func]> = make_cprocs_funcs_from_lang(lang).into();
                 let mut chunk_start_idx = 0;
                 while chunk_start_idx < frames.len() {
                     let first_frame = &frames[chunk_start_idx];
@@ -669,8 +669,17 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     ) -> Result<Vec<Self::EvalFrame>, ProofError> {
         let cont = store.cont_outermost();
         let lurk_step = make_eval_step_from_config(ec);
-        evaluate_with_env_and_cont(Some((&lurk_step, ec.lang())), expr, env, cont, store, limit)
-            .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
+        let lang = ec.lang();
+        let cprocs = make_cprocs_funcs_from_lang(lang);
+        evaluate_with_env_and_cont(
+            Some((&lurk_step, &cprocs, lang)),
+            expr,
+            env,
+            cont,
+            store,
+            limit,
+        )
+        .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
     }
 
     fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
