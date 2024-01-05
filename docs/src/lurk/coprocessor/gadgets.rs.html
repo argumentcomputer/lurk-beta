@@ -810,6 +810,9 @@
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper gadgets for synthesis
 
 </span><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
@@ -824,7 +827,7 @@
     lem::{
         circuit::GlobalAllocator,
         pointers::{Ptr, ZPtr},
-        store::Store,
+        store::{expect_ptrs, Store},
     },
     tag::{ExprTag, Tag},
 };
@@ -990,7 +993,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), SynthesisError&gt; {
     <span class="kw">let </span>(a, b) = <span class="kw">if </span>not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
         <span class="kw">let </span>idx = get_ptr(tuple, store)<span class="question-mark">?</span>.get_index2().expect(<span class="string">"invalid Ptr"</span>);
-        <span class="kw">let </span>(a, b) = store.expect_2_ptrs(idx);
+        <span class="kw">let </span>[a, b] = <span class="kw-2">&amp;</span><span class="macro">expect_ptrs!</span>(store, <span class="number">2</span>, idx);
         (store.hash_ptr(a), store.hash_ptr(b))
     } <span class="kw">else </span>{
         (ZPtr::dummy(), ZPtr::dummy())
@@ -1033,7 +1036,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), SynthesisError&gt; {
     <span class="kw">let </span>(a, b, c) = <span class="kw">if </span>not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
         <span class="kw">let </span>idx = get_ptr(tuple, store)<span class="question-mark">?</span>.get_index3().expect(<span class="string">"invalid Ptr"</span>);
-        <span class="kw">let </span>(a, b, c) = store.expect_3_ptrs(idx);
+        <span class="kw">let </span>[a, b, c] = <span class="kw-2">&amp;</span><span class="macro">expect_ptrs!</span>(store, <span class="number">3</span>, idx);
         (store.hash_ptr(a), store.hash_ptr(b), store.hash_ptr(c))
     } <span class="kw">else </span>{
         (ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy())
@@ -1087,7 +1090,7 @@
 &gt; {
     <span class="kw">let </span>(a, b, c, d) = <span class="kw">if </span>not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
         <span class="kw">let </span>idx = get_ptr(tuple, store)<span class="question-mark">?</span>.get_index4().expect(<span class="string">"invalid Ptr"</span>);
-        <span class="kw">let </span>(a, b, c, d) = store.expect_4_ptrs(idx);
+        <span class="kw">let </span>[a, b, c, d] = <span class="kw-2">&amp;</span><span class="macro">expect_ptrs!</span>(store, <span class="number">4</span>, idx);
         (
             store.hash_ptr(a),
             store.hash_ptr(b),
@@ -1350,7 +1353,10 @@
             deconstruct_tuple4,
         },
         field::LurkField,
-        lem::{circuit::GlobalAllocator, store::Store},
+        lem::{
+            circuit::GlobalAllocator,
+            store::{intern_ptrs, Store},
+        },
     };
 
     <span class="kw">use super</span>::{a_ptr_as_z_ptr, chain_car_cdr, construct_list, deconstruct_tuple2};
@@ -1373,7 +1379,7 @@
             <span class="kw-2">&amp;</span>a_nil,
         )
         .unwrap();
-        <span class="kw">let </span>nil2_ptr = store.intern_2_ptrs(<span class="kw-2">*</span>nil_tag, nil, nil);
+        <span class="kw">let </span>nil2_ptr = <span class="macro">intern_ptrs!</span>(store, <span class="kw-2">*</span>nil_tag, nil, nil);
         <span class="kw">let </span>z_nil2_ptr = store.hash_ptr(<span class="kw-2">&amp;</span>nil2_ptr);
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>nil2), <span class="prelude-val">Some</span>(z_nil2_ptr));
 
@@ -1387,7 +1393,7 @@
             <span class="kw-2">&amp;</span>a_nil,
         )
         .unwrap();
-        <span class="kw">let </span>nil3_ptr = store.intern_3_ptrs(<span class="kw-2">*</span>nil_tag, nil, nil, nil);
+        <span class="kw">let </span>nil3_ptr = <span class="macro">intern_ptrs!</span>(store, <span class="kw-2">*</span>nil_tag, nil, nil, nil);
         <span class="kw">let </span>z_nil3_ptr = store.hash_ptr(<span class="kw-2">&amp;</span>nil3_ptr);
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>nil3), <span class="prelude-val">Some</span>(z_nil3_ptr));
 
@@ -1402,7 +1408,7 @@
             <span class="kw-2">&amp;</span>a_nil,
         )
         .unwrap();
-        <span class="kw">let </span>nil4_ptr = store.intern_4_ptrs(<span class="kw-2">*</span>nil_tag, nil, nil, nil, nil);
+        <span class="kw">let </span>nil4_ptr = <span class="macro">intern_ptrs!</span>(store, <span class="kw-2">*</span>nil_tag, nil, nil, nil, nil);
         <span class="kw">let </span>z_nil4_ptr = store.hash_ptr(<span class="kw-2">&amp;</span>nil4_ptr);
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>nil4), <span class="prelude-val">Some</span>(z_nil4_ptr));
     }
@@ -1436,7 +1442,7 @@
         <span class="kw">let </span>nil_tag = <span class="kw-2">*</span>nil.tag();
         <span class="kw">let </span>not_dummy = Boolean::Constant(<span class="bool-val">true</span>);
 
-        <span class="kw">let </span>tuple2 = store.intern_2_ptrs(nil_tag, nil, nil);
+        <span class="kw">let </span>tuple2 = <span class="macro">intern_ptrs!</span>(store, nil_tag, nil, nil);
         <span class="kw">let </span>z_tuple2 = store.hash_ptr(<span class="kw-2">&amp;</span>tuple2);
         <span class="kw">let </span>a_tuple2 = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tuple2"</span>), || z_tuple2);
         <span class="kw">let </span>(a, b) = deconstruct_tuple2(
@@ -1449,7 +1455,7 @@
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>a), <span class="prelude-val">Some</span>(z_nil));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>b), <span class="prelude-val">Some</span>(z_nil));
 
-        <span class="kw">let </span>tuple3 = store.intern_3_ptrs(nil_tag, nil, nil, nil);
+        <span class="kw">let </span>tuple3 = <span class="macro">intern_ptrs!</span>(store, nil_tag, nil, nil, nil);
         <span class="kw">let </span>z_tuple3 = store.hash_ptr(<span class="kw-2">&amp;</span>tuple3);
         <span class="kw">let </span>a_tuple3 = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tuple3"</span>), || z_tuple3);
         <span class="kw">let </span>(a, b, c) = deconstruct_tuple3(
@@ -1463,7 +1469,7 @@
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>b), <span class="prelude-val">Some</span>(z_nil));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>c), <span class="prelude-val">Some</span>(z_nil));
 
-        <span class="kw">let </span>tuple4 = store.intern_4_ptrs(nil_tag, nil, nil, nil, nil);
+        <span class="kw">let </span>tuple4 = <span class="macro">intern_ptrs!</span>(store, nil_tag, nil, nil, nil, nil);
         <span class="kw">let </span>z_tuple4 = store.hash_ptr(<span class="kw-2">&amp;</span>tuple4);
         <span class="kw">let </span>a_tuple4 = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tuple4"</span>), || z_tuple4);
         <span class="kw">let </span>(a, b, c, d) = deconstruct_tuple4(

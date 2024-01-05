@@ -403,7 +403,7 @@
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::constraints::{alloc_equal, mul};
-    <span class="kw">use </span><span class="kw">crate</span>::lem::Tag <span class="kw">as </span>LEMTag;
+    <span class="kw">use </span><span class="kw">crate</span>::lem::{pointers::RawPtr, tag::Tag <span class="kw">as </span>LEMTag};
     <span class="kw">use </span><span class="kw">crate</span>::tag::{ExprTag, Tag};
     <span class="kw">use </span>std::marker::PhantomData;
 
@@ -499,11 +499,11 @@
         </span>}
 
         <span class="kw">fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr], env: <span class="kw-2">&amp;</span>Ptr, cont: <span class="kw-2">&amp;</span>Ptr) -&gt; Vec&lt;Ptr&gt; {
-            <span class="kw">let </span>Ptr::Atom(LEMTag::Expr(ExprTag::Num), a) = <span class="kw-2">&amp;</span>args[<span class="number">0</span>] <span class="kw">else </span>{
+            <span class="kw">let </span>(LEMTag::Expr(ExprTag::Num), RawPtr::Atom(a)) = args[<span class="number">0</span>].parts() <span class="kw">else </span>{
                 <span class="kw">return </span><span class="macro">vec!</span>[args[<span class="number">0</span>], <span class="kw-2">*</span>env, s.cont_error()];
             };
             <span class="kw">let </span>a = s.expect_f(<span class="kw-2">*</span>a);
-            <span class="kw">let </span>Ptr::Atom(LEMTag::Expr(ExprTag::Num), b) = <span class="kw-2">&amp;</span>args[<span class="number">1</span>] <span class="kw">else </span>{
+            <span class="kw">let </span>(LEMTag::Expr(ExprTag::Num), RawPtr::Atom(b)) = args[<span class="number">1</span>].parts() <span class="kw">else </span>{
                 <span class="kw">return </span><span class="macro">vec!</span>[args[<span class="number">1</span>], <span class="kw-2">*</span>env, s.cont_error()];
             };
             <span class="kw">let </span>b = s.expect_f(<span class="kw-2">*</span>b);

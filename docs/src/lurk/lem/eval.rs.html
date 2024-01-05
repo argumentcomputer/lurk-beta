@@ -1772,7 +1772,6 @@
 <a href="#1770" id="1770">1770</a>
 <a href="#1771" id="1771">1771</a>
 <a href="#1772" id="1772">1772</a>
-<a href="#1773" id="1773">1773</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -1796,8 +1795,8 @@
 
 <span class="kw">use super</span>::{
     interpreter::{Frame, Hints},
-    pointers::Ptr,
-    store::Store,
+    pointers::{Ptr, RawPtr},
+    store::{fetch_ptrs, Store},
     Ctrl, Func, Op, Tag, Var,
 };
 
@@ -1815,11 +1814,10 @@
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
 ) -&gt; usize {
-    <span class="kw">match </span>expr {
-        Ptr::Tuple2(Tag::Expr(Cproc), idx) =&gt; {
-            <span class="kw">let </span>(cproc, <span class="kw">_</span>) = store
-                .fetch_2_ptrs(<span class="kw-2">*</span>idx)
-                .expect(<span class="string">"Coprocessor expression is not interned"</span>);
+    <span class="kw">match </span>expr.parts() {
+        (Tag::Expr(Cproc), RawPtr::Hash4(idx)) =&gt; {
+            <span class="kw">let </span>[cproc, <span class="kw">_</span>] =
+                <span class="kw-2">&amp;</span><span class="macro">fetch_ptrs!</span>(store, <span class="number">2</span>, <span class="kw-2">*</span>idx).expect(<span class="string">"Coprocessor expression is not interned"</span>);
             <span class="kw">let </span>cproc_sym = store
                 .fetch_symbol(cproc)
                 .expect(<span class="string">"Coprocessor expression is not interned"</span>);

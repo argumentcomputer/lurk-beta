@@ -662,9 +662,9 @@
         eval::{evaluate_simple_with_env, evaluate_with_env},
         interpreter::Frame,
         multiframe::MultiFrame,
-        pointers::Ptr,
+        pointers::{Ptr, RawPtr},
         store::Store,
-        Tag,
+        tag::Tag,
     },
     parser,
     proof::{
@@ -1089,7 +1089,7 @@
         <span class="kw">let </span>(expr_io, ..) = <span class="self">self
             </span>.eval_expr(expr)
             .with_context(|| <span class="string">"evaluating first arg"</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>Ptr::Atom(Tag::Expr(ExprTag::Num), hash_idx) = <span class="kw-2">&amp;</span>expr_io[<span class="number">0</span>] <span class="kw">else </span>{
+        <span class="kw">let </span>(Tag::Expr(ExprTag::Num), RawPtr::Atom(hash_idx)) = <span class="kw-2">&amp;</span>expr_io[<span class="number">0</span>].parts() <span class="kw">else </span>{
             <span class="macro">bail!</span>(<span class="string">"hash must be a number"</span>)
         };
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.store.expect_f(<span class="kw-2">*</span>hash_idx))

@@ -882,16 +882,16 @@
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>tag {
     ( Expr::<span class="macro-nonterminal">$tag</span>:ident ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Tag::Expr</span>(<span class="macro-nonterminal">$crate::tag::ExprTag</span>::<span class="macro-nonterminal">$tag</span>)
+        <span class="macro-nonterminal">$crate::lem::tag::Tag::Expr</span>(<span class="macro-nonterminal">$crate::tag::ExprTag</span>::<span class="macro-nonterminal">$tag</span>)
     };
     ( Cont::<span class="macro-nonterminal">$tag</span>:ident ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Tag::Cont</span>(<span class="macro-nonterminal">$crate::tag::ContTag</span>::<span class="macro-nonterminal">$tag</span>)
+        <span class="macro-nonterminal">$crate::lem::tag::Tag::Cont</span>(<span class="macro-nonterminal">$crate::tag::ContTag</span>::<span class="macro-nonterminal">$tag</span>)
     };
     ( Op1::<span class="macro-nonterminal">$tag</span>:ident ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Tag::Op1</span>(<span class="macro-nonterminal">$crate::tag::Op1</span>::<span class="macro-nonterminal">$tag</span>)
+        <span class="macro-nonterminal">$crate::lem::tag::Tag::Op1</span>(<span class="macro-nonterminal">$crate::tag::Op1</span>::<span class="macro-nonterminal">$tag</span>)
     };
     ( Op2::<span class="macro-nonterminal">$tag</span>:ident ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Tag::Op2</span>(<span class="macro-nonterminal">$crate::tag::Op2</span>::<span class="macro-nonterminal">$tag</span>)
+        <span class="macro-nonterminal">$crate::lem::tag::Tag::Op2</span>(<span class="macro-nonterminal">$crate::tag::Op2</span>::<span class="macro-nonterminal">$tag</span>)
     };
 }
 

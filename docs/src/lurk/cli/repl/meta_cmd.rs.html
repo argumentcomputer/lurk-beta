@@ -1122,6 +1122,8 @@
 <a href="#1120" id="1120">1120</a>
 <a href="#1121" id="1121">1121</a>
 <a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>::nova::traits::Engine;
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
@@ -1143,8 +1145,9 @@
     lem::{
         eval::evaluate_with_env_and_cont,
         multiframe::MultiFrame,
-        pointers::{Ptr, ZPtr},
-        Tag,
+        pointers::{Ptr, RawPtr, ZPtr},
+        store::expect_ptrs,
+        tag::Tag,
     },
     package::{Package, SymbolRef},
     proof::{
@@ -1386,13 +1389,13 @@
             <span class="kw">let </span>(second_io, ..) = repl
                 .eval_expr(second)
                 .with_context(|| <span class="string">"evaluating second arg"</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span>Ptr::Atom(Tag::Expr(ExprTag::Num), secret) = first_io[<span class="number">0</span>] <span class="kw">else </span>{
+            <span class="kw">let </span>(Tag::Expr(ExprTag::Num), RawPtr::Atom(secret)) = first_io[<span class="number">0</span>].parts() <span class="kw">else </span>{
                 <span class="macro">bail!</span>(
                     <span class="string">"Secret must be a number. Got {}"</span>,
                     first_io[<span class="number">0</span>].fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
                 )
             };
-            <span class="kw">let </span>secret = <span class="kw-2">*</span>repl.store.expect_f(secret);
+            <span class="kw">let </span>secret = <span class="kw-2">*</span>repl.store.expect_f(<span class="kw-2">*</span>secret);
             repl.hide(secret, second_io[<span class="number">0</span>])<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(())
         },
@@ -1696,10 +1699,10 @@
                 .get_result()
                 .expect(<span class="string">"evaluation result must have been set"</span>);
             <span class="kw">let </span>(<span class="kw">_</span>, comm) = repl.store.car_cdr(result)<span class="question-mark">?</span>;
-            <span class="kw">let </span>Ptr::Atom(Tag::Expr(ExprTag::Comm), hash) = comm <span class="kw">else </span>{
+            <span class="kw">let </span>(Tag::Expr(ExprTag::Comm), RawPtr::Atom(hash)) = comm.parts() <span class="kw">else </span>{
                 <span class="macro">bail!</span>(<span class="string">"Second component of a chain must be a commitment"</span>)
             };
-            <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.store.expect_f(hash);
+            <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.store.expect_f(<span class="kw-2">*</span>hash);
             <span class="comment">// retrieve from store to persist
             </span><span class="kw">let </span>(secret, fun) = repl
                 .store
@@ -1902,10 +1905,11 @@
 
         <span class="kw">let </span>(fun, rest) = repl.store.car_cdr(ptcl)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>(Ptr::Atom(Tag::Expr(ExprTag::Num), rc_idx), <span class="kw">_</span>) = repl.store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">? </span><span class="kw">else </span>{
+        <span class="kw">let </span>(car, <span class="kw">_</span>) = repl.store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(Tag::Expr(ExprTag::Num), RawPtr::Atom(rc_idx)) = car.parts() <span class="kw">else </span>{
             <span class="macro">bail!</span>(<span class="string">"Reduction count must be a Num"</span>)
         };
-        <span class="kw">let </span><span class="prelude-val">Some</span>(rc) = repl.store.expect_f(rc_idx).to_u64().map(|u| u <span class="kw">as </span>usize) <span class="kw">else </span>{
+        <span class="kw">let </span><span class="prelude-val">Some</span>(rc) = repl.store.expect_f(<span class="kw-2">*</span>rc_idx).to_u64().map(|u| u <span class="kw">as </span>usize) <span class="kw">else </span>{
             <span class="macro">bail!</span>(<span class="string">"Invalid value for reduction count"</span>)
         };
         <span class="prelude-val">Ok</span>((fun, rc))
@@ -1948,13 +1952,13 @@
             .eval_expr_with_env(apply_call, repl.store.intern_nil())
             .with_context(|| <span class="string">"evaluating protocol function call"</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>Ptr::Tuple2(Tag::Expr(ExprTag::Cons), idx) = <span class="kw-2">&amp;</span>io[<span class="number">0</span>] <span class="kw">else </span>{
+        <span class="kw">let </span>(Tag::Expr(ExprTag::Cons), RawPtr::Hash4(idx)) = <span class="kw-2">&amp;</span>io[<span class="number">0</span>].parts() <span class="kw">else </span>{
             <span class="macro">bail!</span>(
                 <span class="string">"Protocol function must return a pair. Got {}"</span>,
                 io[<span class="number">0</span>].fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow())
             )
         };
-        <span class="kw">let </span>(pre_verify, post_verify) = repl.store.fetch_2_ptrs(<span class="kw-2">*</span>idx).unwrap();
+        <span class="kw">let </span>[pre_verify, post_verify] = <span class="kw-2">&amp;</span><span class="macro">expect_ptrs!</span>(repl.store, <span class="number">2</span>, <span class="kw-2">*</span>idx);
 
         <span class="kw">if </span>pre_verify.is_nil() {
             <span class="macro">bail!</span>(<span class="string">"Pre-verification predicate rejected the input"</span>)

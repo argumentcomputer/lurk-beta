@@ -590,15 +590,17 @@
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
 
 <span class="kw">use super</span>::{
     path::Path,
-    pointers::Ptr,
+    pointers::{Ptr, RawPtr},
     slot::{SlotData, Val},
-    store::Store,
+    store::{fetch_ptrs, intern_ptrs, Store},
+    tag::Tag,
     var_map::VarMap,
-    Block, Ctrl, Func, Op, Tag, Var,
+    Block, Ctrl, Func, Op, Var,
 };
 
 <span class="kw">use crate</span>::{
@@ -773,16 +775,16 @@
                     bindings.insert_ptr(tgt.clone(), store.zero(<span class="kw-2">*</span>tag));
                 }
                 Op::Hash3Zeros(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash3zeros_idx));
+                    bindings.insert_ptr(tgt.clone(), Ptr::atom(<span class="kw-2">*</span>tag, store.hash3zeros_idx));
                 }
                 Op::Hash4Zeros(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash4zeros_idx));
+                    bindings.insert_ptr(tgt.clone(), Ptr::atom(<span class="kw-2">*</span>tag, store.hash4zeros_idx));
                 }
                 Op::Hash6Zeros(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash6zeros_idx));
+                    bindings.insert_ptr(tgt.clone(), Ptr::atom(<span class="kw-2">*</span>tag, store.hash6zeros_idx));
                 }
                 Op::Hash8Zeros(tgt, tag) =&gt; {
-                    bindings.insert_ptr(tgt.clone(), Ptr::Atom(<span class="kw-2">*</span>tag, store.hash8zeros_idx));
+                    bindings.insert_ptr(tgt.clone(), Ptr::atom(<span class="kw-2">*</span>tag, store.hash8zeros_idx));
                 }
                 Op::Lit(tgt, lit) =&gt; {
                     bindings.insert_ptr(tgt.clone(), lit.to_ptr(store));
@@ -821,9 +823,9 @@
                     bindings.insert_bool(tgt.clone(), a || b);
                 }
                 Op::Add(tgt, a, b) =&gt; {
-                    <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
+                    <span class="kw">let </span>a = <span class="kw-2">*</span>bindings.get_ptr(a)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>b = <span class="kw-2">*</span>bindings.get_ptr(b)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>c = <span class="kw">if let </span>(RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         <span class="kw">let </span>(f, g) = (store.expect_f(f), store.expect_f(g));
                         store.intern_atom(Tag::Expr(Num), <span class="kw-2">*</span>f + <span class="kw-2">*</span>g)
                     } <span class="kw">else </span>{
@@ -832,9 +834,9 @@
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Sub(tgt, a, b) =&gt; {
-                    <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
+                    <span class="kw">let </span>a = <span class="kw-2">*</span>bindings.get_ptr(a)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>b = <span class="kw-2">*</span>bindings.get_ptr(b)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>c = <span class="kw">if let </span>(RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         <span class="kw">let </span>(f, g) = (store.expect_f(f), store.expect_f(g));
                         store.intern_atom(Tag::Expr(Num), <span class="kw-2">*</span>f - <span class="kw-2">*</span>g)
                     } <span class="kw">else </span>{
@@ -843,9 +845,9 @@
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Mul(tgt, a, b) =&gt; {
-                    <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
+                    <span class="kw">let </span>a = <span class="kw-2">*</span>bindings.get_ptr(a)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>b = <span class="kw-2">*</span>bindings.get_ptr(b)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>c = <span class="kw">if let </span>(RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         <span class="kw">let </span>(f, g) = (store.expect_f(f), store.expect_f(g));
                         store.intern_atom(Tag::Expr(Num), <span class="kw-2">*</span>f * <span class="kw-2">*</span>g)
                     } <span class="kw">else </span>{
@@ -854,9 +856,9 @@
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Div(tgt, a, b) =&gt; {
-                    <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
+                    <span class="kw">let </span>a = <span class="kw-2">*</span>bindings.get_ptr(a)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>b = <span class="kw-2">*</span>bindings.get_ptr(b)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>c = <span class="kw">if let </span>(RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         <span class="kw">let </span>(f, g) = (store.expect_f(f), store.expect_f(g));
                         <span class="kw">if </span>g == <span class="kw-2">&amp;</span>F::ZERO {
                             <span class="macro">bail!</span>(<span class="string">"Can't divide by zero"</span>)
@@ -868,9 +870,9 @@
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Lt(tgt, a, b) =&gt; {
-                    <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f_idx), Ptr::Atom(<span class="kw">_</span>, g_idx)) = (a, b) {
+                    <span class="kw">let </span>a = <span class="kw-2">*</span>bindings.get_ptr(a)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>b = <span class="kw-2">*</span>bindings.get_ptr(b)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>c = <span class="kw">if let </span>(RawPtr::Atom(f_idx), RawPtr::Atom(g_idx)) = (a, b) {
                         <span class="kw">let </span>f = <span class="kw-2">*</span>store.expect_f(f_idx);
                         <span class="kw">let </span>g = <span class="kw-2">*</span>store.expect_f(g_idx);
                         <span class="kw">let </span>diff = f - g;
@@ -893,8 +895,8 @@
                 }
                 Op::Trunc(tgt, a, n) =&gt; {
                     <span class="macro">assert!</span>(<span class="kw-2">*</span>n &lt;= <span class="number">64</span>);
-                    <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="kw">if let </span>Ptr::Atom(<span class="kw">_</span>, f_idx) = a {
+                    <span class="kw">let </span>a = <span class="kw-2">*</span>bindings.get_ptr(a)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>c = <span class="kw">if let </span>RawPtr::Atom(f_idx) = a {
                         <span class="kw">let </span>f = <span class="kw-2">*</span>store.expect_f(f_idx);
                         hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData {
                             vals: <span class="macro">vec!</span>[Val::Num(f_idx)],
@@ -907,9 +909,9 @@
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::DivRem64(tgt, a, b) =&gt; {
-                    <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>(c1, c2) = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
+                    <span class="kw">let </span>a = <span class="kw-2">*</span>bindings.get_ptr(a)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>b = <span class="kw-2">*</span>bindings.get_ptr(b)<span class="question-mark">?</span>.raw();
+                    <span class="kw">let </span>(c1, c2) = <span class="kw">if let </span>(RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
                         <span class="kw">let </span>f = <span class="kw-2">*</span>store.expect_f(f);
                         <span class="kw">let </span>g = <span class="kw-2">*</span>store.expect_f(g);
                         <span class="kw">if </span>g == F::ZERO {
@@ -933,7 +935,7 @@
                 }
                 Op::Cons2(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_ptr(preimg)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>tgt_ptr = store.intern_2_ptrs(<span class="kw-2">*</span>tag, preimg_ptrs[<span class="number">0</span>], preimg_ptrs[<span class="number">1</span>]);
+                    <span class="kw">let </span>tgt_ptr = <span class="macro">intern_ptrs!</span>(store, <span class="kw-2">*</span>tag, preimg_ptrs[<span class="number">0</span>], preimg_ptrs[<span class="number">1</span>]);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     <span class="kw">let </span>vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
                     hints.hash4.push(<span class="prelude-val">Some</span>(SlotData { vals }));
@@ -941,19 +943,20 @@
                 Op::Cons3(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_ptr(preimg)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt_ptr =
-                        store.intern_3_ptrs(<span class="kw-2">*</span>tag, preimg_ptrs[<span class="number">0</span>], preimg_ptrs[<span class="number">1</span>], preimg_ptrs[<span class="number">2</span>]);
+                        <span class="macro">intern_ptrs!</span>(store, <span class="kw-2">*</span>tag, preimg_ptrs[<span class="number">0</span>], preimg_ptrs[<span class="number">1</span>], preimg_ptrs[<span class="number">2</span>]);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     <span class="kw">let </span>vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
                     hints.hash6.push(<span class="prelude-val">Some</span>(SlotData { vals }));
                 }
                 Op::Cons4(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_ptr(preimg)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>tgt_ptr = store.intern_4_ptrs(
+                    <span class="kw">let </span>tgt_ptr = <span class="macro">intern_ptrs!</span>(
+                        store,
                         <span class="kw-2">*</span>tag,
                         preimg_ptrs[<span class="number">0</span>],
                         preimg_ptrs[<span class="number">1</span>],
                         preimg_ptrs[<span class="number">2</span>],
-                        preimg_ptrs[<span class="number">3</span>],
+                        preimg_ptrs[<span class="number">3</span>]
                     );
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     <span class="kw">let </span>vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
@@ -964,10 +967,9 @@
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = img_ptr.get_index2() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"{img} isn't a Tree2 pointer"</span>);
                     };
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b)) = store.fetch_2_ptrs(idx) <span class="kw">else </span>{
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(preimg_ptrs) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">2</span>, idx) <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"Couldn't fetch {img}'s children"</span>)
                     };
-                    <span class="kw">let </span>preimg_ptrs = [<span class="kw-2">*</span>a, <span class="kw-2">*</span>b];
                     <span class="kw">for </span>(var, ptr) <span class="kw">in </span>preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), <span class="kw-2">*</span>ptr);
                     }
@@ -979,10 +981,9 @@
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = img_ptr.get_index3() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"{img} isn't a Tree3 pointer"</span>);
                     };
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c)) = store.fetch_3_ptrs(idx) <span class="kw">else </span>{
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(preimg_ptrs) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">3</span>, idx) <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"Couldn't fetch {img}'s children"</span>)
                     };
-                    <span class="kw">let </span>preimg_ptrs = [<span class="kw-2">*</span>a, <span class="kw-2">*</span>b, <span class="kw-2">*</span>c];
                     <span class="kw">for </span>(var, ptr) <span class="kw">in </span>preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), <span class="kw-2">*</span>ptr);
                     }
@@ -994,10 +995,9 @@
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = img_ptr.get_index4() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"{img} isn't a Tree4 pointer"</span>);
                     };
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c, d)) = store.fetch_4_ptrs(idx) <span class="kw">else </span>{
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(preimg_ptrs) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"Couldn't fetch {img}'s children"</span>)
                     };
-                    <span class="kw">let </span>preimg_ptrs = [<span class="kw-2">*</span>a, <span class="kw-2">*</span>b, <span class="kw-2">*</span>c, <span class="kw-2">*</span>d];
                     <span class="kw">for </span>(var, ptr) <span class="kw">in </span>preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), <span class="kw-2">*</span>ptr);
                     }
@@ -1006,30 +1006,32 @@
                 }
                 Op::Hide(tgt, sec, src) =&gt; {
                     <span class="kw">let </span>src_ptr = bindings.get_ptr(src)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>Ptr::Atom(Tag::Expr(Num), secret_idx) = bindings.get_ptr(sec)<span class="question-mark">? </span><span class="kw">else </span>{
+                    <span class="kw">let </span>sec_ptr = bindings.get_ptr(sec)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>(Tag::Expr(Num), RawPtr::Atom(secret_idx)) = sec_ptr.parts() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"{sec} is not a numeric pointer"</span>)
                     };
-                    <span class="kw">let </span>secret = <span class="kw-2">*</span>store.expect_f(secret_idx);
+                    <span class="kw">let </span>secret = <span class="kw-2">*</span>store.expect_f(<span class="kw-2">*</span>secret_idx);
                     <span class="kw">let </span>tgt_ptr = store.hide(secret, src_ptr);
-                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[Val::Num(secret_idx), Val::Pointer(src_ptr)];
+                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[Val::Num(<span class="kw-2">*</span>secret_idx), Val::Pointer(src_ptr)];
                     hints.commitment.push(<span class="prelude-val">Some</span>(SlotData { vals }));
                     bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
                 Op::Open(tgt_secret, tgt_ptr, comm) =&gt; {
-                    <span class="kw">let </span>Ptr::Atom(Tag::Expr(Comm), hash) = bindings.get_ptr(comm)<span class="question-mark">? </span><span class="kw">else </span>{
+                    <span class="kw">let </span>comm_ptr = bindings.get_ptr(comm)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>(Tag::Expr(Comm), RawPtr::Atom(hash)) = comm_ptr.parts() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"{comm} is not a comm pointer"</span>)
                     };
-                    <span class="kw">let </span>hash = <span class="kw-2">*</span>store.expect_f(hash);
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((secret, ptr)) = store.open(hash).cloned() <span class="kw">else </span>{
+                    <span class="kw">let </span>hash = <span class="kw-2">*</span>store.expect_f(<span class="kw-2">*</span>hash);
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((secret, ptr)) = store.open(hash) <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"No committed data for hash {}"</span>, <span class="kw-2">&amp;</span>hash.hex_digits())
                     };
-                    bindings.insert_ptr(tgt_ptr.clone(), ptr);
+                    bindings.insert_ptr(tgt_ptr.clone(), <span class="kw-2">*</span>ptr);
                     bindings.insert_ptr(
                         tgt_secret.clone(),
-                        store.intern_atom(Tag::Expr(Num), secret),
+                        store.intern_atom(Tag::Expr(Num), <span class="kw-2">*</span>secret),
                     );
-                    <span class="kw">let </span>secret_idx = store.intern_f(secret).<span class="number">0</span>;
-                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[Val::Num(secret_idx), Val::Pointer(ptr)];
+                    <span class="kw">let </span>secret_idx = store.intern_f(<span class="kw-2">*</span>secret).<span class="number">0</span>;
+                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[Val::Num(secret_idx), Val::Pointer(<span class="kw-2">*</span>ptr)];
                     hints.commitment.push(<span class="prelude-val">Some</span>(SlotData { vals }));
                 }
                 Op::Unit(f) =&gt; f(),

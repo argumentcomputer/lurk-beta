@@ -143,6 +143,51 @@
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
@@ -152,32 +197,88 @@
 
 <span class="kw">use </span><span class="kw">super</span>::Tag;
 
-<span class="doccomment">/// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
-/// as a building block for trees that represent Lurk data. A pointer can be a
-/// atom that contains data encoded as an element of a `LurkField` or it can have
-/// children. For performance, the children of a pointer are stored on an
-/// `IndexSet` and the resulding index is carried by the pointer itself.
-///
-/// A pointer also has a tag, which says what kind of data it encodes. On
-/// previous implementations, the tag would be used to infer the number of
-/// children a pointer has. However, LEMs require extra flexibility because LEM
-/// hashing operations can plug any tag to the resulting pointer. Thus, the
-/// number of children have to be made explicit as the `Ptr` enum.
+<span class="doccomment">/// `RawPtr` is the basic pointer type of the LEM store. An `Atom` points to a field
+/// element, and a `HashN` points to `N` children, which are also raw pointers. Thus,
+/// they are a building block for graphs that represent Lurk data.
 </span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
-</span><span class="kw">pub enum </span>Ptr {
-    Atom(Tag, usize),
-    Tuple2(Tag, usize),
-    Tuple3(Tag, usize),
-    Tuple4(Tag, usize),
+</span><span class="kw">pub enum </span>RawPtr {
+    Atom(usize),
+    Hash4(usize),
+    Hash6(usize),
+    Hash8(usize),
+}
+
+<span class="kw">impl </span>RawPtr {
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>is_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(
+            <span class="self">self</span>,
+            RawPtr::Hash4(..) | RawPtr::Hash6(..) | RawPtr::Hash8(..)
+        )
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>get_atom(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            RawPtr::Atom(x) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>x),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>get_hash4(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            RawPtr::Hash4(x) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>x),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>get_hash6(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            RawPtr::Hash6(x) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>x),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>get_hash8(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            RawPtr::Hash8(x) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>x),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+}
+
+<span class="doccomment">/// `Ptr` is a tagged pointer. The tag is there to say what kind of data it encodes.
+/// Since tags can be encoded as field elements, they are also able to be expressed
+/// as raw pointers. A `Ptr` can thus be seen as a tuple of `RawPtr`s.
+</span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+</span><span class="kw">pub struct </span>Ptr {
+    tag: Tag,
+    raw: RawPtr,
 }
 
 <span class="kw">impl </span>Ptr {
-    <span class="kw">pub fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Tag {
-        <span class="kw">match </span><span class="self">self </span>{
-            Ptr::Atom(tag, <span class="kw">_</span>) | Ptr::Tuple2(tag, <span class="kw">_</span>) | Ptr::Tuple3(tag, <span class="kw">_</span>) | Ptr::Tuple4(tag, <span class="kw">_</span>) =&gt; {
-                tag
-            }
-        }
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>new(tag: Tag, raw: RawPtr) -&gt; <span class="self">Self </span>{
+        Ptr { tag, raw }
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Tag {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.tag
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>RawPtr {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.raw
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>parts(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (<span class="kw-2">&amp;</span>Tag, <span class="kw-2">&amp;</span>RawPtr) {
+        <span class="kw">let </span>Ptr { tag, raw } = <span class="self">self</span>;
+        (tag, raw)
     }
 
     <span class="attr">#[inline]
@@ -222,61 +323,50 @@
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>cast(<span class="self">self</span>, tag: Tag) -&gt; <span class="self">Self </span>{
-        <span class="kw">match </span><span class="self">self </span>{
-            Ptr::Atom(<span class="kw">_</span>, x) =&gt; Ptr::Atom(tag, x),
-            Ptr::Tuple2(<span class="kw">_</span>, x) =&gt; Ptr::Tuple2(tag, x),
-            Ptr::Tuple3(<span class="kw">_</span>, x) =&gt; Ptr::Tuple3(tag, x),
-            Ptr::Tuple4(<span class="kw">_</span>, x) =&gt; Ptr::Tuple4(tag, x),
-        }
-    }
-
-    <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>is_tuple(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="macro">matches!</span>(<span class="self">self</span>, Ptr::Tuple2(..) | Ptr::Tuple3(..) | Ptr::Tuple4(..))
+        Ptr { tag, raw: <span class="self">self</span>.raw }
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>get_atom(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            Ptr::Atom(<span class="kw">_</span>, x) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>x),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-        }
+        <span class="self">self</span>.raw().get_atom()
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>get_index2(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            Ptr::Tuple2(<span class="kw">_</span>, x) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>x),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-        }
+        <span class="self">self</span>.raw().get_hash4()
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>get_index3(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            Ptr::Tuple3(<span class="kw">_</span>, x) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>x),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-        }
+        <span class="self">self</span>.raw().get_hash6()
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>get_index4(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            Ptr::Tuple4(<span class="kw">_</span>, x) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>x),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        <span class="self">self</span>.raw().get_hash8()
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>atom(tag: Tag, idx: usize) -&gt; Ptr {
+        Ptr {
+            tag,
+            raw: RawPtr::Atom(idx),
         }
     }
 }
 
-<span class="doccomment">/// A `ZPtr` is the result of "hydrating" a `Ptr`. This process is better
-/// explained in the store but, in short, we want to know the Poseidon hash of
-/// the children of a `Ptr`.
+<span class="doccomment">/// A `ZPtr` is the result of "hydrating" a `Ptr`, which is a process of replacing
+/// indices by hashes. That is, a `ZPtr` is a content-addressed, tagged, pointer.
+/// By analogy, we can view ordinary field elements as hydrated raw pointers.
 ///
-/// `ZPtr`s are used mainly for proofs, but they're also useful when we want
-/// to content-address a store.
+/// With `ZPtr`s we are able to content-address arbitrary DAGs, and thus be able to
+/// represent these data structures as field elements. This is how we can prove facts
+/// about data structures only using field elements. `ZPtr`s are also useful when we
+/// want to content-address the store.
 ///
-/// An important note is that computing the respective `ZPtr` of a `Ptr` can be
-/// expensive because of the Poseidon hashes. That's why we operate on `Ptr`s
+/// In principle, `ZPtr`s could be used in place of `Ptr`, but it is important to
+/// note that content-addressing can be expensive, especially in the context of
+/// interpretation, because of the Poseidon hashes. That's why we operate on `Ptr`s
 /// when interpreting LEMs and delay the need for `ZPtr`s as much as possible.
 </span><span class="kw">pub type </span>ZPtr&lt;F&gt; = <span class="kw">crate</span>::z_data::z_ptr::ZPtr&lt;Tag, F&gt;;
 
