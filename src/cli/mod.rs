@@ -24,7 +24,7 @@ use std::{
 use crate::{
     eval::lang::{Coproc, Lang},
     field::{LanguageField, LurkField},
-    lem::{multiframe::MultiFrame, store::Store},
+    lem::store::Store,
     public_parameters::disk_cache::public_params_dir,
     public_parameters::instance::Metadata,
 };
@@ -606,14 +606,10 @@ impl Cli {
                 // TODO: pick a predefined `Lang` according to a CLI parameter
                 match verify_args.field.unwrap_or_default() {
                     LanguageField::BN256 => {
-                        LurkProof::<_, _, MultiFrame<'_, _, Coproc<bn256::Fr>>>::verify_proof(
-                            &verify_args.proof_key,
-                        )
+                        LurkProof::<_, Coproc<bn256::Fr>>::verify_proof(&verify_args.proof_key)
                     }
                     LanguageField::Pallas => {
-                        LurkProof::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>::verify_proof(
-                            &verify_args.proof_key,
-                        )
+                        LurkProof::<_, Coproc<pallas::Scalar>>::verify_proof(&verify_args.proof_key)
                     }
                     _ => unreachable!(),
                 }

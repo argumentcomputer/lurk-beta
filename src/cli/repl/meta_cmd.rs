@@ -17,7 +17,6 @@ use crate::{
     field::LurkField,
     lem::{
         eval::evaluate_with_env_and_cont,
-        multiframe::MultiFrame,
         pointers::{Ptr, RawPtr, ZPtr},
         store::expect_ptrs,
         tag::Tag,
@@ -25,7 +24,7 @@ use crate::{
     package::{Package, SymbolRef},
     proof::{
         nova::{self, CurveCycleEquipped, E1, E2},
-        MultiFrameTrait, RecursiveSNARKTrait,
+        RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
@@ -370,7 +369,7 @@ where
         run: |repl, args| {
             let first = repl.peek1(args)?;
             let proof_id = repl.get_string(&first)?;
-            LurkProof::<_, _, MultiFrame<'_, _, C>>::verify_proof(
+            LurkProof::<_, C>::verify_proof(
                 &proof_id,
             )
         }
@@ -962,7 +961,7 @@ where
             let mut z_dag = ZDag::default();
             let z_ptr = z_dag.populate_with(&args, &repl.store, &mut Default::default());
             let args = LurkData { z_ptr, z_dag };
-            match load::<LurkProof<'_, _, _, MultiFrame<'_, _, C>>>(&proof_path(&proof_key))? {
+            match load::<LurkProof<'_, _, C>>(&proof_path(&proof_key))? {
                 LurkProof::Nova { proof, .. } => {
                     dump(ProtocolProof::Nova { args, proof }, &path)?;
                     println!("Protocol proof saved at {path}");
@@ -992,7 +991,7 @@ where
 
             let (fun, proto_rc) = Self::get_fun_and_rc(repl, ptcl)?;
 
-            match load::<ProtocolProof<'_, _, _, MultiFrame<'_, _, C>>>(&path)? {
+            match load::<ProtocolProof<'_, _, C>>(&path)? {
                 ProtocolProof::Nova {
                     args: LurkData { z_ptr, z_dag },
                     proof,
@@ -1096,27 +1095,19 @@ fn get_path<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned>(
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-enum ProtocolProof<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + Serialize + DeserializeOwned,
-    M: MultiFrameTrait<'a, F, C>,
-> where
+enum ProtocolProof<'a, F: CurveCycleEquipped, C: Coprocessor<F> + Serialize + DeserializeOwned>
+where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     Nova {
         args: LurkData<F>,
-        proof: nova::Proof<'a, F, C, M>,
+        proof: nova::Proof<'a, F, C>,
     },
 }
 
-impl<
-        'a,
-        F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'a + Serialize + DeserializeOwned,
-        M: MultiFrameTrait<'a, F, C>,
-    > HasFieldModulus for ProtocolProof<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a + Serialize + DeserializeOwned>
+    HasFieldModulus for ProtocolProof<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,

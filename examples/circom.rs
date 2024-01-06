@@ -110,10 +110,7 @@ fn main() {
     let expr = "(.circom_sha256_2)".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
-        REDUCTION_COUNT,
-        lang_rc.clone(),
-    );
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang_rc.clone());
 
     println!("Setting up public parameters...");
 

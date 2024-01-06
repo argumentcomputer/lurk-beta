@@ -64,7 +64,7 @@ fn end2end_benchmark(c: &mut Criterion) {
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
 
     let store = Store::default();
-    let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
+    let prover: NovaProver<'_, Fq, Coproc<Fq>> =
         NovaProver::new(reduction_count, lang_pallas_rc.clone());
 
     // use cached public params
@@ -249,7 +249,7 @@ fn prove_benchmark(c: &mut Criterion) {
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
-        let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
+        let prover: NovaProver<'_, Fq, Coproc<Fq>> =
             NovaProver::new(reduction_count, lang_pallas_rc.clone());
         let frames = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 

@@ -1,7 +1,4 @@
-use ::nova::{
-    supernova::{NonUniformCircuit, StepCircuit as SuperStepCircuit},
-    traits::Engine,
-};
+use ::nova::traits::Engine;
 use abomonation::Abomonation;
 use anyhow::{bail, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -14,8 +11,7 @@ use crate::{
     lem::{pointers::ZPtr, store::Store},
     proof::{
         nova::{self, CurveCycleEquipped, E1, E2},
-        supernova::C2,
-        MultiFrameTrait, RecursiveSNARKTrait,
+        RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
@@ -130,13 +126,12 @@ pub(crate) enum LurkProof<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + Serialize + DeserializeOwned,
-    M: MultiFrameTrait<'a, F, C>,
 > where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     Nova {
-        proof: nova::Proof<'a, F, C, M>,
+        proof: nova::Proof<'a, F, C>,
         public_inputs: Vec<F>,
         public_outputs: Vec<F>,
         rc: usize,
@@ -144,12 +139,8 @@ pub(crate) enum LurkProof<
     },
 }
 
-impl<
-        'a,
-        F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'a + Serialize + DeserializeOwned,
-        M: MultiFrameTrait<'a, F, C>,
-    > HasFieldModulus for LurkProof<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a + Serialize + DeserializeOwned>
+    HasFieldModulus for LurkProof<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -159,12 +150,8 @@ where
     }
 }
 
-impl<
-        'a,
-        F: CurveCycleEquipped + Serialize,
-        C: Coprocessor<F> + Serialize + DeserializeOwned,
-        M: MultiFrameTrait<'a, F, C>,
-    > LurkProof<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + DeserializeOwned>
+    LurkProof<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -178,11 +165,7 @@ where
 impl<
         F: CurveCycleEquipped + DeserializeOwned,
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
-        M: MultiFrameTrait<'static, F, C>
-            + SuperStepCircuit<F>
-            + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>
-            + 'static,
-    > LurkProof<'static, F, C, M>
+    > LurkProof<'static, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,

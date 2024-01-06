@@ -33,7 +33,6 @@ use crate::{
             make_eval_step_from_config, EvalConfig,
         },
         interpreter::Frame,
-        multiframe::MultiFrame,
         pointers::{Ptr, RawPtr},
         store::Store,
         tag::Tag,
@@ -331,7 +330,7 @@ where
                     z_dag,
                 };
 
-                if LurkProof::<_, _, MultiFrame<'_, _, C>>::is_cached(&proof_key) {
+                if LurkProof::<_, C>::is_cached(&proof_key) {
                     info!("Proof already cached");
                 } else {
                     info!("Proof not cached. Loading public parameters");
@@ -339,8 +338,7 @@ where
                         Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
                     let pp = public_params(&instance)?;
 
-                    let prover =
-                        NovaProver::<_, _, MultiFrame<'_, F, C>>::new(self.rc, self.lang.clone());
+                    let prover = NovaProver::<_, C>::new(self.rc, self.lang.clone());
 
                     info!("Proving");
                     let (proof, public_inputs, public_outputs, num_steps) =
