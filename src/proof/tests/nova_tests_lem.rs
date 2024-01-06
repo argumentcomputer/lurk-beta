@@ -819,7 +819,7 @@ fn test_prove_adder() {
 #[test]
 fn test_prove_current_env_simple() {
     let s = &Store::<Fr>::default();
-    let expected = s.intern_nil();
+    let expected = s.intern_empty_env();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
         s,
@@ -1544,7 +1544,7 @@ fn test_prove_zero_arg_lambda3() {
     let expected = {
         let args = s.list(vec![s.intern_user_symbol("x")]);
         let num = s.num_u64(123);
-        let env = s.intern_nil();
+        let env = s.intern_empty_env();
         s.intern_fun(args, num, env)
     };
     let terminal = s.cont_terminal();
@@ -3009,7 +3009,7 @@ fn test_relational_edge_case_identity() {
 fn test_prove_test_eval() {
     let s = &Store::<Fr>::default();
     let expr = "(* 3 (eval  (cons '+ (cons 1 (cons 2 nil)))))";
-    let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
+    let expr2 = "(* 5 (eval '(+ 1 a) (let ((a 3)) (current-env))))"; // two-arg eval, optional second arg is env.
     let res = s.num_u64(9);
     let res2 = s.num_u64(20);
     let terminal = s.cont_terminal();
@@ -3031,7 +3031,7 @@ fn test_prove_test_eval() {
         None,
         Some(terminal),
         None,
-        &expect!["9"],
+        &expect!["11"],
         &None,
     );
 }
@@ -3783,7 +3783,7 @@ fn test_prove_dotted_syntax_error() {
 #[test]
 fn test_prove_call_literal_fun() {
     let s = &Store::<Fr>::default();
-    let empty_env = s.intern_nil();
+    let empty_env = s.intern_empty_env();
     let args = s.list(vec![s.intern_user_symbol("x")]);
     let body = s.read_with_default_state("(+ x 1)").unwrap();
     let fun = intern_ptrs!(s, Tag::Expr(ExprTag::Fun), args, body, empty_env, s.dummy());

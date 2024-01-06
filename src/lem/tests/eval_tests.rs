@@ -652,7 +652,7 @@ fn evaluate_arithmetic_let() {
                    (/ (+ a b) c))";
 
     let expected = s.num_u64(3);
-    let new_env = s.intern_nil();
+    let new_env = s.intern_empty_env();
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1147,7 +1147,7 @@ fn evaluate_zero_arg_lambda() {
         let expected = {
             let args = s.list(vec![s.intern_user_symbol("x")]);
             let num = s.num_u64(123);
-            let env = s.intern_nil();
+            let env = s.intern_empty_env();
             s.intern_fun(args, num, env)
         };
 
@@ -1687,7 +1687,7 @@ fn begin_current_env() {
     {
         let s = &Store::<Fr>::default();
         let expr = "(begin (current-env))";
-        let expected = s.intern_nil();
+        let expected = s.intern_empty_env();
         test_aux::<Coproc<Fr>>(
             s,
             expr,
@@ -1728,8 +1728,8 @@ fn begin_current_env1() {
                        (begin 123 (current-env)))";
         let a = s.intern_user_symbol("a");
         let one = s.num_u64(1);
-        let binding = s.cons(a, one);
-        let expected = s.list(vec![binding]);
+        let env = s.intern_empty_env();
+        let expected = s.push_binding(a, one, env);
         test_aux::<Coproc<Fr>>(
             s,
             expr,
@@ -2576,7 +2576,7 @@ fn test_quoted_symbols() {
 fn test_eval() {
     let s = &Store::<Fr>::default();
     let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
-    let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
+    let expr2 = "(* 5 (eval '(+ 1 a) (let ((a 3)) (current-env))))"; // two-arg eval, optional second arg is env.
     let res = s.num_u64(9);
     let res2 = s.num_u64(20);
     let terminal = s.cont_terminal();
@@ -2598,7 +2598,7 @@ fn test_eval() {
         None,
         Some(terminal),
         None,
-        &expect!["9"],
+        &expect!["11"],
         &None,
     );
 }
