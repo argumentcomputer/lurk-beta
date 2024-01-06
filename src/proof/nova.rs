@@ -232,8 +232,7 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrame
     (M::blank(folding_config, 0), TrivialCircuit::default())
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C, C1LEM<'a, F, C>>
-    for Proof<'a, F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C> for Proof<'a, F, C>
 where
     <F as PrimeField>::Repr: Abomonation,
     <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
@@ -418,8 +417,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<'a, F, C> {
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C, C1LEM<'a, F, C>>
-    for NovaProver<'a, F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C> for NovaProver<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,

@@ -80,10 +80,8 @@ fn main() {
     let cprocs = make_cprocs_funcs_from_lang(&lang);
     let frames = evaluate(Some((&lurk_step, &cprocs, &lang)), call, store, 1000).unwrap();
 
-    let supernova_prover = SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
-        REDUCTION_COUNT,
-        lang_rc.clone(),
-    );
+    let supernova_prover =
+        SuperNovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang_rc.clone());
 
     println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
     let pp_start = Instant::now();

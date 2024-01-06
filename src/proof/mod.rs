@@ -31,7 +31,10 @@ use crate::{
     proof::nova::E2,
 };
 
-use self::{nova::CurveCycleEquipped, supernova::FoldingConfig};
+use self::{
+    nova::{CurveCycleEquipped, C1LEM},
+    supernova::FoldingConfig,
+};
 
 /// The State of a CEK machine.
 pub trait CEKState<Ptr> {
@@ -146,12 +149,8 @@ pub trait Provable<F: LurkField> {
 // * `Prover`, which abstracts over Nova and SuperNova provers
 
 /// Trait to abstract Nova and SuperNova proofs
-pub trait RecursiveSNARKTrait<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
-> where
+pub trait RecursiveSNARKTrait<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>
+where
     Self: Sized,
 {
     /// Associated type for public parameters
@@ -164,7 +163,7 @@ pub trait RecursiveSNARKTrait<
     fn prove_recursively(
         pp: &Self::PublicParams,
         z0: &[F],
-        steps: Vec<M>,
+        steps: Vec<C1LEM<'a, F, C>>,
         store: &'a Store<F>,
         reduction_count: usize,
         lang: Arc<Lang<F, C>>,
@@ -217,12 +216,12 @@ impl FoldingMode {
 }
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>> {
+pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     /// Associated type for public parameters
     type PublicParams;
 
     /// Assiciated proof type, which must implement `RecursiveSNARKTrait`
-    type RecursiveSnark: RecursiveSNARKTrait<'a, F, C, M, PublicParams = Self::PublicParams>;
+    type RecursiveSnark: RecursiveSNARKTrait<'a, F, C, PublicParams = Self::PublicParams>;
 
     /// Returns a reference to the prover's FoldingMode
     fn folding_mode(&self) -> &FoldingMode;
@@ -241,15 +240,15 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         store: &'a Store<F>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
-        let z0 = M::io_to_scalar_vector(store, frames[0].input());
-        let zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
+        let z0 = C1LEM::<'a, F, C>::io_to_scalar_vector(store, frames[0].input());
+        let zi = C1LEM::<'a, F, C>::io_to_scalar_vector(store, frames.last().unwrap().output());
 
         let lang = self.lang().clone();
         let folding_config = self
             .folding_mode()
             .folding_config(lang.clone(), self.reduction_count());
 
-        let steps = M::from_frames(frames, store, folding_config.into());
+        let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
         let num_steps = steps.len();
 
         let prove_output = Self::RecursiveSnark::prove_recursively(
@@ -274,7 +273,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         limit: usize,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         let eval_config = self.folding_mode().eval_config(self.lang());
-        let frames = M::build_frames(expr, env, store, limit, &eval_config)?;
+        let frames = C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config)?;
         self.prove(pp, &frames, store)
     }
 

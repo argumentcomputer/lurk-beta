@@ -31,7 +31,7 @@ use crate::{
     },
 };
 
-use super::FoldingMode;
+use super::{nova::C1LEM, FoldingMode};
 
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialSecondaryCircuit<<E2<F> as Engine>::Scalar>;
@@ -129,12 +129,8 @@ where
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F>,
-    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
-> where
+pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
+where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
@@ -142,34 +138,23 @@ pub enum Proof<
     Recursive(Box<RecursiveSNARK<E1<F>, E2<F>>>),
     /// A proof for the final step of a recursive computation
     Compressed(
-        Box<CompressedSNARK<E1<F>, E2<F>, M, C2<F>, SS1<F>, SS2<F>>>,
+        Box<CompressedSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>,
         PhantomData<&'a C>,
     ),
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct SuperNovaProver<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
-> {
+pub struct SuperNovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     /// The number of small-step reductions performed in each recursive step of
     /// the primary Lurk circuit.
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
     folding_mode: FoldingMode,
-    _phantom: PhantomData<&'a M>,
+    _phantom: PhantomData<&'a ()>,
 }
 
-impl<
-        'a,
-        F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'a,
-        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
-    > SuperNovaProver<'a, F, C, M>
-{
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C> {
     /// Create a new SuperNovaProver with a reduction count and a `Lang`
     #[inline]
     pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -182,25 +167,20 @@ impl<
     }
 }
 
-impl<
-        'a,
-        F: CurveCycleEquipped,
-        C: Coprocessor<F>,
-        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
-    > RecursiveSNARKTrait<'a, F, C, M> for Proof<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C> for Proof<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
-    type PublicParams = PublicParams<F, M>;
+    type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
 
     type ErrorType = SuperNovaError;
 
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
     fn prove_recursively(
-        pp: &PublicParams<F, M>,
+        pp: &PublicParams<F, C1LEM<'a, F, C>>,
         z0: &[F],
-        steps: Vec<M>,
+        steps: Vec<C1LEM<'a, F, C>>,
         _store: &'a Store<F>,
         _reduction_count: usize,
         _lang: Arc<Lang<F, C>>,
@@ -241,7 +221,7 @@ where
         )))
     }
 
-    fn compress(self, pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
+    fn compress(self, pp: &PublicParams<F, C1LEM<'a, F, C>>) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark) => Ok(Self::Compressed(
                 Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
@@ -269,18 +249,13 @@ where
     }
 }
 
-impl<
-        'a,
-        F: CurveCycleEquipped,
-        C: Coprocessor<F>,
-        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
-    > Prover<'a, F, C, M> for SuperNovaProver<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F, C> for SuperNovaProver<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    type PublicParams = PublicParams<F, M>;
-    type RecursiveSnark = Proof<'a, F, C, M>;
+    type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
+    type RecursiveSnark = Proof<'a, F, C>;
 
     #[inline]
     fn reduction_count(&self) -> usize {
