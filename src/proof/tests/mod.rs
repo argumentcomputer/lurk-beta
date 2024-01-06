@@ -2,7 +2,7 @@ mod nova_tests_lem;
 
 use abomonation::Abomonation;
 use bellpepper::util_cs::{metric_cs::MetricCS, witness_cs::WitnessCS, Comparable};
-use bellpepper_core::{test_cs::TestConstraintSystem, ConstraintSystem, Delta};
+use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, Delta};
 use expect_test::Expect;
 use nova::traits::Engine;
 use std::sync::Arc;
@@ -14,7 +14,7 @@ use crate::{
     proof::{
         nova::{public_params, CurveCycleEquipped, NovaProver, C1LEM, E1, E2},
         supernova::FoldingConfig,
-        CEKState, EvaluationStore, MultiFrameTrait, Prover, RecursiveSNARKTrait,
+        CEKState, EvaluationStore, MultiFrameTrait, Provable, Prover, RecursiveSNARKTrait,
     },
 };
 
@@ -36,8 +36,8 @@ fn mismatch<T: PartialEq + Copy>(a: &[T], b: &[T]) -> Option<(usize, (Option<T>,
     }
 }
 
-fn test_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C> + 'a>(
-    s: &'a Store<F>,
+fn test_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
+    s: &Store<F>,
     expr: &str,
     expected_result: Option<Ptr>,
     expected_env: Option<Ptr>,
@@ -52,7 +52,7 @@ where
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     for chunk_size in REDUCTION_COUNTS_TO_TEST {
-        nova_test_full_aux::<F, C, M>(
+        nova_test_full_aux::<F, C>(
             s,
             expr,
             expected_result,
@@ -68,13 +68,8 @@ where
     }
 }
 
-fn nova_test_full_aux<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C> + 'a,
->(
-    s: &'a Store<F>,
+fn nova_test_full_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
+    s: &Store<F>,
     expr: &str,
     expected_result: Option<Ptr>,
     expected_env: Option<Ptr>,
@@ -94,7 +89,7 @@ where
     let expr = EvaluationStore::read(s, expr).unwrap();
 
     let f = |l| {
-        nova_test_full_aux2::<F, C, M>(
+        nova_test_full_aux2::<F, C>(
             s,
             expr,
             expected_result,
@@ -117,12 +112,7 @@ where
     };
 }
 
-fn nova_test_full_aux2<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
->(
+fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     s: &'a Store<F>,
     expr: Ptr,
     expected_result: Option<Ptr>,
@@ -144,11 +134,12 @@ where
 
     let e = s.initial_empty_env();
 
-    let frames = M::build_frames(expr, e, s, limit, &EvalConfig::new_ivc(&lang)).unwrap();
+    let frames =
+        C1LEM::<'a, F, C>::build_frames(expr, e, s, limit, &EvalConfig::new_ivc(&lang)).unwrap();
     let nova_prover = NovaProver::<'a, F, C>::new(reduction_count, lang.clone());
 
     if check_nova {
-        let pp = public_params::<_, _, C1LEM<F, C>>(reduction_count, lang.clone());
+        let pp = public_params(reduction_count, lang.clone());
         let (proof, z0, zi, _num_steps) = nova_prover.prove(&pp, &frames, s).unwrap();
 
         let res = proof.verify(&pp, &z0, &zi);
@@ -165,16 +156,16 @@ where
 
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, nova_prover.reduction_count()));
 
-    let multiframes = M::from_frames(&frames, s, folding_config.clone());
+    let multiframes = C1LEM::<'a, F, C>::from_frames(&frames, s, &folding_config);
     let len = multiframes.len();
 
     let expected_iterations_data = expected_iterations.data().parse::<usize>().unwrap();
     let adjusted_iterations = nova_prover.expected_num_steps(expected_iterations_data);
-    let mut previous_frame: Option<&M> = None;
+    let mut previous_frame: Option<&C1LEM<'a, F, C>> = None;
 
     let mut cs_blank = MetricCS::<F>::new();
 
-    let blank = M::blank(folding_config, 0);
+    let blank = C1LEM::<'a, F, C>::blank(folding_config, 0);
     blank
         .synthesize(&mut cs_blank)
         .expect("failed to synthesize blank");
@@ -221,7 +212,7 @@ where
     if let Some(expected_emitted) = expected_emitted {
         let mut emitted_vec = Vec::default();
         for frame in frames.iter() {
-            emitted_vec.extend(M::emitted(s, frame));
+            emitted_vec.extend(C1LEM::<'a, F, C>::emitted(s, frame));
         }
         assert_eq!(expected_emitted, &emitted_vec);
     }
@@ -238,7 +229,7 @@ where
         assert_eq!(&s.get_cont_terminal(), output.cont());
     }
 
-    let iterations = M::significant_frame_count(&frames);
+    let iterations = C1LEM::<'a, F, C>::significant_frame_count(&frames);
     assert!(iterations <= expected_iterations_data);
     expected_iterations.assert_eq(&iterations.to_string());
     assert_eq!(adjusted_iterations, len);

@@ -190,15 +190,10 @@ pub fn circuit_cache_key<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 }
 
 /// Generates the public parameters for the Nova proving system.
-pub fn public_params<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: StepCircuit<F> + MultiFrameTrait<'a, F, C>,
->(
+pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<F, M>
+) -> PublicParams<F, C1LEM<'a, F, C>>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -219,12 +214,15 @@ where
 }
 
 /// Generates the circuits for the Nova proving system.
-pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>(
+pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
-) -> (M, C2<F>) {
+) -> (C1LEM<'a, F, C>, C2<F>) {
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, reduction_count));
-    (M::blank(folding_config, 0), TrivialCircuit::default())
+    (
+        C1LEM::<'a, F, C>::blank(folding_config, 0),
+        TrivialCircuit::default(),
+    )
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C> for Proof<'a, F, C>

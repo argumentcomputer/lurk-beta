@@ -1,7 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, SamplingMode};
 use lurk::{
     eval::lang::{Coproc, Lang},
-    lem::multiframe::MultiFrame,
     proof::nova,
 };
 use std::sync::Arc;
@@ -23,10 +22,7 @@ fn public_params_benchmark(c: &mut Criterion) {
 
     group.bench_function("public_params_nova", |b| {
         b.iter(|| {
-            let result = nova::public_params::<_, _, MultiFrame<'_, _, _>>(
-                reduction_count,
-                lang_pallas_rc.clone(),
-            );
+            let result = nova::public_params(reduction_count, lang_pallas_rc.clone());
             black_box(result)
         })
     });

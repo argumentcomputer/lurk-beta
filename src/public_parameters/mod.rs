@@ -124,7 +124,7 @@ where
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let default = |instance: &Instance<'a, F, C>| {
-        supernova::public_params::<'a, F, C, C1LEM<'a, F, C>>(instance.rc, instance.lang())
+        supernova::public_params::<'a, F, C>(instance.rc, instance.lang())
     };
     let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 

@@ -97,27 +97,22 @@ pub type SS1<F> = nova::spartan::batched::BatchedRelaxedR1CSSNARK<E1<F>, EE1<F>>
 pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<E2<F>, EE2<F>>;
 
 /// Generates the running claim params for the SuperNova proving system.
-pub fn public_params<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
->(
+pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<F, M>
+) -> PublicParams<F, C1LEM<'a, F, C>>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    let non_uniform_circuit = M::blank(folding_config, 0);
+    let non_uniform_circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
 
     // grab hints for the compressed SNARK variants we will use this with
     let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
     let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<E2<F>>>::ck_floor();
 
-    let pp = SuperNovaPublicParams::<F, M>::setup(
+    let pp = SuperNovaPublicParams::<F, C1LEM<'a, F, C>>::setup(
         &non_uniform_circuit,
         &*commitment_size_hint1,
         &*commitment_size_hint2,
