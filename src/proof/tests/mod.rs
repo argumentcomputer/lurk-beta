@@ -170,7 +170,7 @@ where
         .synthesize(&mut cs_blank)
         .expect("failed to synthesize blank");
 
-    for (_i, multiframe) in multiframes.iter().enumerate() {
+    for multiframe in multiframes.iter() {
         let mut cs = TestConstraintSystem::new();
         let mut wcs = WitnessCS::new();
 

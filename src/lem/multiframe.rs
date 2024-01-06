@@ -195,12 +195,12 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     pub fn from_frames(
         frames: &[Frame],
         store: &'a Store<F>,
-        folding_config: Arc<FoldingConfig<F, C>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
         let reduction_count = folding_config.reduction_count();
         let mut multi_frames =
             Vec::with_capacity((frames.len() + reduction_count - 1) / reduction_count);
-        match &*folding_config {
+        match folding_config.as_ref() {
             FoldingConfig::IVC(lang, _) => {
                 let lurk_step = Arc::new(make_eval_step_from_config(&EvalConfig::new_ivc(lang)));
                 for chunk in frames.chunks(reduction_count) {
@@ -1088,7 +1088,7 @@ mod tests {
         let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), 1));
 
         store.hydrate_z_cache();
-        MultiFrame::from_frames(&[frame], &store, folding_config)
+        MultiFrame::from_frames(&[frame], &store, &folding_config)
             .pop()
             .unwrap()
             .synthesize(&mut cs)
