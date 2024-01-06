@@ -24,6 +24,7 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
+    lem::store::Store,
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, E1, E2},
         RecursiveSNARKTrait, {MultiFrameTrait, Prover},
@@ -200,7 +201,7 @@ where
         pp: &PublicParams<F, M>,
         z0: &[F],
         steps: Vec<M>,
-        _store: &'a <M>::Store,
+        _store: &'a Store<F>,
         _reduction_count: usize,
         _lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
-    lem::eval::EvalConfig,
+    lem::{eval::EvalConfig, pointers::Ptr, store::Store},
     proof::{
         nova::{public_params, CurveCycleEquipped, NovaProver, E1, E2},
         supernova::FoldingConfig,
@@ -36,13 +36,13 @@ fn mismatch<T: PartialEq + Copy>(a: &[T], b: &[T]) -> Option<(usize, (Option<T>,
     }
 }
 
-fn test_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(
-    s: &'a M::Store,
+fn test_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C> + 'a>(
+    s: &'a Store<F>,
     expr: &str,
-    expected_result: Option<M::Ptr>,
-    expected_env: Option<M::Ptr>,
-    expected_cont: Option<M::Ptr>,
-    expected_emitted: Option<&[M::Ptr]>,
+    expected_result: Option<Ptr>,
+    expected_env: Option<Ptr>,
+    expected_cont: Option<Ptr>,
+    expected_emitted: Option<&[Ptr]>,
     expected_iterations: &Expect,
     lang: &Option<Arc<Lang<F, C>>>,
 )
@@ -68,13 +68,18 @@ where
     }
 }
 
-fn nova_test_full_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(
-    s: &'a M::Store,
+fn nova_test_full_aux<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C> + 'a,
+>(
+    s: &'a Store<F>,
     expr: &str,
-    expected_result: Option<M::Ptr>,
-    expected_env: Option<M::Ptr>,
-    expected_cont: Option<M::Ptr>,
-    expected_emitted: Option<&[M::Ptr]>,
+    expected_result: Option<Ptr>,
+    expected_env: Option<Ptr>,
+    expected_cont: Option<Ptr>,
+    expected_emitted: Option<&[Ptr]>,
     expected_iterations: &Expect,
     reduction_count: usize,
     check_nova: bool,
@@ -86,7 +91,7 @@ where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let expr = s.read(expr).unwrap();
+    let expr = EvaluationStore::read(s, expr).unwrap();
 
     let f = |l| {
         nova_test_full_aux2::<F, C, M>(
@@ -112,13 +117,18 @@ where
     };
 }
 
-fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(
-    s: &'a M::Store,
-    expr: M::Ptr,
-    expected_result: Option<M::Ptr>,
-    expected_env: Option<M::Ptr>,
-    expected_cont: Option<M::Ptr>,
-    expected_emitted: Option<&[M::Ptr]>,
+fn nova_test_full_aux2<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
+>(
+    s: &'a Store<F>,
+    expr: Ptr,
+    expected_result: Option<Ptr>,
+    expected_env: Option<Ptr>,
+    expected_cont: Option<Ptr>,
+    expected_emitted: Option<&[Ptr]>,
     expected_iterations: &Expect,
     reduction_count: usize,
     check_nova: bool,

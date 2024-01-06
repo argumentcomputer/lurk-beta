@@ -28,6 +28,7 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
+    lem::store::Store,
     proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
 };
 
@@ -246,7 +247,7 @@ where
         pp: &PublicParams<F, M>,
         z0: &[F],
         steps: Vec<M>,
-        store: &'a <M>::Store,
+        store: &'a Store<F>,
         reduction_count: usize,
         lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {

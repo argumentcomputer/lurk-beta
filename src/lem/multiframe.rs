@@ -21,7 +21,6 @@ use crate::{
         supernova::{FoldingConfig, C2},
         CEKState, EvaluationStore, FrameLike, MultiFrameTrait, Provable,
     },
-    store,
     tag::ContTag,
 };
 
@@ -384,22 +383,11 @@ fn pad_frames<F: LurkField, C: Coprocessor<F>>(
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
-    type Ptr = Ptr;
-    type Store = Store<F>;
-    type StoreError = store::Error;
-    type EvalFrame = Frame;
-    type CircuitFrame = Frame;
-    type GlobalAllocation = GlobalAllocator<F>;
-    type AllocatedIO = Vec<AllocatedPtr<F>>;
-
-    fn emitted(_store: &Store<F>, eval_frame: &Self::EvalFrame) -> Vec<Ptr> {
+    fn emitted(_store: &Store<F>, eval_frame: &Frame) -> Vec<Ptr> {
         eval_frame.emitted.clone()
     }
 
-    fn io_to_scalar_vector(
-        store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike<Ptr>>::FrameIO,
-    ) -> Vec<F> {
+    fn io_to_scalar_vector(store: &Store<F>, io: &<Frame as FrameLike<Ptr>>::FrameIO) -> Vec<F> {
         store.to_scalar_vector(io)
     }
 
@@ -422,11 +410,11 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         Ok(())
     }
 
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr>>::FrameIO> {
+    fn output(&self) -> &Option<<Frame as FrameLike<Ptr>>::FrameIO> {
         &self.output
     }
 
-    fn frames(&self) -> Option<&Vec<Self::CircuitFrame>> {
+    fn frames(&self) -> Option<&Vec<Frame>> {
         self.frames.as_ref()
     }
 
@@ -437,11 +425,11 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     fn synthesize_frames<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        store: &Self::Store,
-        input: Self::AllocatedIO,
-        frames: &[Self::CircuitFrame],
-        g: &Self::GlobalAllocation,
-    ) -> Result<Self::AllocatedIO, SynthesisError> {
+        store: &Store<F>,
+        input: Vec<AllocatedPtr<F>>,
+        frames: &[Frame],
+        g: &GlobalAllocator<F>,
+    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
         let func = self.get_func();
         if cs.is_witness_generator() {
             let num_slots_per_frame = func.slots_count.total();
@@ -520,7 +508,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
 
     fn from_frames(
         frames: &[Frame],
-        store: &'a Self::Store,
+        store: &'a Store<F>,
         folding_config: Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
         let reduction_count = folding_config.reduction_count();
@@ -659,12 +647,12 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     }
 
     fn build_frames(
-        expr: Self::Ptr,
-        env: Self::Ptr,
-        store: &Self::Store,
+        expr: Ptr,
+        env: Ptr,
+        store: &Store<F>,
         limit: usize,
         ec: &EvalConfig<'_, F, C>,
-    ) -> Result<Vec<Self::EvalFrame>, ProofError> {
+    ) -> Result<Vec<Frame>, ProofError> {
         let cont = store.cont_outermost();
         let lurk_step = make_eval_step_from_config(ec);
         let lang = ec.lang();
@@ -680,7 +668,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
     }
 
-    fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
+    fn significant_frame_count(frames: &[Frame]) -> usize {
         let stop_cond = |output: &[Ptr]| {
             matches!(
                 output[2].tag(),
