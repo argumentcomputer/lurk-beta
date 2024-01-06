@@ -284,13 +284,13 @@ impl Block {
                         let g = *store.expect_f(g_idx);
                         let diff = f - g;
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(store.intern_f(f + f).0)],
+                            vals: vec![Val::Num(RawPtr::Atom(store.intern_f(f + f).0))],
                         }));
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(store.intern_f(g + g).0)],
+                            vals: vec![Val::Num(RawPtr::Atom(store.intern_f(g + g).0))],
                         }));
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(store.intern_f(diff + diff).0)],
+                            vals: vec![Val::Num(RawPtr::Atom(store.intern_f(diff + diff).0))],
                         }));
                         let f = BaseNum::Scalar(f);
                         let g = BaseNum::Scalar(g);
@@ -306,7 +306,7 @@ impl Block {
                     let c = if let RawPtr::Atom(f_idx) = a {
                         let f = *store.expect_f(f_idx);
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(f_idx)],
+                            vals: vec![Val::Num(RawPtr::Atom(f_idx))],
                         }));
                         let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                         store.intern_atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
@@ -419,7 +419,7 @@ impl Block {
                     };
                     let secret = *store.expect_f(*secret_idx);
                     let tgt_ptr = store.hide(secret, src_ptr);
-                    let vals = vec![Val::Num(*secret_idx), Val::Pointer(src_ptr)];
+                    let vals = vec![Val::Num(RawPtr::Atom(*secret_idx)), Val::Pointer(src_ptr)];
                     hints.commitment.push(Some(SlotData { vals }));
                     bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
@@ -438,7 +438,7 @@ impl Block {
                         store.intern_atom(Tag::Expr(Num), *secret),
                     );
                     let secret_idx = store.intern_f(*secret).0;
-                    let vals = vec![Val::Num(secret_idx), Val::Pointer(*ptr)];
+                    let vals = vec![Val::Num(RawPtr::Atom(secret_idx)), Val::Pointer(*ptr)];
                     hints.commitment.push(Some(SlotData { vals }));
                 }
                 Op::Unit(f) => f(),

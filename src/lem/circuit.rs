@@ -260,11 +260,11 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
                         || *z_ptr.value(),
                     ));
                 }
-                Val::Num(f) => {
-                    let f = store.expect_f(*f);
+                Val::Num(raw) => {
+                    let f = store.hash_raw_ptr(raw).0;
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         cs.namespace(|| format!("component {component_idx} slot {slot}")),
-                        || *f,
+                        || f,
                     ));
                 }
                 Val::Boolean(b) => {

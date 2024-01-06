@@ -103,7 +103,10 @@
 //! STEP 2 will need as many iterations as it takes to evaluate the Lurk
 //! expression and so will STEP 3.
 
-use super::{pointers::Ptr, Block, Ctrl, Op};
+use super::{
+    pointers::{Ptr, RawPtr},
+    Block, Ctrl, Op,
+};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlotsCounter {
@@ -234,12 +237,12 @@ impl Block {
 }
 
 #[derive(Clone, Debug)]
-/// The values a variable can take. `Num`s are pure field elements, much like `Ptr::Atom`,
-/// but missing the tag. `Boolean`s are also field elements, but they are guaranteed to be
-/// constrained to take only 0 or 1 values.
+/// The values a variable can take. `Num`s represent pure field elements, with no tags.
+/// `Boolean`s are also field elements, but they are guaranteed to be constrained to
+/// take only 0 or 1 values.
 pub enum Val {
     Pointer(Ptr),
-    Num(usize),
+    Num(RawPtr),
     Boolean(bool),
 }
 
