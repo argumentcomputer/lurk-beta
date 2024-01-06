@@ -195,6 +195,15 @@ macro_rules! op {
             $crate::var!($src),
         )
     };
+    ( let $tgt:ident = push_binding($src1:ident, $src2:ident, $src3:ident) ) => {
+        $crate::lem::Op::PushBinding(
+            $crate::var!($tgt),
+            $crate::vars!($src1, $src2, $src3),
+        )
+    };
+    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = pop_binding($src:ident) ) => {
+        $crate::lem::Op::PopBinding($crate::vars!($tgt1, $tgt2, $tgt3), $crate::var!($src))
+    };
     ( let $tgt:ident = hide($sec:ident, $src:ident) ) => {
         $crate::lem::Op::Hide($crate::var!($tgt), $crate::var!($sec), $crate::var!($src))
     };
@@ -570,6 +579,26 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let ($tgt1, $tgt2, $tgt3, $tgt4) = decons4($src) )
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = push_binding($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = push_binding($src1, $src2, $src3) )
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = pop_binding($src:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let ($tgt1, $tgt2, $tgt3) = pop_binding($src) )
             },
             $($tail)*
         )

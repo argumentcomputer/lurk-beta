@@ -375,6 +375,27 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    pub fn push_binding(&self, sym: Ptr, val: Ptr, env: Ptr) -> Ptr {
+        assert_eq!(*sym.tag(), Tag::Expr(Sym));
+        assert_eq!(*env.tag(), Tag::Expr(Env));
+        let raw =
+            self.intern_raw_ptrs::<4>([*sym.raw(), self.tag(*val.tag()), *val.raw(), *env.raw()]);
+        Ptr::new(Tag::Expr(Env), raw)
+    }
+
+    #[inline]
+    pub fn pop_binding(&self, env: Ptr) -> Option<[Ptr; 3]> {
+        assert_eq!(*env.tag(), Tag::Expr(Env));
+        let idx = env.get_index2()?;
+        let [sym_pay, val_tag, val_pay, env_pay] = self.fetch_raw_ptrs::<4>(idx)?;
+        let val_tag = self.fetch_tag(val_tag)?;
+        let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
+        let val = Ptr::new(val_tag, *val_pay);
+        let env = Ptr::new(Tag::Expr(Env), *env_pay);
+        Some([sym, val, env])
+    }
+
+    #[inline]
     pub fn intern_empty_env(&self) -> Ptr {
         self.intern_atom(Tag::Expr(Env), F::ZERO)
     }

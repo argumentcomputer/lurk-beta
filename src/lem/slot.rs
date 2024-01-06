@@ -198,7 +198,9 @@ impl Block {
     pub fn count_slots(&self) -> SlotsCounter {
         let ops_slots = self.ops.iter().fold(SlotsCounter::default(), |acc, op| {
             let val = match op {
-                Op::Cons2(..) | Op::Decons2(..) => SlotsCounter::new((1, 0, 0, 0, 0)),
+                Op::Cons2(..) | Op::Decons2(..) | Op::PushBinding(..) | Op::PopBinding(..) => {
+                    SlotsCounter::new((1, 0, 0, 0, 0))
+                }
                 Op::Cons3(..) | Op::Decons3(..) => SlotsCounter::new((0, 1, 0, 0, 0)),
                 Op::Cons4(..) | Op::Decons4(..) => SlotsCounter::new((0, 0, 1, 0, 0)),
                 Op::Hide(..) | Op::Open(..) => SlotsCounter::new((0, 0, 0, 1, 0)),

@@ -228,6 +228,15 @@ pub enum Op {
     Decons3([Var; 3], Var),
     /// `Decons4([a, b, c, d], x)` binds `a`, `b`, `c` and `d` to the 4 children of `x`
     Decons4([Var; 4], Var),
+    /// `PushBinding(x, ys)` is a Lurk specific operation. It binds `x` to a `Ptr`
+    /// with tag `Env` and 3 children `ys`. The first child is assumed to be a `Sym`
+    /// pointer, the last child is assumed to be an `Env` pointer. This is compiled
+    /// to an efficient representation, with 4 hashes instead of 6. This operation
+    /// might be deprecated when LEM is more expressive and is able to have variables
+    /// of other types other than pointers
+    PushBinding(Var, [Var; 3]),
+    /// `PopBinding(ys, x)` is the inverse of `PushBinding`
+    PopBinding([Var; 3], Var),
     /// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
     Hide(Var, Var, Var),
@@ -377,6 +386,14 @@ impl Func {
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
                     Op::Decons4(preimg, img) => {
+                        is_bound(img, map)?;
+                        preimg.iter().for_each(|var| is_unique(var, map))
+                    }
+                    Op::PushBinding(img, preimg) => {
+                        preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
+                        is_unique(img, map);
+                    }
+                    Op::PopBinding(preimg, img) => {
                         is_bound(img, map)?;
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
@@ -663,6 +680,16 @@ impl Block {
                     let img = map.get_cloned(&img)?;
                     let preimg = insert_many(map, uniq, &preimg);
                     ops.push(Op::Decons4(preimg.try_into().unwrap(), img))
+                }
+                Op::PushBinding(img, preimg) => {
+                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
+                    let img = insert_one(map, uniq, &img);
+                    ops.push(Op::PushBinding(img, preimg))
+                }
+                Op::PopBinding(preimg, img) => {
+                    let img = map.get_cloned(&img)?;
+                    let preimg = insert_many(map, uniq, &preimg);
+                    ops.push(Op::PopBinding(preimg.try_into().unwrap(), img))
                 }
                 Op::Hide(tgt, sec, pay) => {
                     let sec = map.get_cloned(&sec)?;

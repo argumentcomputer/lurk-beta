@@ -47,7 +47,7 @@ use crate::{
     eval::lang::Lang,
     field::{FWrap, LanguageField, LurkField},
     tag::{
-        ExprTag::{Comm, Num, Sym},
+        ExprTag::{Comm, Env, Num, Sym},
         Tag,
     },
 };
@@ -437,6 +437,10 @@ impl Block {
                     g.alloc_tag(cs, &Num);
                     g.alloc_tag(cs, &Comm);
                 }
+                Op::PushBinding(..) | Op::PopBinding(..) => {
+                    g.alloc_tag(cs, &Sym);
+                    g.alloc_tag(cs, &Env);
+                }
                 _ => (),
             }
         }
@@ -700,6 +704,100 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             }
             Op::Decons4(preimg, img) => {
                 decons_helper!(preimg, img, SlotType::Hash8);
+            }
+            Op::PushBinding(img, preimg) => {
+                // Retrieve allocated preimage
+                let sym = bound_allocations.get_ptr(&preimg[0])?;
+                let val = bound_allocations.get_ptr(&preimg[1])?;
+                let env = bound_allocations.get_ptr(&preimg[2])?;
+
+                // Retrieve the preallocated preimage and image for this slot
+                let (preallocated_preimg, preallocated_img_hash) =
+                    &ctx.hash4_slots[next_slot.consume_hash4()];
+
+                // For each component of the preimage, add implication constraints
+                // for its tag and hash
+                let sym_tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Sym);
+                let env_tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Env);
+                implies_equal(
+                    &mut cs.namespace(|| format!("implies equal {}.tag", preimg[0])),
+                    not_dummy,
+                    sym.tag(),
+                    &sym_tag,
+                );
+                implies_equal(
+                    &mut cs.namespace(|| format!("implies equal {}.hash", preimg[0])),
+                    not_dummy,
+                    sym.hash(),
+                    &preallocated_preimg[0],
+                );
+                implies_equal(
+                    &mut cs.namespace(|| format!("implies equal {}.tag", preimg[1])),
+                    not_dummy,
+                    val.tag(),
+                    &preallocated_preimg[1],
+                );
+                implies_equal(
+                    &mut cs.namespace(|| format!("implies equal {}.hash", preimg[1])),
+                    not_dummy,
+                    val.hash(),
+                    &preallocated_preimg[2],
+                );
+                implies_equal(
+                    &mut cs.namespace(|| format!("implies equal {}.tag", preimg[2])),
+                    not_dummy,
+                    env.tag(),
+                    &env_tag,
+                );
+                implies_equal(
+                    &mut cs.namespace(|| format!("implies equal {}.hash", preimg[2])),
+                    not_dummy,
+                    env.hash(),
+                    &preallocated_preimg[3],
+                );
+
+                // Allocate the image tag if it hasn't been allocated before,
+                // create the full image pointer and add it to bound allocations
+                let img_tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Env);
+                let AllocatedVal::Number(img_hash) = preallocated_img_hash else {
+                    bail!("Expected number")
+                };
+                let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash.clone());
+                bound_allocations.insert_ptr(img.clone(), img_ptr);
+            }
+            Op::PopBinding(preimg, img) => {
+                // Retrieve allocated image
+                let allocated_img = bound_allocations.get_ptr(img)?;
+
+                // Retrieve the preallocated preimage and image for this slot
+                let (preallocated_preimg, preallocated_img_hash) =
+                    ctx.hash4_slots[next_slot.consume_hash4()];
+
+                // Add the implication constraint for the image
+                let AllocatedVal::Number(img_hash) = preallocated_img_hash else {
+                    bail!("Expected number")
+                };
+                implies_equal(
+                    &mut cs.namespace(|| format!("implies equal {}.hash", img)),
+                    not_dummy,
+                    allocated_img.hash(),
+                    img_hash,
+                );
+
+                // Retrieve preimage hashes and tags create the full preimage pointers
+                // and add them to bound allocations
+                let sym_tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Sym);
+                let sym_hash = &preallocated_preimg[0];
+                let sym_ptr = AllocatedPtr::from_parts(sym_tag, sym_hash.clone());
+                bound_allocations.insert_ptr(preimg[0].clone(), sym_ptr);
+                let val_tag = &preallocated_preimg[1];
+                let val_hash = &preallocated_preimg[2];
+                let val_ptr = AllocatedPtr::from_parts(val_tag.clone(), val_hash.clone());
+                bound_allocations.insert_ptr(preimg[1].clone(), val_ptr);
+                let env_tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Env);
+                let env_hash = &preallocated_preimg[3];
+                let env_ptr = AllocatedPtr::from_parts(env_tag, env_hash.clone());
+                bound_allocations.insert_ptr(preimg[2].clone(), env_ptr);
             }
             Op::Copy(tgt, src) => {
                 bound_allocations.insert(tgt.clone(), bound_allocations.get_cloned(src)?);
@@ -1501,6 +1599,10 @@ impl Func {
                         // tag and hash for 3 preimage pointers
                         num_constraints += 6;
                     }
+                    Op::PushBinding(..) => {
+                        globals.insert(FWrap(Env.to_field()));
+                        num_constraints += 6;
+                    }
                     Op::Cons4(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));
@@ -1511,7 +1613,8 @@ impl Func {
                     | Op::Or(..)
                     | Op::Decons2(..)
                     | Op::Decons3(..)
-                    | Op::Decons4(..) => {
+                    | Op::Decons4(..)
+                    | Op::PopBinding(..) => {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }

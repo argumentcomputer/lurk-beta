@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use super::{
     path::Path,
@@ -410,6 +410,33 @@ impl Block {
                     }
                     let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
                     hints.hash8.push(Some(SlotData { vals }));
+                }
+                Op::PushBinding(img, preimg) => {
+                    let preimg_ptrs = bindings.get_many_ptr(preimg)?;
+                    let tgt_ptr =
+                        store.push_binding(preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
+                    bindings.insert_ptr(img.clone(), tgt_ptr);
+                    let vals = vec![
+                        Val::Num(*preimg_ptrs[0].raw()),
+                        Val::Pointer(preimg_ptrs[1]),
+                        Val::Num(*preimg_ptrs[2].raw()),
+                    ];
+                    hints.hash4.push(Some(SlotData { vals }));
+                }
+                Op::PopBinding(preimg, img) => {
+                    let img_ptr = bindings.get_ptr(img)?;
+                    let preimg_ptrs = store
+                        .pop_binding(img_ptr)
+                        .context("cannot extract {img}'s binding")?;
+                    for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
+                        bindings.insert_ptr(var.clone(), *ptr);
+                    }
+                    let vals = vec![
+                        Val::Num(*preimg_ptrs[0].raw()),
+                        Val::Pointer(preimg_ptrs[1]),
+                        Val::Num(*preimg_ptrs[2].raw()),
+                    ];
+                    hints.hash4.push(Some(SlotData { vals }));
                 }
                 Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get_ptr(src)?;
