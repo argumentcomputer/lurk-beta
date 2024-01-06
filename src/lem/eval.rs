@@ -196,7 +196,7 @@ pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
     evaluate_with_env_and_cont(
         lang_setup,
         expr,
-        store.intern_nil(),
+        store.intern_empty_env(),
         store.cont_outermost(),
         store,
         limit,
@@ -229,7 +229,7 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
     store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-    evaluate_simple_with_env(lang_setup, expr, store.intern_nil(), store, limit)
+    evaluate_simple_with_env(lang_setup, expr, store.intern_empty_env(), store, limit)
 }
 
 pub struct EvalConfig<'a, F, C> {
@@ -802,36 +802,25 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         return (nil)
     });
     let is_cproc = is_cproc(cprocs);
-    let lookup = func!(lookup(expr, env, state, binding): 4 => {
+    let lookup = func!(lookup(expr, env, state, maybe_var): 4 => {
         let found = Symbol("found");
         let not_found = Symbol("not_found");
         let error = Symbol("error");
         let continue = eq_val(not_found, state);
         if !continue {
-            return (expr, env, state, binding)
+            return (expr, env, state, maybe_var)
         }
-        match env.tag {
-            Expr::Nil => {
-                return (expr, env, error, binding)
-            }
-        };
-        let (binding, smaller_env) = car_cdr(env);
-        match binding.tag {
-            Expr::Nil => {
-                return (expr, env, error, binding)
-            }
-        };
-        let (var, val) = decons2(binding);
-        match var.tag {
-            Expr::Sym => {
-                let eq_val = eq_val(var, expr);
-                if eq_val {
-                    return (val, env, found, binding)
-                }
-                return (expr, smaller_env, not_found, binding)
-            }
-        };
-        return (expr, env, error, binding)
+        let zero = Num(0);
+        let env_is_zero = eq_val(env, zero);
+        if env_is_zero {
+            return (expr, env, error, maybe_var)
+        }
+        let (var, val, smaller_env) = pop_binding(env);
+        let eq_val = eq_val(var, expr);
+        if eq_val {
+            return (val, env, found, var)
+        }
+        return (expr, smaller_env, not_found, var)
     });
 
     func!(reduce(expr, env, cont): 4 => {
@@ -880,10 +869,15 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                     return (expr, env, cont, apply)
                 }
                 let not_found = Symbol("not_found");
-                let (expr, env, state, binding) = lookup(expr, env, not_found, nil);
-                let (expr, env, state, binding) = lookup(expr, env, state, binding);
-                let (expr, env, state, binding) = lookup(expr, env, state, binding);
-                let (expr, env, state, binding) = lookup(expr, env, state, binding);
+                let zero = Num(0);
+                let (expr, env, state, var) = lookup(expr, env, not_found, zero);
+                let (expr, env, state, var) = lookup(expr, env, state, var);
+                let (expr, env, state, var) = lookup(expr, env, state, var);
+                let (expr, env, state, var) = lookup(expr, env, state, var);
+                let (expr, env, state, var) = lookup(expr, env, state, var);
+                let (expr, env, state, var) = lookup(expr, env, state, var);
+                let (expr, env, state, var) = lookup(expr, env, state, var);
+                let (expr, env, state, var) = lookup(expr, env, state, var);
                 match symbol state {
                     "error" => {
                         return (expr, env, err, errctrl)
@@ -892,7 +886,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         match expr.tag {
                             Expr::Thunk => {
                                 let (body, body_env) = decons2(expr);
-                                let env: Expr::Cons = cons2(binding, body_env);
+                                let env = push_binding(var, expr, body_env);
                                 return (body, env, cont, ret)
                             }
                         };
@@ -951,8 +945,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                                 return (val, env, cont, ret)
                                             }
                                             let thunk: Expr::Thunk = cons2(val, env);
-                                            let binding: Expr::Cons = cons2(var, thunk);
-                                            let rec_env: Expr::Cons = cons2(binding, env);
+                                            let rec_env = push_binding(var, thunk, env);
                                             let cont: Cont::LetRec = cons4(var, env, expanded, cont);
                                             return (val, rec_env, cont, ret)
                                         }
@@ -1191,6 +1184,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                 let t = Symbol("t");
                 let nil = Symbol("nil");
                 let nil = cast(nil, Expr::Nil);
+                let empty_env: Expr::Env;
                 let empty_str = String("");
                 let zero = Num(0);
                 let foo: Expr::Nil;
@@ -1201,7 +1195,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                 match cont.tag {
                     Cont::Outermost => {
                         // We erase the environment as to not leak any information about internal variables.
-                        return (result, nil, term, ret)
+                        return (result, empty_env, term, ret)
                     }
                     Cont::Emit => {
                         let (cont, _rest, _foo, _foo) = decons4(cont);
@@ -1250,8 +1244,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 let (vars, body, fun_env, _foo) = decons4(function);
                                 // vars must be non-empty, so:
                                 let (var, rest_vars) = decons2(vars);
-                                let binding: Expr::Cons = cons2(var, result);
-                                let ext_env: Expr::Cons = cons2(binding, fun_env);
+                                let ext_env = push_binding(var, result, fun_env);
                                 let rest_vars_empty = eq_tag(rest_vars, nil);
                                 let args_empty = eq_tag(args, nil);
                                 if rest_vars_empty {
@@ -1282,14 +1275,12 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     }
                     Cont::Let => {
                         let (var, saved_env, body, cont) = decons4(cont);
-                        let binding: Expr::Cons = cons2(var, result);
-                        let extended_env: Expr::Cons = cons2(binding, saved_env);
+                        let extended_env = push_binding(var, result, saved_env);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::LetRec => {
                         let (var, saved_env, body, cont) = decons4(cont);
-                        let binding: Expr::Cons = cons2(var, result);
-                        let extended_env: Expr::Cons = cons2(binding, saved_env);
+                        let extended_env = push_binding(var, result, saved_env);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::Unop => {
@@ -1413,7 +1404,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return(result, env, err, errctrl)
                             }
                             Op1::Eval => {
-                                return(result, nil, continuation, ret)
+                                return(result, empty_env, continuation, ret)
                             }
                         };
                         return (result, env, err, errctrl)
@@ -1448,7 +1439,12 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         let args_num_type_eq_nil = eq_tag(args_num_type, nil);
                         match operator.tag {
                             Op2::Eval => {
-                                return (evaled_arg, result, continuation, ret)
+                                match result.tag {
+                                    Expr::Env => {
+                                        return (evaled_arg, result, continuation, ret)
+                                    }
+                                };
+                                return (result, env, err, errctrl)
                             }
                             Op2::Cons => {
                                 let val: Expr::Cons = cons2(evaled_arg, result);
@@ -1685,10 +1681,9 @@ fn make_thunk() -> Func {
             "make-thunk" => {
                 match cont.tag {
                     Cont::Outermost => {
-                        let nil = Symbol("nil");
-                        let nil = cast(nil, Expr::Nil);
+                        let empty_env: Expr::Env;
                         let cont: Cont::Terminal = HASH_8_ZEROS;
-                        return (expr, nil, cont)
+                        return (expr, empty_env, cont)
                     }
                 };
                 let thunk: Expr::Thunk = cons2(expr, cont);
@@ -1722,7 +1717,7 @@ mod tests {
         assert_eq!(
             func.slots_count,
             SlotsCounter {
-                hash4: 17,
+                hash4: 15,
                 hash6: 0,
                 hash8: 5,
                 commitment: 1,
@@ -1733,8 +1728,8 @@ mod tests {
             expected.assert_eq(&computed.to_string());
         };
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9377"]);
-        expect_eq(cs.num_constraints(), expect!["11318"]);
+        expect_eq(cs.aux().len(), expect!["8831"]);
+        expect_eq(cs.num_constraints(), expect!["10780"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
