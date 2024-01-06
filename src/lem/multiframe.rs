@@ -367,6 +367,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             .skip_while(|f| f.input == f.output && stop_cond(&f.output))
             .count()
     }
+
+    pub fn program_counter(&self) -> usize {
+        self.pc
+    }
 }
 
 impl CEKState<Ptr> for Vec<Ptr> {
