@@ -9,7 +9,6 @@ use lurk::{
     field::LurkField,
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
-        multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
     },
@@ -87,7 +86,7 @@ fn main() {
     let pp_start = Instant::now();
 
     let instance_primary = Instance::new(REDUCTION_COUNT, lang_rc, true, Kind::SuperNovaAuxParams);
-    let pp = supernova_public_params::<_, _, MultiFrame<'_, _, _>>(&instance_primary).unwrap();
+    let pp = supernova_public_params(&instance_primary).unwrap();
 
     let pp_end = pp_start.elapsed();
     println!("Running claim parameters took {:?}", pp_end);

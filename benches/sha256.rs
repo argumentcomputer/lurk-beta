@@ -19,7 +19,6 @@ use lurk::{
     field::LurkField,
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
-        multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
     },
@@ -112,13 +111,13 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
 
     // use cached public params
-    let instance: Instance<'_, Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>> = Instance::new(
+    let instance: Instance<'_, Fr, Sha256Coproc<Fr>> = Instance::new(
         reduction_count,
         lang_rc.clone(),
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_params(&instance).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),
@@ -199,7 +198,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_params(&instance).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),
@@ -283,7 +282,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
         true,
         Kind::SuperNovaAuxParams,
     );
-    let pp = supernova_public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = supernova_public_params(&instance).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),

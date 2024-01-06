@@ -3,9 +3,8 @@ use abomonation::{decode, Abomonation};
 use std::sync::Arc;
 
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::{self, NovaCircuitShape, PublicParams};
+use crate::proof::nova::{self, NovaCircuitShape, PublicParams, C1LEM};
 use crate::proof::nova::{CurveCycleEquipped, E1, E2};
-use crate::proof::MultiFrameTrait;
 
 pub mod disk_cache;
 mod error;
@@ -19,18 +18,14 @@ use crate::public_parameters::error::Error;
 use self::disk_cache::DiskCache;
 use self::instance::Instance;
 
-pub fn public_params<
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'static,
-    M: MultiFrameTrait<'static, F, C>,
->(
-    instance: &Instance<'static, F, C, M>,
-) -> Result<Arc<PublicParams<F, M>>, Error>
+pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
+    instance: &Instance<'static, F, C>,
+) -> Result<Arc<PublicParams<F, C1LEM<'a, F, C>>>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let f = |instance: &Instance<'static, F, C, M>| {
+    let f = |instance: &Instance<'static, F, C>| {
         Arc::new(nova::public_params(instance.rc, instance.lang()))
     };
     mem_cache::PUBLIC_PARAM_MEM_CACHE.get_from_mem_cache_or_update_with(instance, f)
@@ -42,20 +37,18 @@ where
 /// to the lifetime of the file. Thus, we cannot pass a reference out and must
 /// rely on a closure to capture the data and continue the computation in `bind`.
 pub fn with_public_params<'a, F, C, M, Fn, T>(
-    instance: &Instance<'a, F, C, M>,
+    instance: &Instance<'a, F, C>,
     bind: Fn,
 ) -> Result<T, Error>
 where
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
-    Fn: FnOnce(&PublicParams<F, M>) -> T,
+    Fn: FnOnce(&PublicParams<F, C1LEM<'a, F, C>>) -> T,
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default =
-        |instance: &Instance<'a, F, C, M>| nova::public_params(instance.rc, instance.lang());
-    let disk_cache = DiskCache::<F, C, M>::new(public_params_dir()).unwrap();
+    let default = |instance: &Instance<'a, F, C>| nova::public_params(instance.rc, instance.lang());
+    let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
     let mut bytes = vec![];
     let pp = disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
@@ -79,19 +72,14 @@ where
     }
 }
 
-pub fn supernova_circuit_params<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
->(
-    instance: &Instance<'a, F, C, M>,
+pub fn supernova_circuit_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
+    instance: &Instance<'a, F, C>,
 ) -> Result<NovaCircuitShape<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let disk_cache = DiskCache::<F, C, M>::new(public_params_dir()).unwrap();
+    let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
     let mut bytes = vec![];
     disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
@@ -105,19 +93,14 @@ where
     })
 }
 
-pub fn supernova_aux_params<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
->(
-    instance: &Instance<'a, F, C, M>,
+pub fn supernova_aux_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
+    instance: &Instance<'a, F, C>,
 ) -> Result<SuperNovaAuxParams<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let disk_cache = DiskCache::<F, C, M>::new(public_params_dir()).unwrap();
+    let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
     let mut bytes = vec![];
     disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
@@ -133,41 +116,35 @@ where
 }
 
 /// Attempts to extract abomonated public parameters.
-use ::nova::supernova::NonUniformCircuit;
-use ::nova::supernova::StepCircuit as SuperStepCircuit;
-use supernova::C2;
-pub fn supernova_public_params<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
->(
-    instance_primary: &Instance<'a, F, C, M>,
-) -> Result<supernova::PublicParams<F, M>, Error>
+pub fn supernova_public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
+    instance_primary: &Instance<'a, F, C>,
+) -> Result<supernova::PublicParams<F, C1LEM<'a, F, C>>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default = |instance: &Instance<'a, F, C, M>| {
-        supernova::public_params::<'a, F, C, M>(instance.rc, instance.lang())
+    let default = |instance: &Instance<'a, F, C>| {
+        supernova::public_params::<'a, F, C, C1LEM<'a, F, C>>(instance.rc, instance.lang())
     };
-    let disk_cache = DiskCache::<F, C, M>::new(public_params_dir()).unwrap();
+    let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
     let maybe_circuit_params_vec = instance_primary
         .circuit_param_instances()
         .iter()
-        .map(|instance| supernova_circuit_params::<F, C, M>(instance))
+        .map(|instance| supernova_circuit_params::<F, C>(instance))
         .collect::<Result<Vec<NovaCircuitShape<F>>, _>>();
 
-    let maybe_aux_params = supernova_aux_params::<F, C, M>(instance_primary);
+    let maybe_aux_params = supernova_aux_params::<F, C>(instance_primary);
 
     let pp = if let (Ok(circuit_params_vec), Ok(aux_params)) =
         (maybe_circuit_params_vec, maybe_aux_params)
     {
         println!("generating public params");
 
-        let pp =
-            SuperNovaPublicParams::<F, M>::from_parts_unchecked(circuit_params_vec, aux_params);
+        let pp = SuperNovaPublicParams::<F, C1LEM<'a, F, C>>::from_parts_unchecked(
+            circuit_params_vec,
+            aux_params,
+        );
         let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
 
         supernova::PublicParams { pp, pk, vk }
@@ -184,8 +161,10 @@ where
             disk_cache.write_abomonated(&instance, circuit_params)?;
         }
 
-        let pp =
-            SuperNovaPublicParams::<F, M>::from_parts_unchecked(circuit_params_vec, aux_params);
+        let pp = SuperNovaPublicParams::<F, C1LEM<'a, F, C>>::from_parts_unchecked(
+            circuit_params_vec,
+            aux_params,
+        );
         let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
 
         supernova::PublicParams { pp, pk, vk }
@@ -208,11 +187,10 @@ mod tests {
         std::env::set_var("LURK_PUBLIC_PARAMS", tmp_dir.path());
 
         let lang: Arc<Lang<S1, Coproc<S1>>> = Arc::new(Lang::new());
-        type OG = crate::proof::nova::C1LEM<'static, S1, Coproc<S1>>;
         let instance = Instance::new(10, lang, true, Kind::NovaPublicParams);
         // Without disk cache, writes to tmpfile
-        let _public_params = public_params::<S1, Coproc<S1>, OG>(&instance).unwrap();
+        let _public_params = public_params::<S1, Coproc<S1>>(&instance).unwrap();
         // With disk cache, reads from tmpfile
-        let _public_params = public_params::<S1, Coproc<S1>, OG>(&instance).unwrap();
+        let _public_params = public_params::<S1, Coproc<S1>>(&instance).unwrap();
     }
 }

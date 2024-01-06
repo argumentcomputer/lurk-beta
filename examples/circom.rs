@@ -34,7 +34,6 @@ use std::time::Instant;
 
 use lurk::circuit::gadgets::circom::CircomGadget;
 use lurk::circuit::gadgets::pointer::AllocatedPtr;
-use lurk::lem::multiframe::MultiFrame;
 
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
@@ -116,7 +115,7 @@ fn main() {
 
     let pp_start = Instant::now();
     let instance = Instance::new(REDUCTION_COUNT, lang_rc, true, Kind::NovaPublicParams);
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_params(&instance).unwrap();
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {pp_end:?}");

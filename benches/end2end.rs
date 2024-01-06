@@ -9,7 +9,6 @@ use lurk::{
     field::LurkField,
     lem::{
         eval::{evaluate, evaluate_simple},
-        multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
     },
@@ -74,7 +73,7 @@ fn end2end_benchmark(c: &mut Criterion) {
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_parameters::public_params(&instance).unwrap();
 
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("end2end_go_base_nova", format!("_{}_{}", size.0, size.1));
@@ -245,7 +244,7 @@ fn prove_benchmark(c: &mut Criterion) {
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_parameters::public_params(&instance).unwrap();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
@@ -293,7 +292,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_parameters::public_params(&instance).unwrap();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
@@ -335,7 +334,7 @@ fn verify_benchmark(c: &mut Criterion) {
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_parameters::public_params(&instance).unwrap();
 
     let sizes = [(10, 0)];
     for size in sizes {
@@ -387,7 +386,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_parameters::public_params(&instance).unwrap();
 
     let sizes = [(10, 0)];
     for size in sizes {

@@ -9,7 +9,7 @@ use once_cell::sync::Lazy;
 use tap::TapFallible;
 use tracing::{info, warn};
 
-use crate::proof::MultiFrameTrait;
+use crate::proof::nova::C1LEM;
 use crate::{
     coprocessor::Coprocessor,
     proof::nova::{PublicParams, E1, E2},
@@ -41,15 +41,15 @@ pub(crate) static PUBLIC_PARAM_MEM_CACHE: Lazy<PublicParamMemCache> =
 
 impl PublicParamMemCache {
     fn get_from_disk_cache_or_update_with<
+        'a,
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
-        M: MultiFrameTrait<'static, F, C>,
-        Fn: FnOnce(&Instance<'static, F, C, M>) -> Arc<PublicParams<F, M>>,
+        Fn: FnOnce(&Instance<'static, F, C>) -> Arc<PublicParams<F, C1LEM<'a, F, C>>>,
     >(
         &'static self,
-        instance: &Instance<'static, F, C, M>,
+        instance: &Instance<'static, F, C>,
         default: Fn,
-    ) -> Result<Arc<PublicParams<F, M>>, Error>
+    ) -> Result<Arc<PublicParams<F, C1LEM<'a, F, C>>>, Error>
     where
         <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
         <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -63,7 +63,8 @@ impl PublicParamMemCache {
             match disk_cache.read_bytes(instance, &mut bytes) {
                 Ok(()) => {
                     info!("loading abomonated {}", instance.key());
-                    let (pp, rest) = unsafe { decode::<PublicParams<F, M>>(&mut bytes).unwrap() };
+                    let (pp, rest) =
+                        unsafe { decode::<PublicParams<F, C1LEM<'a, F, C>>>(&mut bytes).unwrap() };
                     assert!(rest.is_empty());
                     Ok(Arc::new(pp.clone())) // this clone is VERY expensive
                 }
@@ -103,13 +104,12 @@ impl PublicParamMemCache {
     pub(crate) fn get_from_mem_cache_or_update_with<
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
-        M: MultiFrameTrait<'static, F, C>,
-        Fn: FnOnce(&Instance<'static, F, C, M>) -> Arc<PublicParams<F, M>>,
+        Fn: FnOnce(&Instance<'static, F, C>) -> Arc<PublicParams<F, C1LEM<'static, F, C>>>,
     >(
         &'static self,
-        instance: &Instance<'static, F, C, M>,
+        instance: &Instance<'static, F, C>,
         default: Fn,
-    ) -> Result<Arc<PublicParams<F, M>>, Error>
+    ) -> Result<Arc<PublicParams<F, C1LEM<'static, F, C>>>, Error>
     where
         <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
         <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -117,7 +117,7 @@ impl PublicParamMemCache {
         // re-grab the lock
         let mut mem_cache = self.mem_cache.lock().unwrap();
         // retrieve the per-Coproc public param table
-        let entry = mem_cache.entry::<PublicParamMap<F, M>>();
+        let entry = mem_cache.entry::<PublicParamMap<F, C1LEM<'static, F, C>>>();
         // deduce the map and populate it if needed
         let param_entry = entry.or_default();
         match param_entry.entry((instance.rc, instance.abomonated)) {

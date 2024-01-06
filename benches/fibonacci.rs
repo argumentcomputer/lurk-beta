@@ -8,7 +8,7 @@ use std::{sync::Arc, time::Duration};
 
 use lurk::{
     eval::lang::{Coproc, Lang},
-    lem::{eval::evaluate, multiframe::MultiFrame, store::Store},
+    lem::{eval::evaluate, store::Store},
     proof::nova::NovaProver,
     proof::Prover,
     public_parameters::{
@@ -95,7 +95,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
+    let pp = public_params(&instance).unwrap();
 
     // Track the number of `Lurk frames / sec`
     let rc = prove_params.reduction_count as u64;
