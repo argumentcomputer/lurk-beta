@@ -29,7 +29,7 @@ use crate::{
     eval::lang::Lang,
     field::LurkField,
     lem::store::Store,
-    proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
+    proof::{supernova::FoldingConfig, FrameLike, Prover},
 };
 
 use super::{FoldingMode, RecursiveSNARKTrait};
@@ -315,7 +315,7 @@ where
 
                     // This is a CircuitFrame, not an EvalFrame
                     let first_frame = circuit_primary.frames().unwrap().iter().next().unwrap();
-                    let zi = C1LEM::<_, C>::io_to_scalar_vector(store, first_frame.input());
+                    let zi = store.to_scalar_vector(first_frame.input());
                     let zi_allocated: Vec<_> = zi
                         .iter()
                         .enumerate()

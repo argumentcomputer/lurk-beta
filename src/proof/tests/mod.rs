@@ -14,7 +14,7 @@ use crate::{
     proof::{
         nova::{public_params, CurveCycleEquipped, NovaProver, C1LEM, E1, E2},
         supernova::FoldingConfig,
-        CEKState, EvaluationStore, MultiFrameTrait, Provable, Prover, RecursiveSNARKTrait,
+        CEKState, EvaluationStore, Provable, Prover, RecursiveSNARKTrait,
     },
 };
 

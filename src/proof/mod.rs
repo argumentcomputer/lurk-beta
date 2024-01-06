@@ -15,19 +15,15 @@ pub mod supernova;
 #[cfg(test)]
 mod tests;
 
-use ::nova::traits::{circuit::StepCircuit, Engine};
-use bellpepper_core::{Circuit, ConstraintSystem, SynthesisError};
+use ::nova::traits::Engine;
 use std::sync::Arc;
 
 use crate::{
-    circuit::gadgets::pointer::AllocatedPtr,
     coprocessor::Coprocessor,
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::{
-        circuit::GlobalAllocator, eval::EvalConfig, interpreter::Frame, pointers::Ptr, store::Store,
-    },
+    lem::{eval::EvalConfig, interpreter::Frame, pointers::Ptr, store::Store},
     proof::nova::E2,
 };
 
@@ -75,63 +71,6 @@ pub trait EvaluationStore {
 
     /// hash-equality of the expressions represented by Ptrs
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> bool;
-}
-
-/// Trait to support multiple `MultiFrame` implementations.
-pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
-    Provable<F> + Circuit<F> + StepCircuit<F> + 'a
-{
-    /// the emitted frames
-    fn emitted(store: &Store<F>, eval_frame: &Frame) -> Vec<Ptr>;
-
-    /// Counting the number of non-trivial frames in the evaluation
-    fn significant_frame_count(frames: &[Frame]) -> usize;
-
-    /// Evaluates and generates the frames of the computation given the expression, environment, and store
-    fn build_frames(
-        expr: Ptr,
-        env: Ptr,
-        store: &Store<F>,
-        limit: usize,
-        ec: &EvalConfig<'_, F, C>,
-    ) -> Result<Vec<Frame>, ProofError>;
-
-    /// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
-    fn io_to_scalar_vector(store: &Store<F>, io: &<Frame as FrameLike<Ptr>>::FrameIO) -> Vec<F>;
-
-    /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
-    fn precedes(&self, maybe_next: &Self) -> bool;
-
-    /// Cache the witness internally, which can be used later during synthesis.
-    /// This function can be called in parallel to speed up the witness generation
-    /// for a series of `MultiFrameTrait` instances.
-    fn cache_witness(&mut self, s: &Store<F>) -> Result<(), SynthesisError>;
-
-    /// The output of the last frame
-    fn output(&self) -> &Option<<Frame as FrameLike<Ptr>>::FrameIO>;
-
-    /// Iterates through the Self::CircuitFrame instances
-    fn frames(&self) -> Option<&Vec<Frame>>;
-
-    /// Synthesize some frames.
-    fn synthesize_frames<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-        input: Vec<AllocatedPtr<F>>,
-        frames: &[Frame],
-        g: &GlobalAllocator<F>,
-    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError>;
-
-    /// Synthesize a blank circuit.
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, pc: usize) -> Self;
-
-    /// Create an instance from some `Self::Frame`s.
-    fn from_frames(
-        frames: &[Frame],
-        store: &'a Store<F>,
-        folding_config: Arc<FoldingConfig<F, C>>,
-    ) -> Vec<Self>;
 }
 
 /// A trait for provable structures over a field `F`.
@@ -240,8 +179,8 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
         store: &'a Store<F>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
-        let z0 = C1LEM::<'a, F, C>::io_to_scalar_vector(store, frames[0].input());
-        let zi = C1LEM::<'a, F, C>::io_to_scalar_vector(store, frames.last().unwrap().output());
+        let z0 = store.to_scalar_vector(frames[0].input());
+        let zi = store.to_scalar_vector(frames.last().unwrap().output());
 
         let lang = self.lang().clone();
         let folding_config = self

@@ -12,7 +12,7 @@ use lurk::{
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
-    proof::{supernova::FoldingConfig, MultiFrameTrait},
+    proof::supernova::FoldingConfig,
     state::State,
 };
 

@@ -27,7 +27,7 @@ use crate::{
     lem::store::Store,
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, E1, E2},
-        RecursiveSNARKTrait, {MultiFrameTrait, Prover},
+        Prover, RecursiveSNARKTrait,
     },
 };
 
