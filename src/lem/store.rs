@@ -23,7 +23,7 @@ use crate::{
         self, Binop, Binop2, Call, Call0, Call2, Dummy, Emit, If, Let, LetRec, Lookup, Outermost,
         Tail, Terminal, Unop,
     },
-    tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
+    tag::ExprTag::{Char, Comm, Cons, Cproc, Env, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
 };
 
 use super::pointers::{Ptr, RawPtr, ZPtr};
@@ -372,6 +372,11 @@ impl<F: LurkField> Store<F> {
     pub fn raw_to_ptr(&self, tag: &RawPtr, raw: &RawPtr) -> Option<Ptr> {
         let tag = self.fetch_tag(tag)?;
         Some(Ptr::new(tag, *raw))
+    }
+
+    #[inline]
+    pub fn intern_empty_env(&self) -> Ptr {
+        self.intern_atom(Tag::Expr(Env), F::ZERO)
     }
 
     #[inline]
@@ -756,6 +761,28 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    /// Fetches an environment
+    pub fn fetch_env(&self, ptr: &Ptr) -> Option<Vec<(Ptr, Ptr)>> {
+        if *ptr.tag() != Tag::Expr(Env) {
+            return None;
+        }
+        if *ptr == self.intern_empty_env() {
+            return Some(vec![]);
+        }
+        let mut idx = ptr.raw().get_hash4()?;
+        let mut list = vec![];
+        while let Some([sym_pay, val_tag, val_pay, env_pay]) = self.fetch_raw_ptrs(idx) {
+            let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
+            let val = self.raw_to_ptr(val_tag, val_pay)?;
+            list.push((sym, val));
+            if env_pay == self.intern_empty_env().raw() {
+                break;
+            }
+            idx = env_pay.get_hash4().unwrap();
+        }
+        Some(list)
+    }
+
     pub fn intern_syntax(&self, syn: Syntax<F>) -> Ptr {
         match syn {
             Syntax::Num(_, x) => self.num(x.into_scalar()),
@@ -1133,6 +1160,23 @@ impl Ptr {
                         }
                     }
                 },
+                Env => {
+                    if let Some(env) = store.fetch_env(self) {
+                        let list = env
+                            .iter()
+                            .map(|(sym, val)| {
+                                format!(
+                                    "({} . {})",
+                                    sym.fmt_to_string(store, state),
+                                    val.fmt_to_string(store, state)
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                        format!("<ENV ({})>", list.join(" "))
+                    } else {
+                        "<Opaque Env>".into()
+                    }
+                }
             },
             Tag::Cont(t) => match t {
                 Outermost => "Outermost".into(),
