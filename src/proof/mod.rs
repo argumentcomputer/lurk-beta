@@ -16,7 +16,7 @@ pub mod supernova;
 mod tests;
 
 use ::nova::traits::{circuit::StepCircuit, Engine};
-use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
+use bellpepper_core::{Circuit, ConstraintSystem, SynthesisError};
 use std::sync::Arc;
 
 use crate::{
@@ -150,9 +150,6 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
         folding_config: Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self>;
 }
-
-/// Represents a sequential Constraint System for a given proof.
-pub(crate) type SequentialCS<F, M> = Vec<(M, TestConstraintSystem<F>)>;
 
 /// A trait for provable structures over a field `F`.
 pub trait Provable<F: LurkField> {
@@ -307,22 +304,5 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         let full_multiframe_count = raw_iterations / rc;
         let unfull_multiframe_frame_count = raw_iterations % rc;
         full_multiframe_count + usize::from(unfull_multiframe_frame_count != 0)
-    }
-
-    /// Synthesizes the outer circuit for the prover given a slice of multiframes.
-    fn outer_synthesize(&self, multiframes: &[M]) -> Result<SequentialCS<F, M>, SynthesisError> {
-        // TODO: do we need this?
-        // Note: This loop terminates and returns an error on the first occurrence of `SynthesisError`.
-        multiframes
-            .iter()
-            .map(|multiframe| {
-                let mut cs = TestConstraintSystem::new();
-
-                multiframe
-                    .clone()
-                    .synthesize(&mut cs)
-                    .map(|_| (multiframe.clone(), cs))
-            })
-            .collect::<Result<_, _>>()
     }
 }
