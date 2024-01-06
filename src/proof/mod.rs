@@ -27,19 +27,19 @@ use crate::{
 use self::{nova::CurveCycleEquipped, supernova::FoldingConfig};
 
 /// The State of a CEK machine.
-pub trait CEKState<ExprPtr, ContPtr> {
+pub trait CEKState<Ptr> {
     /// the expression, or control word (C)
-    fn expr(&self) -> &ExprPtr;
+    fn expr(&self) -> &Ptr;
     /// the environment (E)
-    fn env(&self) -> &ExprPtr;
+    fn env(&self) -> &Ptr;
     /// the continuation (K)
-    fn cont(&self) -> &ContPtr;
+    fn cont(&self) -> &Ptr;
 }
 
 /// A Frame of evaluation in a CEK machine.
-pub trait FrameLike<ExprPtr, ContPtr>: Sized {
+pub trait FrameLike<Ptr>: Sized {
     /// the type for the Frame's IO
-    type FrameIO: CEKState<ExprPtr, ContPtr>;
+    type FrameIO: CEKState<Ptr>;
     /// the input of the frame
     fn input(&self) -> &Self::FrameIO;
     /// the output of the frame
@@ -50,8 +50,6 @@ pub trait FrameLike<ExprPtr, ContPtr>: Sized {
 pub trait EvaluationStore {
     /// the type for the Store's pointers
     type Ptr;
-    /// the type for the Store's continuation poitners
-    type ContPtr;
     /// the type for the Store's errors
     type Error: std::fmt::Debug;
 
@@ -60,7 +58,7 @@ pub trait EvaluationStore {
     /// getting a pointer to the initial, empty environment
     fn initial_empty_env(&self) -> Self::Ptr;
     /// getting the terminal continuation pointer
-    fn get_cont_terminal(&self) -> Self::ContPtr;
+    fn get_cont_terminal(&self) -> Self::Ptr;
 
     /// cache hashes for pointers enqueued for hydration
     fn hydrate_z_cache(&self);
@@ -75,20 +73,17 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
 {
     /// The associated `Ptr` type
     type Ptr: std::fmt::Debug + Eq + Copy;
-    /// The associated `ContPtr` type
-    type ContPtr: std::fmt::Debug + Eq + Copy;
     /// The associated `Store` type
-    type Store: Send + Sync + EvaluationStore<Ptr = Self::Ptr, ContPtr = Self::ContPtr>;
+    type Store: Send + Sync + EvaluationStore<Ptr = Self::Ptr>;
     /// The error type for the Store type
     type StoreError: Into<ProofError>;
 
     /// The associated `Frame` type
-    type EvalFrame: FrameLike<Self::Ptr, Self::ContPtr>;
+    type EvalFrame: FrameLike<Self::Ptr>;
     /// The associated `CircuitFrame` type
     type CircuitFrame: FrameLike<
         Self::Ptr,
-        Self::ContPtr,
-        FrameIO = <Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO,
+        FrameIO = <Self::EvalFrame as FrameLike<Self::Ptr>>::FrameIO,
     >;
     /// The associated type which manages global allocations
     type GlobalAllocation;
@@ -113,7 +108,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
     /// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
     fn io_to_scalar_vector(
         store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO,
+        io: &<Self::EvalFrame as FrameLike<Self::Ptr>>::FrameIO,
     ) -> Vec<F>;
 
     /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
@@ -125,7 +120,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
     fn cache_witness(&mut self, s: &Self::Store) -> Result<(), SynthesisError>;
 
     /// The output of the last frame
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO>;
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Self::Ptr>>::FrameIO>;
 
     /// Iterates through the Self::CircuitFrame instances
     fn frames(&self) -> Option<&Vec<Self::CircuitFrame>>;

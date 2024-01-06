@@ -72,7 +72,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 }
 
-impl CEKState<Ptr, Ptr> for Vec<Ptr> {
+impl CEKState<Ptr> for Vec<Ptr> {
     fn expr(&self) -> &Ptr {
         &self[0]
     }
@@ -84,7 +84,7 @@ impl CEKState<Ptr, Ptr> for Vec<Ptr> {
     }
 }
 
-impl FrameLike<Ptr, Ptr> for Frame {
+impl FrameLike<Ptr> for Frame {
     type FrameIO = Vec<Ptr>;
     fn input(&self) -> &Self::FrameIO {
         &self.input
@@ -96,7 +96,6 @@ impl FrameLike<Ptr, Ptr> for Frame {
 
 impl<F: LurkField> EvaluationStore for Store<F> {
     type Ptr = Ptr;
-    type ContPtr = Ptr;
     type Error = anyhow::Error;
 
     fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error> {
@@ -107,7 +106,7 @@ impl<F: LurkField> EvaluationStore for Store<F> {
         self.intern_nil()
     }
 
-    fn get_cont_terminal(&self) -> Self::ContPtr {
+    fn get_cont_terminal(&self) -> Self::Ptr {
         self.cont_terminal()
     }
 
@@ -386,7 +385,6 @@ fn pad_frames<F: LurkField, C: Coprocessor<F>>(
 
 impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
     type Ptr = Ptr;
-    type ContPtr = Ptr;
     type Store = Store<F>;
     type StoreError = store::Error;
     type EvalFrame = Frame;
@@ -400,7 +398,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
 
     fn io_to_scalar_vector(
         store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike<Ptr, Ptr>>::FrameIO,
+        io: &<Self::EvalFrame as FrameLike<Ptr>>::FrameIO,
     ) -> Vec<F> {
         store.to_scalar_vector(io)
     }
@@ -424,7 +422,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         Ok(())
     }
 
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr, Ptr>>::FrameIO> {
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr>>::FrameIO> {
         &self.output
     }
 
