@@ -467,7 +467,7 @@ impl Block {
     }
 }
 
-struct RecursiveContext<'a, F: LurkField, C: Coprocessor<F>> {
+struct RecursiveContext<'a, F: LurkField, C> {
     lang: &'a Lang<F, C>,
     store: &'a Store<F>,
     global_allocator: &'a GlobalAllocator<F>,
