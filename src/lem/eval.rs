@@ -884,10 +884,12 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                     }
                     "found" => {
                         match expr.tag {
-                            Expr::Thunk => {
-                                let (body, body_env) = decons2(expr);
-                                let env = push_binding(var, expr, body_env);
-                                return (body, env, cont, ret)
+                            // if `val2` is a recursive closure, then extend its environment
+                            Expr::Rec => {
+                                let (args, body, closed_env, _foo) = decons4(expr);
+                                let extended = push_binding(var, expr, closed_env);
+                                let fun: Expr::Fun = cons4(args, body, extended, foo);
+                                return (fun, env, cont, apply)
                             }
                         };
                         return (expr, env, cont, apply)
@@ -944,10 +946,8 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                                 let cont: Cont::Let = cons4(var, env, expanded, cont);
                                                 return (val, env, cont, ret)
                                             }
-                                            let thunk: Expr::Thunk = cons2(val, env);
-                                            let rec_env = push_binding(var, thunk, env);
                                             let cont: Cont::LetRec = cons4(var, env, expanded, cont);
-                                            return (val, rec_env, cont, ret)
+                                            return (val, env, cont, ret)
                                         }
                                     };
                                     return (expr, env, err, errctrl)
@@ -1280,6 +1280,13 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     }
                     Cont::LetRec => {
                         let (var, saved_env, body, cont) = decons4(cont);
+                        match result.tag {
+                            Expr::Fun => {
+                                let result = cast(result, Expr::Rec);
+                                let extended_env = push_binding(var, result, saved_env);
+                                return (body, extended_env, cont, ret)
+                            }
+                        };
                         let extended_env = push_binding(var, result, saved_env);
                         return (body, extended_env, cont, ret)
                     }
@@ -1700,7 +1707,7 @@ mod tests {
     use super::*;
     use crate::{
         eval::lang::{Coproc, Lang},
-        lem::{slot::SlotsCounter, store::Store},
+        lem::store::Store,
     };
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     use expect_test::{expect, Expect};
@@ -1714,22 +1721,17 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);
-        assert_eq!(
-            func.slots_count,
-            SlotsCounter {
-                hash4: 15,
-                hash6: 0,
-                hash8: 5,
-                commitment: 1,
-                bit_decomp: 3,
-            }
-        );
         let expect_eq = |computed: usize, expected: Expect| {
             expected.assert_eq(&computed.to_string());
         };
+        expect_eq(func.slots_count.hash4, expect!["14"]);
+        expect_eq(func.slots_count.hash6, expect!["0"]);
+        expect_eq(func.slots_count.hash8, expect!["6"]);
+        expect_eq(func.slots_count.commitment, expect!["1"]);
+        expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["8831"]);
-        expect_eq(cs.num_constraints(), expect!["10780"]);
+        expect_eq(cs.aux().len(), expect!["8938"]);
+        expect_eq(cs.num_constraints(), expect!["10897"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }

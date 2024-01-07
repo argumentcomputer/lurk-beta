@@ -23,7 +23,7 @@ use crate::{
         self, Binop, Binop2, Call, Call0, Call2, Dummy, Emit, If, Let, LetRec, Lookup, Outermost,
         Tail, Terminal, Unop,
     },
-    tag::ExprTag::{Char, Comm, Cons, Cproc, Env, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
+    tag::ExprTag::{Char, Comm, Cons, Cproc, Env, Fun, Key, Nil, Num, Rec, Str, Sym, Thunk, U64},
 };
 
 use super::pointers::{Ptr, RawPtr, ZPtr};
@@ -1139,6 +1139,31 @@ impl Ptr {
                             }
                         } else {
                             "<Opaque Fun>".into()
+                        }
+                    }
+                },
+                Rec => match self.raw().get_hash8() {
+                    None => "<Malformed Rec>".into(),
+                    Some(idx) => {
+                        if let Some([vars, body, _, _]) = fetch_ptrs!(store, 4, idx) {
+                            match vars.tag() {
+                                Tag::Expr(Nil) => {
+                                    format!(
+                                        "<REC_FUNCTION () {}>",
+                                        body.fmt_to_string(store, state)
+                                    )
+                                }
+                                Tag::Expr(Cons) => {
+                                    format!(
+                                        "<REC_FUNCTION {} {}>",
+                                        vars.fmt_to_string(store, state),
+                                        body.fmt_to_string(store, state)
+                                    )
+                                }
+                                _ => "<Malformed Rec>".into(),
+                            }
+                        } else {
+                            "<Opaque Rec>".into()
                         }
                     }
                 },
