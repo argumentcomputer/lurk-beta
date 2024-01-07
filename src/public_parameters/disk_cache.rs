@@ -24,7 +24,6 @@ pub(crate) struct DiskCache<'a, F, C, M>
 where
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
 {
     dir: Utf8PathBuf,
     _t: PhantomData<(&'a (), F, C, M)>,
