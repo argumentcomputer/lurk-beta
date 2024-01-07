@@ -19,7 +19,7 @@ use crate::{
 /// This struct is an example of a coprocessor implementation that would extend the [`crate::coprocessor::Coprocessor`] trait.
 /// More implementations can be added without modifying the existing code, adhering to the open-closed principle.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct DummyCoprocessor<F: LurkField> {
+pub struct DummyCoprocessor<F> {
     pub(crate) _p: PhantomData<F>,
 }
 
@@ -38,7 +38,7 @@ impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
 
 impl<F: LurkField> CoCircuit<F> for DummyCoprocessor<F> {}
 
-impl<F: LurkField> DummyCoprocessor<F> {
+impl<F> DummyCoprocessor<F> {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self {
@@ -73,13 +73,13 @@ pub enum Coproc<F: LurkField> {
 ///
 // TODO: Define a trait for the Hash and parameterize on that also.
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
-pub struct Lang<F: LurkField, C: Coprocessor<F>> {
+pub struct Lang<F, C> {
     /// An IndexMap that stores coprocessors with their associated `Sym` keys.
     coprocessors: IndexMap<Symbol, C>,
     _p: PhantomData<F>,
 }
 
-impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
+impl<F: LurkField, C> Lang<F, C> {
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -154,7 +154,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
 /// A `Binding` associates a name (`Sym`) and `Coprocessor`. It facilitates modular construction of `Lang`s using
 /// `Coprocessor`s.
 #[derive(Debug)]
-pub struct Binding<F: LurkField, C: Coprocessor<F>> {
+pub struct Binding<F, C> {
     name: Symbol,
     coproc: C,
     _p: PhantomData<F>,
@@ -166,7 +166,7 @@ impl<F: LurkField, C: Coprocessor<F>, S: Into<Symbol>> From<(S, C)> for Binding<
     }
 }
 
-impl<F: LurkField, C: Coprocessor<F>> Binding<F, C> {
+impl<F: LurkField, C> Binding<F, C> {
     pub fn new<T: Into<C>, S: Into<Symbol>>(name: S, coproc: T) -> Self {
         Self {
             name: name.into(),
