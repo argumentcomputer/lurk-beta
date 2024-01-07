@@ -828,7 +828,7 @@ fn evaluate_recursion2() {
         None,
         Some(terminal),
         None,
-        &expect!["122"],
+        &expect!["117"],
         &None,
     );
 }
@@ -902,7 +902,7 @@ fn evaluate_tail_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["80"],
+        &expect!["77"],
         &None,
     );
 }
@@ -930,7 +930,7 @@ fn evaluate_tail_recursion_somewhat_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["73"],
+        &expect!["70"],
         &None,
     );
 }
@@ -1371,7 +1371,7 @@ fn dont_discard_rest_env() {
             None,
             Some(terminal),
             None,
-            &expect!["15"],
+            &expect!["14"],
             &None,
         );
     }
@@ -1677,7 +1677,7 @@ fn go_translate() {
         None,
         None,
         None,
-        &expect!["509"],
+        &expect!["443"],
         &None,
     );
 }
@@ -3340,7 +3340,7 @@ fn test_fold_cons_regression() {
         None,
         Some(terminal),
         None,
-        &expect!["67"],
+        &expect!["64"],
         &None,
     );
 }
@@ -3370,7 +3370,7 @@ fn test_eval_bad_form() {
     let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env.
     let error = s.cont_error();
 
-    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["8"], &None);
+    test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["5"], &None);
 }
 
 #[test]
