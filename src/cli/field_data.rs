@@ -83,7 +83,7 @@ mod tests {
     use super::{de, ser, HasFieldModulus};
 
     #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-    struct Struct<F: LurkField> {
+    struct Struct<F> {
         str: String,
         int: i32,
         ff: F,
