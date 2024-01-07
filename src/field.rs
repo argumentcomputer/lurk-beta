@@ -282,7 +282,7 @@ impl LurkField for GrumpkinScalar {
 // For working around the orphan trait impl rule
 /// Wrapper struct around a field element that implements additional traits
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FWrap<F: LurkField>(pub F);
+pub struct FWrap<F>(pub F);
 
 impl<F: LurkField> Copy for FWrap<F> {}
 
