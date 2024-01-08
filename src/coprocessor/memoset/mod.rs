@@ -317,8 +317,9 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
         let kv = construct_cons(&mut cs.namespace(|| "kv"), g, s, key, value)?;
         let count = {
+            // Get kv zptr or use Nil as arbitrary dummy.
+            let zptr = kv.get_value().unwrap_or(s.hash_ptr(&s.intern_nil()));
             AllocatedNum::alloc(&mut cs.namespace(|| "count"), || {
-                let zptr = kv.get_value().unwrap();
                 Ok(F::from_u64(self.memoset.count(&s.to_ptr(&zptr)) as u64))
             })?
         };
@@ -433,7 +434,9 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
             &Boolean::Constant(true),
         )?;
 
-        assert_eq!(Some(value), val.get_value().map(|x| s.to_ptr(&x)));
+        if let Some(val_ptr) = val.get_value().map(|x| s.to_ptr(&x)) {
+            assert_eq!(value, val_ptr);
+        }
 
         self.acc = Some(new_acc);
         self.transcript = Some(new_transcript);
