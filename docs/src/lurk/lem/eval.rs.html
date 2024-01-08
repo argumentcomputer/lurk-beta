@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (f688dd684 2024-01-04)" data-channel="nightly" data-search-js="search-c17e98913a53b3b7.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (75c68cfd2 2024-01-07)" data-channel="nightly" data-search-js="search-1cefe72944ee87e6.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../lurk/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -1752,22 +1752,6 @@
 <a href="#1750" id="1750">1750</a>
 <a href="#1751" id="1751">1751</a>
 <a href="#1752" id="1752">1752</a>
-<a href="#1753" id="1753">1753</a>
-<a href="#1754" id="1754">1754</a>
-<a href="#1755" id="1755">1755</a>
-<a href="#1756" id="1756">1756</a>
-<a href="#1757" id="1757">1757</a>
-<a href="#1758" id="1758">1758</a>
-<a href="#1759" id="1759">1759</a>
-<a href="#1760" id="1760">1760</a>
-<a href="#1761" id="1761">1761</a>
-<a href="#1762" id="1762">1762</a>
-<a href="#1763" id="1763">1763</a>
-<a href="#1764" id="1764">1764</a>
-<a href="#1765" id="1765">1765</a>
-<a href="#1766" id="1766">1766</a>
-<a href="#1767" id="1767">1767</a>
-<a href="#1768" id="1768">1768</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2430,15 +2414,6 @@
 <span class="kw">fn </span>reduce(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)]) -&gt; Func {
     <span class="comment">// Auxiliary functions
     </span><span class="kw">let </span>car_cdr = car_cdr();
-    <span class="kw">let </span>env_to_use = <span class="macro">func!</span>(env_to_use(smaller_env, smaller_rec_env): <span class="number">1 </span>=&gt; {
-        <span class="kw">match </span>smaller_rec_env.tag {
-            Expr::Nil =&gt; {
-                <span class="kw">return </span>(smaller_env)
-            }
-        };
-        <span class="kw">let </span>env: Expr::Cons = cons2(smaller_rec_env, smaller_env);
-        <span class="kw">return </span>(env)
-    });
     <span class="kw">let </span>expand_bindings = <span class="macro">func!</span>(expand_bindings(head, body, body1, rest_bindings): <span class="number">1 </span>=&gt; {
         <span class="kw">match </span>rest_bindings.tag {
             Expr::Nil =&gt; {
@@ -2448,18 +2423,6 @@
         <span class="kw">let </span>expanded_0: Expr::Cons = cons2(rest_bindings, body);
         <span class="kw">let </span>expanded: Expr::Cons = cons2(head, expanded_0);
         <span class="kw">return </span>(expanded)
-    });
-    <span class="kw">let </span>choose_let_cont = <span class="macro">func!</span>(choose_let_cont(head, var, env, expanded, cont): <span class="number">1 </span>=&gt; {
-        <span class="kw">match </span>symbol head {
-            <span class="string">"let" </span>=&gt; {
-                <span class="kw">let </span>cont: Cont::Let = cons4(var, env, expanded, cont);
-                <span class="kw">return </span>(cont)
-            }
-            <span class="string">"letrec" </span>=&gt; {
-                <span class="kw">let </span>cont: Cont::LetRec = cons4(var, env, expanded, cont);
-                <span class="kw">return </span>(cont)
-            }
-        }
     });
     <span class="kw">let </span>get_unop = <span class="macro">func!</span>(get_unop(head): <span class="number">1 </span>=&gt; {
         <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
@@ -2593,6 +2556,45 @@
         <span class="kw">return </span>(nil)
     });
     <span class="kw">let </span>is_cproc = is_cproc(cprocs);
+    <span class="kw">let </span>lookup = <span class="macro">func!</span>(lookup(expr, env, found, binding): <span class="number">4 </span>=&gt; {
+        <span class="kw">let </span>rec = Symbol(<span class="string">"rec"</span>);
+        <span class="kw">let </span>non_rec = Symbol(<span class="string">"non_rec"</span>);
+        <span class="kw">let </span>error = Symbol(<span class="string">"error"</span>);
+        <span class="kw">let </span>not_found = Symbol(<span class="string">"not_found"</span>);
+        <span class="kw">let continue </span>= eq_val(not_found, found);
+        <span class="kw">if </span>!<span class="kw">continue </span>{
+            <span class="kw">return </span>(expr, env, found, binding)
+        }
+        <span class="kw">match </span>env.tag {
+            Expr::Nil =&gt; {
+                <span class="kw">return </span>(expr, env, error, binding)
+            }
+        };
+        <span class="kw">let </span>(binding, smaller_env) = car_cdr(env);
+        <span class="kw">match </span>binding.tag {
+            Expr::Nil =&gt; {
+                <span class="kw">return </span>(expr, env, error, binding)
+            }
+        };
+        <span class="kw">let </span>(var, val) = decons2(binding);
+        <span class="kw">match </span>var.tag {
+            Expr::Sym =&gt; {
+                <span class="kw">let </span>eq_val = eq_val(var, expr);
+                <span class="kw">if </span>eq_val {
+                    <span class="kw">return </span>(val, env, non_rec, binding)
+                }
+                <span class="kw">return </span>(expr, smaller_env, not_found, binding)
+            }
+            Expr::RecVar =&gt; {
+                <span class="kw">let </span>eq_val = eq_val(var, expr);
+                <span class="kw">if </span>eq_val {
+                    <span class="kw">return </span>(val, env, rec, binding)
+                }
+                <span class="kw">return </span>(expr, smaller_env, not_found, binding)
+            }
+        };
+        <span class="kw">return </span>(expr, env, error, binding)
+    });
 
     <span class="macro">func!</span>(reduce(expr, env, cont): <span class="number">4 </span>=&gt; {
         <span class="kw">let </span>ret = Symbol(<span class="string">"return"</span>);
@@ -2639,53 +2641,34 @@
                 <span class="kw">if </span>expr_is_nil_or_t {
                     <span class="kw">return </span>(expr, env, cont, apply)
                 }
-
-                <span class="kw">match </span>env.tag {
-                    Expr::Nil =&gt; {
+                <span class="kw">let </span>not_found = Symbol(<span class="string">"not_found"</span>);
+                <span class="kw">let </span>(expr, env, found, binding) = lookup(expr, env, not_found, nil);
+                <span class="kw">let </span>(expr, env, found, binding) = lookup(expr, env, found, binding);
+                <span class="kw">let </span>(expr, env, found, binding) = lookup(expr, env, found, binding);
+                <span class="kw">match </span>symbol found {
+                    <span class="string">"error" </span>=&gt; {
                         <span class="kw">return </span>(expr, env, err, errctrl)
                     }
-                };
-
-                <span class="kw">let </span>(binding, smaller_env) = car_cdr(env);
-                <span class="kw">match </span>binding.tag {
-                    Expr::Nil =&gt; {
-                        <span class="kw">return </span>(expr, env, err, errctrl)
+                    <span class="string">"non_rec" </span>=&gt; {
+                        <span class="kw">return </span>(expr, env, cont, apply)
                     }
-                };
-
-                <span class="kw">let </span>(var_or_rec_binding, val_or_more_rec_env) =
-                    car_cdr(binding);
-                <span class="kw">match </span>var_or_rec_binding.tag {
-                    Expr::Sym =&gt; {
-                        <span class="kw">let </span>eq_val = eq_val(var_or_rec_binding, expr);
-                        <span class="kw">if </span>eq_val {
-                            <span class="kw">return </span>(val_or_more_rec_env, env, cont, apply)
-                        }
-                        <span class="kw">return </span>(expr, smaller_env, cont, ret)
+                    <span class="string">"rec" </span>=&gt; {
+                        <span class="kw">match </span>expr.tag {
+                            Expr::Fun =&gt; {
+                                <span class="comment">// if `val2` is a closure, then extend its environment
+                                </span><span class="kw">let </span>(arg, body, closed_env, _foo) = decons4(expr);
+                                <span class="kw">let </span>extended: Expr::Cons = cons2(binding, closed_env);
+                                <span class="comment">// and return the extended closure
+                                </span><span class="kw">let </span>fun: Expr::Fun = cons4(arg, body, extended, foo);
+                                <span class="kw">return </span>(fun, env, cont, apply)
+                            }
+                        };
+                        <span class="kw">return </span>(expr, env, cont, apply)
                     }
-                    Expr::Cons =&gt; {
-                        <span class="kw">let </span>(v2, val2) = decons2(var_or_rec_binding);
-
-                        <span class="kw">let </span>eq_val = eq_val(v2, expr);
-                        <span class="kw">if </span>eq_val {
-                            <span class="kw">match </span>val2.tag {
-                                Expr::Fun =&gt; {
-                                    <span class="comment">// if `val2` is a closure, then extend its environment
-                                    </span><span class="kw">let </span>(arg, body, closed_env, _foo) = decons4(val2);
-                                    <span class="kw">let </span>extended: Expr::Cons = cons2(binding, closed_env);
-                                    <span class="comment">// and return the extended closure
-                                    </span><span class="kw">let </span>fun: Expr::Fun = cons4(arg, body, extended, foo);
-                                    <span class="kw">return </span>(fun, env, cont, apply)
-                                }
-                            };
-                            <span class="comment">// otherwise return `val2`
-                            </span><span class="kw">return </span>(val2, env, cont, apply)
-                        }
-                        <span class="kw">let </span>(env_to_use) = env_to_use(smaller_env, val_or_more_rec_env);
-                        <span class="kw">return </span>(expr, env_to_use, cont, ret)
+                    <span class="string">"not_found" </span>=&gt; {
+                        <span class="kw">return </span>(expr, env, cont, ret)
                     }
-                };
-                <span class="kw">return </span>(expr, env, err, errctrl)
+                }
             }
             Expr::Cons =&gt; {
                 <span class="comment">// No need for `car_cdr` since the expression is already a `Cons`
@@ -2725,14 +2708,17 @@
                                     <span class="kw">match </span>var.tag {
                                         Expr::Sym =&gt; {
                                             <span class="kw">let </span>(val, end) = car_cdr(vals);
-                                            <span class="kw">match </span>end.tag {
-                                                Expr::Nil =&gt; {
-                                                    <span class="kw">let </span>(expanded) = expand_bindings(head, body, body1, rest_bindings);
-                                                    <span class="kw">let </span>(cont) = choose_let_cont(head, var, env, expanded, cont);
-                                                    <span class="kw">return </span>(val, env, cont, ret)
-                                                }
-                                            };
-                                            <span class="kw">return </span>(expr, env, err, errctrl)
+                                            <span class="kw">let </span>end_is_nil = eq_tag(end, nil);
+                                            <span class="kw">if </span>!end_is_nil {
+                                                <span class="kw">return </span>(expr, env, err, errctrl)
+                                            }
+                                            <span class="kw">let </span>(expanded) = expand_bindings(head, body, body1, rest_bindings);
+                                            <span class="kw">if </span>head_is_let_sym {
+                                                <span class="kw">let </span>cont: Cont::Let = cons4(var, env, expanded, cont);
+                                                <span class="kw">return </span>(val, env, cont, ret)
+                                            }
+                                            <span class="kw">let </span>cont: Cont::LetRec = cons4(var, env, expanded, cont);
+                                            <span class="kw">return </span>(val, env, cont, ret)
                                         }
                                     };
                                     <span class="kw">return </span>(expr, env, err, errctrl)
@@ -2923,27 +2909,6 @@
 
 <span class="kw">fn </span>apply_cont(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)], ivc: bool) -&gt; Func {
     <span class="kw">let </span>car_cdr = car_cdr();
-    <span class="kw">let </span>extend_rec = <span class="macro">func!</span>(extend_rec(env, var, result): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
-        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
-        <span class="kw">let </span>sym: Expr::Sym;
-        <span class="kw">let </span>(binding_or_env, rest) = car_cdr(env);
-        <span class="kw">let </span>(var_or_binding, _val_or_more_bindings) = car_cdr(binding_or_env);
-        <span class="kw">let </span>binding: Expr::Cons = cons2(var, result);
-        <span class="kw">let </span>var_or_binding_is_sym = eq_tag(var_or_binding, sym);
-        <span class="kw">let </span>var_or_binding_is_nil = eq_tag(var_or_binding, nil);
-        <span class="kw">let </span>var_or_binding_is_sym_or_nil = or(var_or_binding_is_sym, var_or_binding_is_nil);
-        <span class="kw">if </span>var_or_binding_is_sym_or_nil {
-            <span class="comment">// It's a var, so we are extending a simple env with a recursive env.
-            </span><span class="kw">let </span>list: Expr::Cons = cons2(binding, nil);
-            <span class="kw">let </span>res: Expr::Cons = cons2(list, env);
-            <span class="kw">return </span>(res)
-        }
-        <span class="comment">// It's a binding, so we are extending a recursive env.
-        </span><span class="kw">let </span>cons2: Expr::Cons = cons2(binding, binding_or_env);
-        <span class="kw">let </span>res: Expr::Cons = cons2(cons2, rest);
-        <span class="kw">return </span>(res)
-    });
     <span class="comment">// Returns 0u64 if both arguments are U64, 0 (num) if the arguments are some kind of number (either U64 or Num),
     // and nil otherwise
     </span><span class="kw">let </span>args_num_type = <span class="macro">func!</span>(args_num_type(arg1, arg2): <span class="number">1 </span>=&gt; {
@@ -3087,7 +3052,10 @@
                     }
                     Cont::LetRec =&gt; {
                         <span class="kw">let </span>(var, saved_env, body, cont) = decons4(cont);
-                        <span class="kw">let </span>(extended_env) = extend_rec(saved_env, var, result);
+                        <span class="comment">// Since the variable came from a letrec, it is a recursive variable
+                        </span><span class="kw">let </span>var = cast(var, Expr::RecVar);
+                        <span class="kw">let </span>binding: Expr::Cons = cons2(var, result);
+                        <span class="kw">let </span>extended_env: Expr::Cons = cons2(binding, saved_env);
                         <span class="kw">return </span>(body, extended_env, cont, ret)
                     }
                     Cont::Unop =&gt; {
@@ -3531,8 +3499,8 @@
             expected.assert_eq(<span class="kw-2">&amp;</span>computed.to_string());
         };
         expect_eq(cs.num_inputs(), <span class="macro">expect!</span>[<span class="string">"1"</span>]);
-        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"8823"</span>]);
-        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"10628"</span>]);
+        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"8884"</span>]);
+        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"10831"</span>]);
         <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), cs.num_constraints());
     }
 }
