@@ -31,15 +31,15 @@ type ScopeCircuitQuery<F> = <DemoQuery<F> as Query<F>>::C;
 #[derive(Debug, Default)]
 pub struct Scope<F: LurkField, Q: Query<F>, M: MemoSet<F>> {
     memoset: M,
-    // k => v
+    /// k => v
     queries: HashMap<Ptr, Ptr>,
-    // k => ordered subqueries
+    /// k => ordered subqueries
     dependencies: HashMap<Ptr, Vec<Q>>,
-    // kv pairs
+    /// kv pairs
     toplevel_insertions: Vec<Ptr>,
-    // internally-inserted keys
+    /// internally-inserted keys
     internal_insertions: Vec<Ptr>,
-    // unique keys
+    /// unique keys
     all_insertions: Vec<Ptr>,
     _p: PhantomData<(F, Q)>,
 }
@@ -60,9 +60,9 @@ impl<F: LurkField> Default for Scope<F, ScopeQuery<F>, LogMemo<F>> {
 
 pub struct CircuitScope<F: LurkField, Q: Query<F>, M: MemoSet<F>> {
     memoset: M,
-    // k -> v
+    /// k -> v
     queries: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
-    // k -> allocated v
+    /// k -> allocated v
     queries_alloc: HashMap<ZPtr<Tag, F>, AllocatedPtr<F>>,
     transcript: Option<AllocatedPtr<F>>,
     acc: Option<AllocatedPtr<F>>,
