@@ -629,6 +629,7 @@ mod test {
 
     use crate::state::State;
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
+    use expect_test::{expect, Expect};
     use pasta_curves::pallas::Scalar as F;
     use std::default::Default;
 
@@ -640,6 +641,10 @@ mod test {
 
         let fact_4 = s.read_with_default_state("(factorial 4)").unwrap();
         let fact_3 = s.read_with_default_state("(factorial 3)").unwrap();
+
+        let expect_eq = |computed: usize, expected: Expect| {
+            expected.assert_eq(&computed.to_string());
+        };
 
         {
             scope.query(s, fact_4);
@@ -671,6 +676,9 @@ mod test {
                     .fmt_to_string_dammit(s)
             );
 
+            expect_eq(cs.num_constraints(), expect!["10826"]);
+            expect_eq(cs.aux().len(), expect!["10859"]);
+
             assert_eq!(10826, cs.num_constraints());
             assert_eq!(10859, cs.aux().len());
 
@@ -700,8 +708,8 @@ mod test {
 
             scope.synthesize(cs, g, s).unwrap();
 
-            assert_eq!(11408, cs.num_constraints());
-            assert_eq!(11443, cs.aux().len());
+            expect_eq(cs.num_constraints(), expect!["11408"]);
+            expect_eq(cs.aux().len(), expect!["11443"]);
 
             let unsat = cs.which_is_unsatisfied();
             if unsat.is_some() {
