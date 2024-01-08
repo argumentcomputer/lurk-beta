@@ -381,15 +381,15 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
                     .entry(k)
                     .or_insert_with(|| {
                         AllocatedPtr::alloc(&mut cs.namespace(|| "value"), || {
-                            if not_dummy.get_value() == Some(true) {
-                                Ok(*self
+                            Ok(if not_dummy.get_value() == Some(true) {
+                                *self
                                     .queries
                                     .get(&k)
-                                    .ok_or(SynthesisError::AssignmentMissing)?)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
                             } else {
                                 // Dummy value that will not be used.
-                                Ok(k)
-                            }
+                                k
+                            })
                         })
                         .unwrap()
                     })
