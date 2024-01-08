@@ -481,8 +481,8 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
     fn dbg_transcript(&self, s: &Store<F>) {
         let z = self.transcript.clone().unwrap().get_value::<Tag>().unwrap();
         let transcript = s.to_ptr(&z);
-        // dbg!(transcript.fmt_to_string_dammit(s));
-        tracing::debug!("transcript: {}", transcript.fmt_to_string_dammit(s));
+        // dbg!(transcript.fmt_to_string_simple(s));
+        tracing::debug!("transcript: {}", transcript.fmt_to_string_simple(s));
     }
 }
 

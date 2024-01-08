@@ -1181,7 +1181,7 @@ impl Ptr {
         }
     }
 
-    pub fn fmt_to_string_dammit<F: LurkField>(&self, store: &Store<F>) -> String {
+    pub fn fmt_to_string_simple<F: LurkField>(&self, store: &Store<F>) -> String {
         self.fmt_to_string(store, crate::state::initial_lurk_state())
     }
 
