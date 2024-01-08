@@ -14,7 +14,7 @@ use crate::circuit::gadgets::{
 };
 use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
-use crate::lem::Tag;
+use crate::lem::tag::Tag;
 use crate::lem::{pointers::Ptr, store::Store};
 use crate::tag::{ExprTag, Tag as XTag};
 use crate::z_ptr::ZPtr;
@@ -673,7 +673,7 @@ mod test {
                     .transcript
                     .get()
                     .unwrap()
-                    .fmt_to_string_dammit(s)
+                    .fmt_to_string_simple(s)
             );
 
             expect_eq(cs.num_constraints(), expect!["10826"]);
