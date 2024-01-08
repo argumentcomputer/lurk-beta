@@ -192,7 +192,7 @@ ledger2
 
 ;; Now we can open the committed ledger transfer function on a transaction.
 
-!(call 0x30ee7657cfa11c0dc69160195540297c50176a27baf2b407d6bf16d6284abaea '(1 0 2))
+!(call 0x3be53fdb5946af9449e4f7063fd8d60a6acc7ccdea8da8b575facedcb2b1291d '(1 0 2))
 
 ;; And the record reflects that Church sent one unit to Satoshi.
 
@@ -202,7 +202,7 @@ ledger2
 
 ;; We can verify the proof..
 
-!(verify "Nova_Pallas_10_39457589f3ffd148aadaba23819641cdd914ab291a3c77d20dcb65f757c08925")
+!(verify "Nova_Pallas_10_0bac4e49ef06a34fd1a6a18d6d7bff8770e6acbf6a4624783af29ad8cd780b14")
 
 ;; Unfortunately, this functional commitment doesn't let us maintain state.
 ;; Let's turn our single-transaction function into a chained function.
@@ -219,24 +219,24 @@ ledger2
 
 ;; Now we can transfer one unit from Church to Satoshi like before.
 
-!(chain 0x1aaf63ef4f853b935df9aad04424e0a8ba1e5bfd7220e5de842eca9d6e608f36 '(1 0 2))
+!(chain 0x01ad5587273aed89dca2527f7a9a235e1ee74ba2519d39adc7b4c521c66f9dbb '(1 0 2))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_27cf734c3a663d0c09a62e4150fe4813ebd7db2fb038589facd7e48ba6c76e1e")
+!(verify "Nova_Pallas_10_2def0d8894789eda3fdbafe6216b9d38c1d73c39964780fff407596dca93535a")
 
 ;; Then we can transfer 5 more, proceeding from the new head of the chain.
 
-!(chain 0x242e4fb1434ce1f6b4a19d8e96651e36ca5f7daa2fa2796f6f5924f66c35cd31 '(5 0 2))
+!(chain 0x07172fda01948387c25038beb5738a12bf88cfb3317180cf5894319c16276c78 '(5 0 2))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_14a98bfb5ee8451accb717eca8dadaaeb1c21f95e7890d53bcd733b73224e0fc")
+!(verify "Nova_Pallas_10_2def0d8894789eda3fdbafe6216b9d38c1d73c39964780fff407596dca93535a")
 
 ;; And once more, this time we'll transfer 20 from Turing to Church.
 
-!(chain 0x0f7247de19a2f52890cb4f165aaebe40934c09cc3466ab9ce2e03a8c21a32c7a '(20 1 0))
+!(chain 0x261e0afd81be78f88bc638c79d6530f341517ff5fdb368e575407bd701c712cc '(20 1 0))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_21832c545de0ab0111c9006728ab9a1d4550d044b21c73f3076f60256a732db9")
+!(verify "Nova_Pallas_10_2d3c73be45dce3971cf9208a6ec538238fc4a01328342d2b3aa501e5709ea2c5")
