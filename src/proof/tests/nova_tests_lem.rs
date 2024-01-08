@@ -126,7 +126,7 @@ fn test_prove_arithmetic_let() {
         None,
         Some(terminal),
         None,
-        &expect!["12"],
+        &expect!["15"],
         &None,
     );
 }
@@ -360,7 +360,7 @@ fn test_prove_recursion1() {
         None,
         Some(terminal),
         None,
-        &expect!["47"],
+        &expect!["55"],
         &None,
     );
 }
@@ -384,7 +384,7 @@ fn test_prove_recursion2() {
         None,
         Some(terminal),
         None,
-        &expect!["59"],
+        &expect!["76"],
         &None,
     );
 }
@@ -514,7 +514,7 @@ fn test_prove_evaluate2() {
         None,
         Some(terminal),
         None,
-        &expect!["7"],
+        &expect!["8"],
         &None,
     );
 }
@@ -582,7 +582,7 @@ fn test_prove_evaluate5() {
         None,
         Some(terminal),
         None,
-        &expect!["10"],
+        &expect!["11"],
         &None,
     );
 }
@@ -814,7 +814,7 @@ fn test_prove_adder() {
         None,
         Some(terminal),
         None,
-        &expect!["9"],
+        &expect!["10"],
         &None,
     );
 }
@@ -1084,7 +1084,7 @@ fn test_prove_let() {
         None,
         Some(terminal),
         None,
-        &expect!["12"],
+        &expect!["15"],
         &None,
     );
 }
@@ -1109,7 +1109,7 @@ fn test_prove_arithmetic() {
         None,
         Some(terminal),
         None,
-        &expect!["15"],
+        &expect!["18"],
         &None,
     );
 }
@@ -1131,7 +1131,7 @@ fn test_prove_comparison() {
         None,
         Some(terminal),
         None,
-        &expect!["15"],
+        &expect!["18"],
         &None,
     );
 }
@@ -1160,7 +1160,7 @@ fn test_prove_conditional() {
         None,
         Some(terminal),
         None,
-        &expect!["22"],
+        &expect!["28"],
         &None,
     );
 }
@@ -1189,7 +1189,7 @@ fn test_prove_conditional2() {
         None,
         Some(terminal),
         None,
-        &expect!["22"],
+        &expect!["26"],
         &None,
     );
 }
@@ -1215,7 +1215,7 @@ fn test_prove_fundamental_conditional_bug() {
         None,
         Some(terminal),
         None,
-        &expect!["20"],
+        &expect!["25"],
         &None,
     );
 }
@@ -1256,7 +1256,7 @@ fn test_prove_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["47"],
+        &expect!["55"],
         &None,
     );
 }
@@ -1278,7 +1278,7 @@ fn test_prove_recursion_multiarg() {
         None,
         Some(terminal),
         None,
-        &expect!["41"],
+        &expect!["49"],
         &None,
     );
 }
@@ -1303,7 +1303,7 @@ fn test_prove_recursion_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["43"],
+        &expect!["49"],
         &None,
     );
 }
@@ -1327,7 +1327,7 @@ fn test_prove_tail_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["59"],
+        &expect!["76"],
         &None,
     );
 }
@@ -1353,7 +1353,7 @@ fn test_prove_tail_recursion_somewhat_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["55"], &None
+        &expect!["68"], &None
     );
 }
 
@@ -1378,7 +1378,7 @@ fn test_prove_no_mutual_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["19"],
+        &expect!["21"],
         &None,
     );
 }
@@ -1403,7 +1403,7 @@ fn test_prove_no_mutual_recursion_error() {
         None,
         Some(error),
         None,
-        &expect!["20"],
+        &expect!["24"],
         &None,
     );
 }
@@ -1632,7 +1632,7 @@ fn test_prove_nested_let_closure_regression() {
         None,
         Some(terminal),
         None,
-        &expect!["9"],
+        &expect!["11"],
         &None,
     );
 }
@@ -1655,7 +1655,7 @@ fn test_prove_minimal_tail_call() {
         None,
         Some(terminal),
         None,
-        &expect!["44"],
+        &expect!["47"],
         &None,
     );
 }
@@ -1677,7 +1677,7 @@ fn test_prove_cons_in_function1() {
         None,
         Some(terminal),
         None,
-        &expect!["11"],
+        &expect!["12"],
         &None,
     );
 }
@@ -1699,7 +1699,7 @@ fn test_prove_cons_in_function2() {
         None,
         Some(terminal),
         None,
-        &expect!["11"],
+        &expect!["12"],
         &None,
     );
 }
@@ -1741,7 +1741,7 @@ fn test_prove_multiple_letrec_bindings() {
         None,
         Some(terminal),
         None,
-        &expect!["68"],
+        &expect!["73"],
         &None,
     );
 }
@@ -1765,7 +1765,7 @@ fn test_prove_tail_call2() {
         None,
         Some(terminal),
         None,
-        &expect!["71"],
+        &expect!["78"],
         &None,
     );
 }
@@ -1785,7 +1785,7 @@ fn test_prove_multiple_letrecstar_bindings() {
         None,
         Some(terminal),
         None,
-        &expect!["19"],
+        &expect!["20"],
         &None,
     );
 }
@@ -1805,7 +1805,7 @@ fn test_prove_multiple_letrecstar_bindings_referencing() {
         None,
         Some(terminal),
         None,
-        &expect!["25"],
+        &expect!["28"],
         &None,
     );
 }
@@ -1836,7 +1836,7 @@ fn test_prove_multiple_letrecstar_bindings_recursive() {
         None,
         Some(terminal),
         None,
-        &expect!["144"],
+        &expect!["175"],
         &None,
     );
 }
@@ -1858,7 +1858,7 @@ fn test_prove_dont_discard_rest_env() {
         None,
         Some(terminal),
         None,
-        &expect!["15"],
+        &expect!["20"],
         &None,
     );
 }
@@ -1884,7 +1884,7 @@ fn test_prove_fibonacci() {
         None,
         Some(terminal),
         None,
-        &expect!["40"],
+        &expect!["60"],
         5,
         false,
         None,
@@ -1948,7 +1948,7 @@ fn test_prove_chained_functional_commitment() {
         None,
         Some(terminal),
         None,
-        &expect!["24"],
+        &expect!["30"],
         &None,
     );
 }
@@ -3003,7 +3003,7 @@ fn test_relational_edge_case_identity() {
         None,
         Some(terminal),
         None,
-        &expect!["16"],
+        &expect!["17"],
         &None,
     );
 }
@@ -3104,7 +3104,7 @@ fn test_prove_functional_commitment() {
         None,
         Some(terminal),
         None,
-        &expect!["19"],
+        &expect!["21"],
         &None,
     );
 }
@@ -3134,7 +3134,7 @@ fn test_prove_complicated_functional_commitment() {
         None,
         Some(terminal),
         None,
-        &expect!["69"],
+        &expect!["83"],
         &None,
     );
 }
@@ -3157,7 +3157,7 @@ fn test_prove_test_fold_cons_regression() {
         None,
         Some(terminal),
         None,
-        &expect!["67"],
+        &expect!["92"],
         &None,
     );
 }
@@ -3242,7 +3242,7 @@ fn test_prove_test_env_not_nil_and_binding_nil() {
     let expr = "(let ((a 1) (b 2)) c)";
 
     let error = s.cont_error();
-    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["5"], &None);
+    test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, &expect!["7"], &None);
 }
 
 #[test]

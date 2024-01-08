@@ -51,7 +51,7 @@
 
 !(prove)
 
-!(verify "Nova_Pallas_10_04ebf402c8345327dbb271b393325f4d360372784e4d1e625e707235a8736dad")
+!(verify "Nova_Pallas_10_1955d9399a7174ffb6ecd9b558e260c746e42456018246335de9c22811282119")
 
 !(def timelock-encrypt (lambda (secret-key plaintext rounds)
                           (let ((ciphertext (+ secret-key plaintext))

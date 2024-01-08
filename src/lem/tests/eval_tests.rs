@@ -281,7 +281,7 @@ fn evaluate_lambda2() {
         None,
         Some(terminal),
         None,
-        &expect!["7"],
+        &expect!["8"],
         &None,
     );
 }
@@ -342,7 +342,7 @@ fn evaluate_lambda5() {
         None,
         Some(terminal),
         None,
-        &expect!["10"],
+        &expect!["11"],
         &None,
     );
 }
@@ -484,7 +484,7 @@ fn evaluate_adder1() {
         None,
         Some(terminal),
         None,
-        &expect!["9"],
+        &expect!["10"],
         &None,
     );
 }
@@ -505,7 +505,7 @@ fn evaluate_adder2() {
         None,
         Some(terminal),
         None,
-        &expect!["11"],
+        &expect!["12"],
         &None,
     );
 }
@@ -564,7 +564,7 @@ fn evaluate_let() {
         None,
         Some(terminal),
         None,
-        &expect!["7"],
+        &expect!["8"],
         &None,
     );
 }
@@ -661,7 +661,7 @@ fn evaluate_arithmetic_let() {
         Some(new_env),
         Some(terminal),
         None,
-        &expect!["12"],
+        &expect!["15"],
         &None,
     );
 }
@@ -692,7 +692,7 @@ fn evaluate_fundamental_conditional() {
             None,
             Some(terminal),
             None,
-            &expect!["22"],
+            &expect!["28"],
             &None,
         );
     }
@@ -719,7 +719,7 @@ fn evaluate_fundamental_conditional() {
             None,
             Some(terminal),
             None,
-            &expect!["22"],
+            &expect!["26"],
             &None,
         );
     }
@@ -803,7 +803,7 @@ fn evaluate_recursion1() {
         None,
         Some(terminal),
         None,
-        &expect!["64"],
+        &expect!["76"],
         &None,
     );
 }
@@ -828,7 +828,7 @@ fn evaluate_recursion2() {
         None,
         Some(terminal),
         None,
-        &expect!["122"],
+        &expect!["163"],
         &None,
     );
 }
@@ -851,7 +851,7 @@ fn evaluate_recursion_multiarg() {
         None,
         Some(terminal),
         None,
-        &expect!["56"],
+        &expect!["68"],
         &None,
     );
 }
@@ -877,7 +877,7 @@ fn evaluate_recursion_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["57"],
+        &expect!["66"],
         &None,
     );
 }
@@ -902,7 +902,7 @@ fn evaluate_tail_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["80"],
+        &expect!["105"],
         &None,
     );
 }
@@ -930,7 +930,7 @@ fn evaluate_tail_recursion_somewhat_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["73"],
+        &expect!["92"],
         &None,
     );
 }
@@ -951,7 +951,7 @@ fn evaluate_multiple_letrec_bindings() {
         None,
         Some(terminal),
         None,
-        &expect!["19"],
+        &expect!["20"],
         &None,
     );
 }
@@ -972,7 +972,7 @@ fn evaluate_multiple_letrec_bindings_referencing() {
         None,
         Some(terminal),
         None,
-        &expect!["25"],
+        &expect!["28"],
         &None,
     );
 }
@@ -1004,7 +1004,7 @@ fn evaluate_multiple_letrec_bindings_recursive() {
         None,
         Some(terminal),
         None,
-        &expect!["144"],
+        &expect!["175"],
         &None,
     );
 }
@@ -1028,7 +1028,7 @@ fn nested_let_closure_regression() {
             None,
             Some(terminal),
             None,
-            &expect!["9"],
+            &expect!["11"],
             &None,
         );
     }
@@ -1045,7 +1045,7 @@ fn nested_let_closure_regression() {
             None,
             Some(terminal),
             None,
-            &expect!["9"],
+            &expect!["11"],
             &None,
         );
     }
@@ -1175,7 +1175,7 @@ fn evaluate_zero_arg_lambda() {
             None,
             Some(terminal),
             None,
-            &expect!["9"],
+            &expect!["10"],
             &None,
         );
     }
@@ -1238,7 +1238,7 @@ fn evaluate_make_tree() {
             None,
             Some(terminal),
             None,
-            &expect!["397"],
+            &expect!["445"],
             &None,
         );
     }
@@ -1284,7 +1284,7 @@ fn evaluate_map_tree_bug() {
             None,
             Some(terminal),
             None,
-            &expect!["103"],
+            &expect!["125"],
             &None,
         );
     }
@@ -1311,7 +1311,7 @@ fn evaluate_map_tree_numequal_bug() {
             None,
             Some(error),
             None,
-            &expect!["103"],
+            &expect!["125"],
             &None,
         );
     }
@@ -1346,7 +1346,7 @@ fn env_lost_bug() {
             None,
             Some(terminal),
             None,
-            &expect!["18"],
+            &expect!["22"],
             &None,
         );
     }
@@ -1371,7 +1371,7 @@ fn dont_discard_rest_env() {
             None,
             Some(terminal),
             None,
-            &expect!["15"],
+            &expect!["20"],
             &None,
         );
     }
@@ -1677,7 +1677,7 @@ fn go_translate() {
         None,
         None,
         None,
-        &expect!["509"],
+        &expect!["840"],
         &None,
     );
 }
@@ -2391,7 +2391,7 @@ fn test_relational_edge_case_identity() {
             None,
             Some(terminal),
             None,
-            &expect!["16"],
+            &expect!["17"],
             &None,
         );
     }
@@ -2410,7 +2410,7 @@ fn test_relational_edge_case_identity() {
             None,
             Some(terminal),
             None,
-            &expect!["21"],
+            &expect!["22"],
             &None,
         );
     }
@@ -2434,7 +2434,7 @@ fn test_num_syntax_implications() {
             None,
             Some(terminal),
             None,
-            &expect!["7"],
+            &expect!["8"],
             &None,
         );
     }
@@ -2567,7 +2567,7 @@ fn test_quoted_symbols() {
         None,
         Some(terminal),
         None,
-        &expect!["10"],
+        &expect!["11"],
         &None,
     );
 }
@@ -3340,7 +3340,7 @@ fn test_fold_cons_regression() {
         None,
         Some(terminal),
         None,
-        &expect!["67"],
+        &expect!["92"],
         &None,
     );
 }
