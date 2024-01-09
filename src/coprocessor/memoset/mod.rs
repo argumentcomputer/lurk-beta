@@ -29,6 +29,9 @@ type ScopeQuery<F> = DemoQuery<F>;
 type ScopeCircuitQuery<F> = <DemoQuery<F> as Query<F>>::C;
 
 #[derive(Debug, Default)]
+/// A `Scope` tracks the queries made while evaluating, including the subqueries that result from evaluating other
+/// queries -- then makes use of the bookkeeping performed at evaluation time to synthesize proof of each query
+/// performed.
 pub struct Scope<F: LurkField, Q: Query<F>, M: MemoSet<F>> {
     memoset: M,
     /// k => v
@@ -137,8 +140,9 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
         insertions.extend(&self.toplevel_insertions);
         insertions.extend(internal_insertions_kv);
 
-        // Sort insertions by query type (index) for processing.
-        // This is because the transcript will be constructed sequentially by the circuits.
+        // Sort insertions by query type (index) for processing. This is because the transcript will be constructed
+        // sequentially by the circuits, and we potentially batch queries of the same type in a single coprocessor
+        // circuit.
         insertions.sort_by_key(|kv| {
             let (key, _) = s.car_cdr(kv).unwrap();
 
@@ -149,15 +153,19 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
 
         let mut transcript = s.intern_nil();
 
-        // Toplevel insertions must come first in transcript.
+        // Toplevel insertions must come 'first' in transcript. Since the transcript is accumulated as a cons-list, the
+        // last element accumulated will be the first in the resulting list.
         for kv in self.toplevel_insertions.iter() {
             transcript = s.cons(*kv, transcript);
         }
 
-        // Then add insertions and deletions interleaved, sorted by query type.
+        // Then add insertions and removals interleaved, sorted by query type. We interleave insertions and removals
+        // because when proving later, each query's proof must record that its subquery proofs are being deferred
+        // (insertions) before then proving itself (making use of any subquery results) and removing the now-proved
+        // deferral from the MemoSet.
         let unique_keys = insertions
             .iter()
-            .dedup()
+            .dedup() // We need to process every key's dependencies once.
             .map(|kv| {
                 let key = s.car_cdr(kv).unwrap().0;
 
@@ -170,6 +178,9 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
                                 .queries
                                 .get(&k)
                                 .expect("value missing for dependency key");
+                            // Add an insertion for each dependency (subquery) of the query identified by `key`. Notice
+                            // that these keys might already have been inserted before, but we need to repeat if so
+                            // because the proof must do so each time a query is used.
                             s.cons(k, *v)
                         })
                         .fold(transcript, |acc, dependency_kv| s.cons(dependency_kv, acc));
@@ -178,6 +189,9 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
                 let count_num = s.num(F::from_u64(count as u64));
                 let kv_count = s.cons(*kv, count_num);
 
+                // Add removal for the query identified by `key`. The queries being removed here were deduplicated
+                // above, so each is removed only once. However, we freely choose the multiplicity (`count`) of the
+                // removal to match the total number of insertions actually made (considering dependencies).
                 transcript = s.cons(kv_count, transcript);
 
                 key
