@@ -1034,6 +1034,15 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                 let cont: Cont::If = cons4(more, env, cont, foo);
                                 return (condition, env, cont, ret)
                             }
+                            "empty-env" => {
+                                match rest.tag {
+                                    Expr::Nil => {
+                                        let empty_env: Expr::Env;
+                                        return (empty_env, env, cont, apply)
+                                    }
+                                };
+                                return (expr, env, err, errctrl)
+                            }
                             "current-env" => {
                                 match rest.tag {
                                     Expr::Nil => {
@@ -1730,8 +1739,8 @@ mod tests {
         expect_eq(func.slots_count.commitment, expect!["1"]);
         expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["8938"]);
-        expect_eq(cs.num_constraints(), expect!["10897"]);
+        expect_eq(cs.aux().len(), expect!["8943"]);
+        expect_eq(cs.num_constraints(), expect!["10921"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
