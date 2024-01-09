@@ -57,7 +57,7 @@ pub trait CircuitQuery<F: LurkField> {
 }
 
 #[derive(Debug, Clone)]
-pub enum DemoQuery<F: LurkField> {
+pub enum DemoQuery<F> {
     Factorial(Ptr),
     Phantom(F),
 }
