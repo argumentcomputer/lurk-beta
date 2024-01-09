@@ -224,7 +224,7 @@ where
                 )
                 .unwrap();
             let (io, ..) = self
-                .eval_expr_with_env(ptr, self.store.intern_nil())
+                .eval_expr_with_env(ptr, self.store.intern_empty_env())
                 .unwrap();
             io[0]
         })

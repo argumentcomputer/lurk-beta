@@ -56,14 +56,18 @@ fn lurk_fib<F: LurkField>(store: &Store<F>, n: usize) -> Ptr {
     //               saved_env: (((.lurk.user.next . <FUNCTION (.lurk.user.a .lurk.user.b) (.lurk.user.next .lurk.user.b (+ .lurk.user.a .lurk.user.b))>))),
     //               body: (.lurk.user.fib), continuation: Outermost }
 
-    let (_, rest_bindings) = store.car_cdr(target_env).unwrap();
-    let (second_binding, _) = store.car_cdr(&rest_bindings).unwrap();
-    store.car_cdr(&second_binding).unwrap().1
+    let [_, _, rest_bindings] = store.pop_binding(*target_env).unwrap();
+    let [_, val, _] = store.pop_binding(rest_bindings).unwrap();
+    val
 }
 
 // Returns the linear and angular coefficients for the iteration count of fib
 fn compute_coeffs<F: LurkField>(store: &Store<F>) -> (usize, usize) {
-    let mut input = vec![fib_expr(store), store.intern_nil(), store.cont_outermost()];
+    let mut input = vec![
+        fib_expr(store),
+        store.intern_empty_env(),
+        store.cont_outermost(),
+    ];
     let lang: Lang<F, Coproc<F>> = Lang::new();
     let mut coef_lin = 0;
     let coef_ang;

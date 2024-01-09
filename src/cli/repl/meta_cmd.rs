@@ -313,7 +313,7 @@ where
         description: &[],
         example: &["!(def a 1)", "(current-env)", "!(clear)", "(current-env)"],
         run: |repl, _args, _path| {
-            repl.env = repl.store.intern_nil();
+            repl.env = repl.store.intern_empty_env();
             Ok(())
         },
     };
@@ -327,7 +327,11 @@ where
         run: |repl, args, _path| {
             let first = repl.peek1(args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
-            repl.env = first_io[0];
+            let env = first_io[0];
+            if *env.tag() != Tag::Expr(ExprTag::Env) {
+                return Err(anyhow!("Value must be an environment"));
+            }
+            repl.env = env;
             Ok(())
         },
     };
@@ -660,8 +664,7 @@ where
             let path = get_path(repl, &path)?;
             let LurkData::<F> { z_ptr, z_dag } = load(&path)?;
             let ptr = z_dag.populate_store(&z_ptr, &repl.store, &mut Default::default())?;
-            let binding = repl.store.cons(sym, ptr);
-            repl.env = repl.store.cons(binding, repl.env);
+            repl.env = repl.store.push_binding(sym, ptr, repl.env);
             Ok(())
         },
     };
@@ -716,7 +719,7 @@ where
             }
 
             let lambda = repl.store.list(vec![repl.store.intern_lurk_symbol("lambda"), vars, body]);
-            let (io, ..) = repl.eval_expr_with_env(lambda, repl.store.intern_nil())?;
+            let (io, ..) = repl.eval_expr_with_env(lambda, repl.store.intern_empty_env())?;
             let fun = io[0];
             if !fun.is_fun() {
                 bail!(
@@ -761,8 +764,7 @@ where
 
             // the standard format for a processed protocol as Lurk data
             let protocol = repl.store.list(vec![fun, rc, lang, description]);
-            let binding = repl.store.cons(name, protocol);
-            repl.env = repl.store.cons(binding, repl.env);
+            repl.env = repl.store.push_binding(name, protocol, repl.env);
             Ok(())
         },
     };
@@ -824,7 +826,7 @@ where
             .list(vec![*repl.get_apply_fn(), fun, quoted_args]);
 
         let (io, ..) = repl
-            .eval_expr_with_env(apply_call, repl.store.intern_nil())
+            .eval_expr_with_env(apply_call, repl.store.intern_empty_env())
             .with_context(|| "evaluating protocol function call")?;
 
         let (Tag::Expr(ExprTag::Cons), RawPtr::Hash4(idx)) = &io[0].parts() else {
@@ -858,7 +860,7 @@ where
         if !post_verify.is_nil() {
             let call = repl.store.list(vec![post_verify]);
             let (io, ..) = repl
-                .eval_expr_with_env(call, repl.store.intern_nil())
+                .eval_expr_with_env(call, repl.store.intern_empty_env())
                 .with_context(|| "evaluating post-verify call")?;
             if io[0].is_nil() {
                 bail!("Post-verification predicate rejected the input")
