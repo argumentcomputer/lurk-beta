@@ -166,8 +166,7 @@ fn main() {
     let mut data = Vec::with_capacity(rc_vec.len());
 
     for rc in rc_vec.clone() {
-        let prover: NovaProver<'_, _, _, MultiFrame<'_, _, Coproc<Fr>>> =
-            NovaProver::new(rc, lang_arc.clone());
+        let prover: NovaProver<'_, _, _> = NovaProver::new(rc, lang_arc.clone());
         println!("Getting public params for rc={rc}");
         // TODO: use cache once it's fixed
         let pp: PublicParams<_, MultiFrame<'_, _, Coproc<Fr>>> =

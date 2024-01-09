@@ -899,9 +899,9 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 );
 
                 // The number is negative if the least significant bit of its double is 1
-                let a_is_negative = double_a_bits.get(0).unwrap();
-                let b_is_negative = double_b_bits.get(0).unwrap();
-                let diff_is_negative = double_diff_bits.get(0).unwrap();
+                let a_is_negative = double_a_bits.first().unwrap();
+                let b_is_negative = double_b_bits.first().unwrap();
+                let diff_is_negative = double_diff_bits.first().unwrap();
 
                 // Two numbers have the same sign if both are negative or both are positive, i.e.
                 let same_sign =

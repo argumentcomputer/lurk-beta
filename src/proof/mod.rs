@@ -15,31 +15,37 @@ pub mod supernova;
 #[cfg(test)]
 mod tests;
 
-use ::nova::traits::{circuit::StepCircuit, Engine};
-use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
+use ::nova::traits::Engine;
 use std::sync::Arc;
 
 use crate::{
-    coprocessor::Coprocessor, error::ProofError, eval::lang::Lang, field::LurkField,
-    lem::eval::EvalConfig, proof::nova::E2,
+    coprocessor::Coprocessor,
+    error::ProofError,
+    eval::lang::Lang,
+    field::LurkField,
+    lem::{eval::EvalConfig, interpreter::Frame, pointers::Ptr, store::Store},
+    proof::nova::E2,
 };
 
-use self::{nova::CurveCycleEquipped, supernova::FoldingConfig};
+use self::{
+    nova::{CurveCycleEquipped, C1LEM},
+    supernova::FoldingConfig,
+};
 
 /// The State of a CEK machine.
-pub trait CEKState<ExprPtr, ContPtr> {
+pub trait CEKState<Ptr> {
     /// the expression, or control word (C)
-    fn expr(&self) -> &ExprPtr;
+    fn expr(&self) -> &Ptr;
     /// the environment (E)
-    fn env(&self) -> &ExprPtr;
+    fn env(&self) -> &Ptr;
     /// the continuation (K)
-    fn cont(&self) -> &ContPtr;
+    fn cont(&self) -> &Ptr;
 }
 
 /// A Frame of evaluation in a CEK machine.
-pub trait FrameLike<ExprPtr, ContPtr>: Sized {
+pub trait FrameLike<Ptr>: Sized {
     /// the type for the Frame's IO
-    type FrameIO: CEKState<ExprPtr, ContPtr>;
+    type FrameIO: CEKState<Ptr>;
     /// the input of the frame
     fn input(&self) -> &Self::FrameIO;
     /// the output of the frame
@@ -50,8 +56,6 @@ pub trait FrameLike<ExprPtr, ContPtr>: Sized {
 pub trait EvaluationStore {
     /// the type for the Store's pointers
     type Ptr;
-    /// the type for the Store's continuation poitners
-    type ContPtr;
     /// the type for the Store's errors
     type Error: std::fmt::Debug;
 
@@ -60,7 +64,7 @@ pub trait EvaluationStore {
     /// getting a pointer to the initial, empty environment
     fn initial_empty_env(&self) -> Self::Ptr;
     /// getting the terminal continuation pointer
-    fn get_cont_terminal(&self) -> Self::ContPtr;
+    fn get_cont_terminal(&self) -> Self::Ptr;
 
     /// cache hashes for pointers enqueued for hydration
     fn hydrate_z_cache(&self);
@@ -68,91 +72,6 @@ pub trait EvaluationStore {
     /// hash-equality of the expressions represented by Ptrs
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> bool;
 }
-
-/// Trait to support multiple `MultiFrame` implementations.
-pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
-    Provable<F> + Circuit<F> + StepCircuit<F> + 'a
-{
-    /// The associated `Ptr` type
-    type Ptr: std::fmt::Debug + Eq + Copy;
-    /// The associated `ContPtr` type
-    type ContPtr: std::fmt::Debug + Eq + Copy;
-    /// The associated `Store` type
-    type Store: Send + Sync + EvaluationStore<Ptr = Self::Ptr, ContPtr = Self::ContPtr>;
-    /// The error type for the Store type
-    type StoreError: Into<ProofError>;
-
-    /// The associated `Frame` type
-    type EvalFrame: FrameLike<Self::Ptr, Self::ContPtr>;
-    /// The associated `CircuitFrame` type
-    type CircuitFrame: FrameLike<
-        Self::Ptr,
-        Self::ContPtr,
-        FrameIO = <Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO,
-    >;
-    /// The associated type which manages global allocations
-    type GlobalAllocation;
-    /// The associated type of allocated input and output to the circuit
-    type AllocatedIO;
-
-    /// the emitted frames
-    fn emitted(store: &Self::Store, eval_frame: &Self::EvalFrame) -> Vec<Self::Ptr>;
-
-    /// Counting the number of non-trivial frames in the evaluation
-    fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize;
-
-    /// Evaluates and generates the frames of the computation given the expression, environment, and store
-    fn build_frames(
-        expr: Self::Ptr,
-        env: Self::Ptr,
-        store: &Self::Store,
-        limit: usize,
-        ec: &EvalConfig<'_, F, C>,
-    ) -> Result<Vec<Self::EvalFrame>, ProofError>;
-
-    /// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
-    fn io_to_scalar_vector(
-        store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO,
-    ) -> Vec<F>;
-
-    /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
-    fn precedes(&self, maybe_next: &Self) -> bool;
-
-    /// Cache the witness internally, which can be used later during synthesis.
-    /// This function can be called in parallel to speed up the witness generation
-    /// for a series of `MultiFrameTrait` instances.
-    fn cache_witness(&mut self, s: &Self::Store) -> Result<(), SynthesisError>;
-
-    /// The output of the last frame
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO>;
-
-    /// Iterates through the Self::CircuitFrame instances
-    fn frames(&self) -> Option<&Vec<Self::CircuitFrame>>;
-
-    /// Synthesize some frames.
-    fn synthesize_frames<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Self::Store,
-        input: Self::AllocatedIO,
-        frames: &[Self::CircuitFrame],
-        g: &Self::GlobalAllocation,
-    ) -> Result<Self::AllocatedIO, SynthesisError>;
-
-    /// Synthesize a blank circuit.
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, pc: usize) -> Self;
-
-    /// Create an instance from some `Self::Frame`s.
-    fn from_frames(
-        frames: &[Self::EvalFrame],
-        store: &'a Self::Store,
-        folding_config: Arc<FoldingConfig<F, C>>,
-    ) -> Vec<Self>;
-}
-
-/// Represents a sequential Constraint System for a given proof.
-pub(crate) type SequentialCS<F, M> = Vec<(M, TestConstraintSystem<F>)>;
 
 /// A trait for provable structures over a field `F`.
 pub trait Provable<F: LurkField> {
@@ -169,12 +88,8 @@ pub trait Provable<F: LurkField> {
 // * `Prover`, which abstracts over Nova and SuperNova provers
 
 /// Trait to abstract Nova and SuperNova proofs
-pub trait RecursiveSNARKTrait<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
-> where
+pub trait RecursiveSNARKTrait<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>
+where
     Self: Sized,
 {
     /// Associated type for public parameters
@@ -187,8 +102,8 @@ pub trait RecursiveSNARKTrait<
     fn prove_recursively(
         pp: &Self::PublicParams,
         z0: &[F],
-        steps: Vec<M>,
-        store: &'a M::Store,
+        steps: Vec<C1LEM<'a, F, C>>,
+        store: &'a Store<F>,
         reduction_count: usize,
         lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError>;
@@ -240,12 +155,12 @@ impl FoldingMode {
 }
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>> {
+pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     /// Associated type for public parameters
     type PublicParams;
 
     /// Assiciated proof type, which must implement `RecursiveSNARKTrait`
-    type RecursiveSnark: RecursiveSNARKTrait<'a, F, C, M, PublicParams = Self::PublicParams>;
+    type RecursiveSnark: RecursiveSNARKTrait<'a, F, C, PublicParams = Self::PublicParams>;
 
     /// Returns a reference to the prover's FoldingMode
     fn folding_mode(&self) -> &FoldingMode;
@@ -260,19 +175,19 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
     fn prove(
         &self,
         pp: &Self::PublicParams,
-        frames: &[M::EvalFrame],
-        store: &'a M::Store,
+        frames: &[Frame],
+        store: &'a Store<F>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
-        let z0 = M::io_to_scalar_vector(store, frames[0].input());
-        let zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
+        let z0 = store.to_scalar_vector(frames[0].input());
+        let zi = store.to_scalar_vector(frames.last().unwrap().output());
 
         let lang = self.lang().clone();
         let folding_config = self
             .folding_mode()
             .folding_config(lang.clone(), self.reduction_count());
 
-        let steps = M::from_frames(frames, store, folding_config.into());
+        let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
         let num_steps = steps.len();
 
         let prove_output = Self::RecursiveSnark::prove_recursively(
@@ -291,13 +206,13 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
     fn evaluate_and_prove(
         &self,
         pp: &Self::PublicParams,
-        expr: M::Ptr,
-        env: M::Ptr,
-        store: &'a M::Store,
+        expr: Ptr,
+        env: Ptr,
+        store: &'a Store<F>,
         limit: usize,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         let eval_config = self.folding_mode().eval_config(self.lang());
-        let frames = M::build_frames(expr, env, store, limit, &eval_config)?;
+        let frames = C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config)?;
         self.prove(pp, &frames, store)
     }
 
@@ -307,22 +222,5 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFram
         let full_multiframe_count = raw_iterations / rc;
         let unfull_multiframe_frame_count = raw_iterations % rc;
         full_multiframe_count + usize::from(unfull_multiframe_frame_count != 0)
-    }
-
-    /// Synthesizes the outer circuit for the prover given a slice of multiframes.
-    fn outer_synthesize(&self, multiframes: &[M]) -> Result<SequentialCS<F, M>, SynthesisError> {
-        // TODO: do we need this?
-        // Note: This loop terminates and returns an error on the first occurrence of `SynthesisError`.
-        multiframes
-            .iter()
-            .map(|multiframe| {
-                let mut cs = TestConstraintSystem::new();
-
-                multiframe
-                    .clone()
-                    .synthesize(&mut cs)
-                    .map(|_| (multiframe.clone(), cs))
-            })
-            .collect::<Result<_, _>>()
     }
 }

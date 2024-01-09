@@ -28,7 +28,8 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
+    lem::store::Store,
+    proof::{supernova::FoldingConfig, FrameLike, Prover},
 };
 
 use super::{FoldingMode, RecursiveSNARKTrait};
@@ -152,7 +153,7 @@ where
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
+pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -160,14 +161,14 @@ where
     /// A proof for the intermediate steps of a recursive computation along with
     /// the number of steps used for verification
     Recursive(
-        Box<RecursiveSNARK<E1<F>, E2<F>, M, C2<F>>>,
+        Box<RecursiveSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>>,
         usize,
         PhantomData<&'a C>,
     ),
     /// A proof for the final step of a recursive computation along with the number
     /// of steps used for verification
     Compressed(
-        Box<CompressedSNARK<E1<F>, E2<F>, M, C2<F>, SS1<F>, SS2<F>>>,
+        Box<CompressedSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>,
         usize,
         PhantomData<&'a C>,
     ),
@@ -179,30 +180,20 @@ where
 ///
 /// Note: For now, we use ad-hoc circuit cache keys.
 /// See: [crate::public_parameters::instance]
-pub fn circuit_cache_key<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
->(
+pub fn circuit_cache_key<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
 ) -> F {
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, 2));
-    let circuit = M::blank(folding_config, 0);
+    let circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
     F::from(rc as u64) * nova::circuit_digest::<F::E1, F::E2, _>(&circuit)
 }
 
 /// Generates the public parameters for the Nova proving system.
-pub fn public_params<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: StepCircuit<F> + MultiFrameTrait<'a, F, C>,
->(
+pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<F, M>
+) -> PublicParams<F, C1LEM<'a, F, C>>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -223,30 +214,32 @@ where
 }
 
 /// Generates the circuits for the Nova proving system.
-pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>(
+pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
-) -> (M, C2<F>) {
+) -> (C1LEM<'a, F, C>, C2<F>) {
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, reduction_count));
-    (M::blank(folding_config, 0), TrivialCircuit::default())
+    (
+        C1LEM::<'a, F, C>::blank(folding_config, 0),
+        TrivialCircuit::default(),
+    )
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
-    RecursiveSNARKTrait<'a, F, C, M> for Proof<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C> for Proof<'a, F, C>
 where
     <F as PrimeField>::Repr: Abomonation,
     <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
-    type PublicParams = PublicParams<F, M>;
+    type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
 
     type ErrorType = NovaError;
 
     #[tracing::instrument(skip_all, name = "nova::prove_recursively")]
     fn prove_recursively(
-        pp: &PublicParams<F, M>,
+        pp: &PublicParams<F, C1LEM<'a, F, C>>,
         z0: &[F],
-        steps: Vec<M>,
-        store: &'a <M>::Store,
+        steps: Vec<C1LEM<'a, F, C>>,
+        store: &'a Store<F>,
         reduction_count: usize,
         lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {
@@ -257,14 +250,17 @@ where
         let z0_secondary = Self::z0_secondary();
 
         assert_eq!(steps[0].frames().unwrap().len(), reduction_count);
-        let (_circuit_primary, circuit_secondary): (M, TrivialCircuit<<E2<F> as Engine>::Scalar>) =
-            circuits(reduction_count, lang);
+        let (_circuit_primary, circuit_secondary): (
+            C1LEM<'a, F, C>,
+            TrivialCircuit<<E2<F> as Engine>::Scalar>,
+        ) = circuits(reduction_count, lang);
 
         let num_steps = steps.len();
         tracing::debug!("steps.len: {num_steps}");
 
         // produce a recursive SNARK
-        let mut recursive_snark: Option<RecursiveSNARK<E1<F>, E2<F>, M, C2<F>>> = None;
+        let mut recursive_snark: Option<RecursiveSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>> =
+            None;
 
         // the shadowing here is voluntary
         let recursive_snark = if lurk_config(None, None)
@@ -319,7 +315,7 @@ where
 
                     // This is a CircuitFrame, not an EvalFrame
                     let first_frame = circuit_primary.frames().unwrap().iter().next().unwrap();
-                    let zi = M::io_to_scalar_vector(store, first_frame.input());
+                    let zi = store.to_scalar_vector(first_frame.input());
                     let zi_allocated: Vec<_> = zi
                         .iter()
                         .enumerate()
@@ -358,7 +354,7 @@ where
         ))
     }
 
-    fn compress(self, pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
+    fn compress(self, pp: &PublicParams<F, C1LEM<'a, F, C>>) -> Result<Self, ProofError> {
         match self {
             Self::Recursive(recursive_snark, num_steps, _) => Ok(Self::Compressed(
                 Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
@@ -393,22 +389,15 @@ where
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct NovaProver<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
-> {
+pub struct NovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
     /// The number of small-step reductions performed in each recursive step.
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
     folding_mode: FoldingMode,
-    _phantom: PhantomData<&'a M>,
+    _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
-    NovaProver<'a, F, C, M>
-{
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<'a, F, C> {
     /// Create a new NovaProver with a reduction count and a `Lang`
     #[inline]
     pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -421,14 +410,13 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Prover<'a, F, C, M>
-    for NovaProver<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C> for NovaProver<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    type PublicParams = PublicParams<F, M>;
-    type RecursiveSnark = Proof<'a, F, C, M>;
+    type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
+    type RecursiveSnark = Proof<'a, F, C>;
 
     #[inline]
     fn reduction_count(&self) -> usize {

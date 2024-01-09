@@ -7,7 +7,7 @@ use lurk::{
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
     eval::lang::Lang,
     field::LurkField,
-    lem::{multiframe::MultiFrame, pointers::Ptr, store::Store},
+    lem::{pointers::Ptr, store::Store},
     proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
@@ -71,10 +71,7 @@ fn main() {
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));
     let lang_rc = Arc::new(lang.clone());
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
-        REDUCTION_COUNT,
-        lang_rc.clone(),
-    );
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang_rc.clone());
 
     println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
 

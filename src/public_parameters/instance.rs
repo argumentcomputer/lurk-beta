@@ -42,11 +42,7 @@ use std::{
     sync::Arc,
 };
 
-use ::nova::{
-    constants::NUM_HASH_BITS,
-    supernova::{NonUniformCircuit, StepCircuit as SuperStepCircuit},
-    traits::Engine,
-};
+use ::nova::{constants::NUM_HASH_BITS, traits::Engine};
 use abomonation::Abomonation;
 use camino::Utf8Path;
 use serde::{Deserialize, Serialize};
@@ -55,10 +51,9 @@ use sha2::{Digest, Sha256};
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
-    proof::MultiFrameTrait,
     proof::{
         nova::{self, CurveCycleEquipped, E1, E2},
-        supernova::{self, C2},
+        supernova::{self},
     },
 };
 
@@ -74,14 +69,13 @@ use crate::{
 /// we derive the `num_circuits + 1` circuit param instances. This makes sure that we keep the SuperNova
 /// instances as modular as possible, and reuse as much overlapping circuit params as possible.
 #[derive(Debug)]
-pub struct Instance<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
-{
+pub struct Instance<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     pub rc: usize,
     pub lang: Arc<Lang<F, C>>,
     pub abomonated: bool,
     pub cache_key: F,
     pub kind: Kind,
-    pub _p: PhantomData<&'a M>,
+    pub _p: PhantomData<&'a ()>,
 }
 
 /// From [::nova], there are 3 "kinds" of public param objects that need to be cached.
@@ -112,13 +106,8 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    fn from_instance<
-        'a,
-        F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'a,
-        M: MultiFrameTrait<'a, F, C>,
-    >(
-        instance: &Instance<'a, F, C, M>,
+    fn from_instance<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
+        instance: &Instance<'a, F, C>,
     ) -> Self {
         Metadata {
             rc: instance.rc,
@@ -130,24 +119,17 @@ impl Metadata {
     }
 }
 
-impl<
-        'a,
-        F: CurveCycleEquipped,
-        C: Coprocessor<F>,
-        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<E1<F>, E2<F>, M, C2<F>>,
-    > Instance<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Instance<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub fn new(rc: usize, lang: Arc<Lang<F, C>>, abomonated: bool, kind: Kind) -> Self {
         let cache_key = match kind {
-            Kind::NovaPublicParams => nova::circuit_cache_key::<'a, F, C, M>(rc, lang.clone()),
-            Kind::SuperNovaAuxParams => {
-                supernova::circuit_cache_keys::<F, C, M>(rc, &lang).digest()
-            }
+            Kind::NovaPublicParams => nova::circuit_cache_key::<'a, F, C>(rc, lang.clone()),
+            Kind::SuperNovaAuxParams => supernova::circuit_cache_keys::<F, C>(rc, &lang).digest(),
             Kind::SuperNovaCircuitParams(circuit_index) => {
-                supernova::circuit_cache_key::<'a, F, C, M>(rc, lang.clone(), circuit_index)
+                supernova::circuit_cache_key::<'a, F, C>(rc, lang.clone(), circuit_index)
             }
         };
         Instance {
@@ -193,8 +175,7 @@ where
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
-    Instance<'a, F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Instance<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,

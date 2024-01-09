@@ -19,9 +19,8 @@ use crate::{
     proof::{
         nova::{CurveCycleEquipped, E1, E2},
         supernova::{FoldingConfig, C2},
-        CEKState, EvaluationStore, FrameLike, MultiFrameTrait, Provable,
+        CEKState, EvaluationStore, FrameLike, Provable,
     },
-    store,
     tag::ContTag,
 };
 
@@ -70,9 +69,307 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     fn get_lang(&self) -> &Arc<Lang<F, C>> {
         self.folding_config.lang()
     }
+
+    #[inline]
+    pub fn frames(&self) -> Option<&Vec<Frame>> {
+        self.frames.as_ref()
+    }
+
+    #[inline]
+    pub fn output(&self) -> &Option<Vec<Ptr>> {
+        &self.output
+    }
+
+    pub fn emitted(_store: &Store<F>, eval_frame: &Frame) -> Vec<Ptr> {
+        eval_frame.emitted.clone()
+    }
+
+    pub fn cache_witness(&mut self, s: &Store<F>) -> Result<(), SynthesisError> {
+        let _ = self.cached_witness.get_or_try_init(|| {
+            let mut wcs = WitnessCS::new();
+
+            let z_scalar = s.to_scalar_vector(self.input.as_ref().unwrap());
+
+            let mut bogus_cs = WitnessCS::<F>::new();
+            let z: Vec<AllocatedNum<F>> = z_scalar
+                .iter()
+                .map(|x| AllocatedNum::alloc_infallible(&mut bogus_cs, || *x))
+                .collect::<Vec<_>>();
+
+            let output =
+                nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice())?;
+            Ok::<_, SynthesisError>((wcs, output))
+        })?;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn precedes(&self, maybe_next: &Self) -> bool {
+        self.output == maybe_next.input
+    }
+
+    pub fn synthesize_frames<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        input: Vec<AllocatedPtr<F>>,
+        frames: &[Frame],
+        g: &GlobalAllocator<F>,
+    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
+        let func = self.get_func();
+        if cs.is_witness_generator() {
+            let num_slots_per_frame = func.slots_count.total();
+            let slots_witnesses = generate_slots_witnesses(
+                store,
+                frames,
+                num_slots_per_frame,
+                lurk_config(None, None)
+                    .perf
+                    .parallelism
+                    .poseidon_witnesses
+                    .is_parallel(),
+            );
+            if lurk_config(None, None)
+                .perf
+                .parallelism
+                .synthesis
+                .is_parallel()
+            {
+                Ok(synthesize_frames_parallel(
+                    cs,
+                    g,
+                    store,
+                    input,
+                    frames,
+                    func,
+                    self.get_lang(),
+                    &slots_witnesses,
+                    num_slots_per_frame,
+                ))
+            } else {
+                synthesize_frames_sequential(
+                    cs,
+                    g,
+                    store,
+                    &input,
+                    frames,
+                    func,
+                    self.get_lang(),
+                    Some((&slots_witnesses, num_slots_per_frame)),
+                )
+            }
+        } else {
+            synthesize_frames_sequential(cs, g, store, &input, frames, func, self.get_lang(), None)
+        }
+    }
+
+    pub fn blank(folding_config: Arc<FoldingConfig<F, C>>, pc: usize) -> Self {
+        let (lurk_step, cprocs, rc) = match &*folding_config {
+            FoldingConfig::IVC(lang, rc) => (
+                Arc::new(make_eval_step_from_config(&EvalConfig::new_ivc(lang))),
+                None,
+                *rc,
+            ),
+            FoldingConfig::NIVC(lang, rc) => (
+                Arc::new(make_eval_step_from_config(&EvalConfig::new_nivc(lang))),
+                Some(make_cprocs_funcs_from_lang(lang).into()),
+                *rc,
+            ),
+        };
+        let num_frames = if pc == 0 { rc } else { 1 };
+        Self {
+            store: None,
+            lurk_step,
+            cprocs,
+            input: None,
+            output: None,
+            frames: None,
+            cached_witness: OnceCell::new(),
+            num_frames,
+            folding_config,
+            pc,
+            next_pc: 0,
+        }
+    }
+
+    pub fn from_frames(
+        frames: &[Frame],
+        store: &'a Store<F>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
+    ) -> Vec<Self> {
+        let reduction_count = folding_config.reduction_count();
+        let mut multi_frames =
+            Vec::with_capacity((frames.len() + reduction_count - 1) / reduction_count);
+        match folding_config.as_ref() {
+            FoldingConfig::IVC(lang, _) => {
+                let lurk_step = Arc::new(make_eval_step_from_config(&EvalConfig::new_ivc(lang)));
+                for chunk in frames.chunks(reduction_count) {
+                    let output = chunk
+                        .last()
+                        .expect("chunk must not be empty")
+                        .output
+                        .clone();
+                    let inner_frames = if chunk.len() < reduction_count {
+                        let mut inner_frames = Vec::with_capacity(reduction_count);
+                        inner_frames.extend(chunk.to_vec());
+                        pad_frames(
+                            &mut inner_frames,
+                            &output,
+                            &lurk_step,
+                            lang,
+                            reduction_count,
+                            store,
+                        );
+                        inner_frames
+                    } else {
+                        chunk.to_vec()
+                    };
+
+                    let mf = MultiFrame {
+                        store: Some(store),
+                        lurk_step: lurk_step.clone(),
+                        cprocs: None,
+                        input: Some(chunk[0].input.clone()),
+                        output: Some(output),
+                        frames: Some(inner_frames),
+                        cached_witness: OnceCell::new(),
+                        num_frames: reduction_count,
+                        folding_config: folding_config.clone(),
+                        pc: 0,
+                        next_pc: 0,
+                    };
+
+                    multi_frames.push(mf);
+                }
+            }
+            FoldingConfig::NIVC(lang, _) => {
+                let lurk_step = Arc::new(make_eval_step_from_config(&EvalConfig::new_nivc(lang)));
+                let cprocs: Arc<[Func]> = make_cprocs_funcs_from_lang(lang).into();
+                let mut chunk_start_idx = 0;
+                while chunk_start_idx < frames.len() {
+                    let first_frame = &frames[chunk_start_idx];
+
+                    // Variables occurring in both branches
+                    let input = first_frame.input.clone();
+                    let output: Vec<_>;
+                    let frames_to_add: Vec<_>;
+
+                    // the following variables start with the default values for
+                    // IVC
+                    let mut num_frames = reduction_count;
+                    let mut pc = 0;
+                    let mut next_pc = 0;
+
+                    if first_frame.pc == 0 {
+                        let mut inner_frames = Vec::with_capacity(reduction_count);
+                        let chunk_start_idx_saved = chunk_start_idx;
+
+                        // fill `inner_frames` with `reduction_count` frames unless
+                        // we don't have enough frames or we find some frame whose
+                        // `pc` is not `0` on the way
+                        for i in 0..reduction_count {
+                            let current_frame_idx = chunk_start_idx_saved + i;
+                            inner_frames.push(frames[current_frame_idx].clone());
+                            chunk_start_idx = current_frame_idx + 1;
+
+                            if let Some(next_frame) = frames.get(chunk_start_idx) {
+                                next_pc = next_frame.pc;
+                                if next_pc != 0 {
+                                    // incompatible `pc` incoming
+                                    break;
+                                }
+                            } else {
+                                // not enough frames
+                                break;
+                            }
+                        }
+
+                        output = inner_frames
+                            .last()
+                            .expect("empty inner_frames")
+                            .output
+                            .clone();
+
+                        if inner_frames.len() < reduction_count {
+                            pad_frames(
+                                &mut inner_frames,
+                                &output,
+                                &lurk_step,
+                                lang,
+                                reduction_count,
+                                store,
+                            );
+                        }
+
+                        frames_to_add = inner_frames;
+                    } else {
+                        chunk_start_idx += 1;
+                        output = first_frame.output.clone();
+                        frames_to_add = vec![first_frame.clone()];
+                        num_frames = 1;
+                        pc = first_frame.pc;
+                    }
+
+                    let mf = MultiFrame {
+                        store: Some(store),
+                        lurk_step: lurk_step.clone(),
+                        cprocs: Some(cprocs.clone()),
+                        input: Some(input),
+                        output: Some(output),
+                        frames: Some(frames_to_add),
+                        cached_witness: OnceCell::new(),
+                        num_frames,
+                        folding_config: folding_config.clone(),
+                        pc,
+                        next_pc,
+                    };
+
+                    multi_frames.push(mf);
+                }
+            }
+        }
+
+        multi_frames
+    }
+
+    pub fn build_frames(
+        expr: Ptr,
+        env: Ptr,
+        store: &Store<F>,
+        limit: usize,
+        ec: &EvalConfig<'_, F, C>,
+    ) -> Result<Vec<Frame>, ProofError> {
+        let cont = store.cont_outermost();
+        let lurk_step = make_eval_step_from_config(ec);
+        let lang = ec.lang();
+        let cprocs = make_cprocs_funcs_from_lang(lang);
+        evaluate_with_env_and_cont(
+            Some((&lurk_step, &cprocs, lang)),
+            expr,
+            env,
+            cont,
+            store,
+            limit,
+        )
+        .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
+    }
+
+    pub fn significant_frame_count(frames: &[Frame]) -> usize {
+        let stop_cond = |output: &[Ptr]| {
+            matches!(
+                output[2].tag(),
+                Tag::Cont(ContTag::Terminal | ContTag::Error)
+            )
+        };
+        frames
+            .iter()
+            .rev()
+            .skip_while(|f| f.input == f.output && stop_cond(&f.output))
+            .count()
+    }
 }
 
-impl CEKState<Ptr, Ptr> for Vec<Ptr> {
+impl CEKState<Ptr> for Vec<Ptr> {
     fn expr(&self) -> &Ptr {
         &self[0]
     }
@@ -84,7 +381,7 @@ impl CEKState<Ptr, Ptr> for Vec<Ptr> {
     }
 }
 
-impl FrameLike<Ptr, Ptr> for Frame {
+impl FrameLike<Ptr> for Frame {
     type FrameIO = Vec<Ptr>;
     fn input(&self) -> &Self::FrameIO {
         &self.input
@@ -96,7 +393,6 @@ impl FrameLike<Ptr, Ptr> for Frame {
 
 impl<F: LurkField> EvaluationStore for Store<F> {
     type Ptr = Ptr;
-    type ContPtr = Ptr;
     type Error = anyhow::Error;
 
     fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error> {
@@ -107,7 +403,7 @@ impl<F: LurkField> EvaluationStore for Store<F> {
         self.intern_nil()
     }
 
-    fn get_cont_terminal(&self) -> Self::ContPtr {
+    fn get_cont_terminal(&self) -> Self::Ptr {
         self.cont_terminal()
     }
 
@@ -382,319 +678,6 @@ fn pad_frames<F: LurkField, C: Coprocessor<F>>(
     assert_eq!(padding_frame.pc, 0);
     assert_eq!(input, padding_frame.output);
     frames.resize(size, padding_frame);
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
-    type Ptr = Ptr;
-    type ContPtr = Ptr;
-    type Store = Store<F>;
-    type StoreError = store::Error;
-    type EvalFrame = Frame;
-    type CircuitFrame = Frame;
-    type GlobalAllocation = GlobalAllocator<F>;
-    type AllocatedIO = Vec<AllocatedPtr<F>>;
-
-    fn emitted(_store: &Store<F>, eval_frame: &Self::EvalFrame) -> Vec<Ptr> {
-        eval_frame.emitted.clone()
-    }
-
-    fn io_to_scalar_vector(
-        store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike<Ptr, Ptr>>::FrameIO,
-    ) -> Vec<F> {
-        store.to_scalar_vector(io)
-    }
-
-    fn cache_witness(&mut self, s: &Store<F>) -> Result<(), SynthesisError> {
-        let _ = self.cached_witness.get_or_try_init(|| {
-            let mut wcs = WitnessCS::new();
-
-            let z_scalar = s.to_scalar_vector(self.input.as_ref().unwrap());
-
-            let mut bogus_cs = WitnessCS::<F>::new();
-            let z: Vec<AllocatedNum<F>> = z_scalar
-                .iter()
-                .map(|x| AllocatedNum::alloc_infallible(&mut bogus_cs, || *x))
-                .collect::<Vec<_>>();
-
-            let output =
-                nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice())?;
-            Ok::<_, SynthesisError>((wcs, output))
-        })?;
-        Ok(())
-    }
-
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr, Ptr>>::FrameIO> {
-        &self.output
-    }
-
-    fn frames(&self) -> Option<&Vec<Self::CircuitFrame>> {
-        self.frames.as_ref()
-    }
-
-    fn precedes(&self, maybe_next: &Self) -> bool {
-        self.output == maybe_next.input
-    }
-
-    fn synthesize_frames<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Self::Store,
-        input: Self::AllocatedIO,
-        frames: &[Self::CircuitFrame],
-        g: &Self::GlobalAllocation,
-    ) -> Result<Self::AllocatedIO, SynthesisError> {
-        let func = self.get_func();
-        if cs.is_witness_generator() {
-            let num_slots_per_frame = func.slots_count.total();
-            let slots_witnesses = generate_slots_witnesses(
-                store,
-                frames,
-                num_slots_per_frame,
-                lurk_config(None, None)
-                    .perf
-                    .parallelism
-                    .poseidon_witnesses
-                    .is_parallel(),
-            );
-            if lurk_config(None, None)
-                .perf
-                .parallelism
-                .synthesis
-                .is_parallel()
-            {
-                Ok(synthesize_frames_parallel(
-                    cs,
-                    g,
-                    store,
-                    input,
-                    frames,
-                    func,
-                    self.get_lang(),
-                    &slots_witnesses,
-                    num_slots_per_frame,
-                ))
-            } else {
-                synthesize_frames_sequential(
-                    cs,
-                    g,
-                    store,
-                    &input,
-                    frames,
-                    func,
-                    self.get_lang(),
-                    Some((&slots_witnesses, num_slots_per_frame)),
-                )
-            }
-        } else {
-            synthesize_frames_sequential(cs, g, store, &input, frames, func, self.get_lang(), None)
-        }
-    }
-
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, pc: usize) -> Self {
-        let (lurk_step, cprocs, rc) = match &*folding_config {
-            FoldingConfig::IVC(lang, rc) => (
-                Arc::new(make_eval_step_from_config(&EvalConfig::new_ivc(lang))),
-                None,
-                *rc,
-            ),
-            FoldingConfig::NIVC(lang, rc) => (
-                Arc::new(make_eval_step_from_config(&EvalConfig::new_nivc(lang))),
-                Some(make_cprocs_funcs_from_lang(lang).into()),
-                *rc,
-            ),
-        };
-        let num_frames = if pc == 0 { rc } else { 1 };
-        Self {
-            store: None,
-            lurk_step,
-            cprocs,
-            input: None,
-            output: None,
-            frames: None,
-            cached_witness: OnceCell::new(),
-            num_frames,
-            folding_config,
-            pc,
-            next_pc: 0,
-        }
-    }
-
-    fn from_frames(
-        frames: &[Frame],
-        store: &'a Self::Store,
-        folding_config: Arc<FoldingConfig<F, C>>,
-    ) -> Vec<Self> {
-        let reduction_count = folding_config.reduction_count();
-        let mut multi_frames =
-            Vec::with_capacity((frames.len() + reduction_count - 1) / reduction_count);
-        match &*folding_config {
-            FoldingConfig::IVC(lang, _) => {
-                let lurk_step = Arc::new(make_eval_step_from_config(&EvalConfig::new_ivc(lang)));
-                for chunk in frames.chunks(reduction_count) {
-                    let output = chunk
-                        .last()
-                        .expect("chunk must not be empty")
-                        .output
-                        .clone();
-                    let inner_frames = if chunk.len() < reduction_count {
-                        let mut inner_frames = Vec::with_capacity(reduction_count);
-                        inner_frames.extend(chunk.to_vec());
-                        pad_frames(
-                            &mut inner_frames,
-                            &output,
-                            &lurk_step,
-                            lang,
-                            reduction_count,
-                            store,
-                        );
-                        inner_frames
-                    } else {
-                        chunk.to_vec()
-                    };
-
-                    let mf = MultiFrame {
-                        store: Some(store),
-                        lurk_step: lurk_step.clone(),
-                        cprocs: None,
-                        input: Some(chunk[0].input.clone()),
-                        output: Some(output),
-                        frames: Some(inner_frames),
-                        cached_witness: OnceCell::new(),
-                        num_frames: reduction_count,
-                        folding_config: folding_config.clone(),
-                        pc: 0,
-                        next_pc: 0,
-                    };
-
-                    multi_frames.push(mf);
-                }
-            }
-            FoldingConfig::NIVC(lang, _) => {
-                let lurk_step = Arc::new(make_eval_step_from_config(&EvalConfig::new_nivc(lang)));
-                let cprocs: Arc<[Func]> = make_cprocs_funcs_from_lang(lang).into();
-                let mut chunk_start_idx = 0;
-                while chunk_start_idx < frames.len() {
-                    let first_frame = &frames[chunk_start_idx];
-
-                    // Variables occurring in both branches
-                    let input = first_frame.input.clone();
-                    let output: Vec<_>;
-                    let frames_to_add: Vec<_>;
-
-                    // the following variables start with the default values for
-                    // IVC
-                    let mut num_frames = reduction_count;
-                    let mut pc = 0;
-                    let mut next_pc = 0;
-
-                    if first_frame.pc == 0 {
-                        let mut inner_frames = Vec::with_capacity(reduction_count);
-                        let chunk_start_idx_saved = chunk_start_idx;
-
-                        // fill `inner_frames` with `reduction_count` frames unless
-                        // we don't have enough frames or we find some frame whose
-                        // `pc` is not `0` on the way
-                        for i in 0..reduction_count {
-                            let current_frame_idx = chunk_start_idx_saved + i;
-                            inner_frames.push(frames[current_frame_idx].clone());
-                            chunk_start_idx = current_frame_idx + 1;
-
-                            if let Some(next_frame) = frames.get(chunk_start_idx) {
-                                next_pc = next_frame.pc;
-                                if next_pc != 0 {
-                                    // incompatible `pc` incoming
-                                    break;
-                                }
-                            } else {
-                                // not enough frames
-                                break;
-                            }
-                        }
-
-                        output = inner_frames
-                            .last()
-                            .expect("empty inner_frames")
-                            .output
-                            .clone();
-
-                        if inner_frames.len() < reduction_count {
-                            pad_frames(
-                                &mut inner_frames,
-                                &output,
-                                &lurk_step,
-                                lang,
-                                reduction_count,
-                                store,
-                            );
-                        }
-
-                        frames_to_add = inner_frames;
-                    } else {
-                        chunk_start_idx += 1;
-                        output = first_frame.output.clone();
-                        frames_to_add = vec![first_frame.clone()];
-                        num_frames = 1;
-                        pc = first_frame.pc;
-                    }
-
-                    let mf = MultiFrame {
-                        store: Some(store),
-                        lurk_step: lurk_step.clone(),
-                        cprocs: Some(cprocs.clone()),
-                        input: Some(input),
-                        output: Some(output),
-                        frames: Some(frames_to_add),
-                        cached_witness: OnceCell::new(),
-                        num_frames,
-                        folding_config: folding_config.clone(),
-                        pc,
-                        next_pc,
-                    };
-
-                    multi_frames.push(mf);
-                }
-            }
-        }
-
-        multi_frames
-    }
-
-    fn build_frames(
-        expr: Self::Ptr,
-        env: Self::Ptr,
-        store: &Self::Store,
-        limit: usize,
-        ec: &EvalConfig<'_, F, C>,
-    ) -> Result<Vec<Self::EvalFrame>, ProofError> {
-        let cont = store.cont_outermost();
-        let lurk_step = make_eval_step_from_config(ec);
-        let lang = ec.lang();
-        let cprocs = make_cprocs_funcs_from_lang(lang);
-        evaluate_with_env_and_cont(
-            Some((&lurk_step, &cprocs, lang)),
-            expr,
-            env,
-            cont,
-            store,
-            limit,
-        )
-        .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
-    }
-
-    fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
-        let stop_cond = |output: &[Ptr]| {
-            matches!(
-                output[2].tag(),
-                Tag::Cont(ContTag::Terminal | ContTag::Error)
-            )
-        };
-        frames
-            .iter()
-            .rev()
-            .skip_while(|f| f.input == f.output && stop_cond(&f.output))
-            .count()
-    }
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
@@ -1105,7 +1088,7 @@ mod tests {
         let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), 1));
 
         store.hydrate_z_cache();
-        MultiFrame::from_frames(&[frame], &store, folding_config)
+        MultiFrame::from_frames(&[frame], &store, &folding_config)
             .pop()
             .unwrap()
             .synthesize(&mut cs)
