@@ -1,6 +1,6 @@
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
-use super::{CircuitScope, LogMemo, Scope};
+use super::{CircuitScope, CircuitTranscript, LogMemo, Scope};
 use crate::circuit::gadgets::constraints::alloc_is_zero;
 use crate::coprocessor::gadgets::construct_list;
 use crate::coprocessor::AllocatedPtr;
@@ -42,8 +42,8 @@ pub trait CircuitQuery<F: LurkField> {
         store: &Store<F>,
         scope: &mut CircuitScope<F, DemoQuery<F>, LogMemo<F>>,
         acc: &AllocatedPtr<F>,
-        transcript: &AllocatedPtr<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError>;
+        transcript: &CircuitTranscript<F>,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError>;
 
     fn symbol(&self, s: &Store<F>) -> Symbol;
 
@@ -165,8 +165,8 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         store: &Store<F>,
         scope: &mut CircuitScope<F, DemoQuery<F>, LogMemo<F>>,
         acc: &AllocatedPtr<F>,
-        transcript: &AllocatedPtr<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
+        transcript: &CircuitTranscript<F>,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
         match self {
             // TODO: Factor out the recursive boilerplate so individual queries can just implement their distinct logic
             // using a sane framework.
@@ -253,7 +253,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
                     &recursive_acc,
                 )?;
 
-                let transcript = AllocatedPtr::pick(
+                let transcript = CircuitTranscript::pick(
                     &mut cs.namespace(|| "pick recursive_transcript"),
                     &n_is_zero,
                     transcript,

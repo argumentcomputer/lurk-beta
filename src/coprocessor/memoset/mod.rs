@@ -43,11 +43,6 @@ impl<F: LurkField> Transcript<F> {
         }
     }
 
-    #[allow(dead_code)]
-    fn zptr(&self, s: &Store<F>) -> ZPtr<Tag, F> {
-        s.hash_ptr(&self.acc)
-    }
-
     fn add(&mut self, s: &Store<F>, item: Ptr) {
         self.acc = s.cons(item, self.acc);
     }
@@ -63,13 +58,89 @@ impl<F: LurkField> Transcript<F> {
 
     #[allow(dead_code)]
     fn dbg(&self, s: &Store<F>) {
-        dbg!(self.acc.fmt_to_string_simple(s));
-        // dbg!(transcript.fmt_to_string_simple(s));
+        //dbg!(self.acc.fmt_to_string_simple(s));
         tracing::debug!("transcript: {}", self.acc.fmt_to_string_simple(s));
     }
 
     fn fmt_to_string_simple(&self, s: &Store<F>) -> String {
         self.acc.fmt_to_string_simple(s)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CircuitTranscript<F: LurkField> {
+    acc: AllocatedPtr<F>,
+}
+
+impl<F: LurkField> CircuitTranscript<F> {
+    fn new<CS: ConstraintSystem<F>>(cs: &mut CS, g: &mut GlobalAllocator<F>, s: &Store<F>) -> Self {
+        let nil = s.intern_nil();
+        let allocated_nil = g.alloc_ptr(cs, &nil, s);
+        Self {
+            acc: allocated_nil.clone(),
+        }
+    }
+
+    pub fn pick<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        condition: &Boolean,
+        a: &Self,
+        b: &Self,
+    ) -> Result<Self, SynthesisError> {
+        let picked = AllocatedPtr::pick(cs, condition, &a.acc, &b.acc)?;
+        Ok(Self { acc: picked })
+    }
+
+    fn add<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        s: &Store<F>,
+        item: &AllocatedPtr<F>,
+    ) -> Result<Self, SynthesisError> {
+        Ok(Self {
+            acc: construct_cons(cs, g, s, item, &self.acc)?,
+        })
+    }
+
+    fn make_kv<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        s: &Store<F>,
+        key: &AllocatedPtr<F>,
+        value: &AllocatedPtr<F>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        construct_cons(cs, g, s, key, value)
+    }
+
+    fn make_kv_count<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        s: &Store<F>,
+        kv: &AllocatedPtr<F>,
+        count: u64,
+    ) -> Result<(AllocatedPtr<F>, AllocatedNum<F>), SynthesisError> {
+        let allocated_count =
+            { AllocatedNum::alloc(&mut cs.namespace(|| "count"), || Ok(F::from_u64(count)))? };
+        let count_ptr = AllocatedPtr::alloc_tag(
+            &mut cs.namespace(|| "count_ptr"),
+            ExprTag::Num.to_field(),
+            allocated_count.clone(),
+        )?;
+
+        Ok((construct_cons(cs, g, s, kv, &count_ptr)?, allocated_count))
+    }
+
+    fn r(&self) -> &AllocatedNum<F> {
+        self.acc.hash()
+    }
+
+    #[allow(dead_code)]
+    fn dbg(&self, s: &Store<F>) {
+        let z = self.acc.get_value::<Tag>().unwrap();
+        let transcript = s.to_ptr(&z);
+        // dbg!(transcript.fmt_to_string_simple(s));
+        tracing::debug!("transcript: {}", transcript.fmt_to_string_simple(s));
     }
 }
 
@@ -112,7 +183,7 @@ pub struct CircuitScope<F: LurkField, Q: Query<F>, M: MemoSet<F>> {
     queries: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     /// k -> allocated v
     queries_alloc: HashMap<ZPtr<Tag, F>, AllocatedPtr<F>>,
-    transcript: Option<AllocatedPtr<F>>,
+    transcript: CircuitTranscript<F>,
     acc: Option<AllocatedPtr<F>>,
     _p: PhantomData<Q>,
 }
@@ -252,7 +323,8 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
         self.ensure_transcript_finalized(s);
 
         {
-            let circuit_scope = &mut CircuitScope::from_scope(s, self);
+            let circuit_scope =
+                &mut CircuitScope::from_scope(&mut cs.namespace(|| "transcript"), g, s, self);
             circuit_scope.init(cs, g, s);
             {
                 self.synthesize_insert_toplevel_queries(circuit_scope, cs, g, s)?;
@@ -291,7 +363,12 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
 }
 
 impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
-    fn from_scope(s: &Store<F>, scope: &Scope<F, Q, LogMemo<F>>) -> Self {
+    fn from_scope<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        g: &mut GlobalAllocator<F>,
+        s: &Store<F>,
+        scope: &Scope<F, Q, LogMemo<F>>,
+    ) -> Self {
         let queries = scope
             .queries
             .iter()
@@ -301,7 +378,7 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
             memoset: scope.memoset.clone(),
             queries,
             queries_alloc: Default::default(),
-            transcript: Default::default(),
+            transcript: CircuitTranscript::new(cs, g, s),
             acc: Default::default(),
             _p: Default::default(),
         }
@@ -313,17 +390,12 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
     ) {
-        g.alloc_tag(cs, &ExprTag::Cons);
-        g.alloc_z_ptr(cs, s.hash_ptr(&s.intern_nil()));
-
         self.acc = Some(
             AllocatedPtr::alloc_constant(&mut cs.namespace(|| "acc"), s.hash_ptr(&s.num_u64(0)))
                 .unwrap(),
         );
-        let nil = s.intern_nil();
-        let allocated_nil = g.alloc_ptr(cs, &nil, s);
 
-        self.transcript = Some(allocated_nil.clone());
+        self.transcript = CircuitTranscript::new(cs, g, s);
     }
 
     fn synthesize_insert_query<CS: ConstraintSystem<F>>(
@@ -332,18 +404,12 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
         g: &GlobalAllocator<F>,
         s: &Store<F>,
         acc: &AllocatedPtr<F>,
-        transcript: &AllocatedPtr<F>,
+        transcript: &CircuitTranscript<F>,
         key: &AllocatedPtr<F>,
         value: &AllocatedPtr<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-        let kv = construct_cons(&mut cs.namespace(|| "kv"), g, s, key, value)?;
-        let new_transcript = construct_cons(
-            &mut cs.namespace(|| "new_transcript"),
-            g,
-            s,
-            &kv,
-            transcript,
-        )?;
+    ) -> Result<(AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
+        let kv = CircuitTranscript::make_kv(&mut cs.namespace(|| "kv"), g, s, key, value)?;
+        let new_transcript = transcript.add(&mut cs.namespace(|| "new_transcript"), g, s, &kv)?;
 
         let acc_v = acc.hash();
 
@@ -357,7 +423,7 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
             new_acc_v,
         )?;
 
-        Ok((new_acc, new_transcript))
+        Ok((new_acc, new_transcript.clone()))
     }
 
     // TODO: Rename
@@ -367,32 +433,26 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
         g: &GlobalAllocator<F>,
         s: &Store<F>,
         acc: &AllocatedPtr<F>,
-        transcript: &AllocatedPtr<F>,
+        transcript: &CircuitTranscript<F>,
         key: &AllocatedPtr<F>,
         value: &AllocatedPtr<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-        let kv = construct_cons(&mut cs.namespace(|| "kv"), g, s, key, value)?;
-        let count = {
-            // Get kv zptr or use Nil as arbitrary dummy.
-            let zptr = kv.get_value().unwrap_or(s.hash_ptr(&s.intern_nil()));
-            AllocatedNum::alloc(&mut cs.namespace(|| "count"), || {
-                Ok(F::from_u64(self.memoset.count(&s.to_ptr(&zptr)) as u64))
-            })?
-        };
-        let count_ptr = AllocatedPtr::alloc_tag(
-            &mut cs.namespace(|| "count_ptr"),
-            ExprTag::Num.to_field(),
-            count.clone(),
+    ) -> Result<(AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
+        let kv = CircuitTranscript::make_kv(&mut cs.namespace(|| "kv"), g, s, key, value)?;
+        let zptr = kv.get_value().unwrap_or(s.hash_ptr(&s.intern_nil())); // dummy case: use nil
+        let raw_count = self.memoset.count(&s.to_ptr(&zptr)) as u64; // dummy case: count is meaningless
+
+        let (kv_count, count) = CircuitTranscript::make_kv_count(
+            &mut cs.namespace(|| "kv_count"),
+            g,
+            s,
+            &kv,
+            raw_count,
         )?;
-
-        let kv_count = construct_cons(&mut cs.namespace(|| "kv_count"), g, s, &kv, &count_ptr)?;
-
-        let new_transcript = construct_cons(
+        let new_transcript = transcript.add(
             &mut cs.namespace(|| "new_removal_transcript"),
             g,
             s,
             &kv_count,
-            transcript,
         )?;
 
         let new_acc_v = self.memoset.synthesize_remove_n(
@@ -412,12 +472,7 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
 
     fn finalize<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, _g: &mut GlobalAllocator<F>) {
         let r = self.memoset.allocated_r(cs);
-        enforce_equal(
-            cs,
-            || "r_matches_transcript",
-            self.transcript.clone().unwrap().hash(),
-            &r,
-        );
+        enforce_equal(cs, || "r_matches_transcript", self.transcript.r(), &r);
         enforce_equal_zero(cs, || "acc_is_zero", self.acc.clone().unwrap().hash());
     }
 
@@ -428,9 +483,9 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
         store: &Store<F>,
         key: &AllocatedPtr<F>,
         acc: &AllocatedPtr<F>,
-        transcript: &AllocatedPtr<F>,
+        transcript: &CircuitTranscript<F>,
         not_dummy: &Boolean, // TODO: use this more deeply?
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
         let value = key
             .get_value()
             .map(|k| {
@@ -478,7 +533,7 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
         .unwrap();
 
         let acc = self.acc.clone().unwrap();
-        let insertion_transcript = self.transcript.clone().unwrap();
+        let insertion_transcript = self.transcript.clone();
 
         let (val, new_acc, new_transcript) = self.synthesize_query(
             cs,
@@ -495,7 +550,7 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
         }
 
         self.acc = Some(new_acc);
-        self.transcript = Some(new_transcript);
+        self.transcript = new_transcript;
         Ok(())
     }
 
@@ -520,7 +575,7 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
             ScopeCircuitQuery::from_ptr(&mut cs.namespace(|| "circuit_query"), s, key).unwrap();
 
         let acc = self.acc.clone().unwrap();
-        let transcript = self.transcript.clone().unwrap();
+        let transcript = self.transcript.clone();
 
         let (val, new_acc, new_transcript) = circuit_query
             .expect("not a query form")
@@ -531,17 +586,14 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
             self.synthesize_remove_n(cs, g, s, &new_acc, &new_transcript, &allocated_key, &val)?;
 
         self.acc = Some(new_acc);
-        self.transcript = Some(new_transcript);
+        self.transcript = new_transcript;
 
         Ok(())
     }
 
     #[allow(dead_code)]
     fn dbg_transcript(&self, s: &Store<F>) {
-        let z = self.transcript.clone().unwrap().get_value::<Tag>().unwrap();
-        let transcript = s.to_ptr(&z);
-        // dbg!(transcript.fmt_to_string_simple(s));
-        tracing::debug!("transcript: {}", transcript.fmt_to_string_simple(s));
+        self.transcript.dbg(s);
     }
 }
 
