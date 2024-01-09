@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/public_parameters/instance.rs`."><title>instance.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (75c68cfd2 2024-01-07)" data-channel="nightly" data-search-js="search-1cefe72944ee87e6.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/public_parameters/instance.rs`."><title>instance.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (ca663b06c 2024-01-08)" data-channel="nightly" data-search-js="search-1cefe72944ee87e6.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../lurk/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -261,25 +261,6 @@
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Instances
 //!
 //! We manage the various kinds of public parameters of Nova and SuperNova with [Instance]s.
@@ -324,11 +305,7 @@
     sync::Arc,
 };
 
-<span class="kw">use </span>::nova::{
-    constants::NUM_HASH_BITS,
-    supernova::{NonUniformCircuit, StepCircuit <span class="kw">as </span>SuperStepCircuit},
-    traits::Engine,
-};
+<span class="kw">use </span>::nova::{constants::NUM_HASH_BITS, traits::Engine};
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>camino::Utf8Path;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -337,10 +314,9 @@
 <span class="kw">use crate</span>::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
-    proof::MultiFrameTrait,
     proof::{
         nova::{<span class="self">self</span>, CurveCycleEquipped, E1, E2},
-        supernova::{<span class="self">self</span>, C2},
+        supernova::{<span class="self">self</span>},
     },
 };
 
@@ -356,14 +332,13 @@
 /// we derive the `num_circuits + 1` circuit param instances. This makes sure that we keep the SuperNova
 /// instances as modular as possible, and reuse as much overlapping circuit params as possible.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>Instance&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
-{
+</span><span class="kw">pub struct </span>Instance&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>rc: usize,
     <span class="kw">pub </span>lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     <span class="kw">pub </span>abomonated: bool,
     <span class="kw">pub </span>cache_key: F,
     <span class="kw">pub </span>kind: Kind,
-    <span class="kw">pub </span>_p: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>M&gt;,
+    <span class="kw">pub </span>_p: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>()&gt;,
 }
 
 <span class="doccomment">/// From [::nova], there are 3 "kinds" of public param objects that need to be cached.
@@ -394,13 +369,8 @@
 }
 
 <span class="kw">impl </span>Metadata {
-    <span class="kw">fn </span>from_instance&lt;
-        <span class="lifetime">'a</span>,
-        F: CurveCycleEquipped,
-        C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
-        M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
-    &gt;(
-        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;,
+    <span class="kw">fn </span>from_instance&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;(
+        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">'a</span>, F, C&gt;,
     ) -&gt; <span class="self">Self </span>{
         Metadata {
             rc: instance.rc,
@@ -412,24 +382,17 @@
     }
 }
 
-<span class="kw">impl</span>&lt;
-        <span class="lifetime">'a</span>,
-        F: CurveCycleEquipped,
-        C: Coprocessor&lt;F&gt;,
-        M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
-    &gt; Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; Instance&lt;<span class="lifetime">'a</span>, F, C&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">pub fn </span>new(rc: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;, abomonated: bool, kind: Kind) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>cache_key = <span class="kw">match </span>kind {
-            Kind::NovaPublicParams =&gt; nova::circuit_cache_key::&lt;<span class="lifetime">'a</span>, F, C, M&gt;(rc, lang.clone()),
-            Kind::SuperNovaAuxParams =&gt; {
-                supernova::circuit_cache_keys::&lt;F, C, M&gt;(rc, <span class="kw-2">&amp;</span>lang).digest()
-            }
+            Kind::NovaPublicParams =&gt; nova::circuit_cache_key::&lt;<span class="lifetime">'a</span>, F, C&gt;(rc, lang.clone()),
+            Kind::SuperNovaAuxParams =&gt; supernova::circuit_cache_keys::&lt;F, C&gt;(rc, <span class="kw-2">&amp;</span>lang).digest(),
             Kind::SuperNovaCircuitParams(circuit_index) =&gt; {
-                supernova::circuit_cache_key::&lt;<span class="lifetime">'a</span>, F, C, M&gt;(rc, lang.clone(), circuit_index)
+                supernova::circuit_cache_key::&lt;<span class="lifetime">'a</span>, F, C&gt;(rc, lang.clone(), circuit_index)
             }
         };
         Instance {
@@ -475,8 +438,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
-    Instance&lt;<span class="lifetime">'a</span>, F, C, M&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; Instance&lt;<span class="lifetime">'a</span>, F, C&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,

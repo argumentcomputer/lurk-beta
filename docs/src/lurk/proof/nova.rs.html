@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (75c68cfd2 2024-01-07)" data-channel="nightly" data-search-js="search-1cefe72944ee87e6.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (ca663b06c 2024-01-08)" data-channel="nightly" data-search-js="search-1cefe72944ee87e6.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../lurk/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -435,18 +435,6 @@
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
 <a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -477,7 +465,8 @@
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
+    lem::store::Store,
+    proof::{supernova::FoldingConfig, FrameLike, Prover},
 };
 
 <span class="kw">use super</span>::{FoldingMode, RecursiveSNARKTrait};
@@ -601,7 +590,7 @@
 <span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
 #[serde(bound = <span class="string">""</span>)]
-</span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
+</span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
@@ -609,14 +598,14 @@
     <span class="doccomment">/// A proof for the intermediate steps of a recursive computation along with
     /// the number of steps used for verification
     </span>Recursive(
-        Box&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt;,
+        Box&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;, C2&lt;F&gt;&gt;&gt;,
         usize,
         PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>C&gt;,
     ),
     <span class="doccomment">/// A proof for the final step of a recursive computation along with the number
     /// of steps used for verification
     </span>Compressed(
-        Box&lt;CompressedSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;,
+        Box&lt;CompressedSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;,
         usize,
         PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>C&gt;,
     ),
@@ -628,30 +617,20 @@
 ///
 /// Note: For now, we use ad-hoc circuit cache keys.
 /// See: [crate::public_parameters::instance]
-</span><span class="kw">pub fn </span>circuit_cache_key&lt;
-    <span class="lifetime">'a</span>,
-    F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
-&gt;(
+</span><span class="kw">pub fn </span>circuit_cache_key&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;(
     rc: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; F {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, <span class="number">2</span>));
-    <span class="kw">let </span>circuit = M::blank(folding_config, <span class="number">0</span>);
+    <span class="kw">let </span>circuit = C1LEM::&lt;<span class="lifetime">'a</span>, F, C&gt;::blank(folding_config, <span class="number">0</span>);
     F::from(rc <span class="kw">as </span>u64) * nova::circuit_digest::&lt;F::E1, F::E2, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>circuit)
 }
 
 <span class="doccomment">/// Generates the public parameters for the Nova proving system.
-</span><span class="kw">pub fn </span>public_params&lt;
-    <span class="lifetime">'a</span>,
-    F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
-    M: StepCircuit&lt;F&gt; + MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
-&gt;(
+</span><span class="kw">pub fn </span>public_params&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;(
     reduction_count: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
-) -&gt; PublicParams&lt;F, M&gt;
+) -&gt; PublicParams&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
@@ -672,30 +651,32 @@
 }
 
 <span class="doccomment">/// Generates the circuits for the Nova proving system.
-</span><span class="kw">pub fn </span>circuits&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;(
+</span><span class="kw">pub fn </span>circuits&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;(
     reduction_count: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
-) -&gt; (M, C2&lt;F&gt;) {
+) -&gt; (C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;, C2&lt;F&gt;) {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, reduction_count));
-    (M::blank(folding_config, <span class="number">0</span>), TrivialCircuit::default())
+    (
+        C1LEM::&lt;<span class="lifetime">'a</span>, F, C&gt;::blank(folding_config, <span class="number">0</span>),
+        TrivialCircuit::default(),
+    )
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
-    RecursiveSNARKTrait&lt;<span class="lifetime">'a</span>, F, C, M&gt; <span class="kw">for </span>Proof&lt;<span class="lifetime">'a</span>, F, C, M&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; RecursiveSNARKTrait&lt;<span class="lifetime">'a</span>, F, C&gt; <span class="kw">for </span>Proof&lt;<span class="lifetime">'a</span>, F, C&gt;
 <span class="kw">where
     </span>&lt;F <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;&lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::E2 <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">type </span>PublicParams = PublicParams&lt;F, M&gt;;
+    <span class="kw">type </span>PublicParams = PublicParams&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;;
 
     <span class="kw">type </span>ErrorType = NovaError;
 
     <span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"nova::prove_recursively"</span>)]
     </span><span class="kw">fn </span>prove_recursively(
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;,
         z0: <span class="kw-2">&amp;</span>[F],
-        steps: Vec&lt;M&gt;,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>&lt;M&gt;::Store,
+        steps: Vec&lt;C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
         reduction_count: usize,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
@@ -706,14 +687,17 @@
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
 
         <span class="macro">assert_eq!</span>(steps[<span class="number">0</span>].frames().unwrap().len(), reduction_count);
-        <span class="kw">let </span>(_circuit_primary, circuit_secondary): (M, TrivialCircuit&lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar&gt;) =
-            circuits(reduction_count, lang);
+        <span class="kw">let </span>(_circuit_primary, circuit_secondary): (
+            C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;,
+            TrivialCircuit&lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar&gt;,
+        ) = circuits(reduction_count, lang);
 
         <span class="kw">let </span>num_steps = steps.len();
         <span class="macro">tracing::debug!</span>(<span class="string">"steps.len: {num_steps}"</span>);
 
         <span class="comment">// produce a recursive SNARK
-        </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, M, C2&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;, C2&lt;F&gt;&gt;&gt; =
+            <span class="prelude-val">None</span>;
 
         <span class="comment">// the shadowing here is voluntary
         </span><span class="kw">let </span>recursive_snark = <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
@@ -768,7 +752,7 @@
 
                     <span class="comment">// This is a CircuitFrame, not an EvalFrame
                     </span><span class="kw">let </span>first_frame = circuit_primary.frames().unwrap().iter().next().unwrap();
-                    <span class="kw">let </span>zi = M::io_to_scalar_vector(store, first_frame.input());
+                    <span class="kw">let </span>zi = store.to_scalar_vector(first_frame.input());
                     <span class="kw">let </span>zi_allocated: Vec&lt;<span class="kw">_</span>&gt; = zi
                         .iter()
                         .enumerate()
@@ -807,7 +791,7 @@
         ))
     }
 
-    <span class="kw">fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
+    <span class="kw">fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Recursive(recursive_snark, num_steps, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Compressed(
                 Box::new(CompressedSNARK::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;::prove(
@@ -842,22 +826,15 @@
 
 <span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>NovaProver&lt;
-    <span class="lifetime">'a</span>,
-    F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
-&gt; {
+</span><span class="kw">pub struct </span>NovaProver&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; {
     <span class="doccomment">/// The number of small-step reductions performed in each recursive step.
     </span>reduction_count: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     folding_mode: FoldingMode,
-    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>M&gt;,
+    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>()&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
-    NovaProver&lt;<span class="lifetime">'a</span>, F, C, M&gt;
-{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; NovaProver&lt;<span class="lifetime">'a</span>, F, C&gt; {
     <span class="doccomment">/// Create a new NovaProver with a reduction count and a `Lang`
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new(reduction_count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; <span class="self">Self </span>{
@@ -870,14 +847,13 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt; Prover&lt;<span class="lifetime">'a</span>, F, C, M&gt;
-    <span class="kw">for </span>NovaProver&lt;<span class="lifetime">'a</span>, F, C, M&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt; Prover&lt;<span class="lifetime">'a</span>, F, C&gt; <span class="kw">for </span>NovaProver&lt;<span class="lifetime">'a</span>, F, C&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">type </span>PublicParams = PublicParams&lt;F, M&gt;;
-    <span class="kw">type </span>RecursiveSnark = Proof&lt;<span class="lifetime">'a</span>, F, C, M&gt;;
+    <span class="kw">type </span>PublicParams = PublicParams&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;;
+    <span class="kw">type </span>RecursiveSnark = Proof&lt;<span class="lifetime">'a</span>, F, C&gt;;
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {

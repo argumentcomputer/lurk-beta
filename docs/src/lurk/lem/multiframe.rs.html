@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/multiframe.rs`."><title>multiframe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (75c68cfd2 2024-01-07)" data-channel="nightly" data-search-js="search-1cefe72944ee87e6.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/multiframe.rs`."><title>multiframe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (ca663b06c 2024-01-08)" data-channel="nightly" data-search-js="search-1cefe72944ee87e6.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../lurk/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -1099,23 +1099,6 @@
 <a href="#1097" id="1097">1097</a>
 <a href="#1098" id="1098">1098</a>
 <a href="#1099" id="1099">1099</a>
-<a href="#1100" id="1100">1100</a>
-<a href="#1101" id="1101">1101</a>
-<a href="#1102" id="1102">1102</a>
-<a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -1137,9 +1120,8 @@
     proof::{
         nova::{CurveCycleEquipped, E1, E2},
         supernova::{FoldingConfig, C2},
-        CEKState, EvaluationStore, FrameLike, MultiFrameTrait, Provable,
+        CEKState, EvaluationStore, FrameLike, Provable,
     },
-    store,
     tag::ContTag,
 };
 
@@ -1188,9 +1170,307 @@
     </span><span class="kw">fn </span>get_lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt; {
         <span class="self">self</span>.folding_config.lang()
     }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>frames(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;Frame&gt;&gt; {
+        <span class="self">self</span>.frames.as_ref()
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Vec&lt;Ptr&gt;&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.output
+    }
+
+    <span class="kw">pub fn </span>emitted(_store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, eval_frame: <span class="kw-2">&amp;</span>Frame) -&gt; Vec&lt;Ptr&gt; {
+        eval_frame.emitted.clone()
+    }
+
+    <span class="kw">pub fn </span>cache_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+        <span class="kw">let _ </span>= <span class="self">self</span>.cached_witness.get_or_try_init(|| {
+            <span class="kw">let </span><span class="kw-2">mut </span>wcs = WitnessCS::new();
+
+            <span class="kw">let </span>z_scalar = s.to_scalar_vector(<span class="self">self</span>.input.as_ref().unwrap());
+
+            <span class="kw">let </span><span class="kw-2">mut </span>bogus_cs = WitnessCS::&lt;F&gt;::new();
+            <span class="kw">let </span>z: Vec&lt;AllocatedNum&lt;F&gt;&gt; = z_scalar
+                .iter()
+                .map(|x| AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="kw-2">*</span>x))
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+            <span class="kw">let </span>output =
+                nova::traits::circuit::StepCircuit::synthesize(<span class="self">self</span>, <span class="kw-2">&amp;mut </span>wcs, z.as_slice())<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, SynthesisError&gt;((wcs, output))
+        })<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>precedes(<span class="kw-2">&amp;</span><span class="self">self</span>, maybe_next: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="self">self</span>.output == maybe_next.input
+    }
+
+    <span class="kw">pub fn </span>synthesize_frames&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        input: Vec&lt;AllocatedPtr&lt;F&gt;&gt;,
+        frames: <span class="kw-2">&amp;</span>[Frame],
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;, SynthesisError&gt; {
+        <span class="kw">let </span>func = <span class="self">self</span>.get_func();
+        <span class="kw">if </span>cs.is_witness_generator() {
+            <span class="kw">let </span>num_slots_per_frame = func.slots_count.total();
+            <span class="kw">let </span>slots_witnesses = generate_slots_witnesses(
+                store,
+                frames,
+                num_slots_per_frame,
+                lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+                    .perf
+                    .parallelism
+                    .poseidon_witnesses
+                    .is_parallel(),
+            );
+            <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+                .perf
+                .parallelism
+                .synthesis
+                .is_parallel()
+            {
+                <span class="prelude-val">Ok</span>(synthesize_frames_parallel(
+                    cs,
+                    g,
+                    store,
+                    input,
+                    frames,
+                    func,
+                    <span class="self">self</span>.get_lang(),
+                    <span class="kw-2">&amp;</span>slots_witnesses,
+                    num_slots_per_frame,
+                ))
+            } <span class="kw">else </span>{
+                synthesize_frames_sequential(
+                    cs,
+                    g,
+                    store,
+                    <span class="kw-2">&amp;</span>input,
+                    frames,
+                    func,
+                    <span class="self">self</span>.get_lang(),
+                    <span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>slots_witnesses, num_slots_per_frame)),
+                )
+            }
+        } <span class="kw">else </span>{
+            synthesize_frames_sequential(cs, g, store, <span class="kw-2">&amp;</span>input, frames, func, <span class="self">self</span>.get_lang(), <span class="prelude-val">None</span>)
+        }
+    }
+
+    <span class="kw">pub fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, pc: usize) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(lurk_step, cprocs, rc) = <span class="kw">match </span><span class="kw-2">&amp;*</span>folding_config {
+            FoldingConfig::IVC(lang, rc) =&gt; (
+                Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(lang))),
+                <span class="prelude-val">None</span>,
+                <span class="kw-2">*</span>rc,
+            ),
+            FoldingConfig::NIVC(lang, rc) =&gt; (
+                Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_nivc(lang))),
+                <span class="prelude-val">Some</span>(make_cprocs_funcs_from_lang(lang).into()),
+                <span class="kw-2">*</span>rc,
+            ),
+        };
+        <span class="kw">let </span>num_frames = <span class="kw">if </span>pc == <span class="number">0 </span>{ rc } <span class="kw">else </span>{ <span class="number">1 </span>};
+        <span class="self">Self </span>{
+            store: <span class="prelude-val">None</span>,
+            lurk_step,
+            cprocs,
+            input: <span class="prelude-val">None</span>,
+            output: <span class="prelude-val">None</span>,
+            frames: <span class="prelude-val">None</span>,
+            cached_witness: OnceCell::new(),
+            num_frames,
+            folding_config,
+            pc,
+            next_pc: <span class="number">0</span>,
+        }
+    }
+
+    <span class="kw">pub fn </span>from_frames(
+        frames: <span class="kw-2">&amp;</span>[Frame],
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
+        folding_config: <span class="kw-2">&amp;</span>Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
+    ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>reduction_count = folding_config.reduction_count();
+        <span class="kw">let </span><span class="kw-2">mut </span>multi_frames =
+            Vec::with_capacity((frames.len() + reduction_count - <span class="number">1</span>) / reduction_count);
+        <span class="kw">match </span>folding_config.as_ref() {
+            FoldingConfig::IVC(lang, <span class="kw">_</span>) =&gt; {
+                <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(lang)));
+                <span class="kw">for </span>chunk <span class="kw">in </span>frames.chunks(reduction_count) {
+                    <span class="kw">let </span>output = chunk
+                        .last()
+                        .expect(<span class="string">"chunk must not be empty"</span>)
+                        .output
+                        .clone();
+                    <span class="kw">let </span>inner_frames = <span class="kw">if </span>chunk.len() &lt; reduction_count {
+                        <span class="kw">let </span><span class="kw-2">mut </span>inner_frames = Vec::with_capacity(reduction_count);
+                        inner_frames.extend(chunk.to_vec());
+                        pad_frames(
+                            <span class="kw-2">&amp;mut </span>inner_frames,
+                            <span class="kw-2">&amp;</span>output,
+                            <span class="kw-2">&amp;</span>lurk_step,
+                            lang,
+                            reduction_count,
+                            store,
+                        );
+                        inner_frames
+                    } <span class="kw">else </span>{
+                        chunk.to_vec()
+                    };
+
+                    <span class="kw">let </span>mf = MultiFrame {
+                        store: <span class="prelude-val">Some</span>(store),
+                        lurk_step: lurk_step.clone(),
+                        cprocs: <span class="prelude-val">None</span>,
+                        input: <span class="prelude-val">Some</span>(chunk[<span class="number">0</span>].input.clone()),
+                        output: <span class="prelude-val">Some</span>(output),
+                        frames: <span class="prelude-val">Some</span>(inner_frames),
+                        cached_witness: OnceCell::new(),
+                        num_frames: reduction_count,
+                        folding_config: folding_config.clone(),
+                        pc: <span class="number">0</span>,
+                        next_pc: <span class="number">0</span>,
+                    };
+
+                    multi_frames.push(mf);
+                }
+            }
+            FoldingConfig::NIVC(lang, <span class="kw">_</span>) =&gt; {
+                <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_nivc(lang)));
+                <span class="kw">let </span>cprocs: Arc&lt;[Func]&gt; = make_cprocs_funcs_from_lang(lang).into();
+                <span class="kw">let </span><span class="kw-2">mut </span>chunk_start_idx = <span class="number">0</span>;
+                <span class="kw">while </span>chunk_start_idx &lt; frames.len() {
+                    <span class="kw">let </span>first_frame = <span class="kw-2">&amp;</span>frames[chunk_start_idx];
+
+                    <span class="comment">// Variables occurring in both branches
+                    </span><span class="kw">let </span>input = first_frame.input.clone();
+                    <span class="kw">let </span>output: Vec&lt;<span class="kw">_</span>&gt;;
+                    <span class="kw">let </span>frames_to_add: Vec&lt;<span class="kw">_</span>&gt;;
+
+                    <span class="comment">// the following variables start with the default values for
+                    // IVC
+                    </span><span class="kw">let </span><span class="kw-2">mut </span>num_frames = reduction_count;
+                    <span class="kw">let </span><span class="kw-2">mut </span>pc = <span class="number">0</span>;
+                    <span class="kw">let </span><span class="kw-2">mut </span>next_pc = <span class="number">0</span>;
+
+                    <span class="kw">if </span>first_frame.pc == <span class="number">0 </span>{
+                        <span class="kw">let </span><span class="kw-2">mut </span>inner_frames = Vec::with_capacity(reduction_count);
+                        <span class="kw">let </span>chunk_start_idx_saved = chunk_start_idx;
+
+                        <span class="comment">// fill `inner_frames` with `reduction_count` frames unless
+                        // we don't have enough frames or we find some frame whose
+                        // `pc` is not `0` on the way
+                        </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..reduction_count {
+                            <span class="kw">let </span>current_frame_idx = chunk_start_idx_saved + i;
+                            inner_frames.push(frames[current_frame_idx].clone());
+                            chunk_start_idx = current_frame_idx + <span class="number">1</span>;
+
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(next_frame) = frames.get(chunk_start_idx) {
+                                next_pc = next_frame.pc;
+                                <span class="kw">if </span>next_pc != <span class="number">0 </span>{
+                                    <span class="comment">// incompatible `pc` incoming
+                                    </span><span class="kw">break</span>;
+                                }
+                            } <span class="kw">else </span>{
+                                <span class="comment">// not enough frames
+                                </span><span class="kw">break</span>;
+                            }
+                        }
+
+                        output = inner_frames
+                            .last()
+                            .expect(<span class="string">"empty inner_frames"</span>)
+                            .output
+                            .clone();
+
+                        <span class="kw">if </span>inner_frames.len() &lt; reduction_count {
+                            pad_frames(
+                                <span class="kw-2">&amp;mut </span>inner_frames,
+                                <span class="kw-2">&amp;</span>output,
+                                <span class="kw-2">&amp;</span>lurk_step,
+                                lang,
+                                reduction_count,
+                                store,
+                            );
+                        }
+
+                        frames_to_add = inner_frames;
+                    } <span class="kw">else </span>{
+                        chunk_start_idx += <span class="number">1</span>;
+                        output = first_frame.output.clone();
+                        frames_to_add = <span class="macro">vec!</span>[first_frame.clone()];
+                        num_frames = <span class="number">1</span>;
+                        pc = first_frame.pc;
+                    }
+
+                    <span class="kw">let </span>mf = MultiFrame {
+                        store: <span class="prelude-val">Some</span>(store),
+                        lurk_step: lurk_step.clone(),
+                        cprocs: <span class="prelude-val">Some</span>(cprocs.clone()),
+                        input: <span class="prelude-val">Some</span>(input),
+                        output: <span class="prelude-val">Some</span>(output),
+                        frames: <span class="prelude-val">Some</span>(frames_to_add),
+                        cached_witness: OnceCell::new(),
+                        num_frames,
+                        folding_config: folding_config.clone(),
+                        pc,
+                        next_pc,
+                    };
+
+                    multi_frames.push(mf);
+                }
+            }
+        }
+
+        multi_frames
+    }
+
+    <span class="kw">pub fn </span>build_frames(
+        expr: Ptr,
+        env: Ptr,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        limit: usize,
+        ec: <span class="kw-2">&amp;</span>EvalConfig&lt;<span class="lifetime">'_</span>, F, C&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;, ProofError&gt; {
+        <span class="kw">let </span>cont = store.cont_outermost();
+        <span class="kw">let </span>lurk_step = make_eval_step_from_config(ec);
+        <span class="kw">let </span>lang = ec.lang();
+        <span class="kw">let </span>cprocs = make_cprocs_funcs_from_lang(lang);
+        evaluate_with_env_and_cont(
+            <span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>lurk_step, <span class="kw-2">&amp;</span>cprocs, lang)),
+            expr,
+            env,
+            cont,
+            store,
+            limit,
+        )
+        .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
+    }
+
+    <span class="kw">pub fn </span>significant_frame_count(frames: <span class="kw-2">&amp;</span>[Frame]) -&gt; usize {
+        <span class="kw">let </span>stop_cond = |output: <span class="kw-2">&amp;</span>[Ptr]| {
+            <span class="macro">matches!</span>(
+                output[<span class="number">2</span>].tag(),
+                Tag::Cont(ContTag::Terminal | ContTag::Error)
+            )
+        };
+        frames
+            .iter()
+            .rev()
+            .skip_while(|f| f.input == f.output &amp;&amp; stop_cond(<span class="kw-2">&amp;</span>f.output))
+            .count()
+    }
 }
 
-<span class="kw">impl </span>CEKState&lt;Ptr, Ptr&gt; <span class="kw">for </span>Vec&lt;Ptr&gt; {
+<span class="kw">impl </span>CEKState&lt;Ptr&gt; <span class="kw">for </span>Vec&lt;Ptr&gt; {
     <span class="kw">fn </span>expr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Ptr {
         <span class="kw-2">&amp;</span><span class="self">self</span>[<span class="number">0</span>]
     }
@@ -1202,7 +1482,7 @@
     }
 }
 
-<span class="kw">impl </span>FrameLike&lt;Ptr, Ptr&gt; <span class="kw">for </span>Frame {
+<span class="kw">impl </span>FrameLike&lt;Ptr&gt; <span class="kw">for </span>Frame {
     <span class="kw">type </span>FrameIO = Vec&lt;Ptr&gt;;
     <span class="kw">fn </span>input(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::FrameIO {
         <span class="kw-2">&amp;</span><span class="self">self</span>.input
@@ -1214,7 +1494,6 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; EvaluationStore <span class="kw">for </span>Store&lt;F&gt; {
     <span class="kw">type </span>Ptr = Ptr;
-    <span class="kw">type </span>ContPtr = Ptr;
     <span class="kw">type </span>Error = anyhow::Error;
 
     <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, expr: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Ptr, <span class="self">Self</span>::Error&gt; {
@@ -1225,7 +1504,7 @@
         <span class="self">self</span>.intern_nil()
     }
 
-    <span class="kw">fn </span>get_cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ContPtr {
+    <span class="kw">fn </span>get_cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Ptr {
         <span class="self">self</span>.cont_terminal()
     }
 
@@ -1500,319 +1779,6 @@
     <span class="macro">assert_eq!</span>(padding_frame.pc, <span class="number">0</span>);
     <span class="macro">assert_eq!</span>(input, padding_frame.output);
     frames.resize(size, padding_frame);
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt; MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">'a</span>, F, C&gt; {
-    <span class="kw">type </span>Ptr = Ptr;
-    <span class="kw">type </span>ContPtr = Ptr;
-    <span class="kw">type </span>Store = Store&lt;F&gt;;
-    <span class="kw">type </span>StoreError = store::Error;
-    <span class="kw">type </span>EvalFrame = Frame;
-    <span class="kw">type </span>CircuitFrame = Frame;
-    <span class="kw">type </span>GlobalAllocation = GlobalAllocator&lt;F&gt;;
-    <span class="kw">type </span>AllocatedIO = Vec&lt;AllocatedPtr&lt;F&gt;&gt;;
-
-    <span class="kw">fn </span>emitted(_store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, eval_frame: <span class="kw-2">&amp;</span><span class="self">Self</span>::EvalFrame) -&gt; Vec&lt;Ptr&gt; {
-        eval_frame.emitted.clone()
-    }
-
-    <span class="kw">fn </span>io_to_scalar_vector(
-        store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store,
-        io: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::EvalFrame <span class="kw">as </span>FrameLike&lt;Ptr, Ptr&gt;&gt;::FrameIO,
-    ) -&gt; Vec&lt;F&gt; {
-        store.to_scalar_vector(io)
-    }
-
-    <span class="kw">fn </span>cache_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
-        <span class="kw">let _ </span>= <span class="self">self</span>.cached_witness.get_or_try_init(|| {
-            <span class="kw">let </span><span class="kw-2">mut </span>wcs = WitnessCS::new();
-
-            <span class="kw">let </span>z_scalar = s.to_scalar_vector(<span class="self">self</span>.input.as_ref().unwrap());
-
-            <span class="kw">let </span><span class="kw-2">mut </span>bogus_cs = WitnessCS::&lt;F&gt;::new();
-            <span class="kw">let </span>z: Vec&lt;AllocatedNum&lt;F&gt;&gt; = z_scalar
-                .iter()
-                .map(|x| AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="kw-2">*</span>x))
-                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-
-            <span class="kw">let </span>output =
-                nova::traits::circuit::StepCircuit::synthesize(<span class="self">self</span>, <span class="kw-2">&amp;mut </span>wcs, z.as_slice())<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, SynthesisError&gt;((wcs, output))
-        })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;&lt;<span class="self">Self</span>::EvalFrame <span class="kw">as </span>FrameLike&lt;Ptr, Ptr&gt;&gt;::FrameIO&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.output
-    }
-
-    <span class="kw">fn </span>frames(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>::CircuitFrame&gt;&gt; {
-        <span class="self">self</span>.frames.as_ref()
-    }
-
-    <span class="kw">fn </span>precedes(<span class="kw-2">&amp;</span><span class="self">self</span>, maybe_next: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
-        <span class="self">self</span>.output == maybe_next.input
-    }
-
-    <span class="kw">fn </span>synthesize_frames&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        cs: <span class="kw-2">&amp;mut </span>CS,
-        store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store,
-        input: <span class="self">Self</span>::AllocatedIO,
-        frames: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::CircuitFrame],
-        g: <span class="kw-2">&amp;</span><span class="self">Self</span>::GlobalAllocation,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AllocatedIO, SynthesisError&gt; {
-        <span class="kw">let </span>func = <span class="self">self</span>.get_func();
-        <span class="kw">if </span>cs.is_witness_generator() {
-            <span class="kw">let </span>num_slots_per_frame = func.slots_count.total();
-            <span class="kw">let </span>slots_witnesses = generate_slots_witnesses(
-                store,
-                frames,
-                num_slots_per_frame,
-                lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
-                    .perf
-                    .parallelism
-                    .poseidon_witnesses
-                    .is_parallel(),
-            );
-            <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
-                .perf
-                .parallelism
-                .synthesis
-                .is_parallel()
-            {
-                <span class="prelude-val">Ok</span>(synthesize_frames_parallel(
-                    cs,
-                    g,
-                    store,
-                    input,
-                    frames,
-                    func,
-                    <span class="self">self</span>.get_lang(),
-                    <span class="kw-2">&amp;</span>slots_witnesses,
-                    num_slots_per_frame,
-                ))
-            } <span class="kw">else </span>{
-                synthesize_frames_sequential(
-                    cs,
-                    g,
-                    store,
-                    <span class="kw-2">&amp;</span>input,
-                    frames,
-                    func,
-                    <span class="self">self</span>.get_lang(),
-                    <span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>slots_witnesses, num_slots_per_frame)),
-                )
-            }
-        } <span class="kw">else </span>{
-            synthesize_frames_sequential(cs, g, store, <span class="kw-2">&amp;</span>input, frames, func, <span class="self">self</span>.get_lang(), <span class="prelude-val">None</span>)
-        }
-    }
-
-    <span class="kw">fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, pc: usize) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>(lurk_step, cprocs, rc) = <span class="kw">match </span><span class="kw-2">&amp;*</span>folding_config {
-            FoldingConfig::IVC(lang, rc) =&gt; (
-                Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(lang))),
-                <span class="prelude-val">None</span>,
-                <span class="kw-2">*</span>rc,
-            ),
-            FoldingConfig::NIVC(lang, rc) =&gt; (
-                Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_nivc(lang))),
-                <span class="prelude-val">Some</span>(make_cprocs_funcs_from_lang(lang).into()),
-                <span class="kw-2">*</span>rc,
-            ),
-        };
-        <span class="kw">let </span>num_frames = <span class="kw">if </span>pc == <span class="number">0 </span>{ rc } <span class="kw">else </span>{ <span class="number">1 </span>};
-        <span class="self">Self </span>{
-            store: <span class="prelude-val">None</span>,
-            lurk_step,
-            cprocs,
-            input: <span class="prelude-val">None</span>,
-            output: <span class="prelude-val">None</span>,
-            frames: <span class="prelude-val">None</span>,
-            cached_witness: OnceCell::new(),
-            num_frames,
-            folding_config,
-            pc,
-            next_pc: <span class="number">0</span>,
-        }
-    }
-
-    <span class="kw">fn </span>from_frames(
-        frames: <span class="kw-2">&amp;</span>[Frame],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>::Store,
-        folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
-    ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>reduction_count = folding_config.reduction_count();
-        <span class="kw">let </span><span class="kw-2">mut </span>multi_frames =
-            Vec::with_capacity((frames.len() + reduction_count - <span class="number">1</span>) / reduction_count);
-        <span class="kw">match </span><span class="kw-2">&amp;*</span>folding_config {
-            FoldingConfig::IVC(lang, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(lang)));
-                <span class="kw">for </span>chunk <span class="kw">in </span>frames.chunks(reduction_count) {
-                    <span class="kw">let </span>output = chunk
-                        .last()
-                        .expect(<span class="string">"chunk must not be empty"</span>)
-                        .output
-                        .clone();
-                    <span class="kw">let </span>inner_frames = <span class="kw">if </span>chunk.len() &lt; reduction_count {
-                        <span class="kw">let </span><span class="kw-2">mut </span>inner_frames = Vec::with_capacity(reduction_count);
-                        inner_frames.extend(chunk.to_vec());
-                        pad_frames(
-                            <span class="kw-2">&amp;mut </span>inner_frames,
-                            <span class="kw-2">&amp;</span>output,
-                            <span class="kw-2">&amp;</span>lurk_step,
-                            lang,
-                            reduction_count,
-                            store,
-                        );
-                        inner_frames
-                    } <span class="kw">else </span>{
-                        chunk.to_vec()
-                    };
-
-                    <span class="kw">let </span>mf = MultiFrame {
-                        store: <span class="prelude-val">Some</span>(store),
-                        lurk_step: lurk_step.clone(),
-                        cprocs: <span class="prelude-val">None</span>,
-                        input: <span class="prelude-val">Some</span>(chunk[<span class="number">0</span>].input.clone()),
-                        output: <span class="prelude-val">Some</span>(output),
-                        frames: <span class="prelude-val">Some</span>(inner_frames),
-                        cached_witness: OnceCell::new(),
-                        num_frames: reduction_count,
-                        folding_config: folding_config.clone(),
-                        pc: <span class="number">0</span>,
-                        next_pc: <span class="number">0</span>,
-                    };
-
-                    multi_frames.push(mf);
-                }
-            }
-            FoldingConfig::NIVC(lang, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>lurk_step = Arc::new(make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_nivc(lang)));
-                <span class="kw">let </span>cprocs: Arc&lt;[Func]&gt; = make_cprocs_funcs_from_lang(lang).into();
-                <span class="kw">let </span><span class="kw-2">mut </span>chunk_start_idx = <span class="number">0</span>;
-                <span class="kw">while </span>chunk_start_idx &lt; frames.len() {
-                    <span class="kw">let </span>first_frame = <span class="kw-2">&amp;</span>frames[chunk_start_idx];
-
-                    <span class="comment">// Variables occurring in both branches
-                    </span><span class="kw">let </span>input = first_frame.input.clone();
-                    <span class="kw">let </span>output: Vec&lt;<span class="kw">_</span>&gt;;
-                    <span class="kw">let </span>frames_to_add: Vec&lt;<span class="kw">_</span>&gt;;
-
-                    <span class="comment">// the following variables start with the default values for
-                    // IVC
-                    </span><span class="kw">let </span><span class="kw-2">mut </span>num_frames = reduction_count;
-                    <span class="kw">let </span><span class="kw-2">mut </span>pc = <span class="number">0</span>;
-                    <span class="kw">let </span><span class="kw-2">mut </span>next_pc = <span class="number">0</span>;
-
-                    <span class="kw">if </span>first_frame.pc == <span class="number">0 </span>{
-                        <span class="kw">let </span><span class="kw-2">mut </span>inner_frames = Vec::with_capacity(reduction_count);
-                        <span class="kw">let </span>chunk_start_idx_saved = chunk_start_idx;
-
-                        <span class="comment">// fill `inner_frames` with `reduction_count` frames unless
-                        // we don't have enough frames or we find some frame whose
-                        // `pc` is not `0` on the way
-                        </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..reduction_count {
-                            <span class="kw">let </span>current_frame_idx = chunk_start_idx_saved + i;
-                            inner_frames.push(frames[current_frame_idx].clone());
-                            chunk_start_idx = current_frame_idx + <span class="number">1</span>;
-
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(next_frame) = frames.get(chunk_start_idx) {
-                                next_pc = next_frame.pc;
-                                <span class="kw">if </span>next_pc != <span class="number">0 </span>{
-                                    <span class="comment">// incompatible `pc` incoming
-                                    </span><span class="kw">break</span>;
-                                }
-                            } <span class="kw">else </span>{
-                                <span class="comment">// not enough frames
-                                </span><span class="kw">break</span>;
-                            }
-                        }
-
-                        output = inner_frames
-                            .last()
-                            .expect(<span class="string">"empty inner_frames"</span>)
-                            .output
-                            .clone();
-
-                        <span class="kw">if </span>inner_frames.len() &lt; reduction_count {
-                            pad_frames(
-                                <span class="kw-2">&amp;mut </span>inner_frames,
-                                <span class="kw-2">&amp;</span>output,
-                                <span class="kw-2">&amp;</span>lurk_step,
-                                lang,
-                                reduction_count,
-                                store,
-                            );
-                        }
-
-                        frames_to_add = inner_frames;
-                    } <span class="kw">else </span>{
-                        chunk_start_idx += <span class="number">1</span>;
-                        output = first_frame.output.clone();
-                        frames_to_add = <span class="macro">vec!</span>[first_frame.clone()];
-                        num_frames = <span class="number">1</span>;
-                        pc = first_frame.pc;
-                    }
-
-                    <span class="kw">let </span>mf = MultiFrame {
-                        store: <span class="prelude-val">Some</span>(store),
-                        lurk_step: lurk_step.clone(),
-                        cprocs: <span class="prelude-val">Some</span>(cprocs.clone()),
-                        input: <span class="prelude-val">Some</span>(input),
-                        output: <span class="prelude-val">Some</span>(output),
-                        frames: <span class="prelude-val">Some</span>(frames_to_add),
-                        cached_witness: OnceCell::new(),
-                        num_frames,
-                        folding_config: folding_config.clone(),
-                        pc,
-                        next_pc,
-                    };
-
-                    multi_frames.push(mf);
-                }
-            }
-        }
-
-        multi_frames
-    }
-
-    <span class="kw">fn </span>build_frames(
-        expr: <span class="self">Self</span>::Ptr,
-        env: <span class="self">Self</span>::Ptr,
-        store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store,
-        limit: usize,
-        ec: <span class="kw-2">&amp;</span>EvalConfig&lt;<span class="lifetime">'_</span>, F, C&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="self">Self</span>::EvalFrame&gt;, ProofError&gt; {
-        <span class="kw">let </span>cont = store.cont_outermost();
-        <span class="kw">let </span>lurk_step = make_eval_step_from_config(ec);
-        <span class="kw">let </span>lang = ec.lang();
-        <span class="kw">let </span>cprocs = make_cprocs_funcs_from_lang(lang);
-        evaluate_with_env_and_cont(
-            <span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>lurk_step, <span class="kw-2">&amp;</span>cprocs, lang)),
-            expr,
-            env,
-            cont,
-            store,
-            limit,
-        )
-        .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
-    }
-
-    <span class="kw">fn </span>significant_frame_count(frames: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::EvalFrame]) -&gt; usize {
-        <span class="kw">let </span>stop_cond = |output: <span class="kw-2">&amp;</span>[Ptr]| {
-            <span class="macro">matches!</span>(
-                output[<span class="number">2</span>].tag(),
-                Tag::Cont(ContTag::Terminal | ContTag::Error)
-            )
-        };
-        frames
-            .iter()
-            .rev()
-            .skip_while(|f| f.input == f.output &amp;&amp; stop_cond(<span class="kw-2">&amp;</span>f.output))
-            .count()
-    }
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; Circuit&lt;F&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">'a</span>, F, C&gt; {
@@ -2223,7 +2189,7 @@
         <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), <span class="number">1</span>));
 
         store.hydrate_z_cache();
-        MultiFrame::from_frames(<span class="kw-2">&amp;</span>[frame], <span class="kw-2">&amp;</span>store, folding_config)
+        MultiFrame::from_frames(<span class="kw-2">&amp;</span>[frame], <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>folding_config)
             .pop()
             .unwrap()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)

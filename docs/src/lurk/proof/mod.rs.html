@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (75c68cfd2 2024-01-07)" data-channel="nightly" data-search-js="search-1cefe72944ee87e6.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (ca663b06c 2024-01-08)" data-channel="nightly" data-search-js="search-1cefe72944ee87e6.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../lurk/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -226,108 +226,6 @@
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 
 </span><span class="doccomment">//! This module offers a connection the the backend proving engine of Lurk.
@@ -345,31 +243,37 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">use </span>::nova::traits::{circuit::StepCircuit, Engine};
-<span class="kw">use </span>bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
+<span class="kw">use </span>::nova::traits::Engine;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use crate</span>::{
-    coprocessor::Coprocessor, error::ProofError, eval::lang::Lang, field::LurkField,
-    lem::eval::EvalConfig, proof::nova::E2,
+    coprocessor::Coprocessor,
+    error::ProofError,
+    eval::lang::Lang,
+    field::LurkField,
+    lem::{eval::EvalConfig, interpreter::Frame, pointers::Ptr, store::Store},
+    proof::nova::E2,
 };
 
-<span class="kw">use </span><span class="self">self</span>::{nova::CurveCycleEquipped, supernova::FoldingConfig};
+<span class="kw">use </span><span class="self">self</span>::{
+    nova::{CurveCycleEquipped, C1LEM},
+    supernova::FoldingConfig,
+};
 
 <span class="doccomment">/// The State of a CEK machine.
-</span><span class="kw">pub trait </span>CEKState&lt;ExprPtr, ContPtr&gt; {
+</span><span class="kw">pub trait </span>CEKState&lt;Ptr&gt; {
     <span class="doccomment">/// the expression, or control word (C)
-    </span><span class="kw">fn </span>expr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ExprPtr;
+    </span><span class="kw">fn </span>expr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Ptr;
     <span class="doccomment">/// the environment (E)
-    </span><span class="kw">fn </span>env(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ExprPtr;
+    </span><span class="kw">fn </span>env(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Ptr;
     <span class="doccomment">/// the continuation (K)
-    </span><span class="kw">fn </span>cont(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ContPtr;
+    </span><span class="kw">fn </span>cont(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Ptr;
 }
 
 <span class="doccomment">/// A Frame of evaluation in a CEK machine.
-</span><span class="kw">pub trait </span>FrameLike&lt;ExprPtr, ContPtr&gt;: Sized {
+</span><span class="kw">pub trait </span>FrameLike&lt;Ptr&gt;: Sized {
     <span class="doccomment">/// the type for the Frame's IO
-    </span><span class="kw">type </span>FrameIO: CEKState&lt;ExprPtr, ContPtr&gt;;
+    </span><span class="kw">type </span>FrameIO: CEKState&lt;Ptr&gt;;
     <span class="doccomment">/// the input of the frame
     </span><span class="kw">fn </span>input(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::FrameIO;
     <span class="doccomment">/// the output of the frame
@@ -380,8 +284,6 @@
 </span><span class="kw">pub trait </span>EvaluationStore {
     <span class="doccomment">/// the type for the Store's pointers
     </span><span class="kw">type </span>Ptr;
-    <span class="doccomment">/// the type for the Store's continuation poitners
-    </span><span class="kw">type </span>ContPtr;
     <span class="doccomment">/// the type for the Store's errors
     </span><span class="kw">type </span>Error: std::fmt::Debug;
 
@@ -390,7 +292,7 @@
     <span class="doccomment">/// getting a pointer to the initial, empty environment
     </span><span class="kw">fn </span>initial_empty_env(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Ptr;
     <span class="doccomment">/// getting the terminal continuation pointer
-    </span><span class="kw">fn </span>get_cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ContPtr;
+    </span><span class="kw">fn </span>get_cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Ptr;
 
     <span class="doccomment">/// cache hashes for pointers enqueued for hydration
     </span><span class="kw">fn </span>hydrate_z_cache(<span class="kw-2">&amp;</span><span class="self">self</span>);
@@ -398,91 +300,6 @@
     <span class="doccomment">/// hash-equality of the expressions represented by Ptrs
     </span><span class="kw">fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, left: <span class="kw-2">&amp;</span><span class="self">Self</span>::Ptr, right: <span class="kw-2">&amp;</span><span class="self">Self</span>::Ptr) -&gt; bool;
 }
-
-<span class="doccomment">/// Trait to support multiple `MultiFrame` implementations.
-</span><span class="kw">pub trait </span>MultiFrameTrait&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;:
-    Provable&lt;F&gt; + Circuit&lt;F&gt; + StepCircuit&lt;F&gt; + <span class="lifetime">'a
-</span>{
-    <span class="doccomment">/// The associated `Ptr` type
-    </span><span class="kw">type </span>Ptr: std::fmt::Debug + Eq + Copy;
-    <span class="doccomment">/// The associated `ContPtr` type
-    </span><span class="kw">type </span>ContPtr: std::fmt::Debug + Eq + Copy;
-    <span class="doccomment">/// The associated `Store` type
-    </span><span class="kw">type </span>Store: Send + Sync + EvaluationStore&lt;Ptr = <span class="self">Self</span>::Ptr, ContPtr = <span class="self">Self</span>::ContPtr&gt;;
-    <span class="doccomment">/// The error type for the Store type
-    </span><span class="kw">type </span>StoreError: Into&lt;ProofError&gt;;
-
-    <span class="doccomment">/// The associated `Frame` type
-    </span><span class="kw">type </span>EvalFrame: FrameLike&lt;<span class="self">Self</span>::Ptr, <span class="self">Self</span>::ContPtr&gt;;
-    <span class="doccomment">/// The associated `CircuitFrame` type
-    </span><span class="kw">type </span>CircuitFrame: FrameLike&lt;
-        <span class="self">Self</span>::Ptr,
-        <span class="self">Self</span>::ContPtr,
-        FrameIO = &lt;<span class="self">Self</span>::EvalFrame <span class="kw">as </span>FrameLike&lt;<span class="self">Self</span>::Ptr, <span class="self">Self</span>::ContPtr&gt;&gt;::FrameIO,
-    &gt;;
-    <span class="doccomment">/// The associated type which manages global allocations
-    </span><span class="kw">type </span>GlobalAllocation;
-    <span class="doccomment">/// The associated type of allocated input and output to the circuit
-    </span><span class="kw">type </span>AllocatedIO;
-
-    <span class="doccomment">/// the emitted frames
-    </span><span class="kw">fn </span>emitted(store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store, eval_frame: <span class="kw-2">&amp;</span><span class="self">Self</span>::EvalFrame) -&gt; Vec&lt;<span class="self">Self</span>::Ptr&gt;;
-
-    <span class="doccomment">/// Counting the number of non-trivial frames in the evaluation
-    </span><span class="kw">fn </span>significant_frame_count(frames: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::EvalFrame]) -&gt; usize;
-
-    <span class="doccomment">/// Evaluates and generates the frames of the computation given the expression, environment, and store
-    </span><span class="kw">fn </span>build_frames(
-        expr: <span class="self">Self</span>::Ptr,
-        env: <span class="self">Self</span>::Ptr,
-        store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store,
-        limit: usize,
-        ec: <span class="kw-2">&amp;</span>EvalConfig&lt;<span class="lifetime">'_</span>, F, C&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="self">Self</span>::EvalFrame&gt;, ProofError&gt;;
-
-    <span class="doccomment">/// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
-    </span><span class="kw">fn </span>io_to_scalar_vector(
-        store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store,
-        io: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::EvalFrame <span class="kw">as </span>FrameLike&lt;<span class="self">Self</span>::Ptr, <span class="self">Self</span>::ContPtr&gt;&gt;::FrameIO,
-    ) -&gt; Vec&lt;F&gt;;
-
-    <span class="doccomment">/// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
-    </span><span class="kw">fn </span>precedes(<span class="kw-2">&amp;</span><span class="self">self</span>, maybe_next: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool;
-
-    <span class="doccomment">/// Cache the witness internally, which can be used later during synthesis.
-    /// This function can be called in parallel to speed up the witness generation
-    /// for a series of `MultiFrameTrait` instances.
-    </span><span class="kw">fn </span>cache_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt;;
-
-    <span class="doccomment">/// The output of the last frame
-    </span><span class="kw">fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;&lt;<span class="self">Self</span>::EvalFrame <span class="kw">as </span>FrameLike&lt;<span class="self">Self</span>::Ptr, <span class="self">Self</span>::ContPtr&gt;&gt;::FrameIO&gt;;
-
-    <span class="doccomment">/// Iterates through the Self::CircuitFrame instances
-    </span><span class="kw">fn </span>frames(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>::CircuitFrame&gt;&gt;;
-
-    <span class="doccomment">/// Synthesize some frames.
-    </span><span class="kw">fn </span>synthesize_frames&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        cs: <span class="kw-2">&amp;mut </span>CS,
-        store: <span class="kw-2">&amp;</span><span class="self">Self</span>::Store,
-        input: <span class="self">Self</span>::AllocatedIO,
-        frames: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::CircuitFrame],
-        g: <span class="kw-2">&amp;</span><span class="self">Self</span>::GlobalAllocation,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AllocatedIO, SynthesisError&gt;;
-
-    <span class="doccomment">/// Synthesize a blank circuit.
-    </span><span class="kw">fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, pc: usize) -&gt; <span class="self">Self</span>;
-
-    <span class="doccomment">/// Create an instance from some `Self::Frame`s.
-    </span><span class="kw">fn </span>from_frames(
-        frames: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::EvalFrame],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>::Store,
-        folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
-    ) -&gt; Vec&lt;<span class="self">Self</span>&gt;;
-}
-
-<span class="doccomment">/// Represents a sequential Constraint System for a given proof.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SequentialCS&lt;F, M&gt; = Vec&lt;(M, TestConstraintSystem&lt;F&gt;)&gt;;
 
 <span class="doccomment">/// A trait for provable structures over a field `F`.
 </span><span class="kw">pub trait </span>Provable&lt;F: LurkField&gt; {
@@ -499,12 +316,8 @@
 // * `Prover`, which abstracts over Nova and SuperNova provers
 
 </span><span class="doccomment">/// Trait to abstract Nova and SuperNova proofs
-</span><span class="kw">pub trait </span>RecursiveSNARKTrait&lt;
-    <span class="lifetime">'a</span>,
-    F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>,
-    M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;,
-&gt; <span class="kw">where
+</span><span class="kw">pub trait </span>RecursiveSNARKTrait&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;
+<span class="kw">where
     </span><span class="self">Self</span>: Sized,
 {
     <span class="doccomment">/// Associated type for public parameters
@@ -517,8 +330,8 @@
     </span><span class="kw">fn </span>prove_recursively(
         pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
         z0: <span class="kw-2">&amp;</span>[F],
-        steps: Vec&lt;M&gt;,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>M::Store,
+        steps: Vec&lt;C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
         reduction_count: usize,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt;;
@@ -570,12 +383,12 @@
 }
 
 <span class="doccomment">/// A trait for a prover that works with a field `F`.
-</span><span class="kw">pub trait </span>Prover&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>, M: MultiFrameTrait&lt;<span class="lifetime">'a</span>, F, C&gt;&gt; {
+</span><span class="kw">pub trait </span>Prover&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt; {
     <span class="doccomment">/// Associated type for public parameters
     </span><span class="kw">type </span>PublicParams;
 
     <span class="doccomment">/// Assiciated proof type, which must implement `RecursiveSNARKTrait`
-    </span><span class="kw">type </span>RecursiveSnark: RecursiveSNARKTrait&lt;<span class="lifetime">'a</span>, F, C, M, PublicParams = <span class="self">Self</span>::PublicParams&gt;;
+    </span><span class="kw">type </span>RecursiveSnark: RecursiveSNARKTrait&lt;<span class="lifetime">'a</span>, F, C, PublicParams = <span class="self">Self</span>::PublicParams&gt;;
 
     <span class="doccomment">/// Returns a reference to the prover's FoldingMode
     </span><span class="kw">fn </span>folding_mode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FoldingMode;
@@ -590,19 +403,19 @@
     </span><span class="kw">fn </span>prove(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
-        frames: <span class="kw-2">&amp;</span>[M::EvalFrame],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>M::Store,
+        frames: <span class="kw-2">&amp;</span>[Frame],
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::RecursiveSnark, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         store.hydrate_z_cache();
-        <span class="kw">let </span>z0 = M::io_to_scalar_vector(store, frames[<span class="number">0</span>].input());
-        <span class="kw">let </span>zi = M::io_to_scalar_vector(store, frames.last().unwrap().output());
+        <span class="kw">let </span>z0 = store.to_scalar_vector(frames[<span class="number">0</span>].input());
+        <span class="kw">let </span>zi = store.to_scalar_vector(frames.last().unwrap().output());
 
         <span class="kw">let </span>lang = <span class="self">self</span>.lang().clone();
         <span class="kw">let </span>folding_config = <span class="self">self
             </span>.folding_mode()
             .folding_config(lang.clone(), <span class="self">self</span>.reduction_count());
 
-        <span class="kw">let </span>steps = M::from_frames(frames, store, folding_config.into());
+        <span class="kw">let </span>steps = C1LEM::&lt;<span class="lifetime">'a</span>, F, C&gt;::from_frames(frames, store, <span class="kw-2">&amp;</span>folding_config.into());
         <span class="kw">let </span>num_steps = steps.len();
 
         <span class="kw">let </span>prove_output = <span class="self">Self</span>::RecursiveSnark::prove_recursively(
@@ -621,13 +434,13 @@
     </span><span class="kw">fn </span>evaluate_and_prove(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
-        expr: M::Ptr,
-        env: M::Ptr,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>M::Store,
+        expr: Ptr,
+        env: Ptr,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
         limit: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::RecursiveSnark, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>eval_config = <span class="self">self</span>.folding_mode().eval_config(<span class="self">self</span>.lang());
-        <span class="kw">let </span>frames = M::build_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>eval_config)<span class="question-mark">?</span>;
+        <span class="kw">let </span>frames = C1LEM::&lt;<span class="lifetime">'a</span>, F, C&gt;::build_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>eval_config)<span class="question-mark">?</span>;
         <span class="self">self</span>.prove(pp, <span class="kw-2">&amp;</span>frames, store)
     }
 
@@ -637,23 +450,6 @@
         <span class="kw">let </span>full_multiframe_count = raw_iterations / rc;
         <span class="kw">let </span>unfull_multiframe_frame_count = raw_iterations % rc;
         full_multiframe_count + usize::from(unfull_multiframe_frame_count != <span class="number">0</span>)
-    }
-
-    <span class="doccomment">/// Synthesizes the outer circuit for the prover given a slice of multiframes.
-    </span><span class="kw">fn </span>outer_synthesize(<span class="kw-2">&amp;</span><span class="self">self</span>, multiframes: <span class="kw-2">&amp;</span>[M]) -&gt; <span class="prelude-ty">Result</span>&lt;SequentialCS&lt;F, M&gt;, SynthesisError&gt; {
-        <span class="comment">// TODO: do we need this?
-        // Note: This loop terminates and returns an error on the first occurrence of `SynthesisError`.
-        </span>multiframes
-            .iter()
-            .map(|multiframe| {
-                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::new();
-
-                multiframe
-                    .clone()
-                    .synthesize(<span class="kw-2">&amp;mut </span>cs)
-                    .map(|<span class="kw">_</span>| (multiframe.clone(), cs))
-            })
-            .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
     }
 }
 </code></pre></div></section></main></body></html>
