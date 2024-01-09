@@ -86,7 +86,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
     /// }
     /// ```
     #[derive(Debug)]
-    pub struct CircomCoprocessor<F: LurkField, C: CircomGadget<F>> {
+    pub struct CircomCoprocessor<F: LurkField, C> {
         gadget: C,
         config: CircomConfig<F>,
     }

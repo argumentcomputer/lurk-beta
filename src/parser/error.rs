@@ -121,7 +121,6 @@ impl<'a, F: LurkField> fmt::Display for ParseError<Span<'a>, F> {
 impl<I: AsBytes, F: LurkField> nom::error::ParseError<I> for ParseError<I, F>
 where
     I: InputLength,
-    I: Clone,
 {
     fn from_error_kind(input: I, kind: ErrorKind) -> Self {
         ParseError::new(input, ParseErrorKind::Nom(kind))
@@ -155,7 +154,6 @@ where
 impl<I: AsBytes, F: LurkField> nom::error::ContextError<I> for ParseError<I, F>
 where
     I: InputLength,
-    I: Clone,
 {
     fn add_context(input: I, ctx: &'static str, other: Self) -> Self {
         match input.input_len().cmp(&other.input.input_len()) {

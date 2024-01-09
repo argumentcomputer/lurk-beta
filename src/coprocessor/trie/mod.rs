@@ -58,7 +58,7 @@ pub enum TrieCoproc<F: LurkField> {
 }
 
 #[derive(Clone, Debug, Serialize, Default, Deserialize)]
-pub struct NewCoprocessor<F: LurkField> {
+pub struct NewCoprocessor<F> {
     _p: PhantomData<F>,
 }
 
@@ -104,7 +104,7 @@ impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
 }
 
 #[derive(Clone, Debug, Serialize, Default, Deserialize)]
-pub struct LookupCoprocessor<F: LurkField> {
+pub struct LookupCoprocessor<F> {
     _p: PhantomData<F>,
 }
 
@@ -208,7 +208,7 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
 }
 
 #[derive(Clone, Debug, Serialize, Default, Deserialize)]
-pub struct InsertCoprocessor<F: LurkField> {
+pub struct InsertCoprocessor<F> {
     _p: PhantomData<F>,
 }
 

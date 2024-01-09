@@ -119,7 +119,7 @@ pub(crate) mod test {
 
     /// A dumb Coprocessor for testing.
     #[derive(Clone, Debug, Serialize, Deserialize)]
-    pub(crate) struct DumbCoprocessor<F: LurkField> {
+    pub(crate) struct DumbCoprocessor<F> {
         pub(crate) _p: PhantomData<F>,
     }
 
@@ -235,7 +235,7 @@ pub(crate) mod test {
 
     /// A coprocessor that simply halts the CEK machine, for testing purposes
     #[derive(Clone, Debug, Serialize, Deserialize)]
-    pub(crate) struct Terminator<F: LurkField> {
+    pub(crate) struct Terminator<F> {
         _p: PhantomData<F>,
     }
 

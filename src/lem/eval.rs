@@ -232,12 +232,12 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
     evaluate_simple_with_env(lang_setup, expr, store.intern_nil(), store, limit)
 }
 
-pub struct EvalConfig<'a, F: LurkField, C: Coprocessor<F>> {
+pub struct EvalConfig<'a, F, C> {
     lang: &'a Lang<F, C>,
     folding_mode: FoldingMode,
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> EvalConfig<'a, F, C> {
+impl<'a, F, C> EvalConfig<'a, F, C> {
     #[inline]
     pub fn new_ivc(lang: &'a Lang<F, C>) -> Self {
         Self {
