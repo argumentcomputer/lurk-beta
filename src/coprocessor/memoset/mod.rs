@@ -28,11 +28,56 @@ mod query;
 type ScopeQuery<F> = DemoQuery<F>;
 type ScopeCircuitQuery<F> = <DemoQuery<F> as Query<F>>::C;
 
+#[derive(Clone, Debug)]
+pub struct Transcript<F> {
+    acc: Ptr,
+    _p: PhantomData<F>,
+}
+
+impl<F: LurkField> Transcript<F> {
+    fn new(s: &Store<F>) -> Self {
+        let nil = s.intern_nil();
+        Self {
+            acc: nil,
+            _p: Default::default(),
+        }
+    }
+
+    #[allow(dead_code)]
+    fn zptr(&self, s: &Store<F>) -> ZPtr<Tag, F> {
+        s.hash_ptr(&self.acc)
+    }
+
+    fn add(&mut self, s: &Store<F>, item: Ptr) {
+        self.acc = s.cons(item, self.acc);
+    }
+
+    fn make_kv(s: &Store<F>, key: Ptr, value: Ptr) -> Ptr {
+        s.cons(key, value)
+    }
+
+    fn make_kv_count(s: &Store<F>, kv: Ptr, count: usize) -> Ptr {
+        let count_num = s.num(F::from_u64(count as u64));
+        s.cons(kv, count_num)
+    }
+
+    #[allow(dead_code)]
+    fn dbg(&self, s: &Store<F>) {
+        dbg!(self.acc.fmt_to_string_simple(s));
+        // dbg!(transcript.fmt_to_string_simple(s));
+        tracing::debug!("transcript: {}", self.acc.fmt_to_string_simple(s));
+    }
+
+    fn fmt_to_string_simple(&self, s: &Store<F>) -> String {
+        self.acc.fmt_to_string_simple(s)
+    }
+}
+
 #[derive(Debug, Default)]
 /// A `Scope` tracks the queries made while evaluating, including the subqueries that result from evaluating other
 /// queries -- then makes use of the bookkeeping performed at evaluation time to synthesize proof of each query
 /// performed.
-pub struct Scope<F: LurkField, Q: Query<F>, M: MemoSet<F>> {
+pub struct Scope<F, Q, M> {
     memoset: M,
     /// k => v
     queries: HashMap<Ptr, Ptr>,
@@ -110,15 +155,15 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
             evaluated
         });
 
-        let kv = s.cons(form, response);
+        let kv = Transcript::make_kv(s, form, response);
         self.memoset.add(kv);
 
         (response, kv)
     }
 
-    fn finalize_transcript(&mut self, s: &Store<F>) -> Ptr {
+    fn finalize_transcript(&mut self, s: &Store<F>) -> Transcript<F> {
         let (transcript, insertions) = self.build_transcript(s);
-        self.memoset.finalize_transcript(s, transcript);
+        self.memoset.finalize_transcript(s, transcript.clone());
         self.all_insertions = insertions;
         transcript
     }
@@ -129,10 +174,12 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
         }
     }
 
-    fn build_transcript(&self, s: &Store<F>) -> (Ptr, Vec<Ptr>) {
+    fn build_transcript(&self, s: &Store<F>) -> (Transcript<F>, Vec<Ptr>) {
+        let mut transcript = Transcript::new(s);
+
         let internal_insertions_kv = self.internal_insertions.iter().map(|key| {
             let value = self.queries.get(key).expect("value missing for key");
-            s.cons(*key, *value)
+            Transcript::make_kv(s, *key, *value)
         });
 
         let mut insertions =
@@ -151,12 +198,8 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
                 .index()
         });
 
-        let mut transcript = s.intern_nil();
-
-        // Toplevel insertions must come 'first' in transcript. Since the transcript is accumulated as a cons-list, the
-        // last element accumulated will be the first in the resulting list.
         for kv in self.toplevel_insertions.iter() {
-            transcript = s.cons(*kv, transcript);
+            transcript.add(s, *kv);
         }
 
         // Then add insertions and removals interleaved, sorted by query type. We interleave insertions and removals
@@ -170,9 +213,9 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
                 let key = s.car_cdr(kv).unwrap().0;
 
                 if let Some(dependencies) = self.dependencies.get(&key) {
-                    transcript = dependencies
+                  dependencies
                         .iter()
-                        .map(|dependency| {
+                        .for_each(|dependency| {
                             let k = dependency.to_ptr(s);
                             let v = self
                                 .queries
@@ -181,18 +224,17 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
                             // Add an insertion for each dependency (subquery) of the query identified by `key`. Notice
                             // that these keys might already have been inserted before, but we need to repeat if so
                             // because the proof must do so each time a query is used.
-                            s.cons(k, *v)
+                            let kv= Transcript::make_kv(s, k, *v);
+                              transcript.add(s, kv)
                         })
-                        .fold(transcript, |acc, dependency_kv| s.cons(dependency_kv, acc));
                 };
                 let count = self.memoset.count(kv);
-                let count_num = s.num(F::from_u64(count as u64));
-                let kv_count = s.cons(*kv, count_num);
+                let kv_count = Transcript::make_kv_count(s, *kv, count);
 
                 // Add removal for the query identified by `key`. The queries being removed here were deduplicated
                 // above, so each is removed only once. However, we freely choose the multiplicity (`count`) of the
                 // removal to match the total number of insertions actually made (considering dependencies).
-                transcript = s.cons(kv_count, transcript);
+                transcript.add(s, kv_count);
 
                 key
             })
@@ -505,7 +547,7 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
 
 pub trait MemoSet<F: LurkField>: Clone {
     fn is_finalized(&self) -> bool;
-    fn finalize_transcript(&mut self, s: &Store<F>, transcript: Ptr);
+    fn finalize_transcript(&mut self, s: &Store<F>, transcript: Transcript<F>);
     fn r(&self) -> Option<&F>;
     fn map_to_element(&self, x: F) -> Option<F>;
     fn add(&mut self, kv: Ptr);
@@ -541,7 +583,7 @@ pub trait MemoSet<F: LurkField>: Clone {
 pub struct LogMemo<F: LurkField> {
     multiset: MultiSet<Ptr>,
     r: OnceCell<F>,
-    transcript: OnceCell<Ptr>,
+    transcript: OnceCell<Transcript<F>>,
 
     allocated_r: OnceCell<Option<AllocatedNum<F>>>,
 }
@@ -566,14 +608,15 @@ impl<F: LurkField> MemoSet<F> for LogMemo<F> {
     fn is_finalized(&self) -> bool {
         self.transcript.get().is_some()
     }
-    fn finalize_transcript(&mut self, s: &Store<F>, transcript: Ptr) {
+    fn finalize_transcript(&mut self, s: &Store<F>, transcript: Transcript<F>) {
+        let z_ptr = s.hash_ptr(&transcript.acc);
+
+        assert_eq!(Tag::Expr(ExprTag::Cons), *z_ptr.tag());
+        self.r.set(*z_ptr.value()).expect("r has already been set");
+
         self.transcript
             .set(transcript)
             .expect("transcript already finalized");
-
-        let z_ptr = s.hash_ptr(&transcript);
-        assert_eq!(Tag::Expr(ExprTag::Cons), *z_ptr.tag());
-        self.r.set(*z_ptr.value()).expect("r has already been set");
     }
 
     fn r(&self) -> Option<&F> {
