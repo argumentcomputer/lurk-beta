@@ -426,8 +426,7 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
         Ok((new_acc, new_transcript.clone()))
     }
 
-    // TODO: Rename
-    fn synthesize_remove_n<CS: ConstraintSystem<F>>(
+    fn synthesize_remove<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
@@ -583,7 +582,7 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
             .unwrap();
 
         let (new_acc, new_transcript) =
-            self.synthesize_remove_n(cs, g, s, &new_acc, &new_transcript, &allocated_key, &val)?;
+            self.synthesize_remove(cs, g, s, &new_acc, &new_transcript, &allocated_key, &val)?;
 
         self.acc = Some(new_acc);
         self.transcript = new_transcript;
