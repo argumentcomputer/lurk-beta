@@ -2061,7 +2061,7 @@
     }
 }
 
-<span class="kw">struct </span>RecursiveContext&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+<span class="kw">struct </span>RecursiveContext&lt;<span class="lifetime">'a</span>, F: LurkField, C&gt; {
     lang: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Lang&lt;F, C&gt;,
     store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
     global_allocator: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>GlobalAllocator&lt;F&gt;,

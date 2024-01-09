@@ -752,7 +752,7 @@
 // For working around the orphan trait impl rule
 </span><span class="doccomment">/// Wrapper struct around a field element that implements additional traits
 </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>FWrap&lt;F: LurkField&gt;(<span class="kw">pub </span>F);
+</span><span class="kw">pub struct </span>FWrap&lt;F&gt;(<span class="kw">pub </span>F);
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Copy <span class="kw">for </span>FWrap&lt;F&gt; {}
 

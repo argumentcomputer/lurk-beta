@@ -1986,12 +1986,12 @@
     evaluate_simple_with_env(lang_setup, expr, store.intern_nil(), store, limit)
 }
 
-<span class="kw">pub struct </span>EvalConfig&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+<span class="kw">pub struct </span>EvalConfig&lt;<span class="lifetime">'a</span>, F, C&gt; {
     lang: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Lang&lt;F, C&gt;,
     folding_mode: FoldingMode,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; EvalConfig&lt;<span class="lifetime">'a</span>, F, C&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F, C&gt; EvalConfig&lt;<span class="lifetime">'a</span>, F, C&gt; {
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new_ivc(lang: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{

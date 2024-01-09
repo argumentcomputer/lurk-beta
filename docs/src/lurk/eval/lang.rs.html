@@ -219,7 +219,7 @@
 /// This struct is an example of a coprocessor implementation that would extend the [`crate::coprocessor::Coprocessor`] trait.
 /// More implementations can be added without modifying the existing code, adhering to the open-closed principle.
 </span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize)]
-</span><span class="kw">pub struct </span>DummyCoprocessor&lt;F: LurkField&gt; {
+</span><span class="kw">pub struct </span>DummyCoprocessor&lt;F&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) _p: PhantomData&lt;F&gt;,
 }
 
@@ -238,7 +238,7 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; CoCircuit&lt;F&gt; <span class="kw">for </span>DummyCoprocessor&lt;F&gt; {}
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; DummyCoprocessor&lt;F&gt; {
+<span class="kw">impl</span>&lt;F&gt; DummyCoprocessor&lt;F&gt; {
     <span class="attr">#[allow(dead_code)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -273,13 +273,13 @@
 ///
 </span><span class="comment">// TODO: Define a trait for the Hash and parameterize on that also.
 </span><span class="attr">#[derive(Debug, Default, Clone, Deserialize, Serialize)]
-</span><span class="kw">pub struct </span>Lang&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+</span><span class="kw">pub struct </span>Lang&lt;F, C&gt; {
     <span class="doccomment">/// An IndexMap that stores coprocessors with their associated `Sym` keys.
     </span>coprocessors: IndexMap&lt;Symbol, C&gt;,
     _p: PhantomData&lt;F&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; Lang&lt;F, C&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, C&gt; Lang&lt;F, C&gt; {
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -354,7 +354,7 @@
 <span class="doccomment">/// A `Binding` associates a name (`Sym`) and `Coprocessor`. It facilitates modular construction of `Lang`s using
 /// `Coprocessor`s.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>Binding&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+</span><span class="kw">pub struct </span>Binding&lt;F, C&gt; {
     name: Symbol,
     coproc: C,
     _p: PhantomData&lt;F&gt;,
@@ -366,7 +366,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; Binding&lt;F, C&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, C&gt; Binding&lt;F, C&gt; {
     <span class="kw">pub fn </span>new&lt;T: Into&lt;C&gt;, S: Into&lt;Symbol&gt;&gt;(name: S, coproc: T) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             name: name.into(),

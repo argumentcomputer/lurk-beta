@@ -246,7 +246,7 @@
     <span class="kw">use super</span>::{de, ser, HasFieldModulus};
 
     <span class="attr">#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-    </span><span class="kw">struct </span>Struct&lt;F: LurkField&gt; {
+    </span><span class="kw">struct </span>Struct&lt;F&gt; {
         str: String,
         int: i32,
         ff: F,

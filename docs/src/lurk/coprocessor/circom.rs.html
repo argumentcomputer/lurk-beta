@@ -258,7 +258,7 @@ Then run `lurk coprocessor --name {name} &lt;{}_FOLDER&gt;` to instantiate a new
     /// }
     /// ```
     </span><span class="attr">#[derive(Debug)]
-    </span><span class="kw">pub struct </span>CircomCoprocessor&lt;F: LurkField, C: CircomGadget&lt;F&gt;&gt; {
+    </span><span class="kw">pub struct </span>CircomCoprocessor&lt;F: LurkField, C&gt; {
         gadget: C,
         config: CircomConfig&lt;F&gt;,
     }

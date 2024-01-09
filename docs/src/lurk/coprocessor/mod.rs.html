@@ -409,7 +409,7 @@
 
     <span class="doccomment">/// A dumb Coprocessor for testing.
     </span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DumbCoprocessor&lt;F: LurkField&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DumbCoprocessor&lt;F&gt; {
         <span class="kw">pub</span>(<span class="kw">crate</span>) _p: PhantomData&lt;F&gt;,
     }
 
@@ -525,7 +525,7 @@
 
     <span class="doccomment">/// A coprocessor that simply halts the CEK machine, for testing purposes
     </span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Terminator&lt;F: LurkField&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Terminator&lt;F&gt; {
         _p: PhantomData&lt;F&gt;,
     }
 
