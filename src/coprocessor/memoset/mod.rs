@@ -182,7 +182,6 @@ pub struct CircuitScope<F: LurkField, Q: Query<F>, M: MemoSet<F>> {
     /// k -> v
     queries: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     /// k -> allocated v
-    queries_alloc: HashMap<ZPtr<Tag, F>, AllocatedPtr<F>>,
     transcript: CircuitTranscript<F>,
     acc: Option<AllocatedPtr<F>>,
     _p: PhantomData<Q>,
@@ -377,7 +376,6 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
         Self {
             memoset: scope.memoset.clone(),
             queries,
-            queries_alloc: Default::default(),
             transcript: CircuitTranscript::new(cs, g, s),
             acc: Default::default(),
             _p: Default::default(),
@@ -485,28 +483,16 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
         transcript: &CircuitTranscript<F>,
         not_dummy: &Boolean, // TODO: use this more deeply?
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
-        let value = key
-            .get_value()
-            .map(|k| {
-                self.queries_alloc
-                    .entry(k)
-                    .or_insert_with(|| {
-                        AllocatedPtr::alloc(&mut cs.namespace(|| "value"), || {
-                            Ok(if not_dummy.get_value() == Some(true) {
-                                *self
-                                    .queries
-                                    .get(&k)
-                                    .ok_or(SynthesisError::AssignmentMissing)?
-                            } else {
-                                // Dummy value that will not be used.
-                                k
-                            })
-                        })
-                        .unwrap()
-                    })
-                    .clone()
+        let value = AllocatedPtr::alloc(&mut cs.namespace(|| "value"), || {
+            Ok(if not_dummy.get_value() == Some(true) {
+                *key.get_value()
+                    .and_then(|k| self.queries.get(&k))
+                    .ok_or(SynthesisError::AssignmentMissing)?
+            } else {
+                // Dummy value that will not be used.
+                store.hash_ptr(&store.intern_nil())
             })
-            .ok_or(SynthesisError::AssignmentMissing)?;
+        })?;
 
         let (new_acc, new_insertion_transcript) =
             self.synthesize_insert_query(cs, g, store, acc, transcript, key, &value)?;
@@ -524,6 +510,7 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
         i: usize,
         kv: &Ptr,
     ) -> Result<(), SynthesisError> {
+        dbg!("synthesize_toplevel_query");
         let (key, value) = s.car_cdr(kv).unwrap();
         let cs = &mut cs.namespace(|| format!("toplevel-{i}"));
         let allocated_key = AllocatedPtr::alloc(&mut cs.namespace(|| "allocated_key"), || {
@@ -820,7 +807,7 @@ mod test {
             scope.synthesize(cs, g, s).unwrap();
 
             expect_eq(cs.num_constraints(), expect!["11408"]);
-            expect_eq(cs.aux().len(), expect!["11443"]);
+            expect_eq(cs.aux().len(), expect!["11445"]);
 
             let unsat = cs.which_is_unsatisfied();
             if unsat.is_some() {
