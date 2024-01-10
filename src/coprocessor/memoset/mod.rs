@@ -510,7 +510,6 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
         i: usize,
         kv: &Ptr,
     ) -> Result<(), SynthesisError> {
-        dbg!("synthesize_toplevel_query");
         let (key, value) = s.car_cdr(kv).unwrap();
         let cs = &mut cs.namespace(|| format!("toplevel-{i}"));
         let allocated_key = AllocatedPtr::alloc(&mut cs.namespace(|| "allocated_key"), || {
