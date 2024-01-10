@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 use abomonation::Abomonation;
 use ff::PrimeField;
 use nova::{
@@ -15,11 +13,17 @@ use nova::{
         Engine,
     },
 };
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
-use std::{marker::PhantomData, ops::Index, sync::Arc};
+use std::{
+    marker::PhantomData,
+    ops::Index,
+    sync::{Arc, Mutex},
+};
 use tracing::info;
 
 use crate::{
+    config::lurk_config,
     coprocessor::Coprocessor,
     error::ProofError,
     eval::lang::Lang,
@@ -176,7 +180,7 @@ where
         pp: &PublicParams<F, C1LEM<'a, F, C>>,
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
-        _store: &'a Store<F>,
+        store: &'a Store<F>,
         _reduction_count: usize,
         _lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {
@@ -185,8 +189,10 @@ where
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
 
-        for (i, step) in steps.iter().enumerate() {
+        let mut prove_step = |i: usize, step: &C1LEM<'a, F, C>| {
             info!("prove_recursively, step {i}");
+
+            let secondary_circuit = step.secondary_circuit();
 
             let mut recursive_snark = recursive_snark_option.clone().unwrap_or_else(|| {
                 info!("RecursiveSnark::new {i}");
@@ -194,7 +200,7 @@ where
                     &pp.pp,
                     step,
                     step,
-                    &step.secondary_circuit(),
+                    &secondary_circuit,
                     z0_primary,
                     &z0_secondary,
                 )
@@ -204,10 +210,65 @@ where
             info!("prove_step {i}");
 
             recursive_snark
-                .prove_step(&pp.pp, step, &step.secondary_circuit())
+                .prove_step(&pp.pp, step, &secondary_circuit)
                 .unwrap();
 
             recursive_snark_option = Some(recursive_snark);
+        };
+
+        if lurk_config(None, None)
+            .perf
+            .parallelism
+            .recursive_steps
+            .is_parallel()
+        {
+            let cc = steps
+                .into_iter()
+                .map(|mf| (mf.program_counter() == 0, Mutex::new(mf)))
+                .collect::<Vec<_>>();
+
+            crossbeam::thread::scope(|s| {
+                s.spawn(|_| {
+                    // Skip the very first circuit's witness, so `prove_step` can begin immediately.
+                    // That circuit's witness will not be cached and will just be computed on-demand.
+
+                    // There are many MultiFrames with PC = 0, each with several inner frames and heavy internal
+                    // paralellism for witness generation. So we do it like on Nova's pipeline.
+                    cc.iter()
+                        .skip(1)
+                        .filter(|(is_zero_pc, _)| *is_zero_pc)
+                        .for_each(|(_, mf)| {
+                            mf.lock()
+                                .unwrap()
+                                .cache_witness(store)
+                                .expect("witness caching failed");
+                        });
+
+                    // There shouldn't be as many MultiFrames with PC != 0 and they only have one inner frame, each with
+                    // poor internal parallelism for witness generation, so we can generate their witnesses in parallel.
+                    // This is mimicking the behavior we had in the Nova pipeline before #941 so...
+                    // TODO: once we have robust benchmarking for NIVC, we should test whether merging this loop with
+                    // the non-parallel one above (and getting rid of the filters) is better
+                    cc.par_iter()
+                        .skip(1)
+                        .filter(|(is_zero_pc, _)| !*is_zero_pc)
+                        .for_each(|(_, mf)| {
+                            mf.lock()
+                                .unwrap()
+                                .cache_witness(store)
+                                .expect("witness caching failed");
+                        });
+                });
+
+                for (i, (_, step)) in cc.iter().enumerate() {
+                    prove_step(i, &step.lock().unwrap());
+                }
+            })
+            .unwrap()
+        } else {
+            for (i, step) in steps.iter().enumerate() {
+                prove_step(i, step);
+            }
         }
 
         // This probably should be made unnecessary.

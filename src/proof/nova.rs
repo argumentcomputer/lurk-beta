@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 use abomonation::Abomonation;
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem};
 use ff::PrimeField;
