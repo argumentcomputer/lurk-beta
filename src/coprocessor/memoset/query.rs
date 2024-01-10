@@ -10,18 +10,20 @@ use crate::lem::{pointers::Ptr, store::Store};
 use crate::symbol::Symbol;
 use crate::tag::{ExprTag, Tag};
 
-pub trait Query<F: LurkField> {
-    type T: Query<F>;
+pub trait Query<F: LurkField>
+where
+    Self: Sized,
+{
     type C: CircuitQuery<F>;
 
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self::T, LogMemo<F>>) -> Ptr;
+    fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr;
     fn recursive_eval(
         &self,
-        scope: &mut Scope<F, Self::T, LogMemo<F>>,
+        scope: &mut Scope<F, Self, LogMemo<F>>,
         s: &Store<F>,
-        subquery: Self::T,
+        subquery: Self,
     ) -> Ptr;
-    fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self::T>;
+    fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self>;
     fn to_ptr(&self, s: &Store<F>) -> Ptr;
     fn symbol(&self) -> Symbol;
     fn symbol_ptr(&self, s: &Store<F>) -> Ptr {
@@ -32,9 +34,10 @@ pub trait Query<F: LurkField> {
 }
 
 #[allow(unreachable_pub)]
-pub trait CircuitQuery<F: LurkField> {
-    type T: CircuitQuery<F>;
-
+pub trait CircuitQuery<F: LurkField>
+where
+    Self: Sized,
+{
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -53,7 +56,7 @@ pub trait CircuitQuery<F: LurkField> {
         cs: &mut CS,
         s: &Store<F>,
         ptr: &Ptr,
-    ) -> Result<Option<Self::T>, SynthesisError>;
+    ) -> Result<Option<Self>, SynthesisError>;
 }
 
 #[derive(Debug, Clone)]
@@ -73,11 +76,10 @@ pub enum DemoCircuitQuery<F: LurkField> {
 }
 
 impl<F: LurkField> Query<F> for DemoQuery<F> {
-    type T = Self;
     type C = DemoCircuitQuery<F>;
 
     // DemoQuery and Scope depend on each other.
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self::T, LogMemo<F>>) -> Ptr {
+    fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr {
         match self {
             Self::Factorial(n) => {
                 let n_zptr = s.hash_ptr(n);
@@ -99,9 +101,9 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
 
     fn recursive_eval(
         &self,
-        scope: &mut Scope<F, Self::T, LogMemo<F>>,
+        scope: &mut Scope<F, Self, LogMemo<F>>,
         s: &Store<F>,
-        subquery: Self::T,
+        subquery: Self,
     ) -> Ptr {
         scope.query_recursively(s, self, subquery)
     }
@@ -145,8 +147,6 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
-    type T = Self;
-
     fn symbol(&self, s: &Store<F>) -> Symbol {
         match self {
             Self::Factorial(_) => DemoQuery::factorial(s).symbol(),
