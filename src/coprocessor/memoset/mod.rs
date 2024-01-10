@@ -46,9 +46,11 @@ use crate::lem::{pointers::Ptr, store::Store};
 use crate::tag::{ExprTag, Tag as XTag};
 use crate::z_ptr::ZPtr;
 
+use demo::DemoCircuitQuery;
 use multiset::MultiSet;
-use query::{CircuitQuery, DemoCircuitQuery, Query};
+use query::{CircuitQuery, Query};
 
+mod demo;
 mod multiset;
 mod query;
 
