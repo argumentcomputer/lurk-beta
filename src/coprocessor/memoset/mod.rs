@@ -56,12 +56,21 @@ impl<F: LurkField> Transcript<F> {
         s.cons(kv, count_num)
     }
 
+    /// Since the transcript is just a content-addressed Lurk list, its randomness is the hash value of the associated
+    /// top-level `Cons`. This function sanity-checks the type and extracts that field element.
+    fn r(&self, s: &Store<F>) -> F {
+        let z_ptr = s.hash_ptr(&self.acc);
+        assert_eq!(Tag::Expr(ExprTag::Cons), *z_ptr.tag());
+        *z_ptr.value()
+    }
+
     #[allow(dead_code)]
     fn dbg(&self, s: &Store<F>) {
         //dbg!(self.acc.fmt_to_string_simple(s));
         tracing::debug!("transcript: {}", self.acc.fmt_to_string_simple(s));
     }
 
+    #[allow(dead_code)]
     fn fmt_to_string_simple(&self, s: &Store<F>) -> String {
         self.acc.fmt_to_string_simple(s)
     }
@@ -646,10 +655,9 @@ impl<F: LurkField> MemoSet<F> for LogMemo<F> {
         self.transcript.get().is_some()
     }
     fn finalize_transcript(&mut self, s: &Store<F>, transcript: Transcript<F>) {
-        let z_ptr = s.hash_ptr(&transcript.acc);
+        let r = transcript.r(s);
 
-        assert_eq!(Tag::Expr(ExprTag::Cons), *z_ptr.tag());
-        self.r.set(*z_ptr.value()).expect("r has already been set");
+        self.r.set(r).expect("r has already been set");
 
         self.transcript
             .set(transcript)
