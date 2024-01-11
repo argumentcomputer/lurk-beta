@@ -24,9 +24,8 @@
 //!
 //! Bookkeeping required to correctly build the transcript after evaluation but before proving is maintained by the
 //! `Scope`. This allows us to accumulate queries and the subqueries on which they depend, along with the memoized query
-//! results computed 'naturally' during evaluation. We then separate and sort in an order matching that in which the
-//! NIVC prover will follow when provably maintaining the multiset accumulator and Fiat-Shamir transcript in the
-//! circuit.
+//! results computed 'naturally' during evaluation. We then separate and sort in an order matching that which the NIVC
+//! prover will follow when provably maintaining the multiset accumulator and Fiat-Shamir transcript in the circuit.
 
 use std::collections::HashMap;
 use std::marker::PhantomData;
