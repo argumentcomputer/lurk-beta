@@ -14,8 +14,6 @@ pub trait Query<F: LurkField>
 where
     Self: Sized,
 {
-    type C: CircuitQuery<F>;
-
     fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr;
     fn recursive_eval(
         &self,
@@ -38,6 +36,8 @@ pub trait CircuitQuery<F: LurkField>
 where
     Self: Sized,
 {
+    type Q: Query<F>;
+
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -76,8 +76,6 @@ pub enum DemoCircuitQuery<F: LurkField> {
 }
 
 impl<F: LurkField> Query<F> for DemoQuery<F> {
-    type C = DemoCircuitQuery<F>;
-
     // DemoQuery and Scope depend on each other.
     fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr {
         match self {
@@ -147,14 +145,16 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
+    type Q = DemoQuery<F>;
+
     fn symbol(&self, s: &Store<F>) -> Symbol {
         match self {
-            Self::Factorial(_) => DemoQuery::factorial(s).symbol(),
+            Self::Factorial(_) => Self::Q::factorial(s).symbol(),
         }
     }
     fn symbol_ptr(&self, s: &Store<F>) -> Ptr {
         match self {
-            Self::Factorial(_) => DemoQuery::factorial(s).symbol_ptr(s),
+            Self::Factorial(_) => Self::Q::factorial(s).symbol_ptr(s),
         }
     }
 
@@ -163,7 +163,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, DemoQuery<F>, LogMemo<F>>,
+        scope: &mut CircuitScope<F, Self::Q, LogMemo<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
@@ -270,10 +270,10 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         s: &Store<F>,
         ptr: &Ptr,
     ) -> Result<Option<Self>, SynthesisError> {
-        let query = DemoQuery::from_ptr(s, ptr);
+        let query = Self::Q::from_ptr(s, ptr);
         Ok(if let Some(q) = query {
             match q {
-                DemoQuery::Factorial(n) => Some(Self::Factorial(AllocatedPtr::alloc(cs, || {
+                Self::Q::Factorial(n) => Some(Self::Factorial(AllocatedPtr::alloc(cs, || {
                     Ok(s.hash_ptr(&n))
                 })?)),
                 _ => unreachable!(),

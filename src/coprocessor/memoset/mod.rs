@@ -48,13 +48,13 @@ use crate::tag::{ExprTag, Tag as XTag};
 use crate::z_ptr::ZPtr;
 
 use multiset::MultiSet;
-use query::{CircuitQuery, DemoQuery, Query};
+use query::{CircuitQuery, DemoCircuitQuery, Query};
 
 mod multiset;
 mod query;
 
-type ScopeQuery<F> = DemoQuery<F>;
-type ScopeCircuitQuery<F> = <DemoQuery<F> as Query<F>>::C;
+type ScopeCircuitQuery<F> = DemoCircuitQuery<F>;
+type ScopeQuery<F> = <ScopeCircuitQuery<F> as CircuitQuery<F>>::Q;
 
 #[derive(Clone, Debug)]
 pub struct Transcript<F> {
@@ -181,7 +181,7 @@ impl<F: LurkField> CircuitTranscript<F> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 /// A `Scope` tracks the queries made while evaluating, including the subqueries that result from evaluating other
 /// queries -- then makes use of the bookkeeping performed at evaluation time to synthesize proof of each query
 /// performed.
