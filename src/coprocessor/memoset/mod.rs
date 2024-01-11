@@ -7,7 +7,7 @@
 //!
 //! Implementation depends on a cryptographic multiset -- for example, ECMH or LogUp (implemented here). This allows us
 //! to prove that every element added to to the multiset is later removed only after having been proved. The
-//! cryptographic assumption is that it is infeasible to fraudelently demonstrate multiset equality.
+//! cryptographic assumption is that it is infeasible to fraudulently demonstrate multiset equality.
 //!
 //! Our use of the LogUp (logarithmic derivative) technique in the `LogMemo` implementation of `MemoSet` unfortunately
 //! requires that the entire history of insertions and removals be committed to in advance -- so that Fiat-Shamir
