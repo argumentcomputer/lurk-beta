@@ -5,3 +5,4 @@ disallowed-methods = [
     { path = "pasta_curves::Fp", reason = "use pasta_curves::pallas::Base or pasta_curves::vesta::Scalar instead to communicate your intent" },
     { path = "pasta_curves::Fq", reason = "use pasta_curves::pallas::Scalar or pasta_curves::vesta::Base instead to communicate your intent" },
 ]
+allow-dbg-in-tests = true

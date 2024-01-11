@@ -10,6 +10,7 @@ use crate::{
 
 pub mod circom;
 pub mod gadgets;
+pub mod memoset;
 pub mod sha256;
 pub mod trie;
 
