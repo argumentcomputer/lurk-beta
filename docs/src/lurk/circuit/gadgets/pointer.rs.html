@@ -388,6 +388,14 @@
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 
 <span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
@@ -520,6 +528,14 @@
 
     <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.hash
+    }
+
+    <span class="kw">pub fn </span>get_value&lt;T: Tag&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ZPtr&lt;T, F&gt;&gt; {
+        <span class="self">self</span>.tag.get_value().and_then(|tag| {
+            <span class="self">self</span>.hash
+                .get_value()
+                .map(|hash| ZPtr::from_parts(Tag::from_field(<span class="kw-2">&amp;</span>tag).expect(<span class="string">"bad tag"</span>), hash))
+        })
     }
 
     <span class="kw">pub fn </span>enforce_equal&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {

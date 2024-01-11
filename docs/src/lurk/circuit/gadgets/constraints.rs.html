@@ -1299,6 +1299,28 @@
 <a href="#1297" id="1297">1297</a>
 <a href="#1298" id="1298">1298</a>
 <a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
 </pre></div><pre class="rust"><code><span class="comment">// Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 </span><span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span>bellpepper_core::LinearCombination;
@@ -1609,6 +1631,28 @@
     </span>product(<span class="kw-2">&amp;mut </span>cs, || <span class="string">"division constraint"</span>, <span class="kw-2">&amp;</span>res, b, a);
 
     <span class="prelude-val">Ok</span>(res)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>invert&lt;F: PrimeField, CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw-2">mut </span>cs: CS,
+    a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
+    <span class="kw">let </span>inv = AllocatedNum::alloc(cs.namespace(|| <span class="string">"invert"</span>), || {
+        <span class="kw">let </span>inv = (a.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>).invert();
+
+        <span class="kw">let </span>inv_opt: <span class="prelude-ty">Option</span>&lt;<span class="kw">_</span>&gt; = inv.into();
+        inv_opt.ok_or(SynthesisError::DivisionByZero)
+    })<span class="question-mark">?</span>;
+
+    <span class="comment">// inv * a = 1
+    </span>cs.enforce(
+        || <span class="string">"inversion"</span>,
+        |lc| lc + inv.get_variable(),
+        |lc| lc + a.get_variable(),
+        |lc| lc + CS::one(),
+    );
+
+    <span class="prelude-val">Ok</span>(inv)
 }
 
 <span class="doccomment">/// Select the nth element of `from`, where `path_bits` represents n, least-significant bit first.

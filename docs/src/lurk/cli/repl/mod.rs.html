@@ -660,6 +660,12 @@
 <a href="#658" id="658">658</a>
 <a href="#659" id="659">659</a>
 <a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>abomonation::Abomonation;
@@ -1173,13 +1179,13 @@
         }
     }
 
-    <span class="kw">fn </span>handle_meta(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">fn </span>handle_meta(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr_ptr: Ptr, file_path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(car, cdr) = <span class="self">self</span>.store.car_cdr(<span class="kw-2">&amp;</span>expr_ptr)<span class="question-mark">?</span>;
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.store.fetch_sym(<span class="kw-2">&amp;</span>car) {
             <span class="prelude-val">Some</span>(symbol) =&gt; {
                 <span class="kw">let </span>cmdstr = symbol.name()<span class="question-mark">?</span>;
                 <span class="kw">match </span><span class="self">self</span>.meta.get(cmdstr) {
-                    <span class="prelude-val">Some</span>(cmd) =&gt; <span class="kw">match </span>(cmd.run)(<span class="self">self</span>, <span class="kw-2">&amp;</span>cdr) {
+                    <span class="prelude-val">Some</span>(cmd) =&gt; <span class="kw">match </span>(cmd.run)(<span class="self">self</span>, <span class="kw-2">&amp;</span>cdr, file_path) {
                         <span class="prelude-val">Ok</span>(()) =&gt; (),
                         <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">bail!</span>(<span class="string">"Meta command failed with: {}"</span>, e),
                     },
@@ -1204,7 +1210,12 @@
         )
     }
 
-    <span class="kw">fn </span>handle_form&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: parser::Span&lt;<span class="lifetime">'a</span>&gt;, demo: bool) -&gt; <span class="prelude-ty">Result</span>&lt;parser::Span&lt;<span class="lifetime">'a</span>&gt;&gt; {
+    <span class="kw">fn </span>handle_form&lt;<span class="lifetime">'a</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        input: parser::Span&lt;<span class="lifetime">'a</span>&gt;,
+        file_path: <span class="kw-2">&amp;</span>Utf8Path,
+        demo: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;parser::Span&lt;<span class="lifetime">'a</span>&gt;&gt; {
         <span class="kw">let </span>(syntax_start, <span class="kw-2">mut </span>new_input, ptr, is_meta) =
             <span class="self">self</span>.store.read_maybe_meta(<span class="self">self</span>.state.clone(), <span class="kw-2">&amp;</span>input)<span class="question-mark">?</span>;
         <span class="kw">if </span>demo {
@@ -1226,7 +1237,7 @@
             </span>new_input = parser::Span::new(new_input.trim_start_matches(<span class="string">'\n'</span>));
         }
         <span class="kw">if </span>is_meta {
-            <span class="self">self</span>.handle_meta(ptr)<span class="question-mark">?</span>;
+            <span class="self">self</span>.handle_meta(ptr, file_path)<span class="question-mark">?</span>;
         } <span class="kw">else </span>{
             <span class="self">self</span>.handle_non_meta(ptr)<span class="question-mark">?</span>;
         }
@@ -1243,7 +1254,8 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>input = parser::Span::new(<span class="kw-2">&amp;</span>input);
         <span class="kw">loop </span>{
-            <span class="kw">match </span><span class="self">self</span>.handle_form(input, demo) {
+            <span class="kw">let </span>file_dir = file_path.parent().unwrap();
+            <span class="kw">match </span><span class="self">self</span>.handle_form(input, file_dir, demo) {
                 <span class="prelude-val">Ok</span>(new_input) =&gt; input = new_input,
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(parser::Error::NoInput) = e.downcast_ref::&lt;parser::Error&gt;() {
@@ -1284,7 +1296,7 @@
                     <span class="kw">match </span><span class="self">self</span>.store.read_maybe_meta(<span class="self">self</span>.state.clone(), <span class="kw-2">&amp;</span>line) {
                         <span class="prelude-val">Ok</span>((.., expr_ptr, is_meta)) =&gt; {
                             <span class="kw">if </span>is_meta {
-                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_meta(expr_ptr) {
+                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_meta(expr_ptr, <span class="kw-2">&amp;</span><span class="self">self</span>.pwd_path.clone()) {
                                     <span class="macro">eprintln!</span>(<span class="string">"!Error: {e}"</span>)
                                 }
                             } <span class="kw">else if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_non_meta(expr_ptr) {

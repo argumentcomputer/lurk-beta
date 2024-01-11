@@ -1515,6 +1515,10 @@
 <a href="#1513" id="1513">1513</a>
 <a href="#1514" id="1514">1514</a>
 <a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -2696,6 +2700,10 @@
             Tag::Op1(op) =&gt; op.to_string(),
             Tag::Op2(op) =&gt; op.to_string(),
         }
+    }
+
+    <span class="kw">pub fn </span>fmt_to_string_simple&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String {
+        <span class="self">self</span>.fmt_to_string(store, <span class="kw">crate</span>::state::initial_lurk_state())
     }
 
     <span class="kw">fn </span>fmt_cont2_to_string&lt;F: LurkField&gt;(
