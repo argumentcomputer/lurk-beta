@@ -134,7 +134,7 @@ where
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// A proof for the intermediate steps of a recursive computation
-    Recursive(Box<RecursiveSNARK<E1<F>, E2<F>>>),
+    Recursive(Box<RecursiveSNARK<'a, E1<F>, E2<F>>>),
     /// A proof for the final step of a recursive computation
     Compressed(
         Box<CompressedSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>,
@@ -177,14 +177,14 @@ where
 
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
     fn prove_recursively(
-        pp: &PublicParams<F, C1LEM<'a, F, C>>,
+        pp: &'a PublicParams<F, C1LEM<'a, F, C>>,
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
         store: &'a Store<F>,
         _reduction_count: usize,
         _lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {
-        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>, E2<F>>> = None;
+        let mut recursive_snark_option: Option<RecursiveSNARK<'_, E1<F>, E2<F>>> = None;
 
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();

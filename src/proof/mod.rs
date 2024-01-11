@@ -100,7 +100,7 @@ where
 
     /// Generate the recursive SNARK, encoded in `ProveOutput`
     fn prove_recursively(
-        pp: &Self::PublicParams,
+        pp: &'a Self::PublicParams,
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
         store: &'a Store<F>,
@@ -174,7 +174,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     /// Generate a proof from a sequence of frames
     fn prove(
         &self,
-        pp: &Self::PublicParams,
+        pp: &'a Self::PublicParams,
         frames: &[Frame],
         store: &'a Store<F>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
@@ -205,7 +205,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     /// Evaluate an expression with an environment and then generate the corresponding proof
     fn evaluate_and_prove(
         &self,
-        pp: &Self::PublicParams,
+        pp: &'a Self::PublicParams,
         expr: Ptr,
         env: Ptr,
         store: &'a Store<F>,

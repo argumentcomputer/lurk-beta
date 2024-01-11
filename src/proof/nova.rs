@@ -159,7 +159,7 @@ where
     /// A proof for the intermediate steps of a recursive computation along with
     /// the number of steps used for verification
     Recursive(
-        Box<RecursiveSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>>,
+        Box<RecursiveSNARK<'a, E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>>,
         usize,
         PhantomData<&'a C>,
     ),
@@ -234,7 +234,7 @@ where
 
     #[tracing::instrument(skip_all, name = "nova::prove_recursively")]
     fn prove_recursively(
-        pp: &PublicParams<F, C1LEM<'a, F, C>>,
+        pp: &'a PublicParams<F, C1LEM<'a, F, C>>,
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
         store: &'a Store<F>,
@@ -257,7 +257,7 @@ where
         tracing::debug!("steps.len: {num_steps}");
 
         // produce a recursive SNARK
-        let mut recursive_snark: Option<RecursiveSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>> =
+        let mut recursive_snark: Option<RecursiveSNARK<'_, E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>> =
             None;
 
         // the shadowing here is voluntary
