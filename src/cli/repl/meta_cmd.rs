@@ -1,7 +1,7 @@
 use ::nova::traits::Engine;
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use ff::PrimeField;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, process};
@@ -41,7 +41,7 @@ pub(super) struct MetaCmd<F: LurkField, C: Coprocessor<F> + Serialize + Deserial
     format: &'static str,
     description: &'static [&'static str],
     example: &'static [&'static str],
-    pub(super) run: fn(repl: &mut Repl<F, C>, args: &Ptr) -> Result<()>,
+    pub(super) run: fn(repl: &mut Repl<F, C>, args: &Ptr, file_path: &Utf8Path) -> Result<()>,
 }
 
 impl<
@@ -58,10 +58,10 @@ where
         format: "!(load <string>)",
         description: &[],
         example: &["!(load \"my_file.lurk\")"],
-        run: |repl, args| {
+        run: |repl, args, path| {
             let first = repl.peek1(args)?;
-            if let Some(path) = repl.store.fetch_string(&first) {
-                repl.load_file(&repl.pwd_path.join(path), false)
+            if let Some(load_path) = repl.store.fetch_string(&first) {
+                repl.load_file(&path.join(load_path), false)
             } else {
                 bail!("Argument of `load` must be a string.")
             }
@@ -77,7 +77,7 @@ where
             "The state's env is set to the result.",
         ],
         example: &["!(def foo (lambda () 123))"],
-        run: |repl: &mut Repl<F, C>, args: &Ptr| {
+        run: |repl, args, _path| {
             let (first, second) = repl.peek2(args)?;
             let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
             let l = repl.store.intern_lurk_symbol("let");
@@ -105,7 +105,7 @@ where
             "!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))",
             "(sum '(1 2 3))",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let (first, second) = repl.peek2(args)?;
             let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
             let l = repl.store.intern_lurk_symbol("letrec");
@@ -127,7 +127,7 @@ where
         format: "!(assert <expr>)",
         description: &[],
         example: &["!(assert t)", "!(assert (eq 3 (+ 1 2)))"],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let first = repl.peek1(args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             if first_io[0].is_nil() {
@@ -147,7 +147,7 @@ where
         format: "!(assert-eq <expr> <expr>)",
         description: &[],
         example: &["!(assert-eq 3 (+ 1 2))"],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let (first, second) = repl.peek2(args)?;
             let (first_io, ..) = repl
                 .eval_expr(first)
@@ -183,7 +183,7 @@ where
         example: &[
             "!(assert-emitted '(1 2) (begin (emit 1) (emit 2)))"
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let (first, second) = repl.peek2(args)?;
             let (first_io, ..) = repl
                 .eval_expr(first)
@@ -213,7 +213,7 @@ where
         format: "!(assert-error <expr>)",
         description: &[],
         example: &["!(assert-error (1 1))"],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let first = repl.peek1(args)?;
             let (first_io, ..) = repl.eval_expr_allowing_error_continuation(first)?;
             if first_io[2].tag() != &Tag::Cont(ContTag::Error) {
@@ -239,7 +239,7 @@ where
             "!(commit '(13 . 21))",
             "(let ((n (open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25))) (* (car n) (cdr n)))",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let first = repl.peek1(args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             repl.hide(F::NON_HIDING_COMMITMENT_SECRET, first_io[0])
@@ -256,7 +256,7 @@ where
             "(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))",
             "(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let (first, second) = repl.peek2(args)?;
             let (first_io, ..) = repl
                 .eval_expr(first)
@@ -285,7 +285,7 @@ where
             "!(commit '(13 . 21))",
             "!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let hash = *repl.get_comm_hash(args)?;
             repl.fetch(&hash, false)
         },
@@ -300,7 +300,7 @@ where
             "!(commit '(13 . 21))",
             "!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let hash = *repl.get_comm_hash(args)?;
             repl.fetch(&hash, true)
         },
@@ -312,7 +312,7 @@ where
         format: "!(clear)",
         description: &[],
         example: &["!(def a 1)", "(current-env)", "!(clear)", "(current-env)"],
-        run: |repl, _args| {
+        run: |repl, _args, _path| {
             repl.env = repl.store.intern_nil();
             Ok(())
         },
@@ -324,7 +324,7 @@ where
         format: "!(set-env <expr>)",
         description: &[],
         example: &["!(set-env '((a . 1) (b . 2)))", "a"],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let first = repl.peek1(args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             repl.env = first_io[0];
@@ -347,7 +347,7 @@ where
             "!(verify \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
             "!(open 0x002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf)",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             if !args.is_nil() {
                 repl.eval_expr_and_memoize(repl.peek1(args)?)?;
             }
@@ -366,7 +366,7 @@ where
             "!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")",
             "!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let first = repl.peek1(args)?;
             let proof_id = repl.get_string(&first)?;
             LurkProof::<_, C>::verify_proof(
@@ -381,7 +381,7 @@ where
         format: "!(defpackage <string|symbol>)",
         description: &[],
         example: &["!(defpackage abc)"],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             // TODO: handle args
             let (name, _args) = repl.store.car_cdr(args)?;
             let name = match name.tag() {
@@ -402,7 +402,7 @@ where
         format: "!(import <string|package> ...)",
         description: &[],
         example: &[],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             // TODO: handle pkg
             let (mut symbols, _pkg) = repl.store.car_cdr(args)?;
             if symbols.tag() == &Tag::Expr(ExprTag::Sym) {
@@ -439,7 +439,7 @@ where
             "!(in-package .lurk.user)",
             "(.lurk.user.abc.two)",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let first = repl.peek1(args)?;
             match first.tag() {
                 Tag::Expr(ExprTag::Str) => {
@@ -470,7 +470,7 @@ where
             "Otherwise the full help for the command in the first argument is printed.",
         ],
         example: &["!(help)", "!(help verify)", "!(help \"load\")"],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let first = repl.peek1(args)?;
             match first.tag() {
                 Tag::Expr(ExprTag::Str) => {
@@ -514,7 +514,7 @@ where
         }
     }
 
-    fn call(repl: &mut Repl<F, C>, args: &Ptr) -> Result<()> {
+    fn call(repl: &mut Repl<F, C>, args: &Ptr, _path: &Utf8Path) -> Result<()> {
         let (hash_ptr, args) = repl.store.car_cdr(args)?;
         let hash_expr = match hash_ptr.tag() {
             Tag::Expr(ExprTag::Cons) => hash_ptr,
@@ -564,8 +564,8 @@ where
                (add 0)))",
             "!(chain 0x14cb06e2d3c594af90d5b670e73595791d7462b20442c24cd56ba2919947d769 1)",
         ],
-        run: |repl: &mut Repl<F, C>, args: &Ptr| {
-            Self::call(repl, args)?;
+        run: |repl, args, path| {
+            Self::call(repl, args, path)?;
             let ev = repl
                 .get_evaluation()
                 .as_ref()
@@ -606,7 +606,7 @@ where
             "!(prove '(1 2 3))",
             "!(inspect \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             Self::inspect(repl, args, false)
         }
     };
@@ -620,7 +620,7 @@ where
             "!(prove '(1 2 3))",
             "!(inspect-full \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             Self::inspect(repl, args, true)
         }
     };
@@ -631,7 +631,7 @@ where
         format: "!(dump-data <expr> <string>)",
         description: &[],
         example: &["!(dump-data (+ 1 1) \"my_file\")"],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let (expr, path) = repl.peek2(args)?;
             let path = get_path(repl, &path)?;
             let (io, ..) = repl
@@ -649,7 +649,7 @@ where
         format: "!(def-load-data <symbol> <string>)",
         description: &[],
         example: &["!(def-load-data x \"my_file\")"],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let (sym, path) = repl.peek2(args)?;
             if !sym.is_sym() {
                 bail!(
@@ -698,7 +698,7 @@ where
             "  :rc 10",
             "  :description \"example protocol\")",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let (name, rest) = repl.store.car_cdr(args)?;
             let (vars, rest) = repl.store.car_cdr(&rest)?;
             let (body, props) = repl.store.car_cdr(&rest)?;
@@ -905,7 +905,7 @@ where
             "  0x09910d31a7568d66855bcc83fccc4826063dfdf93fe5e1f736c83ec892ed139e",
             "  '(13 . 17))",
         ],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let (ptcl, rest) = repl.store.car_cdr(args)?;
             let (path, args) = repl.store.car_cdr(&rest)?;
 
@@ -984,7 +984,7 @@ where
             "  protocol proof.",
         ],
         example: &["!(verify-protocol my-protocol \"protocol-proof\")"],
-        run: |repl, args| {
+        run: |repl, args, _path| {
             let (ptcl, path) = repl.peek2(args)?;
 
             let path = get_path(repl, &path)?;
