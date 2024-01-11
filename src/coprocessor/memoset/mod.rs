@@ -1,4 +1,32 @@
-//! The `memoset` module implements a MemoSet.
+//! The `memoset` module implements a `MemoSet`.
+//!
+//! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
+//! Whenever a computation being proved needs the result of a query, the prover non-deterministically supplies the
+//! correct response. The resulting key-value pair is then added to a multiset representing deferred proofs. The
+//! dependent proof now must not be accepted until every element in the deferred-proof multiset has been proved.
+//!
+//! Implementation depends on a cryptographic multiset -- for example, ECMH or LogUp (implemented here). This allows us
+//! to prove that every element added to to the multiset is later removed only after having been proved. The
+//! cryptographic assumption is that it is infeasible to fraudelently demonstrate multiset equality.
+//!
+//! Our use of the LogUp (logarithmic derivative) technique in the `LogMemo` implementation of `MemoSet` unfortunately
+//! requires that the entire history of insertions and removals be committed to in advance -- so that Fiat-Shamir
+//! randomness derived from the transcript can be used when mapping field elements to multiset elements. We use Lurk
+//! data to assemble the transcript, so that the final randomness is the hash/value component of a `ZPtr` to the
+//! content-addressed data structure representing the transcript as assembled.
+//!
+//! Transcript elements represent deferred proofs that are either added to (when their results are used) or removed from
+//! (when correctness of those results is proved) the 'deferred proof' multiset. Insertions are recorded in the
+//! transcript as key-value pairs (Lurk data: `(key . value)`); and removals further include the removal multiplicity
+//! (Lurk data: `((key . value) . multiplicity)`). It is critical that the multiplicity be included in the transcript,
+//! since if free to choose it after the randomness has been derived, the prover can trivially falsify the contents of
+//! the multiset -- decoupling claimed truths from those actually proved.
+//!
+//! Bookkeeping required to correctly build the transcript after evaluation but before proving is maintained by the
+//! `Scope`. This allows us to accumulate queries and the subqueries on which they depend, along with the memoized query
+//! results computed 'naturally' during evaluation. We then separate and sort in an order matching that in which the
+//! NIVC prover will follow when provably maintaining the multiset accumulator and Fiat-Shamir transcript in the
+//! circuit.
 
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -303,7 +331,7 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
                             // Add an insertion for each dependency (subquery) of the query identified by `key`. Notice
                             // that these keys might already have been inserted before, but we need to repeat if so
                             // because the proof must do so each time a query is used.
-                            let kv= Transcript::make_kv(s, k, *v);
+                            let kv = Transcript::make_kv(s, k, *v);
                               transcript.add(s, kv)
                         })
                 };
