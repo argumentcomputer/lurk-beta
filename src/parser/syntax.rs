@@ -418,8 +418,8 @@ pub fn parse_maybe_meta<F: LurkField>(
 
 #[cfg(test)]
 pub mod tests {
+    use halo2curves::bn256::Fr as Scalar;
     use nom::Parser;
-    use pasta_curves::pallas::Scalar;
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
 
@@ -845,7 +845,7 @@ pub mod tests {
         ));
         assert!(test(
             parse_num(),
-            "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000000",
+            "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
             Some(Syntax::Num(
                 Pos::No,
                 Num::Scalar(<Scalar as ff::Field>::ZERO - Scalar::from(1u64))
@@ -853,7 +853,7 @@ pub mod tests {
         ));
         assert!(test(
             parse_num(),
-            "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001",
+            "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
             None,
         ));
         assert!(test(parse_num(), "-0", Some(num!(0))));
@@ -869,9 +869,9 @@ pub mod tests {
     #[test]
     fn unit_parse_syntax_misc() {
         let vec: Vec<u8> = vec![
-            0x3e, 0x2e, 0x50, 0x55, 0xdc, 0xf6, 0x14, 0x86, 0xb0, 0x3b, 0xb8, 0x0e, 0xd2, 0xb3,
-            0xf1, 0xa3, 0x5c, 0x30, 0xe1, 0x22, 0xde, 0xfe, 0xba, 0xe8, 0x24, 0xfa, 0xe4, 0xed,
-            0x32, 0x40, 0x8e, 0x87,
+            0x19, 0x1d, 0x3d, 0x47, 0x43, 0xb4, 0xd1, 0xce, 0x39, 0x36, 0xa0, 0xa6, 0x68, 0xcf,
+            0x6f, 0x64, 0x50, 0x28, 0x45, 0x79, 0xdb, 0xe2, 0x66, 0xe3, 0x64, 0x5b, 0x67, 0x64,
+            0xcf, 0x24, 0xb9, 0x36,
         ]
         .into_iter()
         .rev()
@@ -886,7 +886,7 @@ pub mod tests {
         ));
         assert!(test(
             parse_syntax(state(), false, true),
-            "(0x3e2e5055dcf61486b03bb80ed2b3f1a35c30e122defebae824fae4ed32408e87)",
+            "(0x191d3d4743b4d1ce3936a0a668cf6f6450284579dbe266e3645b6764cf24b936)",
             Some(list!([num!(Num::Scalar(f_from_le_bytes(&vec)))])),
         ));
         assert!(test(
