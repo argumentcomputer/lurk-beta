@@ -802,25 +802,25 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         return (nil)
     });
     let is_cproc = is_cproc(cprocs);
-    let lookup = func!(lookup(expr, env, state, maybe_var): 4 => {
+    let lookup = func!(lookup(expr, env, state): 3 => {
         let found = Symbol("found");
         let not_found = Symbol("not_found");
         let error = Symbol("error");
         let continue = eq_val(not_found, state);
         if !continue {
-            return (expr, env, state, maybe_var)
+            return (expr, env, state)
         }
         let zero = Num(0);
         let env_is_zero = eq_val(env, zero);
         if env_is_zero {
-            return (expr, env, error, maybe_var)
+            return (expr, env, error)
         }
         let (var, val, smaller_env) = pop_binding(env);
         let eq_val = eq_val(var, expr);
         if eq_val {
-            return (val, env, found, var)
+            return (val, env, found)
         }
-        return (expr, smaller_env, not_found, var)
+        return (expr, smaller_env, not_found)
     });
 
     func!(reduce(expr, env, cont): 4 => {
@@ -869,33 +869,39 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                     return (expr, env, cont, apply)
                 }
                 let not_found = Symbol("not_found");
-                let zero = Num(0);
-                let (expr, env, state, var) = lookup(expr, env, not_found, zero);
-                let (expr, env, state, var) = lookup(expr, env, state, var);
-                let (expr, env, state, var) = lookup(expr, env, state, var);
-                let (expr, env, state, var) = lookup(expr, env, state, var);
-                let (expr, env, state, var) = lookup(expr, env, state, var);
-                let (expr, env, state, var) = lookup(expr, env, state, var);
-                let (expr, env, state, var) = lookup(expr, env, state, var);
-                let (expr, env, state, var) = lookup(expr, env, state, var);
+                // `expr` is the symbol. If the lookup was succesful, it will
+                // return the result as `res` and a "found" state. If the lookup
+                // is incomplete, it will return the original symbol as `res`
+                // and a "not_found" state
+                let (res, res_env, state) = lookup(expr, env, not_found);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
                 match symbol state {
                     "error" => {
                         return (expr, env, err, errctrl)
                     }
                     "found" => {
-                        match expr.tag {
+                        match res.tag {
                             // if `val2` is a recursive closure, then extend its environment
                             Expr::Rec => {
-                                let (args, body, closed_env, _foo) = decons4(expr);
-                                let extended = push_binding(var, expr, closed_env);
+                                let (args, body, closed_env, _foo) = decons4(res);
+                                // remember `expr` is the original symbol, i.e. the symbol
+                                // of the recursive closure
+                                let extended = push_binding(expr, res, closed_env);
                                 let fun: Expr::Fun = cons4(args, body, extended, foo);
-                                return (fun, env, cont, apply)
+                                return (fun, res_env, cont, apply)
                             }
                         };
-                        return (expr, env, cont, apply)
+                        return (res, res_env, cont, apply)
                     }
                     "not_found" => {
-                        return (expr, env, cont, ret)
+                        // if it's not yet found, we must keep reducing
+                        return (res, res_env, cont, ret)
                     }
                 }
             }
@@ -1739,8 +1745,8 @@ mod tests {
         expect_eq(func.slots_count.commitment, expect!["1"]);
         expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["8943"]);
-        expect_eq(cs.num_constraints(), expect!["10921"]);
+        expect_eq(cs.aux().len(), expect!["8927"]);
+        expect_eq(cs.num_constraints(), expect!["10857"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
