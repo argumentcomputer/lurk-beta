@@ -346,8 +346,8 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
 #[cfg(test)]
 pub mod tests {
     use crate::z_data::{from_z_data, to_z_data};
-    use pasta_curves::pallas::Scalar as Fr;
-    use pasta_curves::{pallas, vesta};
+    use halo2curves::bn256::Fr;
+    use halo2curves::{bn256, grumpkin};
 
     use super::*;
 
@@ -359,11 +359,11 @@ pub mod tests {
 
     proptest! {
       #[test]
-      fn prop_pallas_repr_bytes_consistency(f1 in any::<FWrap<pallas::Scalar>>()) {
+      fn prop_bn256_repr_bytes_consistency(f1 in any::<FWrap<bn256::Fr>>()) {
           repr_bytes_consistency(f1)
       }
       #[test]
-      fn prop_vesta_repr_bytes_consistency(f1 in any::<FWrap<vesta::Scalar>>()) {
+      fn prop_grumpkin_repr_bytes_consistency(f1 in any::<FWrap<grumpkin::Fr>>()) {
           repr_bytes_consistency(f1)
       }
     }
@@ -418,11 +418,11 @@ pub mod tests {
         repr_canonicity(f1)
       }
       #[test]
-      fn prop_pallas_repr_canonicity(f1 in any::<FWrap<pallas::Scalar>>()) {
+      fn prop_bn256_repr_canonicity(f1 in any::<FWrap<bn256::Fr>>()) {
           repr_canonicity(f1)
       }
       #[test]
-      fn prop_vesta_repr_canonicity(f1 in any::<FWrap<vesta::Scalar>>()) {
+      fn prop_grumpkin_repr_canonicity(f1 in any::<FWrap<grumpkin::Fr>>()) {
           repr_canonicity(f1)
       }
       #[test]
@@ -448,8 +448,8 @@ pub mod tests {
     // we use this library with.
     proptest! {
         #[test]
-        fn prop_pallas_tag_roundtrip(x in any::<u64>()){
-            let f1 = pallas::Scalar::from(x);
+        fn prop_bn256_tag_roundtrip(x in any::<u64>()){
+            let f1 = bn256::Fr::from(x);
             let bytes = f1.to_repr().as_ref().to_vec();
             let mut bytes_from_u64 = [0u8; 32];
             bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());
@@ -457,8 +457,8 @@ pub mod tests {
         }
 
         #[test]
-        fn prop_vesta_tag_roundtrip(x in any::<u64>()){
-            let f1 = vesta::Scalar::from(x);
+        fn prop_grumpkin_tag_roundtrip(x in any::<u64>()){
+            let f1 = grumpkin::Fr::from(x);
             let bytes = f1.to_repr().as_ref().to_vec();
             let mut bytes_from_u64 = [0u8; 32];
             bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());
