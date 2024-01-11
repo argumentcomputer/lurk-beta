@@ -811,9 +811,6 @@ mod test {
             expect_eq(cs.num_constraints(), expect!["10826"]);
             expect_eq(cs.aux().len(), expect!["10859"]);
 
-            assert_eq!(10826, cs.num_constraints());
-            assert_eq!(10859, cs.aux().len());
-
             let unsat = cs.which_is_unsatisfied();
 
             if unsat.is_some() {
