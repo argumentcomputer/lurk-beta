@@ -48,27 +48,27 @@ where
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError>;
 
-    fn symbol(&self, s: &Store<F>) -> Symbol;
+    fn symbol(&self, s: &Store<F>) -> Symbol {
+        self.dummy_query_variant(s).symbol()
+    }
 
-    fn symbol_ptr(&self, s: &Store<F>) -> Ptr;
+    fn symbol_ptr(&self, s: &Store<F>) -> Ptr {
+        self.dummy_query_variant(s).symbol_ptr(s)
+    }
 
     fn from_ptr<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         s: &Store<F>,
         ptr: &Ptr,
     ) -> Result<Option<Self>, SynthesisError>;
+
+    fn dummy_query_variant(&self, s: &Store<F>) -> Self::Q;
 }
 
 #[derive(Debug, Clone)]
 pub enum DemoQuery<F> {
     Factorial(Ptr),
     Phantom(F),
-}
-
-impl<F: LurkField> DemoQuery<F> {
-    fn factorial(s: &Store<F>) -> Self {
-        Self::Factorial(s.num(F::ZERO))
-    }
 }
 
 pub enum DemoCircuitQuery<F: LurkField> {
@@ -147,14 +147,9 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
 impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
     type Q = DemoQuery<F>;
 
-    fn symbol(&self, s: &Store<F>) -> Symbol {
+    fn dummy_query_variant(&self, s: &Store<F>) -> Self::Q {
         match self {
-            Self::Factorial(_) => Self::Q::factorial(s).symbol(),
-        }
-    }
-    fn symbol_ptr(&self, s: &Store<F>) -> Ptr {
-        match self {
-            Self::Factorial(_) => Self::Q::factorial(s).symbol_ptr(s),
+            Self::Factorial(_) => Self::Q::Factorial(s.num(F::ZERO)),
         }
     }
 
