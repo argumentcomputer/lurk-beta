@@ -511,13 +511,13 @@ where
         }
     }
 
-    fn handle_meta(&mut self, expr_ptr: Ptr) -> Result<()> {
+    fn handle_meta(&mut self, expr_ptr: Ptr, file_path: &Utf8Path) -> Result<()> {
         let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
         match &self.store.fetch_sym(&car) {
             Some(symbol) => {
                 let cmdstr = symbol.name()?;
                 match self.meta.get(cmdstr) {
-                    Some(cmd) => match (cmd.run)(self, &cdr) {
+                    Some(cmd) => match (cmd.run)(self, &cdr, file_path) {
                         Ok(()) => (),
                         Err(e) => bail!("Meta command failed with: {}", e),
                     },
@@ -542,7 +542,12 @@ where
         )
     }
 
-    fn handle_form<'a>(&mut self, input: parser::Span<'a>, demo: bool) -> Result<parser::Span<'a>> {
+    fn handle_form<'a>(
+        &mut self,
+        input: parser::Span<'a>,
+        file_path: &Utf8Path,
+        demo: bool,
+    ) -> Result<parser::Span<'a>> {
         let (syntax_start, mut new_input, ptr, is_meta) =
             self.store.read_maybe_meta(self.state.clone(), &input)?;
         if demo {
@@ -564,7 +569,7 @@ where
             new_input = parser::Span::new(new_input.trim_start_matches('\n'));
         }
         if is_meta {
-            self.handle_meta(ptr)?;
+            self.handle_meta(ptr, file_path)?;
         } else {
             self.handle_non_meta(ptr)?;
         }
@@ -581,7 +586,8 @@ where
 
         let mut input = parser::Span::new(&input);
         loop {
-            match self.handle_form(input, demo) {
+            let file_dir = file_path.parent().unwrap();
+            match self.handle_form(input, file_dir, demo) {
                 Ok(new_input) => input = new_input,
                 Err(e) => {
                     if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
@@ -622,7 +628,7 @@ where
                     match self.store.read_maybe_meta(self.state.clone(), &line) {
                         Ok((.., expr_ptr, is_meta)) => {
                             if is_meta {
-                                if let Err(e) = self.handle_meta(expr_ptr) {
+                                if let Err(e) = self.handle_meta(expr_ptr, &self.pwd_path.clone()) {
                                     eprintln!("!Error: {e}")
                                 }
                             } else if let Err(e) = self.handle_non_meta(expr_ptr) {
