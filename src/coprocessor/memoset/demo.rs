@@ -13,13 +13,15 @@ use crate::lem::{pointers::Ptr, store::Store};
 use crate::symbol::Symbol;
 use crate::tag::{ExprTag, Tag};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub enum DemoQuery<F> {
+pub(crate) enum DemoQuery<F> {
     Factorial(Ptr),
     Phantom(F),
 }
 
-pub enum DemoCircuitQuery<F: LurkField> {
+#[derive(Debug, Clone)]
+pub(crate) enum DemoCircuitQuery<F: LurkField> {
     Factorial(AllocatedPtr<F>),
 }
 
@@ -106,7 +108,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, Self::Q, LogMemo<F>>,
+        scope: &mut CircuitScope<F, Self, LogMemo<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {

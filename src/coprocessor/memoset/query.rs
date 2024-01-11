@@ -9,7 +9,7 @@ use crate::symbol::Symbol;
 
 pub trait Query<F: LurkField>
 where
-    Self: Sized,
+    Self: Sized + Clone,
 {
     fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr;
     fn recursive_eval(
@@ -31,7 +31,7 @@ where
 #[allow(unreachable_pub)]
 pub trait CircuitQuery<F: LurkField>
 where
-    Self: Sized,
+    Self: Sized + Clone,
 {
     type Q: Query<F>;
 
@@ -40,7 +40,7 @@ where
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, Self::Q, LogMemo<F>>,
+        scope: &mut CircuitScope<F, Self, LogMemo<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError>;
