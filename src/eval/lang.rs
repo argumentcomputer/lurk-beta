@@ -181,7 +181,7 @@ pub(crate) mod test {
     use crate::sym;
 
     use super::*;
-    use pasta_curves::pallas::Scalar as Fr;
+    use halo2curves::bn256::Fr as Fr;
 
     #[test]
     fn lang() {
