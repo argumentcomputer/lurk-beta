@@ -16,7 +16,7 @@ use crate::UInt;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(
     not(target_arch = "wasm32"),
-    serde_test(types(pasta_curves::pallas::Scalar), zdata(true))
+    serde_test(types(halo2curves::bn256::Fr), zdata(true))
 )]
 /// A `ZExpr` is the content-addressed representation of a Lurk expression, which enables
 /// efficient serialization and sharing of hashed Lurk data via associated `ZExprPtr`s.
