@@ -73,10 +73,10 @@
 {
     <span class="kw">type </span>CQ: CircuitQuery&lt;F&gt;;
 
-    <span class="kw">fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, scope: <span class="kw-2">&amp;mut </span>Scope&lt;F, <span class="self">Self</span>, LogMemo&lt;F&gt;&gt;) -&gt; Ptr;
+    <span class="kw">fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, scope: <span class="kw-2">&amp;mut </span>Scope&lt;<span class="self">Self</span>, LogMemo&lt;F&gt;&gt;) -&gt; Ptr;
     <span class="kw">fn </span>recursive_eval(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        scope: <span class="kw-2">&amp;mut </span>Scope&lt;F, <span class="self">Self</span>, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;mut </span>Scope&lt;<span class="self">Self</span>, LogMemo&lt;F&gt;&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         subquery: <span class="self">Self</span>,
     ) -&gt; Ptr;
@@ -99,7 +99,7 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, <span class="self">Self</span>, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemo&lt;F&gt;&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt;;

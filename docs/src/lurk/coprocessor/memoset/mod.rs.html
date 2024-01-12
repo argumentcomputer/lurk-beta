@@ -830,10 +830,6 @@
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a>
-<a href="#833" id="833">833</a>
-<a href="#834" id="834">834</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -883,7 +879,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::z_ptr::ZPtr;
 
 <span class="kw">use </span>multiset::MultiSet;
-<span class="kw">use </span>query::{CircuitQuery, Query};
+<span class="kw">pub use </span>query::{CircuitQuery, Query};
 
 <span class="kw">mod </span>demo;
 <span class="kw">mod </span>multiset;
@@ -1016,7 +1012,7 @@
 </span><span class="doccomment">/// A `Scope` tracks the queries made while evaluating, including the subqueries that result from evaluating other
 /// queries -- then makes use of the bookkeeping performed at evaluation time to synthesize proof of each query
 /// performed.
-</span><span class="kw">pub struct </span>Scope&lt;F, Q, M&gt; {
+</span><span class="kw">pub struct </span>Scope&lt;Q, M&gt; {
     memoset: M,
     <span class="doccomment">/// k =&gt; v
     </span>queries: HashMap&lt;Ptr, Ptr&gt;,
@@ -1028,10 +1024,9 @@
     </span>internal_insertions: Vec&lt;Ptr&gt;,
     <span class="doccomment">/// unique keys
     </span>all_insertions: Vec&lt;Ptr&gt;,
-    _p: PhantomData&lt;F&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, Q&gt; Default <span class="kw">for </span>Scope&lt;F, Q, LogMemo&lt;F&gt;&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, Q&gt; Default <span class="kw">for </span>Scope&lt;Q, LogMemo&lt;F&gt;&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             memoset: Default::default(),
@@ -1040,22 +1035,20 @@
             toplevel_insertions: Default::default(),
             internal_insertions: Default::default(),
             all_insertions: Default::default(),
-            _p: Default::default(),
         }
     }
 }
 
-<span class="kw">pub struct </span>CircuitScope&lt;F: LurkField, CQ: CircuitQuery&lt;F&gt;, M: MemoSet&lt;F&gt;&gt; {
+<span class="kw">pub struct </span>CircuitScope&lt;F: LurkField, M&gt; {
     memoset: M,
     <span class="doccomment">/// k -&gt; v
     </span>queries: HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt;,
     <span class="doccomment">/// k -&gt; allocated v
     </span>transcript: CircuitTranscript&lt;F&gt;,
     acc: <span class="prelude-ty">Option</span>&lt;AllocatedPtr&lt;F&gt;&gt;,
-    _p: PhantomData&lt;CQ&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, Q: Query&lt;F&gt;&gt; Scope&lt;F, Q, LogMemo&lt;F&gt;&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, Q: Query&lt;F&gt;&gt; Scope&lt;Q, LogMemo&lt;F&gt;&gt; {
     <span class="kw">pub fn </span>query(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, form: Ptr) -&gt; Ptr {
         <span class="kw">let </span>(response, kv_ptr) = <span class="self">self</span>.query_aux(s, form);
 
@@ -1193,12 +1186,12 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, CQ: CircuitQuery&lt;F&gt;&gt; CircuitScope&lt;F, CQ, LogMemo&lt;F&gt;&gt; {
-    <span class="kw">fn </span>from_scope&lt;CS: ConstraintSystem&lt;F&gt;, Q: Query&lt;F, CQ = CQ&gt;&gt;(
+<span class="kw">impl</span>&lt;F: LurkField&gt; CircuitScope&lt;F, LogMemo&lt;F&gt;&gt; {
+    <span class="kw">fn </span>from_scope&lt;CS: ConstraintSystem&lt;F&gt;, Q: Query&lt;F&gt;&gt;(
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        scope: <span class="kw-2">&amp;</span>Scope&lt;F, Q, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;</span>Scope&lt;Q, LogMemo&lt;F&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>queries = scope
             .queries
@@ -1210,7 +1203,6 @@
             queries,
             transcript: CircuitTranscript::new(cs, g, s),
             acc: Default::default(),
-            _p: Default::default(),
         }
     }
 
@@ -1332,9 +1324,9 @@
         <span class="prelude-val">Ok</span>((value, new_acc, new_insertion_transcript))
     }
 
-    <span class="kw">fn </span>synthesize_insert_toplevel_queries&lt;CS: ConstraintSystem&lt;F&gt;, Q: Query&lt;F, CQ = CQ&gt;&gt;(
+    <span class="kw">fn </span>synthesize_insert_toplevel_queries&lt;CS: ConstraintSystem&lt;F&gt;, Q: Query&lt;F&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        scope: <span class="kw-2">&amp;mut </span>Scope&lt;F, Q, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;mut </span>Scope&lt;Q, LogMemo&lt;F&gt;&gt;,
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -1382,20 +1374,20 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>synthesize_prove_all_queries&lt;CS: ConstraintSystem&lt;F&gt;, Q: Query&lt;F, CQ = CQ&gt;&gt;(
+    <span class="kw">fn </span>synthesize_prove_all_queries&lt;CS: ConstraintSystem&lt;F&gt;, Q: Query&lt;F&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        scope: <span class="kw-2">&amp;mut </span>Scope&lt;F, Q, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;mut </span>Scope&lt;Q, LogMemo&lt;F&gt;&gt;,
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
         <span class="kw">for </span>(i, kv) <span class="kw">in </span>scope.all_insertions.iter().enumerate() {
-            <span class="self">self</span>.synthesize_prove_query(cs, g, s, i, kv)<span class="question-mark">?</span>;
+            <span class="self">self</span>.synthesize_prove_query::&lt;<span class="kw">_</span>, Q::CQ&gt;(cs, g, s, i, kv)<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>synthesize_prove_query&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">fn </span>synthesize_prove_query&lt;CS: ConstraintSystem&lt;F&gt;, CQ: CircuitQuery&lt;F&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
@@ -1588,7 +1580,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_query() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;</span>Store::&lt;F&gt;::default();
-        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;F, DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;&gt; = Scope::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;&gt; = Scope::default();
         <span class="kw">let </span>state = State::init_lurk_state();
 
         <span class="kw">let </span>fact_4 = s.read_with_default_state(<span class="string">"(factorial 4)"</span>).unwrap();
@@ -1639,7 +1631,7 @@
             <span class="macro">assert!</span>(cs.is_satisfied());
         }
         {
-            <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;F, DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;&gt; = Scope::default();
+            <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;&gt; = Scope::default();
             scope.query(s, fact_4);
             scope.query(s, fact_3);
 

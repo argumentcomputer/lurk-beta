@@ -286,7 +286,7 @@
     <span class="kw">type </span>CQ = DemoCircuitQuery&lt;F&gt;;
 
     <span class="comment">// DemoQuery and Scope depend on each other.
-    </span><span class="kw">fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, scope: <span class="kw-2">&amp;mut </span>Scope&lt;F, <span class="self">Self</span>, LogMemo&lt;F&gt;&gt;) -&gt; Ptr {
+    </span><span class="kw">fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, scope: <span class="kw-2">&amp;mut </span>Scope&lt;<span class="self">Self</span>, LogMemo&lt;F&gt;&gt;) -&gt; Ptr {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Factorial(n) =&gt; {
                 <span class="kw">let </span>n_zptr = s.hash_ptr(n);
@@ -308,7 +308,7 @@
 
     <span class="kw">fn </span>recursive_eval(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        scope: <span class="kw-2">&amp;mut </span>Scope&lt;F, <span class="self">Self</span>, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;mut </span>Scope&lt;<span class="self">Self</span>, LogMemo&lt;F&gt;&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         subquery: <span class="self">Self</span>,
     ) -&gt; Ptr {
@@ -359,7 +359,7 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, <span class="self">Self</span>, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemo&lt;F&gt;&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt; {
@@ -495,7 +495,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_factorial() {
         <span class="kw">let </span>s = Store::default();
-        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;F, DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;&gt; = Scope::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;&gt; = Scope::default();
         <span class="kw">let </span>zero = s.num(F::ZERO);
         <span class="kw">let </span>one = s.num(F::ONE);
         <span class="kw">let </span>two = s.num(F::from_u64(<span class="number">2</span>));
