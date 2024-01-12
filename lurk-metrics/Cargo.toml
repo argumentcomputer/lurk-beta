@@ -1,11 +1,13 @@
 [package]
 name = "lurk-metrics"
-authors = ["Lurk Lab <engineering@lurk-lab.com>"]
 version = "0.2.0"
-edition = "2021"
-license = "MIT OR Apache-2.0"
 description = "Metrics Sink for lurk"
-repository = "https://github.com/lurk-lab/lurk-rs"
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+homepage.workspace = true
+license.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 metrics = { workspace = true }
