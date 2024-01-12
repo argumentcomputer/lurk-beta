@@ -13,10 +13,10 @@ where
 {
     type CQ: CircuitQuery<F>;
 
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr;
+    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>>) -> Ptr;
     fn recursive_eval(
         &self,
-        scope: &mut Scope<F, Self, LogMemo<F>>,
+        scope: &mut Scope<Self, LogMemo<F>>,
         s: &Store<F>,
         subquery: Self,
     ) -> Ptr;
@@ -39,7 +39,7 @@ where
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, Self, LogMemo<F>>,
+        scope: &mut CircuitScope<F, LogMemo<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError>;
