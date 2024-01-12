@@ -345,7 +345,7 @@ impl<F: LurkField, Q: Query<F>> Scope<F, Q, LogMemo<F>> {
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
         self.ensure_transcript_finalized(s);
-        let mut circuit_scope: CircuitScope<_, Q::CQ, _> =
+        let mut circuit_scope =
             CircuitScope::from_scope(&mut cs.namespace(|| "transcript"), g, s, self);
         circuit_scope.init(cs, g, s);
         {
