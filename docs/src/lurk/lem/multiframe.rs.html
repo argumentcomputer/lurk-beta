@@ -1509,7 +1509,7 @@
     }
 
     <span class="kw">fn </span>initial_empty_env(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Ptr {
-        <span class="self">self</span>.intern_nil()
+        <span class="self">self</span>.intern_empty_env()
     }
 
     <span class="kw">fn </span>get_cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Ptr {
@@ -2190,7 +2190,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>frame = frames.pop().unwrap();
         <span class="comment">// faking a trivial evaluation frame
-        </span>frame.output = <span class="macro">vec!</span>[expr, store.intern_nil(), store.cont_terminal()];
+        </span>frame.output = <span class="macro">vec!</span>[expr, store.intern_empty_env(), store.cont_terminal()];
 
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fq&gt;::new();
 

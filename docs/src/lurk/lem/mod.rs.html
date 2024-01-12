@@ -744,6 +744,33 @@
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Lurk Evaluation Model (LEM)
 //!
 //! LEM is a simple, first order, referentially transparent language, designed to
@@ -974,6 +1001,15 @@
     </span>Decons3([Var; <span class="number">3</span>], Var),
     <span class="doccomment">/// `Decons4([a, b, c, d], x)` binds `a`, `b`, `c` and `d` to the 4 children of `x`
     </span>Decons4([Var; <span class="number">4</span>], Var),
+    <span class="doccomment">/// `PushBinding(x, ys)` is a Lurk specific operation. It binds `x` to a `Ptr`
+    /// with tag `Env` and 3 children `ys`. The first child is assumed to be a `Sym`
+    /// pointer, the last child is assumed to be an `Env` pointer. This is compiled
+    /// to an efficient representation, with 4 hashes instead of 6. This operation
+    /// might be deprecated when LEM is more expressive and is able to have variables
+    /// of other types other than pointers
+    </span>PushBinding(Var, [Var; <span class="number">3</span>]),
+    <span class="doccomment">/// `PopBinding(ys, x)` is the inverse of `PushBinding`
+    </span>PopBinding([Var; <span class="number">3</span>], Var),
     <span class="doccomment">/// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
     </span>Hide(Var, Var, Var),
@@ -1123,6 +1159,14 @@
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
                     Op::Decons4(preimg, img) =&gt; {
+                        is_bound(img, map)<span class="question-mark">?</span>;
+                        preimg.iter().for_each(|var| is_unique(var, map))
+                    }
+                    Op::PushBinding(img, preimg) =&gt; {
+                        preimg.iter().try_for_each(|arg| is_bound(arg, map))<span class="question-mark">?</span>;
+                        is_unique(img, map);
+                    }
+                    Op::PopBinding(preimg, img) =&gt; {
                         is_bound(img, map)<span class="question-mark">?</span>;
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
@@ -1409,6 +1453,16 @@
                     <span class="kw">let </span>img = map.get_cloned(<span class="kw-2">&amp;</span>img)<span class="question-mark">?</span>;
                     <span class="kw">let </span>preimg = insert_many(map, uniq, <span class="kw-2">&amp;</span>preimg);
                     ops.push(Op::Decons4(preimg.try_into().unwrap(), img))
+                }
+                Op::PushBinding(img, preimg) =&gt; {
+                    <span class="kw">let </span>preimg = map.get_many_cloned(<span class="kw-2">&amp;</span>preimg)<span class="question-mark">?</span>.try_into().unwrap();
+                    <span class="kw">let </span>img = insert_one(map, uniq, <span class="kw-2">&amp;</span>img);
+                    ops.push(Op::PushBinding(img, preimg))
+                }
+                Op::PopBinding(preimg, img) =&gt; {
+                    <span class="kw">let </span>img = map.get_cloned(<span class="kw-2">&amp;</span>img)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>preimg = insert_many(map, uniq, <span class="kw-2">&amp;</span>preimg);
+                    ops.push(Op::PopBinding(preimg.try_into().unwrap(), img))
                 }
                 Op::Hide(tgt, sec, pay) =&gt; {
                     <span class="kw">let </span>sec = map.get_cloned(<span class="kw-2">&amp;</span>sec)<span class="question-mark">?</span>;

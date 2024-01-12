@@ -591,7 +591,34 @@
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
 <a href="#591" id="591">591</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 
 <span class="kw">use super</span>::{
     path::Path,
@@ -877,13 +904,13 @@
                         <span class="kw">let </span>g = <span class="kw-2">*</span>store.expect_f(g_idx);
                         <span class="kw">let </span>diff = f - g;
                         hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData {
-                            vals: <span class="macro">vec!</span>[Val::Num(store.intern_f(f + f).<span class="number">0</span>)],
+                            vals: <span class="macro">vec!</span>[Val::Num(RawPtr::Atom(store.intern_f(f + f).<span class="number">0</span>))],
                         }));
                         hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData {
-                            vals: <span class="macro">vec!</span>[Val::Num(store.intern_f(g + g).<span class="number">0</span>)],
+                            vals: <span class="macro">vec!</span>[Val::Num(RawPtr::Atom(store.intern_f(g + g).<span class="number">0</span>))],
                         }));
                         hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData {
-                            vals: <span class="macro">vec!</span>[Val::Num(store.intern_f(diff + diff).<span class="number">0</span>)],
+                            vals: <span class="macro">vec!</span>[Val::Num(RawPtr::Atom(store.intern_f(diff + diff).<span class="number">0</span>))],
                         }));
                         <span class="kw">let </span>f = BaseNum::Scalar(f);
                         <span class="kw">let </span>g = BaseNum::Scalar(g);
@@ -899,7 +926,7 @@
                     <span class="kw">let </span>c = <span class="kw">if let </span>RawPtr::Atom(f_idx) = a {
                         <span class="kw">let </span>f = <span class="kw-2">*</span>store.expect_f(f_idx);
                         hints.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData {
-                            vals: <span class="macro">vec!</span>[Val::Num(f_idx)],
+                            vals: <span class="macro">vec!</span>[Val::Num(RawPtr::Atom(f_idx))],
                         }));
                         <span class="kw">let </span>b = <span class="kw">if </span><span class="kw-2">*</span>n &lt; <span class="number">64 </span>{ (<span class="number">1 </span>&lt;&lt; <span class="kw-2">*</span>n) - <span class="number">1 </span>} <span class="kw">else </span>{ u64::MAX };
                         store.intern_atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() &amp; b))
@@ -1004,6 +1031,33 @@
                     <span class="kw">let </span>vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
                     hints.hash8.push(<span class="prelude-val">Some</span>(SlotData { vals }));
                 }
+                Op::PushBinding(img, preimg) =&gt; {
+                    <span class="kw">let </span>preimg_ptrs = bindings.get_many_ptr(preimg)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt_ptr =
+                        store.push_binding(preimg_ptrs[<span class="number">0</span>], preimg_ptrs[<span class="number">1</span>], preimg_ptrs[<span class="number">2</span>]);
+                    bindings.insert_ptr(img.clone(), tgt_ptr);
+                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[
+                        Val::Num(<span class="kw-2">*</span>preimg_ptrs[<span class="number">0</span>].raw()),
+                        Val::Pointer(preimg_ptrs[<span class="number">1</span>]),
+                        Val::Num(<span class="kw-2">*</span>preimg_ptrs[<span class="number">2</span>].raw()),
+                    ];
+                    hints.hash4.push(<span class="prelude-val">Some</span>(SlotData { vals }));
+                }
+                Op::PopBinding(preimg, img) =&gt; {
+                    <span class="kw">let </span>img_ptr = bindings.get_ptr(img)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>preimg_ptrs = store
+                        .pop_binding(img_ptr)
+                        .context(<span class="string">"cannot extract {img}'s binding"</span>)<span class="question-mark">?</span>;
+                    <span class="kw">for </span>(var, ptr) <span class="kw">in </span>preimg.iter().zip(preimg_ptrs.iter()) {
+                        bindings.insert_ptr(var.clone(), <span class="kw-2">*</span>ptr);
+                    }
+                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[
+                        Val::Num(<span class="kw-2">*</span>preimg_ptrs[<span class="number">0</span>].raw()),
+                        Val::Pointer(preimg_ptrs[<span class="number">1</span>]),
+                        Val::Num(<span class="kw-2">*</span>preimg_ptrs[<span class="number">2</span>].raw()),
+                    ];
+                    hints.hash4.push(<span class="prelude-val">Some</span>(SlotData { vals }));
+                }
                 Op::Hide(tgt, sec, src) =&gt; {
                     <span class="kw">let </span>src_ptr = bindings.get_ptr(src)<span class="question-mark">?</span>;
                     <span class="kw">let </span>sec_ptr = bindings.get_ptr(sec)<span class="question-mark">?</span>;
@@ -1012,7 +1066,7 @@
                     };
                     <span class="kw">let </span>secret = <span class="kw-2">*</span>store.expect_f(<span class="kw-2">*</span>secret_idx);
                     <span class="kw">let </span>tgt_ptr = store.hide(secret, src_ptr);
-                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[Val::Num(<span class="kw-2">*</span>secret_idx), Val::Pointer(src_ptr)];
+                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[Val::Num(RawPtr::Atom(<span class="kw-2">*</span>secret_idx)), Val::Pointer(src_ptr)];
                     hints.commitment.push(<span class="prelude-val">Some</span>(SlotData { vals }));
                     bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
@@ -1031,7 +1085,7 @@
                         store.intern_atom(Tag::Expr(Num), <span class="kw-2">*</span>secret),
                     );
                     <span class="kw">let </span>secret_idx = store.intern_f(<span class="kw-2">*</span>secret).<span class="number">0</span>;
-                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[Val::Num(secret_idx), Val::Pointer(<span class="kw-2">*</span>ptr)];
+                    <span class="kw">let </span>vals = <span class="macro">vec!</span>[Val::Num(RawPtr::Atom(secret_idx)), Val::Pointer(<span class="kw-2">*</span>ptr)];
                     hints.commitment.push(<span class="prelude-val">Some</span>(SlotData { vals }));
                 }
                 Op::Unit(f) =&gt; f(),

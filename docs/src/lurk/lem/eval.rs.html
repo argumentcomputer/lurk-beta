@@ -1950,7 +1950,7 @@
     evaluate_with_env_and_cont(
         lang_setup,
         expr,
-        store.intern_nil(),
+        store.intern_empty_env(),
         store.cont_outermost(),
         store,
         limit,
@@ -1983,7 +1983,7 @@
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
-    evaluate_simple_with_env(lang_setup, expr, store.intern_nil(), store, limit)
+    evaluate_simple_with_env(lang_setup, expr, store.intern_empty_env(), store, limit)
 }
 
 <span class="kw">pub struct </span>EvalConfig&lt;<span class="lifetime">'a</span>, F, C&gt; {
@@ -2556,44 +2556,25 @@
         <span class="kw">return </span>(nil)
     });
     <span class="kw">let </span>is_cproc = is_cproc(cprocs);
-    <span class="kw">let </span>lookup = <span class="macro">func!</span>(lookup(expr, env, found, binding): <span class="number">4 </span>=&gt; {
-        <span class="kw">let </span>rec = Symbol(<span class="string">"rec"</span>);
-        <span class="kw">let </span>non_rec = Symbol(<span class="string">"non_rec"</span>);
-        <span class="kw">let </span>error = Symbol(<span class="string">"error"</span>);
+    <span class="kw">let </span>lookup = <span class="macro">func!</span>(lookup(expr, env, state): <span class="number">3 </span>=&gt; {
+        <span class="kw">let </span>found = Symbol(<span class="string">"found"</span>);
         <span class="kw">let </span>not_found = Symbol(<span class="string">"not_found"</span>);
-        <span class="kw">let continue </span>= eq_val(not_found, found);
+        <span class="kw">let </span>error = Symbol(<span class="string">"error"</span>);
+        <span class="kw">let continue </span>= eq_val(not_found, state);
         <span class="kw">if </span>!<span class="kw">continue </span>{
-            <span class="kw">return </span>(expr, env, found, binding)
+            <span class="kw">return </span>(expr, env, state)
         }
-        <span class="kw">match </span>env.tag {
-            Expr::Nil =&gt; {
-                <span class="kw">return </span>(expr, env, error, binding)
-            }
-        };
-        <span class="kw">let </span>(binding, smaller_env) = car_cdr(env);
-        <span class="kw">match </span>binding.tag {
-            Expr::Nil =&gt; {
-                <span class="kw">return </span>(expr, env, error, binding)
-            }
-        };
-        <span class="kw">let </span>(var, val) = decons2(binding);
-        <span class="kw">match </span>var.tag {
-            Expr::Sym =&gt; {
-                <span class="kw">let </span>eq_val = eq_val(var, expr);
-                <span class="kw">if </span>eq_val {
-                    <span class="kw">return </span>(val, env, non_rec, binding)
-                }
-                <span class="kw">return </span>(expr, smaller_env, not_found, binding)
-            }
-            Expr::RecVar =&gt; {
-                <span class="kw">let </span>eq_val = eq_val(var, expr);
-                <span class="kw">if </span>eq_val {
-                    <span class="kw">return </span>(val, env, rec, binding)
-                }
-                <span class="kw">return </span>(expr, smaller_env, not_found, binding)
-            }
-        };
-        <span class="kw">return </span>(expr, env, error, binding)
+        <span class="kw">let </span>zero = Num(<span class="number">0</span>);
+        <span class="kw">let </span>env_is_zero = eq_val(env, zero);
+        <span class="kw">if </span>env_is_zero {
+            <span class="kw">return </span>(expr, env, error)
+        }
+        <span class="kw">let </span>(var, val, smaller_env) = pop_binding(env);
+        <span class="kw">let </span>eq_val = eq_val(var, expr);
+        <span class="kw">if </span>eq_val {
+            <span class="kw">return </span>(val, env, found)
+        }
+        <span class="kw">return </span>(expr, smaller_env, not_found)
     });
 
     <span class="macro">func!</span>(reduce(expr, env, cont): <span class="number">4 </span>=&gt; {
@@ -2642,31 +2623,39 @@
                     <span class="kw">return </span>(expr, env, cont, apply)
                 }
                 <span class="kw">let </span>not_found = Symbol(<span class="string">"not_found"</span>);
-                <span class="kw">let </span>(expr, env, found, binding) = lookup(expr, env, not_found, nil);
-                <span class="kw">let </span>(expr, env, found, binding) = lookup(expr, env, found, binding);
-                <span class="kw">let </span>(expr, env, found, binding) = lookup(expr, env, found, binding);
-                <span class="kw">match </span>symbol found {
+                <span class="comment">// `expr` is the symbol. If the lookup was succesful, it will
+                // return the result as `res` and a "found" state. If the lookup
+                // is incomplete, it will return the original symbol as `res`
+                // and a "not_found" state
+                </span><span class="kw">let </span>(res, res_env, state) = lookup(expr, env, not_found);
+                <span class="kw">let </span>(res, res_env, state) = lookup(res, res_env, state);
+                <span class="kw">let </span>(res, res_env, state) = lookup(res, res_env, state);
+                <span class="kw">let </span>(res, res_env, state) = lookup(res, res_env, state);
+                <span class="kw">let </span>(res, res_env, state) = lookup(res, res_env, state);
+                <span class="kw">let </span>(res, res_env, state) = lookup(res, res_env, state);
+                <span class="kw">let </span>(res, res_env, state) = lookup(res, res_env, state);
+                <span class="kw">let </span>(res, res_env, state) = lookup(res, res_env, state);
+                <span class="kw">match </span>symbol state {
                     <span class="string">"error" </span>=&gt; {
                         <span class="kw">return </span>(expr, env, err, errctrl)
                     }
-                    <span class="string">"non_rec" </span>=&gt; {
-                        <span class="kw">return </span>(expr, env, cont, apply)
-                    }
-                    <span class="string">"rec" </span>=&gt; {
-                        <span class="kw">match </span>expr.tag {
-                            Expr::Fun =&gt; {
-                                <span class="comment">// if `val2` is a closure, then extend its environment
-                                </span><span class="kw">let </span>(arg, body, closed_env, _foo) = decons4(expr);
-                                <span class="kw">let </span>extended: Expr::Cons = cons2(binding, closed_env);
-                                <span class="comment">// and return the extended closure
-                                </span><span class="kw">let </span>fun: Expr::Fun = cons4(arg, body, extended, foo);
-                                <span class="kw">return </span>(fun, env, cont, apply)
+                    <span class="string">"found" </span>=&gt; {
+                        <span class="kw">match </span>res.tag {
+                            <span class="comment">// if `val2` is a recursive closure, then extend its environment
+                            </span>Expr::Rec =&gt; {
+                                <span class="kw">let </span>(args, body, closed_env, _foo) = decons4(res);
+                                <span class="comment">// remember `expr` is the original symbol, i.e. the symbol
+                                // of the recursive closure
+                                </span><span class="kw">let </span>extended = push_binding(expr, res, closed_env);
+                                <span class="kw">let </span>fun: Expr::Fun = cons4(args, body, extended, foo);
+                                <span class="kw">return </span>(fun, res_env, cont, apply)
                             }
                         };
-                        <span class="kw">return </span>(expr, env, cont, apply)
+                        <span class="kw">return </span>(res, res_env, cont, apply)
                     }
                     <span class="string">"not_found" </span>=&gt; {
-                        <span class="kw">return </span>(expr, env, cont, ret)
+                        <span class="comment">// if it's not yet found, we must keep reducing
+                        </span><span class="kw">return </span>(res, res_env, cont, ret)
                     }
                 }
             }
@@ -2804,6 +2793,15 @@
                                 };
                                 <span class="kw">let </span>cont: Cont::If = cons4(more, env, cont, foo);
                                 <span class="kw">return </span>(condition, env, cont, ret)
+                            }
+                            <span class="string">"empty-env" </span>=&gt; {
+                                <span class="kw">match </span>rest.tag {
+                                    Expr::Nil =&gt; {
+                                        <span class="kw">let </span>empty_env: Expr::Env;
+                                        <span class="kw">return </span>(empty_env, env, cont, apply)
+                                    }
+                                };
+                                <span class="kw">return </span>(expr, env, err, errctrl)
                             }
                             <span class="string">"current-env" </span>=&gt; {
                                 <span class="kw">match </span>rest.tag {
@@ -2955,6 +2953,7 @@
                 <span class="kw">let </span>t = Symbol(<span class="string">"t"</span>);
                 <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
                 <span class="kw">let </span>nil = cast(nil, Expr::Nil);
+                <span class="kw">let </span>empty_env: Expr::Env;
                 <span class="kw">let </span>empty_str = String(<span class="string">""</span>);
                 <span class="kw">let </span>zero = Num(<span class="number">0</span>);
                 <span class="kw">let </span>foo: Expr::Nil;
@@ -2965,7 +2964,7 @@
                 <span class="kw">match </span>cont.tag {
                     Cont::Outermost =&gt; {
                         <span class="comment">// We erase the environment as to not leak any information about internal variables.
-                        </span><span class="kw">return </span>(result, nil, term, ret)
+                        </span><span class="kw">return </span>(result, empty_env, term, ret)
                     }
                     Cont::Emit =&gt; {
                         <span class="kw">let </span>(cont, _rest, _foo, _foo) = decons4(cont);
@@ -3014,8 +3013,7 @@
                                 <span class="kw">let </span>(vars, body, fun_env, _foo) = decons4(function);
                                 <span class="comment">// vars must be non-empty, so:
                                 </span><span class="kw">let </span>(var, rest_vars) = decons2(vars);
-                                <span class="kw">let </span>binding: Expr::Cons = cons2(var, result);
-                                <span class="kw">let </span>ext_env: Expr::Cons = cons2(binding, fun_env);
+                                <span class="kw">let </span>ext_env = push_binding(var, result, fun_env);
                                 <span class="kw">let </span>rest_vars_empty = eq_tag(rest_vars, nil);
                                 <span class="kw">let </span>args_empty = eq_tag(args, nil);
                                 <span class="kw">if </span>rest_vars_empty {
@@ -3046,16 +3044,19 @@
                     }
                     Cont::Let =&gt; {
                         <span class="kw">let </span>(var, saved_env, body, cont) = decons4(cont);
-                        <span class="kw">let </span>binding: Expr::Cons = cons2(var, result);
-                        <span class="kw">let </span>extended_env: Expr::Cons = cons2(binding, saved_env);
+                        <span class="kw">let </span>extended_env = push_binding(var, result, saved_env);
                         <span class="kw">return </span>(body, extended_env, cont, ret)
                     }
                     Cont::LetRec =&gt; {
                         <span class="kw">let </span>(var, saved_env, body, cont) = decons4(cont);
-                        <span class="comment">// Since the variable came from a letrec, it is a recursive variable
-                        </span><span class="kw">let </span>var = cast(var, Expr::RecVar);
-                        <span class="kw">let </span>binding: Expr::Cons = cons2(var, result);
-                        <span class="kw">let </span>extended_env: Expr::Cons = cons2(binding, saved_env);
+                        <span class="kw">match </span>result.tag {
+                            Expr::Fun =&gt; {
+                                <span class="kw">let </span>result = cast(result, Expr::Rec);
+                                <span class="kw">let </span>extended_env = push_binding(var, result, saved_env);
+                                <span class="kw">return </span>(body, extended_env, cont, ret)
+                            }
+                        };
+                        <span class="kw">let </span>extended_env = push_binding(var, result, saved_env);
                         <span class="kw">return </span>(body, extended_env, cont, ret)
                     }
                     Cont::Unop =&gt; {
@@ -3179,7 +3180,7 @@
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::Eval =&gt; {
-                                <span class="kw">return</span>(result, nil, continuation, ret)
+                                <span class="kw">return</span>(result, empty_env, continuation, ret)
                             }
                         };
                         <span class="kw">return </span>(result, env, err, errctrl)
@@ -3214,7 +3215,12 @@
                         <span class="kw">let </span>args_num_type_eq_nil = eq_tag(args_num_type, nil);
                         <span class="kw">match </span>operator.tag {
                             Op2::Eval =&gt; {
-                                <span class="kw">return </span>(evaled_arg, result, continuation, ret)
+                                <span class="kw">match </span>result.tag {
+                                    Expr::Env =&gt; {
+                                        <span class="kw">return </span>(evaled_arg, result, continuation, ret)
+                                    }
+                                };
+                                <span class="kw">return </span>(result, env, err, errctrl)
                             }
                             Op2::Cons =&gt; {
                                 <span class="kw">let </span>val: Expr::Cons = cons2(evaled_arg, result);
@@ -3451,10 +3457,9 @@
             <span class="string">"make-thunk" </span>=&gt; {
                 <span class="kw">match </span>cont.tag {
                     Cont::Outermost =&gt; {
-                        <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
-                        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
+                        <span class="kw">let </span>empty_env: Expr::Env;
                         <span class="kw">let </span>cont: Cont::Terminal = HASH_8_ZEROS;
-                        <span class="kw">return </span>(expr, nil, cont)
+                        <span class="kw">return </span>(expr, empty_env, cont)
                     }
                 };
                 <span class="kw">let </span>thunk: Expr::Thunk = cons2(expr, cont);
@@ -3471,7 +3476,7 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use crate</span>::{
         eval::lang::{Coproc, Lang},
-        lem::{slot::SlotsCounter, store::Store},
+        lem::store::Store,
     };
     <span class="kw">use </span>bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     <span class="kw">use </span>expect_test::{expect, Expect};
@@ -3485,22 +3490,17 @@
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
         <span class="kw">let </span>lang: Lang&lt;Fr, Coproc&lt;Fr&gt;&gt; = Lang::new();
         <span class="kw">let _ </span>= func.synthesize_frame_aux(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frame, <span class="kw-2">&amp;</span>lang);
-        <span class="macro">assert_eq!</span>(
-            func.slots_count,
-            SlotsCounter {
-                hash4: <span class="number">14</span>,
-                hash6: <span class="number">0</span>,
-                hash8: <span class="number">6</span>,
-                commitment: <span class="number">1</span>,
-                bit_decomp: <span class="number">3</span>,
-            }
-        );
         <span class="kw">let </span>expect_eq = |computed: usize, expected: Expect| {
             expected.assert_eq(<span class="kw-2">&amp;</span>computed.to_string());
         };
+        expect_eq(func.slots_count.hash4, <span class="macro">expect!</span>[<span class="string">"14"</span>]);
+        expect_eq(func.slots_count.hash6, <span class="macro">expect!</span>[<span class="string">"0"</span>]);
+        expect_eq(func.slots_count.hash8, <span class="macro">expect!</span>[<span class="string">"6"</span>]);
+        expect_eq(func.slots_count.commitment, <span class="macro">expect!</span>[<span class="string">"1"</span>]);
+        expect_eq(func.slots_count.bit_decomp, <span class="macro">expect!</span>[<span class="string">"3"</span>]);
         expect_eq(cs.num_inputs(), <span class="macro">expect!</span>[<span class="string">"1"</span>]);
-        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"8884"</span>]);
-        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"10831"</span>]);
+        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"8927"</span>]);
+        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"10857"</span>]);
         <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), cs.num_constraints());
     }
 }

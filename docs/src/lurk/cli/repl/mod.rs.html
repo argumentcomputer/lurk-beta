@@ -853,7 +853,7 @@
         <span class="kw">let </span>current_dir = std::env::current_dir().expect(<span class="string">"couldn't capture current directory"</span>);
         <span class="kw">let </span>pwd_path =
             Utf8PathBuf::from_path_buf(current_dir).expect(<span class="string">"path contains invalid Unicode"</span>);
-        <span class="kw">let </span>env = store.intern_nil();
+        <span class="kw">let </span>env = store.intern_empty_env();
         <span class="kw">let </span>lurk_step = make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(<span class="kw-2">&amp;</span>lang));
         <span class="kw">let </span>cprocs = make_cprocs_funcs_from_lang(<span class="kw-2">&amp;</span>lang);
         Repl {
@@ -892,7 +892,7 @@
                 )
                 .unwrap();
             <span class="kw">let </span>(io, ..) = <span class="self">self
-                </span>.eval_expr_with_env(ptr, <span class="self">self</span>.store.intern_nil())
+                </span>.eval_expr_with_env(ptr, <span class="self">self</span>.store.intern_empty_env())
                 .unwrap();
             io[<span class="number">0</span>]
         })

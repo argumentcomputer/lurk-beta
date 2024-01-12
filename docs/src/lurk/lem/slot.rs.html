@@ -312,6 +312,11 @@
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ### Slot optimizations
 //!
 //! Some LEM functions may require expensive gadgets, such as Poseidon hashing.
@@ -417,7 +422,10 @@
 //! STEP 2 will need as many iterations as it takes to evaluate the Lurk
 //! expression and so will STEP 3.
 
-</span><span class="kw">use super</span>::{pointers::Ptr, Block, Ctrl, Op};
+</span><span class="kw">use super</span>::{
+    pointers::{Ptr, RawPtr},
+    Block, Ctrl, Op,
+};
 
 <span class="attr">#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>SlotsCounter {
@@ -509,7 +517,9 @@
     <span class="kw">pub fn </span>count_slots(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SlotsCounter {
         <span class="kw">let </span>ops_slots = <span class="self">self</span>.ops.iter().fold(SlotsCounter::default(), |acc, op| {
             <span class="kw">let </span>val = <span class="kw">match </span>op {
-                Op::Cons2(..) | Op::Decons2(..) =&gt; SlotsCounter::new((<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)),
+                Op::Cons2(..) | Op::Decons2(..) | Op::PushBinding(..) | Op::PopBinding(..) =&gt; {
+                    SlotsCounter::new((<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>))
+                }
                 Op::Cons3(..) | Op::Decons3(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)),
                 Op::Cons4(..) | Op::Decons4(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>)),
                 Op::Hide(..) | Op::Open(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>)),
@@ -548,12 +558,12 @@
 }
 
 <span class="attr">#[derive(Clone, Debug)]
-</span><span class="doccomment">/// The values a variable can take. `Num`s are pure field elements, much like `Ptr::Atom`,
-/// but missing the tag. `Boolean`s are also field elements, but they are guaranteed to be
-/// constrained to take only 0 or 1 values.
+</span><span class="doccomment">/// The values a variable can take. `Num`s represent pure field elements, with no tags.
+/// `Boolean`s are also field elements, but they are guaranteed to be constrained to
+/// take only 0 or 1 values.
 </span><span class="kw">pub enum </span>Val {
     Pointer(Ptr),
-    Num(usize),
+    Num(RawPtr),
     Boolean(bool),
 }
 

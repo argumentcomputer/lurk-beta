@@ -1118,6 +1118,8 @@
 <a href="#1116" id="1116">1116</a>
 <a href="#1117" id="1117">1117</a>
 <a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>::nova::traits::Engine;
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
@@ -1433,7 +1435,7 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">"!(def a 1)"</span>, <span class="string">"(current-env)"</span>, <span class="string">"!(clear)"</span>, <span class="string">"(current-env)"</span>],
         run: |repl, _args, _path| {
-            repl.env = repl.store.intern_nil();
+            repl.env = repl.store.intern_empty_env();
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -1447,7 +1449,11 @@
         run: |repl, args, _path| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
-            repl.env = first_io[<span class="number">0</span>];
+            <span class="kw">let </span>env = first_io[<span class="number">0</span>];
+            <span class="kw">if </span><span class="kw-2">*</span>env.tag() != Tag::Expr(ExprTag::Env) {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"Value must be an environment"</span>));
+            }
+            repl.env = env;
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -1780,8 +1786,7 @@
             <span class="kw">let </span>path = get_path(repl, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
             <span class="kw">let </span>LurkData::&lt;F&gt; { z_ptr, z_dag } = load(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
             <span class="kw">let </span>ptr = z_dag.populate_store(<span class="kw-2">&amp;</span>z_ptr, <span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;mut </span>Default::default())<span class="question-mark">?</span>;
-            <span class="kw">let </span>binding = repl.store.cons(sym, ptr);
-            repl.env = repl.store.cons(binding, repl.env);
+            repl.env = repl.store.push_binding(sym, ptr, repl.env);
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -1836,7 +1841,7 @@
             }
 
             <span class="kw">let </span>lambda = repl.store.list(<span class="macro">vec!</span>[repl.store.intern_lurk_symbol(<span class="string">"lambda"</span>), vars, body]);
-            <span class="kw">let </span>(io, ..) = repl.eval_expr_with_env(lambda, repl.store.intern_nil())<span class="question-mark">?</span>;
+            <span class="kw">let </span>(io, ..) = repl.eval_expr_with_env(lambda, repl.store.intern_empty_env())<span class="question-mark">?</span>;
             <span class="kw">let </span>fun = io[<span class="number">0</span>];
             <span class="kw">if </span>!fun.is_fun() {
                 <span class="macro">bail!</span>(
@@ -1881,8 +1886,7 @@
 
             <span class="comment">// the standard format for a processed protocol as Lurk data
             </span><span class="kw">let </span>protocol = repl.store.list(<span class="macro">vec!</span>[fun, rc, lang, description]);
-            <span class="kw">let </span>binding = repl.store.cons(name, protocol);
-            repl.env = repl.store.cons(binding, repl.env);
+            repl.env = repl.store.push_binding(name, protocol, repl.env);
             <span class="prelude-val">Ok</span>(())
         },
     };
@@ -1944,7 +1948,7 @@
             .list(<span class="macro">vec!</span>[<span class="kw-2">*</span>repl.get_apply_fn(), fun, quoted_args]);
 
         <span class="kw">let </span>(io, ..) = repl
-            .eval_expr_with_env(apply_call, repl.store.intern_nil())
+            .eval_expr_with_env(apply_call, repl.store.intern_empty_env())
             .with_context(|| <span class="string">"evaluating protocol function call"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(Tag::Expr(ExprTag::Cons), RawPtr::Hash4(idx)) = <span class="kw-2">&amp;</span>io[<span class="number">0</span>].parts() <span class="kw">else </span>{
@@ -1978,7 +1982,7 @@
         <span class="kw">if </span>!post_verify.is_nil() {
             <span class="kw">let </span>call = repl.store.list(<span class="macro">vec!</span>[post_verify]);
             <span class="kw">let </span>(io, ..) = repl
-                .eval_expr_with_env(call, repl.store.intern_nil())
+                .eval_expr_with_env(call, repl.store.intern_empty_env())
                 .with_context(|| <span class="string">"evaluating post-verify call"</span>)<span class="question-mark">?</span>;
             <span class="kw">if </span>io[<span class="number">0</span>].is_nil() {
                 <span class="macro">bail!</span>(<span class="string">"Post-verification predicate rejected the input"</span>)

@@ -1519,6 +1519,89 @@
 <a href="#1517" id="1517">1517</a>
 <a href="#1518" id="1518">1518</a>
 <a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
+<a href="#1548" id="1548">1548</a>
+<a href="#1549" id="1549">1549</a>
+<a href="#1550" id="1550">1550</a>
+<a href="#1551" id="1551">1551</a>
+<a href="#1552" id="1552">1552</a>
+<a href="#1553" id="1553">1553</a>
+<a href="#1554" id="1554">1554</a>
+<a href="#1555" id="1555">1555</a>
+<a href="#1556" id="1556">1556</a>
+<a href="#1557" id="1557">1557</a>
+<a href="#1558" id="1558">1558</a>
+<a href="#1559" id="1559">1559</a>
+<a href="#1560" id="1560">1560</a>
+<a href="#1561" id="1561">1561</a>
+<a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -1544,7 +1627,7 @@
         <span class="self">self</span>, Binop, Binop2, Call, Call0, Call2, Dummy, Emit, If, Let, LetRec, Lookup, Outermost,
         Tail, Terminal, Unop,
     },
-    tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, RecVar, Str, Sym, Thunk, U64},
+    tag::ExprTag::{Char, Comm, Cons, Cproc, Env, Fun, Key, Nil, Num, Rec, Str, Sym, Thunk, U64},
 };
 
 <span class="kw">use </span><span class="kw">super</span>::pointers::{Ptr, RawPtr, ZPtr};
@@ -1893,6 +1976,32 @@
     <span class="kw">pub fn </span>raw_to_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span>RawPtr, raw: <span class="kw-2">&amp;</span>RawPtr) -&gt; <span class="prelude-ty">Option</span>&lt;Ptr&gt; {
         <span class="kw">let </span>tag = <span class="self">self</span>.fetch_tag(tag)<span class="question-mark">?</span>;
         <span class="prelude-val">Some</span>(Ptr::new(tag, <span class="kw-2">*</span>raw))
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>push_binding(<span class="kw-2">&amp;</span><span class="self">self</span>, sym: Ptr, val: Ptr, env: Ptr) -&gt; Ptr {
+        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>sym.tag(), Tag::Expr(Sym));
+        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>env.tag(), Tag::Expr(Env));
+        <span class="kw">let </span>raw =
+            <span class="self">self</span>.intern_raw_ptrs::&lt;<span class="number">4</span>&gt;([<span class="kw-2">*</span>sym.raw(), <span class="self">self</span>.tag(<span class="kw-2">*</span>val.tag()), <span class="kw-2">*</span>val.raw(), <span class="kw-2">*</span>env.raw()]);
+        Ptr::new(Tag::Expr(Env), raw)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>pop_binding(<span class="kw-2">&amp;</span><span class="self">self</span>, env: Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;[Ptr; <span class="number">3</span>]&gt; {
+        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>env.tag(), Tag::Expr(Env));
+        <span class="kw">let </span>idx = env.get_index2()<span class="question-mark">?</span>;
+        <span class="kw">let </span>[sym_pay, val_tag, val_pay, env_pay] = <span class="self">self</span>.fetch_raw_ptrs::&lt;<span class="number">4</span>&gt;(idx)<span class="question-mark">?</span>;
+        <span class="kw">let </span>val_tag = <span class="self">self</span>.fetch_tag(val_tag)<span class="question-mark">?</span>;
+        <span class="kw">let </span>sym = Ptr::new(Tag::Expr(Sym), <span class="kw-2">*</span>sym_pay);
+        <span class="kw">let </span>val = Ptr::new(val_tag, <span class="kw-2">*</span>val_pay);
+        <span class="kw">let </span>env = Ptr::new(Tag::Expr(Env), <span class="kw-2">*</span>env_pay);
+        <span class="prelude-val">Some</span>([sym, val, env])
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>intern_empty_env(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
+        <span class="self">self</span>.intern_atom(Tag::Expr(Env), F::ZERO)
     }
 
     <span class="attr">#[inline]
@@ -2277,6 +2386,28 @@
         }
     }
 
+    <span class="doccomment">/// Fetches an environment
+    </span><span class="kw">pub fn </span>fetch_env(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;(Ptr, Ptr)&gt;&gt; {
+        <span class="kw">if </span><span class="kw-2">*</span>ptr.tag() != Tag::Expr(Env) {
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        }
+        <span class="kw">if </span><span class="kw-2">*</span>ptr == <span class="self">self</span>.intern_empty_env() {
+            <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]);
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>idx = ptr.raw().get_hash4()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>list = <span class="macro">vec!</span>[];
+        <span class="kw">while let </span><span class="prelude-val">Some</span>([sym_pay, val_tag, val_pay, env_pay]) = <span class="self">self</span>.fetch_raw_ptrs(idx) {
+            <span class="kw">let </span>sym = Ptr::new(Tag::Expr(Sym), <span class="kw-2">*</span>sym_pay);
+            <span class="kw">let </span>val = <span class="self">self</span>.raw_to_ptr(val_tag, val_pay)<span class="question-mark">?</span>;
+            list.push((sym, val));
+            <span class="kw">if </span>env_pay == <span class="self">self</span>.intern_empty_env().raw() {
+                <span class="kw">break</span>;
+            }
+            idx = env_pay.get_hash4().unwrap();
+        }
+        <span class="prelude-val">Some</span>(list)
+    }
+
     <span class="kw">pub fn </span>intern_syntax(<span class="kw-2">&amp;</span><span class="self">self</span>, syn: Syntax&lt;F&gt;) -&gt; Ptr {
         <span class="kw">match </span>syn {
             Syntax::Num(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.num(x.into_scalar()),
@@ -2525,13 +2656,6 @@
                         <span class="string">"&lt;Opaque Sym&gt;"</span>.into()
                     }
                 }
-                RecVar =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(sym) = store.fetch_sym(<span class="kw-2">&amp;</span><span class="self">self</span>.cast(Tag::Expr(Sym))) {
-                        state.fmt_to_string(<span class="kw-2">&amp;</span>sym.into())
-                    } <span class="kw">else </span>{
-                        <span class="string">"&lt;Opaque RecVar&gt;"</span>.into()
-                    }
-                }
                 Key =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = store.fetch_key(<span class="self">self</span>) {
                         state.fmt_to_string(<span class="kw-2">&amp;</span>key.into())
@@ -2622,6 +2746,31 @@
                         }
                     }
                 },
+                Rec =&gt; <span class="kw">match </span><span class="self">self</span>.raw().get_hash8() {
+                    <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;Malformed Rec&gt;"</span>.into(),
+                    <span class="prelude-val">Some</span>(idx) =&gt; {
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>([vars, body, <span class="kw">_</span>, <span class="kw">_</span>]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) {
+                            <span class="kw">match </span>vars.tag() {
+                                Tag::Expr(Nil) =&gt; {
+                                    <span class="macro">format!</span>(
+                                        <span class="string">"&lt;REC_FUNCTION () {}&gt;"</span>,
+                                        body.fmt_to_string(store, state)
+                                    )
+                                }
+                                Tag::Expr(Cons) =&gt; {
+                                    <span class="macro">format!</span>(
+                                        <span class="string">"&lt;REC_FUNCTION {} {}&gt;"</span>,
+                                        vars.fmt_to_string(store, state),
+                                        body.fmt_to_string(store, state)
+                                    )
+                                }
+                                <span class="kw">_ </span>=&gt; <span class="string">"&lt;Malformed Rec&gt;"</span>.into(),
+                            }
+                        } <span class="kw">else </span>{
+                            <span class="string">"&lt;Opaque Rec&gt;"</span>.into()
+                        }
+                    }
+                },
                 Thunk =&gt; <span class="kw">match </span><span class="self">self</span>.raw().get_hash4() {
                     <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;Malformed Thunk&gt;"</span>.into(),
                     <span class="prelude-val">Some</span>(idx) =&gt; {
@@ -2661,6 +2810,23 @@
                         }
                     }
                 },
+                Env =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(env) = store.fetch_env(<span class="self">self</span>) {
+                        <span class="kw">let </span>list = env
+                            .iter()
+                            .map(|(sym, val)| {
+                                <span class="macro">format!</span>(
+                                    <span class="string">"({} . {})"</span>,
+                                    sym.fmt_to_string(store, state),
+                                    val.fmt_to_string(store, state)
+                                )
+                            })
+                            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+                        <span class="macro">format!</span>(<span class="string">"&lt;ENV ({})&gt;"</span>, list.join(<span class="string">" "</span>))
+                    } <span class="kw">else </span>{
+                        <span class="string">"&lt;Opaque Env&gt;"</span>.into()
+                    }
+                }
             },
             Tag::Cont(t) =&gt; <span class="kw">match </span>t {
                 Outermost =&gt; <span class="string">"Outermost"</span>.into(),
