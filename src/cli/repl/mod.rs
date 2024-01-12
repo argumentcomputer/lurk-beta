@@ -185,7 +185,7 @@ where
         let current_dir = std::env::current_dir().expect("couldn't capture current directory");
         let pwd_path =
             Utf8PathBuf::from_path_buf(current_dir).expect("path contains invalid Unicode");
-        let env = store.intern_nil();
+        let env = store.intern_empty_env();
         let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
         let cprocs = make_cprocs_funcs_from_lang(&lang);
         Repl {
@@ -224,7 +224,7 @@ where
                 )
                 .unwrap();
             let (io, ..) = self
-                .eval_expr_with_env(ptr, self.store.intern_nil())
+                .eval_expr_with_env(ptr, self.store.intern_empty_env())
                 .unwrap();
             io[0]
         })

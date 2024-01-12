@@ -23,7 +23,7 @@ use crate::{
         self, Binop, Binop2, Call, Call0, Call2, Dummy, Emit, If, Let, LetRec, Lookup, Outermost,
         Tail, Terminal, Unop,
     },
-    tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, RecVar, Str, Sym, Thunk, U64},
+    tag::ExprTag::{Char, Comm, Cons, Cproc, Env, Fun, Key, Nil, Num, Rec, Str, Sym, Thunk, U64},
 };
 
 use super::pointers::{Ptr, RawPtr, ZPtr};
@@ -372,6 +372,32 @@ impl<F: LurkField> Store<F> {
     pub fn raw_to_ptr(&self, tag: &RawPtr, raw: &RawPtr) -> Option<Ptr> {
         let tag = self.fetch_tag(tag)?;
         Some(Ptr::new(tag, *raw))
+    }
+
+    #[inline]
+    pub fn push_binding(&self, sym: Ptr, val: Ptr, env: Ptr) -> Ptr {
+        assert_eq!(*sym.tag(), Tag::Expr(Sym));
+        assert_eq!(*env.tag(), Tag::Expr(Env));
+        let raw =
+            self.intern_raw_ptrs::<4>([*sym.raw(), self.tag(*val.tag()), *val.raw(), *env.raw()]);
+        Ptr::new(Tag::Expr(Env), raw)
+    }
+
+    #[inline]
+    pub fn pop_binding(&self, env: Ptr) -> Option<[Ptr; 3]> {
+        assert_eq!(*env.tag(), Tag::Expr(Env));
+        let idx = env.get_index2()?;
+        let [sym_pay, val_tag, val_pay, env_pay] = self.fetch_raw_ptrs::<4>(idx)?;
+        let val_tag = self.fetch_tag(val_tag)?;
+        let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
+        let val = Ptr::new(val_tag, *val_pay);
+        let env = Ptr::new(Tag::Expr(Env), *env_pay);
+        Some([sym, val, env])
+    }
+
+    #[inline]
+    pub fn intern_empty_env(&self) -> Ptr {
+        self.intern_atom(Tag::Expr(Env), F::ZERO)
     }
 
     #[inline]
@@ -756,6 +782,28 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    /// Fetches an environment
+    pub fn fetch_env(&self, ptr: &Ptr) -> Option<Vec<(Ptr, Ptr)>> {
+        if *ptr.tag() != Tag::Expr(Env) {
+            return None;
+        }
+        if *ptr == self.intern_empty_env() {
+            return Some(vec![]);
+        }
+        let mut idx = ptr.raw().get_hash4()?;
+        let mut list = vec![];
+        while let Some([sym_pay, val_tag, val_pay, env_pay]) = self.fetch_raw_ptrs(idx) {
+            let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
+            let val = self.raw_to_ptr(val_tag, val_pay)?;
+            list.push((sym, val));
+            if env_pay == self.intern_empty_env().raw() {
+                break;
+            }
+            idx = env_pay.get_hash4().unwrap();
+        }
+        Some(list)
+    }
+
     pub fn intern_syntax(&self, syn: Syntax<F>) -> Ptr {
         match syn {
             Syntax::Num(_, x) => self.num(x.into_scalar()),
@@ -1004,13 +1052,6 @@ impl Ptr {
                         "<Opaque Sym>".into()
                     }
                 }
-                RecVar => {
-                    if let Some(sym) = store.fetch_sym(&self.cast(Tag::Expr(Sym))) {
-                        state.fmt_to_string(&sym.into())
-                    } else {
-                        "<Opaque RecVar>".into()
-                    }
-                }
                 Key => {
                     if let Some(key) = store.fetch_key(self) {
                         state.fmt_to_string(&key.into())
@@ -1101,6 +1142,31 @@ impl Ptr {
                         }
                     }
                 },
+                Rec => match self.raw().get_hash8() {
+                    None => "<Malformed Rec>".into(),
+                    Some(idx) => {
+                        if let Some([vars, body, _, _]) = fetch_ptrs!(store, 4, idx) {
+                            match vars.tag() {
+                                Tag::Expr(Nil) => {
+                                    format!(
+                                        "<REC_FUNCTION () {}>",
+                                        body.fmt_to_string(store, state)
+                                    )
+                                }
+                                Tag::Expr(Cons) => {
+                                    format!(
+                                        "<REC_FUNCTION {} {}>",
+                                        vars.fmt_to_string(store, state),
+                                        body.fmt_to_string(store, state)
+                                    )
+                                }
+                                _ => "<Malformed Rec>".into(),
+                            }
+                        } else {
+                            "<Opaque Rec>".into()
+                        }
+                    }
+                },
                 Thunk => match self.raw().get_hash4() {
                     None => "<Malformed Thunk>".into(),
                     Some(idx) => {
@@ -1140,6 +1206,23 @@ impl Ptr {
                         }
                     }
                 },
+                Env => {
+                    if let Some(env) = store.fetch_env(self) {
+                        let list = env
+                            .iter()
+                            .map(|(sym, val)| {
+                                format!(
+                                    "({} . {})",
+                                    sym.fmt_to_string(store, state),
+                                    val.fmt_to_string(store, state)
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                        format!("<ENV ({})>", list.join(" "))
+                    } else {
+                        "<Opaque Env>".into()
+                    }
+                }
             },
             Tag::Cont(t) => match t {
                 Outermost => "Outermost".into(),

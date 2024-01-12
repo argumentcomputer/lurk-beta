@@ -196,7 +196,7 @@ pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
     evaluate_with_env_and_cont(
         lang_setup,
         expr,
-        store.intern_nil(),
+        store.intern_empty_env(),
         store.cont_outermost(),
         store,
         limit,
@@ -229,7 +229,7 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
     store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-    evaluate_simple_with_env(lang_setup, expr, store.intern_nil(), store, limit)
+    evaluate_simple_with_env(lang_setup, expr, store.intern_empty_env(), store, limit)
 }
 
 pub struct EvalConfig<'a, F, C> {
@@ -802,44 +802,25 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         return (nil)
     });
     let is_cproc = is_cproc(cprocs);
-    let lookup = func!(lookup(expr, env, found, binding): 4 => {
-        let rec = Symbol("rec");
-        let non_rec = Symbol("non_rec");
-        let error = Symbol("error");
+    let lookup = func!(lookup(expr, env, state): 3 => {
+        let found = Symbol("found");
         let not_found = Symbol("not_found");
-        let continue = eq_val(not_found, found);
+        let error = Symbol("error");
+        let continue = eq_val(not_found, state);
         if !continue {
-            return (expr, env, found, binding)
+            return (expr, env, state)
         }
-        match env.tag {
-            Expr::Nil => {
-                return (expr, env, error, binding)
-            }
-        };
-        let (binding, smaller_env) = car_cdr(env);
-        match binding.tag {
-            Expr::Nil => {
-                return (expr, env, error, binding)
-            }
-        };
-        let (var, val) = decons2(binding);
-        match var.tag {
-            Expr::Sym => {
-                let eq_val = eq_val(var, expr);
-                if eq_val {
-                    return (val, env, non_rec, binding)
-                }
-                return (expr, smaller_env, not_found, binding)
-            }
-            Expr::RecVar => {
-                let eq_val = eq_val(var, expr);
-                if eq_val {
-                    return (val, env, rec, binding)
-                }
-                return (expr, smaller_env, not_found, binding)
-            }
-        };
-        return (expr, env, error, binding)
+        let zero = Num(0);
+        let env_is_zero = eq_val(env, zero);
+        if env_is_zero {
+            return (expr, env, error)
+        }
+        let (var, val, smaller_env) = pop_binding(env);
+        let eq_val = eq_val(var, expr);
+        if eq_val {
+            return (val, env, found)
+        }
+        return (expr, smaller_env, not_found)
     });
 
     func!(reduce(expr, env, cont): 4 => {
@@ -888,31 +869,39 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                     return (expr, env, cont, apply)
                 }
                 let not_found = Symbol("not_found");
-                let (expr, env, found, binding) = lookup(expr, env, not_found, nil);
-                let (expr, env, found, binding) = lookup(expr, env, found, binding);
-                let (expr, env, found, binding) = lookup(expr, env, found, binding);
-                match symbol found {
+                // `expr` is the symbol. If the lookup was succesful, it will
+                // return the result as `res` and a "found" state. If the lookup
+                // is incomplete, it will return the original symbol as `res`
+                // and a "not_found" state
+                let (res, res_env, state) = lookup(expr, env, not_found);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                let (res, res_env, state) = lookup(res, res_env, state);
+                match symbol state {
                     "error" => {
                         return (expr, env, err, errctrl)
                     }
-                    "non_rec" => {
-                        return (expr, env, cont, apply)
-                    }
-                    "rec" => {
-                        match expr.tag {
-                            Expr::Fun => {
-                                // if `val2` is a closure, then extend its environment
-                                let (arg, body, closed_env, _foo) = decons4(expr);
-                                let extended: Expr::Cons = cons2(binding, closed_env);
-                                // and return the extended closure
-                                let fun: Expr::Fun = cons4(arg, body, extended, foo);
-                                return (fun, env, cont, apply)
+                    "found" => {
+                        match res.tag {
+                            // if `val2` is a recursive closure, then extend its environment
+                            Expr::Rec => {
+                                let (args, body, closed_env, _foo) = decons4(res);
+                                // remember `expr` is the original symbol, i.e. the symbol
+                                // of the recursive closure
+                                let extended = push_binding(expr, res, closed_env);
+                                let fun: Expr::Fun = cons4(args, body, extended, foo);
+                                return (fun, res_env, cont, apply)
                             }
                         };
-                        return (expr, env, cont, apply)
+                        return (res, res_env, cont, apply)
                     }
                     "not_found" => {
-                        return (expr, env, cont, ret)
+                        // if it's not yet found, we must keep reducing
+                        return (res, res_env, cont, ret)
                     }
                 }
             }
@@ -1050,6 +1039,15 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                 };
                                 let cont: Cont::If = cons4(more, env, cont, foo);
                                 return (condition, env, cont, ret)
+                            }
+                            "empty-env" => {
+                                match rest.tag {
+                                    Expr::Nil => {
+                                        let empty_env: Expr::Env;
+                                        return (empty_env, env, cont, apply)
+                                    }
+                                };
+                                return (expr, env, err, errctrl)
                             }
                             "current-env" => {
                                 match rest.tag {
@@ -1201,6 +1199,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                 let t = Symbol("t");
                 let nil = Symbol("nil");
                 let nil = cast(nil, Expr::Nil);
+                let empty_env: Expr::Env;
                 let empty_str = String("");
                 let zero = Num(0);
                 let foo: Expr::Nil;
@@ -1211,7 +1210,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                 match cont.tag {
                     Cont::Outermost => {
                         // We erase the environment as to not leak any information about internal variables.
-                        return (result, nil, term, ret)
+                        return (result, empty_env, term, ret)
                     }
                     Cont::Emit => {
                         let (cont, _rest, _foo, _foo) = decons4(cont);
@@ -1260,8 +1259,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 let (vars, body, fun_env, _foo) = decons4(function);
                                 // vars must be non-empty, so:
                                 let (var, rest_vars) = decons2(vars);
-                                let binding: Expr::Cons = cons2(var, result);
-                                let ext_env: Expr::Cons = cons2(binding, fun_env);
+                                let ext_env = push_binding(var, result, fun_env);
                                 let rest_vars_empty = eq_tag(rest_vars, nil);
                                 let args_empty = eq_tag(args, nil);
                                 if rest_vars_empty {
@@ -1292,16 +1290,19 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     }
                     Cont::Let => {
                         let (var, saved_env, body, cont) = decons4(cont);
-                        let binding: Expr::Cons = cons2(var, result);
-                        let extended_env: Expr::Cons = cons2(binding, saved_env);
+                        let extended_env = push_binding(var, result, saved_env);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::LetRec => {
                         let (var, saved_env, body, cont) = decons4(cont);
-                        // Since the variable came from a letrec, it is a recursive variable
-                        let var = cast(var, Expr::RecVar);
-                        let binding: Expr::Cons = cons2(var, result);
-                        let extended_env: Expr::Cons = cons2(binding, saved_env);
+                        match result.tag {
+                            Expr::Fun => {
+                                let result = cast(result, Expr::Rec);
+                                let extended_env = push_binding(var, result, saved_env);
+                                return (body, extended_env, cont, ret)
+                            }
+                        };
+                        let extended_env = push_binding(var, result, saved_env);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::Unop => {
@@ -1425,7 +1426,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return(result, env, err, errctrl)
                             }
                             Op1::Eval => {
-                                return(result, nil, continuation, ret)
+                                return(result, empty_env, continuation, ret)
                             }
                         };
                         return (result, env, err, errctrl)
@@ -1460,7 +1461,12 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         let args_num_type_eq_nil = eq_tag(args_num_type, nil);
                         match operator.tag {
                             Op2::Eval => {
-                                return (evaled_arg, result, continuation, ret)
+                                match result.tag {
+                                    Expr::Env => {
+                                        return (evaled_arg, result, continuation, ret)
+                                    }
+                                };
+                                return (result, env, err, errctrl)
                             }
                             Op2::Cons => {
                                 let val: Expr::Cons = cons2(evaled_arg, result);
@@ -1697,10 +1703,9 @@ fn make_thunk() -> Func {
             "make-thunk" => {
                 match cont.tag {
                     Cont::Outermost => {
-                        let nil = Symbol("nil");
-                        let nil = cast(nil, Expr::Nil);
+                        let empty_env: Expr::Env;
                         let cont: Cont::Terminal = HASH_8_ZEROS;
-                        return (expr, nil, cont)
+                        return (expr, empty_env, cont)
                     }
                 };
                 let thunk: Expr::Thunk = cons2(expr, cont);
@@ -1717,7 +1722,7 @@ mod tests {
     use super::*;
     use crate::{
         eval::lang::{Coproc, Lang},
-        lem::{slot::SlotsCounter, store::Store},
+        lem::store::Store,
     };
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     use expect_test::{expect, Expect};
@@ -1731,22 +1736,17 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);
-        assert_eq!(
-            func.slots_count,
-            SlotsCounter {
-                hash4: 14,
-                hash6: 0,
-                hash8: 6,
-                commitment: 1,
-                bit_decomp: 3,
-            }
-        );
         let expect_eq = |computed: usize, expected: Expect| {
             expected.assert_eq(&computed.to_string());
         };
+        expect_eq(func.slots_count.hash4, expect!["14"]);
+        expect_eq(func.slots_count.hash6, expect!["0"]);
+        expect_eq(func.slots_count.hash8, expect!["6"]);
+        expect_eq(func.slots_count.commitment, expect!["1"]);
+        expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["8884"]);
-        expect_eq(cs.num_constraints(), expect!["10831"]);
+        expect_eq(cs.aux().len(), expect!["8927"]);
+        expect_eq(cs.num_constraints(), expect!["10857"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }

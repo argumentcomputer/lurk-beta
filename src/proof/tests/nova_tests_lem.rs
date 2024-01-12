@@ -381,7 +381,7 @@ fn test_prove_recursion2() {
         None,
         Some(terminal),
         None,
-        &expect!["59"],
+        &expect!["57"],
         &None,
     );
 }
@@ -819,7 +819,7 @@ fn test_prove_adder() {
 #[test]
 fn test_prove_current_env_simple() {
     let s = &Store::<Fr>::default();
-    let expected = s.intern_nil();
+    let expected = s.intern_empty_env();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
         s,
@@ -1324,7 +1324,7 @@ fn test_prove_tail_recursion() {
         None,
         Some(terminal),
         None,
-        &expect!["59"],
+        &expect!["57"],
         &None,
     );
 }
@@ -1350,7 +1350,7 @@ fn test_prove_tail_recursion_somewhat_optimized() {
         None,
         Some(terminal),
         None,
-        &expect!["55"], &None
+        &expect!["53"], &None
     );
 }
 
@@ -1544,7 +1544,7 @@ fn test_prove_zero_arg_lambda3() {
     let expected = {
         let args = s.list(vec![s.intern_user_symbol("x")]);
         let num = s.num_u64(123);
-        let env = s.intern_nil();
+        let env = s.intern_empty_env();
         s.intern_fun(args, num, env)
     };
     let terminal = s.cont_terminal();
@@ -1855,7 +1855,7 @@ fn test_prove_dont_discard_rest_env() {
         None,
         Some(terminal),
         None,
-        &expect!["15"],
+        &expect!["14"],
         &None,
     );
 }
@@ -1881,7 +1881,7 @@ fn test_prove_fibonacci() {
         None,
         Some(terminal),
         None,
-        &expect!["40"],
+        &expect!["35"],
         5,
         false,
         None,
@@ -1945,7 +1945,7 @@ fn test_prove_chained_functional_commitment() {
         None,
         Some(terminal),
         None,
-        &expect!["24"],
+        &expect!["22"],
         &None,
     );
 }
@@ -3009,7 +3009,7 @@ fn test_relational_edge_case_identity() {
 fn test_prove_test_eval() {
     let s = &Store::<Fr>::default();
     let expr = "(* 3 (eval  (cons '+ (cons 1 (cons 2 nil)))))";
-    let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
+    let expr2 = "(* 5 (eval '(+ 1 a) (let ((a 3)) (current-env))))"; // two-arg eval, optional second arg is env.
     let res = s.num_u64(9);
     let res2 = s.num_u64(20);
     let terminal = s.cont_terminal();
@@ -3031,7 +3031,7 @@ fn test_prove_test_eval() {
         None,
         Some(terminal),
         None,
-        &expect!["9"],
+        &expect!["11"],
         &None,
     );
 }
@@ -3131,7 +3131,7 @@ fn test_prove_complicated_functional_commitment() {
         None,
         Some(terminal),
         None,
-        &expect!["69"],
+        &expect!["68"],
         &None,
     );
 }
@@ -3154,7 +3154,7 @@ fn test_prove_test_fold_cons_regression() {
         None,
         Some(terminal),
         None,
-        &expect!["67"],
+        &expect!["64"],
         &None,
     );
 }
@@ -3185,7 +3185,7 @@ fn test_prove_reduce_sym_contradiction_regression() {
     let expr = "(eval 'a '(nil))";
     let error = s.cont_error();
 
-    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["4"], &None);
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
@@ -3248,7 +3248,7 @@ fn test_prove_test_eval_bad_form() {
     let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env. This tests for error on malformed env.
     let error = s.cont_error();
 
-    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["8"], &None);
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["5"], &None);
 }
 
 #[test]
@@ -3783,7 +3783,7 @@ fn test_prove_dotted_syntax_error() {
 #[test]
 fn test_prove_call_literal_fun() {
     let s = &Store::<Fr>::default();
-    let empty_env = s.intern_nil();
+    let empty_env = s.intern_empty_env();
     let args = s.list(vec![s.intern_user_symbol("x")]);
     let body = s.read_with_default_state("(+ x 1)").unwrap();
     let fun = intern_ptrs!(s, Tag::Expr(ExprTag::Fun), args, body, empty_env, s.dummy());

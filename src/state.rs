@@ -215,7 +215,7 @@ const LURK_PACKAGE_SYMBOL_NAME: &str = "lurk";
 const USER_PACKAGE_SYMBOL_NAME: &str = "user";
 const META_PACKAGE_SYMBOL_NAME: &str = "meta";
 
-const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 35] = [
+const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
     "atom",
     "begin",
     "car",
@@ -226,6 +226,7 @@ const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 35] = [
     "cons",
     "current-env",
     "emit",
+    "empty-env",
     "eval",
     "eq",
     "hide",

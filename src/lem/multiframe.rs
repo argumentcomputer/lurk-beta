@@ -404,7 +404,7 @@ impl<F: LurkField> EvaluationStore for Store<F> {
     }
 
     fn initial_empty_env(&self) -> Self::Ptr {
-        self.intern_nil()
+        self.intern_empty_env()
     }
 
     fn get_cont_terminal(&self) -> Self::Ptr {
@@ -1085,7 +1085,7 @@ mod tests {
 
         let mut frame = frames.pop().unwrap();
         // faking a trivial evaluation frame
-        frame.output = vec![expr, store.intern_nil(), store.cont_terminal()];
+        frame.output = vec![expr, store.intern_empty_env(), store.cont_terminal()];
 
         let mut cs = TestConstraintSystem::<Fq>::new();
 

@@ -51,7 +51,8 @@ pub enum ExprTag {
     U64,
     Key,
     Cproc,
-    RecVar,
+    Env,
+    Rec,
 }
 
 impl From<ExprTag> for u16 {
@@ -81,7 +82,8 @@ impl fmt::Display for ExprTag {
             ExprTag::Comm => write!(f, "comm#"),
             ExprTag::U64 => write!(f, "u64#"),
             ExprTag::Cproc => write!(f, "cproc#"),
-            ExprTag::RecVar => write!(f, "rec_var#"),
+            ExprTag::Env => write!(f, "env#"),
+            ExprTag::Rec => write!(f, "rec#"),
         }
     }
 }

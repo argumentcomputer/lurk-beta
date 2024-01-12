@@ -103,7 +103,10 @@
 //! STEP 2 will need as many iterations as it takes to evaluate the Lurk
 //! expression and so will STEP 3.
 
-use super::{pointers::Ptr, Block, Ctrl, Op};
+use super::{
+    pointers::{Ptr, RawPtr},
+    Block, Ctrl, Op,
+};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlotsCounter {
@@ -195,7 +198,9 @@ impl Block {
     pub fn count_slots(&self) -> SlotsCounter {
         let ops_slots = self.ops.iter().fold(SlotsCounter::default(), |acc, op| {
             let val = match op {
-                Op::Cons2(..) | Op::Decons2(..) => SlotsCounter::new((1, 0, 0, 0, 0)),
+                Op::Cons2(..) | Op::Decons2(..) | Op::PushBinding(..) | Op::PopBinding(..) => {
+                    SlotsCounter::new((1, 0, 0, 0, 0))
+                }
                 Op::Cons3(..) | Op::Decons3(..) => SlotsCounter::new((0, 1, 0, 0, 0)),
                 Op::Cons4(..) | Op::Decons4(..) => SlotsCounter::new((0, 0, 1, 0, 0)),
                 Op::Hide(..) | Op::Open(..) => SlotsCounter::new((0, 0, 0, 1, 0)),
@@ -234,12 +239,12 @@ impl Block {
 }
 
 #[derive(Clone, Debug)]
-/// The values a variable can take. `Num`s are pure field elements, much like `Ptr::Atom`,
-/// but missing the tag. `Boolean`s are also field elements, but they are guaranteed to be
-/// constrained to take only 0 or 1 values.
+/// The values a variable can take. `Num`s represent pure field elements, with no tags.
+/// `Boolean`s are also field elements, but they are guaranteed to be constrained to
+/// take only 0 or 1 values.
 pub enum Val {
     Pointer(Ptr),
-    Num(usize),
+    Num(RawPtr),
     Boolean(bool),
 }
 
