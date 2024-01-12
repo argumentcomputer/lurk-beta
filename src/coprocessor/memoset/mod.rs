@@ -844,7 +844,7 @@ mod test {
             let g = &mut GlobalAllocator::default();
 
             scope
-                .synthesize::<TestConstraintSystem<F>, ScopeCircuitQuery<F>>(cs, g, s)
+                .synthesize::<_, ScopeCircuitQuery<F>>(cs, g, s)
                 .unwrap();
 
             expect_eq(cs.num_constraints(), expect!["11408"]);
