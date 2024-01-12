@@ -102,7 +102,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, Self, LogMemo<F>>,
+        scope: &mut CircuitScope<F, LogMemo<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {

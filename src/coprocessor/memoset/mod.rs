@@ -47,7 +47,7 @@ use crate::tag::{ExprTag, Tag as XTag};
 use crate::z_ptr::ZPtr;
 
 use multiset::MultiSet;
-use query::{CircuitQuery, Query};
+pub use query::{CircuitQuery, Query};
 
 mod demo;
 mod multiset;
@@ -192,7 +192,7 @@ pub struct Scope<F, Q, M> {
     internal_insertions: Vec<Ptr>,
     /// unique keys
     all_insertions: Vec<Ptr>,
-    _p: PhantomData<F>,
+    _phantom: PhantomData<F>,
 }
 
 impl<F: LurkField, Q> Default for Scope<F, Q, LogMemo<F>> {
@@ -204,19 +204,18 @@ impl<F: LurkField, Q> Default for Scope<F, Q, LogMemo<F>> {
             toplevel_insertions: Default::default(),
             internal_insertions: Default::default(),
             all_insertions: Default::default(),
-            _p: Default::default(),
+            _phantom: Default::default(),
         }
     }
 }
 
-pub struct CircuitScope<F: LurkField, CQ: CircuitQuery<F>, M: MemoSet<F>> {
+pub struct CircuitScope<F: LurkField, M> {
     memoset: M,
     /// k -> v
     queries: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     /// k -> allocated v
     transcript: CircuitTranscript<F>,
     acc: Option<AllocatedPtr<F>>,
-    _p: PhantomData<CQ>,
 }
 
 impl<F: LurkField, Q: Query<F>> Scope<F, Q, LogMemo<F>> {
@@ -357,8 +356,8 @@ impl<F: LurkField, Q: Query<F>> Scope<F, Q, LogMemo<F>> {
     }
 }
 
-impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
-    fn from_scope<CS: ConstraintSystem<F>, Q: Query<F, CQ = CQ>>(
+impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
+    fn from_scope<CS: ConstraintSystem<F>, Q: Query<F>>(
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
@@ -374,7 +373,6 @@ impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
             queries,
             transcript: CircuitTranscript::new(cs, g, s),
             acc: Default::default(),
-            _p: Default::default(),
         }
     }
 
@@ -496,7 +494,7 @@ impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
         Ok((value, new_acc, new_insertion_transcript))
     }
 
-    fn synthesize_insert_toplevel_queries<CS: ConstraintSystem<F>, Q: Query<F, CQ = CQ>>(
+    fn synthesize_insert_toplevel_queries<CS: ConstraintSystem<F>, Q: Query<F>>(
         &mut self,
         scope: &mut Scope<F, Q, LogMemo<F>>,
         cs: &mut CS,
@@ -546,7 +544,7 @@ impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
         Ok(())
     }
 
-    fn synthesize_prove_all_queries<CS: ConstraintSystem<F>, Q: Query<F, CQ = CQ>>(
+    fn synthesize_prove_all_queries<CS: ConstraintSystem<F>, Q: Query<F>>(
         &mut self,
         scope: &mut Scope<F, Q, LogMemo<F>>,
         cs: &mut CS,
@@ -554,12 +552,12 @@ impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
         for (i, kv) in scope.all_insertions.iter().enumerate() {
-            self.synthesize_prove_query(cs, g, s, i, kv)?;
+            self.synthesize_prove_query::<_, Q::CQ>(cs, g, s, i, kv)?;
         }
         Ok(())
     }
 
-    fn synthesize_prove_query<CS: ConstraintSystem<F>>(
+    fn synthesize_prove_query<CS: ConstraintSystem<F>, CQ: CircuitQuery<F>>(
         &mut self,
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
