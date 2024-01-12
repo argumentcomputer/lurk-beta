@@ -120,6 +120,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || frames,
                 |frames| {
+                    eprintln!("\n=======================================\n");
                     let result = prover.prove(&pp, frames, &store);
                     let _ = black_box(result);
                 },
@@ -141,7 +142,7 @@ fn fibonacci_benchmark(c: &mut Criterion) {
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
     let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
-    let batch_sizes = [100, 200];
+    let batch_sizes = [500];
 
     for reduction_count in reduction_counts.iter() {
         let mut group: BenchmarkGroup<'_, _> =

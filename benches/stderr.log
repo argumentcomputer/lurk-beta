@@ -1,0 +1,208 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling arecibo v0.2.0 (https://github.com/lurk-lab/arecibo?branch=preallocate-msm#6876c069)
+   Compiling lurk v0.3.1 (/home/paperspace/lurk-lab/lurk-rs)
+    Finished bench [optimized] target(s) in 1m 26s
+Gnuplot not found, using plotters backend
+Benchmarking LEM Fibonacci Prove - rc = 900/fib/num-500-cc9de142be3f4829d09c4e27771207965eef9a79-2024-01-11
+Benchmarking LEM Fibonacci Prove - rc = 900/fib/num-500-cc9de142be3f4829d09c4e27771207965eef9a79-2024-01-11: Warming up for 3.0000 s
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 847.267975ms
+zeros, scalars, time: 4626, 10337, 18.9483ms
+commit T: zeros, scalars, time: 10357, 10357, 505.101µs
+zeros, scalars, time: 1757881, 7941351, 548.476278ms
+commit T: zeros, scalars, time: 6752860, 9699051, 159.193017ms
+zeros, scalars, time: 3440, 10337, 13.257333ms
+commit T: zeros, scalars, time: 4321, 10357, 11.43605ms
+zeros, scalars, time: 1757207, 7941351, 554.064449ms
+commit T: zeros, scalars, time: 5966166, 9699051, 329.453026ms
+zeros, scalars, time: 3426, 10337, 12.656345ms
+commit T: zeros, scalars, time: 3212, 10357, 15.037615ms
+zeros, scalars, time: 1757312, 7941351, 552.643811ms
+commit T: zeros, scalars, time: 5341906, 9699051, 366.211021ms
+zeros, scalars, time: 3445, 10337, 13.096732ms
+
+Warning: Unable to complete 10 samples in 120.0s. You may wish to increase target time to 133.4s.
+Benchmarking LEM Fibonacci Prove - rc = 900/fib/num-500-cc9de142be3f4829d09c4e27771207965eef9a79-2024-01-11: Collecting 10 samples in estimated 133.43 s (10 iterations)
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 559.733825ms
+zeros, scalars, time: 4626, 10337, 9.158439ms
+commit T: zeros, scalars, time: 10357, 10357, 527.173µs
+zeros, scalars, time: 1757881, 7941351, 552.398933ms
+commit T: zeros, scalars, time: 6752860, 9699051, 151.258935ms
+zeros, scalars, time: 3440, 10337, 11.264345ms
+commit T: zeros, scalars, time: 4321, 10357, 16.699649ms
+zeros, scalars, time: 1757207, 7941351, 555.784256ms
+commit T: zeros, scalars, time: 5966166, 9699051, 341.349577ms
+zeros, scalars, time: 3426, 10337, 22.523756ms
+commit T: zeros, scalars, time: 3212, 10357, 12.282814ms
+zeros, scalars, time: 1757312, 7941351, 556.916798ms
+commit T: zeros, scalars, time: 5341906, 9699051, 356.455873ms
+zeros, scalars, time: 3445, 10337, 14.381925ms
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 559.482651ms
+zeros, scalars, time: 4626, 10337, 8.33881ms
+commit T: zeros, scalars, time: 10357, 10357, 511.954µs
+zeros, scalars, time: 1757881, 7941351, 556.780422ms
+commit T: zeros, scalars, time: 6752860, 9699051, 156.812372ms
+zeros, scalars, time: 3440, 10337, 16.870737ms
+commit T: zeros, scalars, time: 4321, 10357, 10.731183ms
+zeros, scalars, time: 1757207, 7941351, 542.007872ms
+commit T: zeros, scalars, time: 5966166, 9699051, 335.988562ms
+zeros, scalars, time: 3426, 10337, 7.690977ms
+commit T: zeros, scalars, time: 3212, 10357, 16.840075ms
+zeros, scalars, time: 1757312, 7941351, 550.016943ms
+commit T: zeros, scalars, time: 5341906, 9699051, 356.570987ms
+zeros, scalars, time: 3445, 10337, 11.335363ms
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 546.645273ms
+zeros, scalars, time: 4626, 10337, 16.397215ms
+commit T: zeros, scalars, time: 10357, 10357, 645.827µs
+zeros, scalars, time: 1757881, 7941351, 554.671033ms
+commit T: zeros, scalars, time: 6752860, 9699051, 148.005848ms
+zeros, scalars, time: 3440, 10337, 11.370989ms
+commit T: zeros, scalars, time: 4321, 10357, 9.323651ms
+zeros, scalars, time: 1757207, 7941351, 547.293595ms
+commit T: zeros, scalars, time: 5966166, 9699051, 344.175223ms
+zeros, scalars, time: 3426, 10337, 14.81722ms
+commit T: zeros, scalars, time: 3212, 10357, 9.651791ms
+zeros, scalars, time: 1757312, 7941351, 546.401347ms
+commit T: zeros, scalars, time: 5341906, 9699051, 343.450722ms
+zeros, scalars, time: 3445, 10337, 11.25213ms
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 544.661655ms
+zeros, scalars, time: 4626, 10337, 11.541149ms
+commit T: zeros, scalars, time: 10357, 10357, 688.291µs
+zeros, scalars, time: 1757881, 7941351, 543.333908ms
+commit T: zeros, scalars, time: 6752860, 9699051, 161.214169ms
+zeros, scalars, time: 3440, 10337, 14.271439ms
+commit T: zeros, scalars, time: 4321, 10357, 9.727561ms
+zeros, scalars, time: 1757207, 7941351, 550.146788ms
+commit T: zeros, scalars, time: 5966166, 9699051, 323.54532ms
+zeros, scalars, time: 3426, 10337, 27.002386ms
+commit T: zeros, scalars, time: 3212, 10357, 13.820435ms
+zeros, scalars, time: 1757312, 7941351, 544.117215ms
+commit T: zeros, scalars, time: 5341906, 9699051, 356.109591ms
+zeros, scalars, time: 3445, 10337, 9.279578ms
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 558.446133ms
+zeros, scalars, time: 4626, 10337, 12.357464ms
+commit T: zeros, scalars, time: 10357, 10357, 1.322616ms
+zeros, scalars, time: 1757881, 7941351, 548.780802ms
+commit T: zeros, scalars, time: 6752860, 9699051, 150.386332ms
+zeros, scalars, time: 3440, 10337, 9.07248ms
+commit T: zeros, scalars, time: 4321, 10357, 7.780242ms
+zeros, scalars, time: 1757207, 7941351, 559.290401ms
+commit T: zeros, scalars, time: 5966166, 9699051, 317.419659ms
+zeros, scalars, time: 3426, 10337, 8.984643ms
+commit T: zeros, scalars, time: 3212, 10357, 14.446419ms
+zeros, scalars, time: 1757312, 7941351, 545.47734ms
+commit T: zeros, scalars, time: 5341906, 9699051, 341.77525ms
+zeros, scalars, time: 3445, 10337, 27.513862ms
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 551.266476ms
+zeros, scalars, time: 4626, 10337, 20.828792ms
+commit T: zeros, scalars, time: 10357, 10357, 526.157µs
+zeros, scalars, time: 1757881, 7941351, 544.676505ms
+commit T: zeros, scalars, time: 6752860, 9699051, 148.925532ms
+zeros, scalars, time: 3440, 10337, 15.76487ms
+commit T: zeros, scalars, time: 4321, 10357, 10.00217ms
+zeros, scalars, time: 1757207, 7941351, 547.212751ms
+commit T: zeros, scalars, time: 5966166, 9699051, 332.192887ms
+zeros, scalars, time: 3426, 10337, 18.542847ms
+commit T: zeros, scalars, time: 3212, 10357, 10.399446ms
+zeros, scalars, time: 1757312, 7941351, 549.220526ms
+commit T: zeros, scalars, time: 5341906, 9699051, 344.96839ms
+zeros, scalars, time: 3445, 10337, 8.422461ms
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 553.025686ms
+zeros, scalars, time: 4626, 10337, 8.019595ms
+commit T: zeros, scalars, time: 10357, 10357, 407.011µs
+zeros, scalars, time: 1757881, 7941351, 546.494072ms
+commit T: zeros, scalars, time: 6752860, 9699051, 150.078863ms
+zeros, scalars, time: 3440, 10337, 8.715238ms
+commit T: zeros, scalars, time: 4321, 10357, 13.39994ms
+zeros, scalars, time: 1757207, 7941351, 562.275316ms
+commit T: zeros, scalars, time: 5966166, 9699051, 331.559419ms
+zeros, scalars, time: 3426, 10337, 11.71239ms
+commit T: zeros, scalars, time: 3212, 10357, 9.708633ms
+zeros, scalars, time: 1757312, 7941351, 548.473271ms
+commit T: zeros, scalars, time: 5341906, 9699051, 344.412262ms
+zeros, scalars, time: 3445, 10337, 17.173492ms
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 559.244907ms
+zeros, scalars, time: 4626, 10337, 21.367655ms
+commit T: zeros, scalars, time: 10357, 10357, 1.383944ms
+zeros, scalars, time: 1757881, 7941351, 548.028159ms
+commit T: zeros, scalars, time: 6752860, 9699051, 155.876229ms
+zeros, scalars, time: 3440, 10337, 15.385934ms
+commit T: zeros, scalars, time: 4321, 10357, 9.65398ms
+zeros, scalars, time: 1757207, 7941351, 551.845287ms
+commit T: zeros, scalars, time: 5966166, 9699051, 324.000783ms
+zeros, scalars, time: 3426, 10337, 10.05272ms
+commit T: zeros, scalars, time: 3212, 10357, 12.700196ms
+zeros, scalars, time: 1757312, 7941351, 551.272907ms
+commit T: zeros, scalars, time: 5341906, 9699051, 354.742771ms
+zeros, scalars, time: 3445, 10337, 20.844368ms
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 552.279427ms
+zeros, scalars, time: 4626, 10337, 8.186424ms
+commit T: zeros, scalars, time: 10357, 10357, 526.139µs
+zeros, scalars, time: 1757881, 7941351, 549.376525ms
+commit T: zeros, scalars, time: 6752860, 9699051, 150.726917ms
+zeros, scalars, time: 3440, 10337, 16.232103ms
+commit T: zeros, scalars, time: 4321, 10357, 10.420238ms
+zeros, scalars, time: 1757207, 7941351, 554.918165ms
+commit T: zeros, scalars, time: 5966166, 9699051, 336.273993ms
+zeros, scalars, time: 3426, 10337, 14.18858ms
+commit T: zeros, scalars, time: 3212, 10357, 10.984965ms
+zeros, scalars, time: 1757312, 7941351, 549.806303ms
+commit T: zeros, scalars, time: 5341906, 9699051, 345.2704ms
+zeros, scalars, time: 3445, 10337, 9.161598ms
+
+=======================================
+
+zeros, scalars, time: 1753383, 7941351, 553.780753ms
+zeros, scalars, time: 4626, 10337, 8.334434ms
+commit T: zeros, scalars, time: 10357, 10357, 1.278199ms
+zeros, scalars, time: 1757881, 7941351, 550.897325ms
+commit T: zeros, scalars, time: 6752860, 9699051, 154.014332ms
+zeros, scalars, time: 3440, 10337, 11.95373ms
+commit T: zeros, scalars, time: 4321, 10357, 8.790347ms
+zeros, scalars, time: 1757207, 7941351, 551.386466ms
+commit T: zeros, scalars, time: 5966166, 9699051, 329.657843ms
+zeros, scalars, time: 3426, 10337, 15.606529ms
+commit T: zeros, scalars, time: 3212, 10357, 18.218441ms
+zeros, scalars, time: 1757312, 7941351, 552.540141ms
+commit T: zeros, scalars, time: 5341906, 9699051, 364.02185ms
+zeros, scalars, time: 3445, 10337, 11.646848ms
+Benchmarking LEM Fibonacci Prove - rc = 900/fib/num-500-cc9de142be3f4829d09c4e27771207965eef9a79-2024-01-11: Analyzing
+LEM Fibonacci Prove - rc = 900/fib/num-500-cc9de142be3f4829d09c4e27771207965eef9a79-2024-01-11
+                        time:   [11.277 s 11.381 s 11.501 s]
+                        thrpt:  [313.01  elem/s 316.31  elem/s 319.23  elem/s]
+                 change:
+                        time:   [-8.4128% -6.7674% -4.7092%] (p = 0.00 < 0.05)
+                        thrpt:  [+4.9419% +7.2586% +9.1856%]
+                        Change within noise threshold.
+
