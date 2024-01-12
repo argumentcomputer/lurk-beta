@@ -222,7 +222,9 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
     }
 
     fn symbol(&self) -> Symbol {
-        todo!()
+        match self {
+            Self::Factorial(_) => Symbol::sym(&["lurk", "user", "factorial"]),
+        }
     }
 }
 
