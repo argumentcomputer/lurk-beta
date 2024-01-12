@@ -26,6 +26,8 @@ pub(crate) enum DemoCircuitQuery<F: LurkField> {
 }
 
 impl<F: LurkField> Query<F> for DemoQuery<F> {
+    type CQ = DemoCircuitQuery<F>;
+
     // DemoQuery and Scope depend on each other.
     fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr {
         match self {
@@ -95,14 +97,6 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
-    type Q = DemoQuery<F>;
-
-    fn dummy_query_variant(&self, s: &Store<F>) -> Self::Q {
-        match self {
-            Self::Factorial(_) => Self::Q::Factorial(s.num(F::ZERO)),
-        }
-    }
-
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -143,8 +137,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
                     );
 
                     let subquery = {
-                        let symbol =
-                            g.alloc_ptr(cs, &store.intern_symbol(&self.symbol(store)), store);
+                        let symbol = g.alloc_ptr(cs, &self.symbol_ptr(store), store);
 
                         let new_num = AllocatedPtr::alloc_tag(
                             &mut cs.namespace(|| "new_num"),
@@ -215,10 +208,10 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         s: &Store<F>,
         ptr: &Ptr,
     ) -> Result<Option<Self>, SynthesisError> {
-        let query = Self::Q::from_ptr(s, ptr);
+        let query = DemoQuery::from_ptr(s, ptr);
         Ok(if let Some(q) = query {
             match q {
-                Self::Q::Factorial(n) => Some(Self::Factorial(AllocatedPtr::alloc(cs, || {
+                DemoQuery::Factorial(n) => Some(Self::Factorial(AllocatedPtr::alloc(cs, || {
                     Ok(s.hash_ptr(&n))
                 })?)),
                 _ => unreachable!(),
@@ -226,6 +219,10 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         } else {
             None
         })
+    }
+
+    fn symbol(&self) -> Symbol {
+        todo!()
     }
 }
 

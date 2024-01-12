@@ -340,14 +340,14 @@ impl<F: LurkField, Q: Query<F>> Scope<F, Q, LogMemo<F>> {
         (transcript, unique_keys)
     }
 
-    pub fn synthesize<CS: ConstraintSystem<F>, CQ: CircuitQuery<F, Q = Q>>(
+    pub fn synthesize<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
         self.ensure_transcript_finalized(s);
-        let mut circuit_scope: CircuitScope<_, CQ, _> =
+        let mut circuit_scope: CircuitScope<_, Q::CQ, _> =
             CircuitScope::from_scope(&mut cs.namespace(|| "transcript"), g, s, self);
         circuit_scope.init(cs, g, s);
         {
@@ -360,11 +360,11 @@ impl<F: LurkField, Q: Query<F>> Scope<F, Q, LogMemo<F>> {
 }
 
 impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
-    pub fn from_scope<CS: ConstraintSystem<F>>(
+    fn from_scope<CS: ConstraintSystem<F>, Q: Query<F, CQ = CQ>>(
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
-        scope: &Scope<F, CQ::Q, LogMemo<F>>,
+        scope: &Scope<F, Q, LogMemo<F>>,
     ) -> Self {
         let queries = scope
             .queries
@@ -498,9 +498,9 @@ impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
         Ok((value, new_acc, new_insertion_transcript))
     }
 
-    fn synthesize_insert_toplevel_queries<CS: ConstraintSystem<F>>(
+    fn synthesize_insert_toplevel_queries<CS: ConstraintSystem<F>, Q: Query<F, CQ = CQ>>(
         &mut self,
-        scope: &mut Scope<F, CQ::Q, LogMemo<F>>,
+        scope: &mut Scope<F, Q, LogMemo<F>>,
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
@@ -548,9 +548,9 @@ impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
         Ok(())
     }
 
-    fn synthesize_prove_all_queries<CS: ConstraintSystem<F>>(
+    fn synthesize_prove_all_queries<CS: ConstraintSystem<F>, Q: Query<F, CQ = CQ>>(
         &mut self,
-        scope: &mut Scope<F, CQ::Q, LogMemo<F>>,
+        scope: &mut Scope<F, Q, LogMemo<F>>,
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
@@ -746,18 +746,15 @@ mod test {
 
     use crate::state::State;
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
-    use demo::DemoCircuitQuery;
+    use demo::DemoQuery;
     use expect_test::{expect, Expect};
     use pasta_curves::pallas::Scalar as F;
     use std::default::Default;
 
-    type ScopeCircuitQuery<F> = DemoCircuitQuery<F>;
-    type ScopeQuery<F> = <ScopeCircuitQuery<F> as CircuitQuery<F>>::Q;
-
     #[test]
     fn test_query() {
         let s = &Store::<F>::default();
-        let mut scope: Scope<F, ScopeQuery<F>, LogMemo<F>> = Scope::default();
+        let mut scope: Scope<F, DemoQuery<F>, LogMemo<F>> = Scope::default();
         let state = State::init_lurk_state();
 
         let fact_4 = s.read_with_default_state("(factorial 4)").unwrap();
@@ -785,9 +782,7 @@ mod test {
             let cs = &mut TestConstraintSystem::new();
             let g = &mut GlobalAllocator::default();
 
-            scope
-                .synthesize::<_, ScopeCircuitQuery<F>>(cs, g, s)
-                .unwrap();
+            scope.synthesize(cs, g, s).unwrap();
 
             println!(
                 "transcript: {}",
@@ -810,7 +805,7 @@ mod test {
             assert!(cs.is_satisfied());
         }
         {
-            let mut scope: Scope<F, ScopeQuery<F>, LogMemo<F>> = Scope::default();
+            let mut scope: Scope<F, DemoQuery<F>, LogMemo<F>> = Scope::default();
             scope.query(s, fact_4);
             scope.query(s, fact_3);
 
@@ -826,9 +821,7 @@ mod test {
             let cs = &mut TestConstraintSystem::new();
             let g = &mut GlobalAllocator::default();
 
-            scope
-                .synthesize::<_, ScopeCircuitQuery<F>>(cs, g, s)
-                .unwrap();
+            scope.synthesize(cs, g, s).unwrap();
 
             expect_eq(cs.num_constraints(), expect!["11408"]);
             expect_eq(cs.aux().len(), expect!["11445"]);

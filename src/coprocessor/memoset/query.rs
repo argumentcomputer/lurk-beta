@@ -11,6 +11,8 @@ pub trait Query<F: LurkField>
 where
     Self: Sized + Clone,
 {
+    type CQ: CircuitQuery<F>;
+
     fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr;
     fn recursive_eval(
         &self,
@@ -33,8 +35,6 @@ pub trait CircuitQuery<F: LurkField>
 where
     Self: Sized + Clone,
 {
-    type Q: Query<F>;
-
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -45,12 +45,10 @@ where
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError>;
 
-    fn symbol(&self, s: &Store<F>) -> Symbol {
-        self.dummy_query_variant(s).symbol()
-    }
+    fn symbol(&self) -> Symbol;
 
     fn symbol_ptr(&self, s: &Store<F>) -> Ptr {
-        self.dummy_query_variant(s).symbol_ptr(s)
+        s.intern_symbol(&self.symbol())
     }
 
     fn from_ptr<CS: ConstraintSystem<F>>(
@@ -58,6 +56,4 @@ where
         s: &Store<F>,
         ptr: &Ptr,
     ) -> Result<Option<Self>, SynthesisError>;
-
-    fn dummy_query_variant(&self, s: &Store<F>) -> Self::Q;
 }
