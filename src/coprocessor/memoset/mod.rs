@@ -339,6 +339,24 @@ impl<F: LurkField, Q: Query<F>> Scope<F, Q, LogMemo<F>> {
 
         (transcript, unique_keys)
     }
+
+    pub fn synthesize<CS: ConstraintSystem<F>, CQ: CircuitQuery<F, Q = Q>>(
+        &mut self,
+        cs: &mut CS,
+        g: &mut GlobalAllocator<F>,
+        s: &Store<F>,
+    ) -> Result<(), SynthesisError> {
+        self.ensure_transcript_finalized(s);
+        let mut circuit_scope: CircuitScope<_, CQ, _> =
+            CircuitScope::from_scope(&mut cs.namespace(|| "transcript"), g, s, self);
+        circuit_scope.init(cs, g, s);
+        {
+            circuit_scope.synthesize_insert_toplevel_queries(self, cs, g, s)?;
+            circuit_scope.synthesize_prove_all_queries(self, cs, g, s)?;
+        }
+        circuit_scope.finalize(cs, g);
+        Ok(())
+    }
 }
 
 impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
@@ -824,10 +842,10 @@ mod test {
 
             let cs = &mut TestConstraintSystem::new();
             let g = &mut GlobalAllocator::default();
-            let mut circuit_scope: CircuitScope<_, ScopeCircuitQuery<F>, _> =
-                CircuitScope::from_scope(&mut cs.namespace(|| "transcript"), g, s, &scope);
 
-            circuit_scope.synthesize(&mut scope, cs, g, s).unwrap();
+            scope
+                .synthesize::<TestConstraintSystem<F>, ScopeCircuitQuery<F>>(cs, g, s)
+                .unwrap();
 
             expect_eq(cs.num_constraints(), expect!["11408"]);
             expect_eq(cs.aux().len(), expect!["11445"]);
