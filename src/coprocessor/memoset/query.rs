@@ -30,7 +30,6 @@ where
     fn index(&self) -> usize;
 }
 
-#[allow(unreachable_pub)]
 pub trait CircuitQuery<F: LurkField>
 where
     Self: Sized + Clone,
