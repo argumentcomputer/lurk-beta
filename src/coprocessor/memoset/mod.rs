@@ -91,7 +91,6 @@ impl<F: LurkField> Transcript<F> {
 
     #[allow(dead_code)]
     fn dbg(&self, s: &Store<F>) {
-        //dbg!(self.acc.fmt_to_string_simple(s));
         tracing::debug!("transcript: {}", self.acc.fmt_to_string_simple(s));
     }
 
@@ -173,7 +172,6 @@ impl<F: LurkField> CircuitTranscript<F> {
     fn dbg(&self, s: &Store<F>) {
         let z = self.acc.get_value::<Tag>().unwrap();
         let transcript = s.to_ptr(&z);
-        // dbg!(transcript.fmt_to_string_simple(s));
         tracing::debug!("transcript: {}", transcript.fmt_to_string_simple(s));
     }
 }
