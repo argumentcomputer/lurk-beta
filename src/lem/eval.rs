@@ -1726,7 +1726,7 @@ mod tests {
     };
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     use expect_test::{expect, Expect};
-    use pasta_curves::pallas::Scalar as Fr;
+    use halo2curves::bn256::Fr;
 
     #[test]
     fn test_counts() {
@@ -1745,8 +1745,8 @@ mod tests {
         expect_eq(func.slots_count.commitment, expect!["1"]);
         expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["8927"]);
-        expect_eq(cs.num_constraints(), expect!["10857"]);
+        expect_eq(cs.aux().len(), expect!["9095"]);
+        expect_eq(cs.num_constraints(), expect!["11025"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }

@@ -1680,6 +1680,8 @@ impl Func {
         let bit_decomp_cost = match F::FIELD {
             LanguageField::Pallas => 298,
             LanguageField::Vesta => 301,
+            // TODO: investigate how to properly compute this number, as it was obtained empirically
+            LanguageField::BN256 => 354,
             _ => todo!(),
         };
 

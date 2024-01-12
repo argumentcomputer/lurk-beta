@@ -1346,7 +1346,7 @@ impl Ptr {
 #[cfg(test)]
 mod tests {
     use ff::Field;
-    use pasta_curves::pallas::Scalar as Fr;
+    use halo2curves::bn256::Fr;
     use proptest::prelude::*;
 
     use crate::{
