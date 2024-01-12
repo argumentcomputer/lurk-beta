@@ -184,8 +184,8 @@ pub fn parse_litbase_le_bytes<F: LurkField>(
 
 #[cfg(test)]
 pub mod tests {
+    use halo2curves::bn256::Fr;
     use nom::Parser;
-    use pasta_curves::pallas::Scalar as Fr;
 
     use super::*;
 
