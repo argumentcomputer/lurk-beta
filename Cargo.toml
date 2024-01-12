@@ -7,7 +7,7 @@ repository.workspace = true
 authors.workspace = true
 homepage.workspace = true
 license.workspace = true
-rust-version.workspace = true
+rust-version = "1.72" # allows msrv verify to work in CI
 
 [dependencies]
 ahash = "0.8.6"
@@ -151,7 +151,7 @@ edition = "2021"
 homepage = "https://lurk-lang.org/"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/lurk-lab/lurk-rs"
-rust-version = "1.71.1"
+rust-version = "1.72"
 
 [[bin]]
 name = "lurk"
