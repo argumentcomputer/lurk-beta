@@ -194,7 +194,7 @@ pub struct Scope<F, Q, M> {
     internal_insertions: Vec<Ptr>,
     /// unique keys
     all_insertions: Vec<Ptr>,
-    _p: PhantomData<(F, Q)>,
+    _p: PhantomData<F>,
 }
 
 impl<F: LurkField, Q> Default for Scope<F, Q, LogMemo<F>> {
@@ -392,23 +392,6 @@ impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
         );
 
         self.transcript = CircuitTranscript::new(cs, g, s);
-    }
-
-    pub fn synthesize<CS: ConstraintSystem<F>>(
-        &mut self,
-        scope: &mut Scope<F, CQ::Q, LogMemo<F>>,
-        cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
-        s: &Store<F>,
-    ) -> Result<(), SynthesisError> {
-        scope.ensure_transcript_finalized(s);
-        self.init(cs, g, s);
-        {
-            self.synthesize_insert_toplevel_queries(scope, cs, g, s)?;
-            self.synthesize_prove_all_queries(scope, cs, g, s)?;
-        }
-        self.finalize(cs, g);
-        Ok(())
     }
 
     fn synthesize_insert_query<CS: ConstraintSystem<F>>(
@@ -801,10 +784,10 @@ mod test {
 
             let cs = &mut TestConstraintSystem::new();
             let g = &mut GlobalAllocator::default();
-            let mut circuit_scope: CircuitScope<_, ScopeCircuitQuery<F>, _> =
-                CircuitScope::from_scope(&mut cs.namespace(|| "transcript"), g, s, &scope);
 
-            circuit_scope.synthesize(&mut scope, cs, g, s).unwrap();
+            scope
+                .synthesize::<_, ScopeCircuitQuery<F>>(cs, g, s)
+                .unwrap();
 
             println!(
                 "transcript: {}",
