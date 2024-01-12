@@ -180,7 +180,7 @@ impl<F: LurkField> CircuitTranscript<F> {
 /// A `Scope` tracks the queries made while evaluating, including the subqueries that result from evaluating other
 /// queries -- then makes use of the bookkeeping performed at evaluation time to synthesize proof of each query
 /// performed.
-pub struct Scope<F, Q, M> {
+pub struct Scope<Q, M> {
     memoset: M,
     /// k => v
     queries: HashMap<Ptr, Ptr>,
@@ -192,10 +192,9 @@ pub struct Scope<F, Q, M> {
     internal_insertions: Vec<Ptr>,
     /// unique keys
     all_insertions: Vec<Ptr>,
-    _phantom: PhantomData<F>,
 }
 
-impl<F: LurkField, Q> Default for Scope<F, Q, LogMemo<F>> {
+impl<F: LurkField, Q> Default for Scope<Q, LogMemo<F>> {
     fn default() -> Self {
         Self {
             memoset: Default::default(),
@@ -204,7 +203,6 @@ impl<F: LurkField, Q> Default for Scope<F, Q, LogMemo<F>> {
             toplevel_insertions: Default::default(),
             internal_insertions: Default::default(),
             all_insertions: Default::default(),
-            _phantom: Default::default(),
         }
     }
 }
@@ -218,7 +216,7 @@ pub struct CircuitScope<F: LurkField, M> {
     acc: Option<AllocatedPtr<F>>,
 }
 
-impl<F: LurkField, Q: Query<F>> Scope<F, Q, LogMemo<F>> {
+impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
     pub fn query(&mut self, s: &Store<F>, form: Ptr) -> Ptr {
         let (response, kv_ptr) = self.query_aux(s, form);
 
@@ -361,7 +359,7 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
-        scope: &Scope<F, Q, LogMemo<F>>,
+        scope: &Scope<Q, LogMemo<F>>,
     ) -> Self {
         let queries = scope
             .queries
@@ -496,7 +494,7 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
 
     fn synthesize_insert_toplevel_queries<CS: ConstraintSystem<F>, Q: Query<F>>(
         &mut self,
-        scope: &mut Scope<F, Q, LogMemo<F>>,
+        scope: &mut Scope<Q, LogMemo<F>>,
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
@@ -546,7 +544,7 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
 
     fn synthesize_prove_all_queries<CS: ConstraintSystem<F>, Q: Query<F>>(
         &mut self,
-        scope: &mut Scope<F, Q, LogMemo<F>>,
+        scope: &mut Scope<Q, LogMemo<F>>,
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
@@ -750,7 +748,7 @@ mod test {
     #[test]
     fn test_query() {
         let s = &Store::<F>::default();
-        let mut scope: Scope<F, DemoQuery<F>, LogMemo<F>> = Scope::default();
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::default();
         let state = State::init_lurk_state();
 
         let fact_4 = s.read_with_default_state("(factorial 4)").unwrap();
@@ -801,7 +799,7 @@ mod test {
             assert!(cs.is_satisfied());
         }
         {
-            let mut scope: Scope<F, DemoQuery<F>, LogMemo<F>> = Scope::default();
+            let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::default();
             scope.query(s, fact_4);
             scope.query(s, fact_3);
 

@@ -13,10 +13,10 @@ where
 {
     type CQ: CircuitQuery<F>;
 
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr;
+    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>>) -> Ptr;
     fn recursive_eval(
         &self,
-        scope: &mut Scope<F, Self, LogMemo<F>>,
+        scope: &mut Scope<Self, LogMemo<F>>,
         s: &Store<F>,
         subquery: Self,
     ) -> Ptr;

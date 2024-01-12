@@ -29,7 +29,7 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
     type CQ = DemoCircuitQuery<F>;
 
     // DemoQuery and Scope depend on each other.
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<F, Self, LogMemo<F>>) -> Ptr {
+    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>>) -> Ptr {
         match self {
             Self::Factorial(n) => {
                 let n_zptr = s.hash_ptr(n);
@@ -51,7 +51,7 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
 
     fn recursive_eval(
         &self,
-        scope: &mut Scope<F, Self, LogMemo<F>>,
+        scope: &mut Scope<Self, LogMemo<F>>,
         s: &Store<F>,
         subquery: Self,
     ) -> Ptr {
@@ -238,7 +238,7 @@ mod test {
     #[test]
     fn test_factorial() {
         let s = Store::default();
-        let mut scope: Scope<F, DemoQuery<F>, LogMemo<F>> = Scope::default();
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::default();
         let zero = s.num(F::ZERO);
         let one = s.num(F::ONE);
         let two = s.num(F::from_u64(2));
