@@ -47,13 +47,11 @@ use crate::tag::{ExprTag, Tag as XTag};
 use crate::z_ptr::ZPtr;
 
 use multiset::MultiSet;
-use query::{CircuitQuery, DemoCircuitQuery, Query};
+use query::{CircuitQuery, Query};
 
+mod demo;
 mod multiset;
 mod query;
-
-type ScopeCircuitQuery<F> = DemoCircuitQuery<F>;
-type ScopeQuery<F> = <ScopeCircuitQuery<F> as CircuitQuery<F>>::Q;
 
 #[derive(Clone, Debug)]
 pub struct Transcript<F> {
@@ -93,7 +91,6 @@ impl<F: LurkField> Transcript<F> {
 
     #[allow(dead_code)]
     fn dbg(&self, s: &Store<F>) {
-        //dbg!(self.acc.fmt_to_string_simple(s));
         tracing::debug!("transcript: {}", self.acc.fmt_to_string_simple(s));
     }
 
@@ -175,7 +172,6 @@ impl<F: LurkField> CircuitTranscript<F> {
     fn dbg(&self, s: &Store<F>) {
         let z = self.acc.get_value::<Tag>().unwrap();
         let transcript = s.to_ptr(&z);
-        // dbg!(transcript.fmt_to_string_simple(s));
         tracing::debug!("transcript: {}", transcript.fmt_to_string_simple(s));
     }
 }
@@ -196,10 +192,10 @@ pub struct Scope<F, Q, M> {
     internal_insertions: Vec<Ptr>,
     /// unique keys
     all_insertions: Vec<Ptr>,
-    _p: PhantomData<(F, Q)>,
+    _p: PhantomData<F>,
 }
 
-impl<F: LurkField> Default for Scope<F, ScopeQuery<F>, LogMemo<F>> {
+impl<F: LurkField, Q> Default for Scope<F, Q, LogMemo<F>> {
     fn default() -> Self {
         Self {
             memoset: Default::default(),
@@ -213,17 +209,17 @@ impl<F: LurkField> Default for Scope<F, ScopeQuery<F>, LogMemo<F>> {
     }
 }
 
-pub struct CircuitScope<F: LurkField, Q: Query<F>, M: MemoSet<F>> {
+pub struct CircuitScope<F: LurkField, CQ: CircuitQuery<F>, M: MemoSet<F>> {
     memoset: M,
     /// k -> v
     queries: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     /// k -> allocated v
     transcript: CircuitTranscript<F>,
     acc: Option<AllocatedPtr<F>>,
-    _p: PhantomData<Q>,
+    _p: PhantomData<CQ>,
 }
 
-impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
+impl<F: LurkField, Q: Query<F>> Scope<F, Q, LogMemo<F>> {
     pub fn query(&mut self, s: &Store<F>, form: Ptr) -> Ptr {
         let (response, kv_ptr) = self.query_aux(s, form);
 
@@ -232,12 +228,7 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
         response
     }
 
-    fn query_recursively(
-        &mut self,
-        s: &Store<F>,
-        parent: &ScopeQuery<F>,
-        child: ScopeQuery<F>,
-    ) -> Ptr {
+    fn query_recursively(&mut self, s: &Store<F>, parent: &Q, child: Q) -> Ptr {
         let form = child.to_ptr(s);
         self.internal_insertions.push(form);
 
@@ -253,7 +244,7 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
 
     fn query_aux(&mut self, s: &Store<F>, form: Ptr) -> (Ptr, Ptr) {
         let response = self.queries.get(&form).cloned().unwrap_or_else(|| {
-            let query = ScopeQuery::from_ptr(s, &form).expect("invalid query");
+            let query = Q::from_ptr(s, &form).expect("invalid query");
 
             let evaluated = query.eval(s, self);
 
@@ -299,9 +290,7 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
         insertions.sort_by_key(|kv| {
             let (key, _) = s.car_cdr(kv).unwrap();
 
-            ScopeQuery::<F>::from_ptr(s, &key)
-                .expect("invalid query")
-                .index()
+            Q::from_ptr(s, &key).expect("invalid query").index()
         });
 
         for kv in self.toplevel_insertions.iter() {
@@ -356,49 +345,20 @@ impl<F: LurkField> Scope<F, ScopeQuery<F>, LogMemo<F>> {
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
         self.ensure_transcript_finalized(s);
-
+        let mut circuit_scope =
+            CircuitScope::from_scope(&mut cs.namespace(|| "transcript"), g, s, self);
+        circuit_scope.init(cs, g, s);
         {
-            let circuit_scope =
-                &mut CircuitScope::from_scope(&mut cs.namespace(|| "transcript"), g, s, self);
-            circuit_scope.init(cs, g, s);
-            {
-                self.synthesize_insert_toplevel_queries(circuit_scope, cs, g, s)?;
-                self.synthesize_prove_all_queries(circuit_scope, cs, g, s)?;
-            }
-            circuit_scope.finalize(cs, g);
-            Ok(())
+            circuit_scope.synthesize_insert_toplevel_queries(self, cs, g, s)?;
+            circuit_scope.synthesize_prove_all_queries(self, cs, g, s)?;
         }
-    }
-
-    fn synthesize_insert_toplevel_queries<CS: ConstraintSystem<F>>(
-        &mut self,
-        circuit_scope: &mut CircuitScope<F, ScopeQuery<F>, LogMemo<F>>,
-        cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
-        s: &Store<F>,
-    ) -> Result<(), SynthesisError> {
-        for (i, kv) in self.toplevel_insertions.iter().enumerate() {
-            circuit_scope.synthesize_toplevel_query(cs, g, s, i, kv)?;
-        }
-        Ok(())
-    }
-
-    fn synthesize_prove_all_queries<CS: ConstraintSystem<F>>(
-        &mut self,
-        circuit_scope: &mut CircuitScope<F, ScopeQuery<F>, LogMemo<F>>,
-        cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
-        s: &Store<F>,
-    ) -> Result<(), SynthesisError> {
-        for (i, kv) in self.all_insertions.iter().enumerate() {
-            circuit_scope.synthesize_prove_query(cs, g, s, i, kv)?;
-        }
+        circuit_scope.finalize(cs, g);
         Ok(())
     }
 }
 
-impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
-    fn from_scope<CS: ConstraintSystem<F>>(
+impl<F: LurkField, CQ: CircuitQuery<F>> CircuitScope<F, CQ, LogMemo<F>> {
+    fn from_scope<CS: ConstraintSystem<F>, Q: Query<F, CQ = CQ>>(
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
@@ -535,9 +495,20 @@ impl<F: LurkField, Q: Query<F>> CircuitScope<F, Q, LogMemo<F>> {
 
         Ok((value, new_acc, new_insertion_transcript))
     }
-}
 
-impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
+    fn synthesize_insert_toplevel_queries<CS: ConstraintSystem<F>, Q: Query<F, CQ = CQ>>(
+        &mut self,
+        scope: &mut Scope<F, Q, LogMemo<F>>,
+        cs: &mut CS,
+        g: &mut GlobalAllocator<F>,
+        s: &Store<F>,
+    ) -> Result<(), SynthesisError> {
+        for (i, kv) in scope.toplevel_insertions.iter().enumerate() {
+            self.synthesize_toplevel_query(cs, g, s, i, kv)?;
+        }
+        Ok(())
+    }
+
     fn synthesize_toplevel_query<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
@@ -575,6 +546,19 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
         Ok(())
     }
 
+    fn synthesize_prove_all_queries<CS: ConstraintSystem<F>, Q: Query<F, CQ = CQ>>(
+        &mut self,
+        scope: &mut Scope<F, Q, LogMemo<F>>,
+        cs: &mut CS,
+        g: &mut GlobalAllocator<F>,
+        s: &Store<F>,
+    ) -> Result<(), SynthesisError> {
+        for (i, kv) in scope.all_insertions.iter().enumerate() {
+            self.synthesize_prove_query(cs, g, s, i, kv)?;
+        }
+        Ok(())
+    }
+
     fn synthesize_prove_query<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
@@ -592,8 +576,7 @@ impl<F: LurkField> CircuitScope<F, ScopeQuery<F>, LogMemo<F>> {
             )
             .unwrap();
 
-        let circuit_query =
-            ScopeCircuitQuery::from_ptr(&mut cs.namespace(|| "circuit_query"), s, key).unwrap();
+        let circuit_query = CQ::from_ptr(&mut cs.namespace(|| "circuit_query"), s, key).unwrap();
 
         let acc = self.acc.clone().unwrap();
         let transcript = self.transcript.clone();
@@ -761,6 +744,7 @@ mod test {
 
     use crate::state::State;
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
+    use demo::DemoQuery;
     use expect_test::{expect, Expect};
     use pasta_curves::pallas::Scalar as F;
     use std::default::Default;
@@ -768,7 +752,7 @@ mod test {
     #[test]
     fn test_query() {
         let s = &Store::<F>::default();
-        let mut scope: Scope<F, ScopeQuery<F>, LogMemo<F>> = Scope::default();
+        let mut scope: Scope<F, DemoQuery<F>, LogMemo<F>> = Scope::default();
         let state = State::init_lurk_state();
 
         let fact_4 = s.read_with_default_state("(factorial 4)").unwrap();
@@ -819,7 +803,7 @@ mod test {
             assert!(cs.is_satisfied());
         }
         {
-            let mut scope: Scope<F, ScopeQuery<F>, LogMemo<F>> = Scope::default();
+            let mut scope: Scope<F, DemoQuery<F>, LogMemo<F>> = Scope::default();
             scope.query(s, fact_4);
             scope.query(s, fact_3);
 
