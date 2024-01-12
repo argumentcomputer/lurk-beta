@@ -1,11 +1,13 @@
 [package]
 name = "lurk-macros"
 version = "0.2.0"
-authors = ["porcuquine <porcuquine@gmail.com>"]
-license = "MIT OR Apache-2.0"
 description = "Custom derives for `lurk`"
-edition = "2021"
-repository = "https://github.com/lurk-lab/lurk-rs"
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+homepage.workspace = true
+license.workspace = true
+rust-version.workspace = true
 
 [lib]
 proc-macro = true
