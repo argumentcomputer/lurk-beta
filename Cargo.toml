@@ -125,7 +125,7 @@ bellpepper-core = { git = "https://github.com/lurk-lab/bellpepper", branch = "de
 bincode = "1.3.3"
 clap = "4.3.17"
 ff = "0.13"
-metrics = "0.21.1"
+metrics = "0.22.0"
 neptune = { git = "https://github.com/lurk-lab/neptune", branch = "dev", features = ["abomonation"] }
 nova = { git = "https://github.com/lurk-lab/arecibo", branch = "dev", package = "arecibo" }
 once_cell = "1.18.0"
