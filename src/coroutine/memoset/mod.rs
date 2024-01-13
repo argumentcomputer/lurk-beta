@@ -34,11 +34,11 @@ use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, Syn
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 
-use super::gadgets::construct_cons;
 use crate::circuit::gadgets::{
     constraints::{enforce_equal, enforce_equal_zero, invert, sub},
     pointer::AllocatedPtr,
 };
+use crate::coprocessor::gadgets::construct_cons; // FIXME: Move to common location.
 use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
 use crate::lem::tag::Tag;

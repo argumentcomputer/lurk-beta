@@ -5,8 +5,8 @@ use super::{
     CircuitScope, CircuitTranscript, LogMemo, Scope,
 };
 use crate::circuit::gadgets::constraints::alloc_is_zero;
+use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::coprocessor::gadgets::construct_list;
-use crate::coprocessor::AllocatedPtr;
 use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
 use crate::lem::{pointers::Ptr, store::Store};
