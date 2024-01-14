@@ -41,7 +41,7 @@ will be unable to demonstrate an opening of the commitment.
 
 
 NOTE: the notation used when displaying a Lurk commitment is `(comm <field-element>)`, but the actual value represented
-is just a field element tagged with the `Comm` type -- not a list begining with the symbol `comm`. This representation
+is just a field element tagged with the `Comm` type -- not a list beginning with the symbol `comm`. This representation
 is chosen because the `comm` built-in creates commitments from numbers.
 
 ```
@@ -59,7 +59,7 @@ the prover must know the original secret (as well as the original value).
 => 169
 ```
 
-Here, we see that the output is exactly as expected when calling the secret funcion. 169 is the sum of the squares (4,
+Here, we see that the output is exactly as expected when calling the secret function. 169 is the sum of the squares (4,
 16, 49, 100) of the input. However, we learn nothing *else* about the secret function even when we can fully inspect the
 input and output of evaluation.
 
@@ -74,16 +74,16 @@ It follows from the above that Lurk programs are deterministic. For every termin
 correct eventual output. Future versions of Lurk will introduce a non-deterministic option -- in which a single input
 may evaluate to more than one correct output.
 
-In either event, whenever `x` evalutes to `y` (whether `y` is unique or otherwise), it is possible to construct a proof
+In either event, whenever `x` evaluates to `y` (whether `y` is unique or otherwise), it is possible to construct a proof
 that convinces a verifier that this is true. We claim that the circuit for the Lurk [reduction
 step](reduction-notes.md) is complete in this sense, but will not otherwise address the claim in this document.
 
 ## Soundness
 
-Our concern here is that even if it is true that we can prove that `x` evalutes to `y` whenever this is true, it might
+Our concern here is that even if it is true that we can prove that `x` evaluates to `y` whenever this is true, it might
 also be the case that we can generate a proof that `x` evaluates to `z` when Lurk's evaluation rules do *not* specify
 that this is true. In the case of the deterministic subset of Lurk (which is all that is implemented in the
-current/initial release), it *cannot* be the case that `x` evalutes to both `y` and `z` -- so any instance of such a
+current/initial release), it *cannot* be the case that `x` evaluates to both `y` and `z` -- so any instance of such a
 proof would constitute *ipso facto* proof that Lurk proofs are unsound. This would be a show-stopping bug that needs to
 be addressed. We frame the discussion in this way to make clear that Lurk auditors must be satisfied that no two such
 'contradictory proofs' are obtainable if Lurk is to be declared sound (as we claim).
