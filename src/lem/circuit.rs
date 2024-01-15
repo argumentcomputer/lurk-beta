@@ -576,6 +576,9 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         }
 
         match op {
+            Op::Crout(_, _, _) => {
+                unimplemented!()
+            }
             Op::Cproc(out, sym, inp) => {
                 let cproc = ctx
                     .lang
@@ -1614,6 +1617,9 @@ impl Func {
                         num_constraints += 2;
                         globals.insert(FWrap(Num.to_field()));
                         globals.insert(FWrap(Comm.to_field()));
+                    }
+                    Op::Crout(..) => {
+                        unimplemented!()
                     }
                 }
             }
