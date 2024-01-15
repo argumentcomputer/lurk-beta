@@ -64,7 +64,6 @@ pub mod eval;
 pub(crate) mod interpreter;
 mod macros;
 pub mod multiframe;
-mod path;
 pub mod pointers;
 mod slot;
 pub mod store;

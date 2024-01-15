@@ -1,7 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 
 use super::{
-    path::Path,
     pointers::{Ptr, RawPtr},
     slot::{SlotData, Val},
     store::{fetch_ptrs, intern_ptrs, Store},
@@ -140,11 +139,10 @@ impl Block {
         store: &Store<F>,
         mut bindings: VarMap<Val>,
         mut hints: Hints,
-        mut path: Path,
         emitted: &mut Vec<Ptr>,
         lang: &Lang<F, C>,
         pc: usize,
-    ) -> Result<(Frame, Path)> {
+    ) -> Result<Frame> {
         for op in &self.ops {
             match op {
                 Op::Cproc(out, sym, inp) => {
@@ -164,10 +162,7 @@ impl Block {
                 Op::Call(out, func, inp) => {
                     // Get the argument values
                     let inp_ptrs = bindings.get_many_ptr(inp)?;
-                    let (frame, func_path) =
-                        func.call(&inp_ptrs, store, hints, emitted, lang, pc)?;
-                    // Extend the path
-                    path.extend_from_path(&func_path);
+                    let frame = func.call(&inp_ptrs, store, hints, emitted, lang, pc)?;
                     // Bind the output variables to the output values
                     hints = frame.hints;
                     for (var, ptr) in out.iter().zip(frame.output.into_iter()) {
@@ -476,14 +471,12 @@ impl Block {
                 let ptr = bindings.get_ptr(match_var)?;
                 let tag = ptr.tag();
                 if let Some(block) = cases.get(tag) {
-                    path.push_tag_inplace(*tag);
-                    block.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, emitted, lang, pc)
                 } else {
-                    path.push_default_inplace();
                     let Some(def) = def else {
                         bail!("No match for tag {}", tag)
                     };
-                    def.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, emitted, lang, pc)
                 }
             }
             Ctrl::MatchSymbol(match_var, cases, def) => {
@@ -495,23 +488,20 @@ impl Block {
                     bail!("Symbol bound to {match_var} wasn't interned");
                 };
                 if let Some(block) = cases.get(&sym) {
-                    path.push_symbol_inplace(sym);
-                    block.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, emitted, lang, pc)
                 } else {
-                    path.push_default_inplace();
                     let Some(def) = def else {
                         bail!("No match for symbol {sym}")
                     };
-                    def.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, emitted, lang, pc)
                 }
             }
             Ctrl::If(b, true_block, false_block) => {
                 let b = bindings.get_bool(b)?;
-                path.push_bool_inplace(b);
                 if b {
-                    true_block.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    true_block.run(input, store, bindings, hints, emitted, lang, pc)
                 } else {
-                    false_block.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    false_block.run(input, store, bindings, hints, emitted, lang, pc)
                 }
             }
             Ctrl::Return(output_vars) => {
@@ -520,17 +510,14 @@ impl Block {
                     output.push(bindings.get_ptr(var)?)
                 }
                 let input = input.to_vec();
-                Ok((
-                    Frame {
-                        input,
-                        output,
-                        emitted: emitted.clone(),
-                        hints,
-                        blank: false,
-                        pc,
-                    },
-                    path,
-                ))
+                Ok(Frame {
+                    input,
+                    output,
+                    emitted: emitted.clone(),
+                    hints,
+                    blank: false,
+                    pc,
+                })
             }
         }
     }
@@ -545,7 +532,7 @@ impl Func {
         emitted: &mut Vec<Ptr>,
         lang: &Lang<F, C>,
         pc: usize,
-    ) -> Result<(Frame, Path)> {
+    ) -> Result<Frame> {
         let mut bindings = VarMap::new();
         for (i, param) in self.input_params.iter().enumerate() {
             bindings.insert_ptr(param.clone(), args[i]);
@@ -559,17 +546,10 @@ impl Func {
         let commitment_init = hints.commitment.len();
         let bit_decomp_init = hints.bit_decomp.len();
 
-        let mut res = self.body.run(
-            args,
-            store,
-            bindings,
-            hints,
-            Path::default(),
-            emitted,
-            lang,
-            pc,
-        )?;
-        let hints = &mut res.0.hints;
+        let mut res = self
+            .body
+            .run(args, store, bindings, hints, emitted, lang, pc)?;
+        let hints = &mut res.hints;
 
         let hash4_used = hints.hash4.len() - hash4_init;
         let hash6_used = hints.hash6.len() - hash6_init;
@@ -604,15 +584,13 @@ impl Func {
         lang: &Lang<F, C>,
         pc: usize,
     ) -> Result<Frame> {
-        Ok(self
-            .call(
-                args,
-                store,
-                Hints::new_from_func(self),
-                &mut vec![],
-                lang,
-                pc,
-            )?
-            .0)
+        self.call(
+            args,
+            store,
+            Hints::new_from_func(self),
+            &mut vec![],
+            lang,
+            pc,
+        )
     }
 }

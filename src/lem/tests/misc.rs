@@ -33,7 +33,7 @@ fn synthesize_test_helper(
     let mut cs_prev = None;
     for input in inputs {
         let input = [input, nil, outermost];
-        let (frame, _) = func
+        let frame = func
             .call(&input, store, Default::default(), &mut vec![], &lang, 0)
             .unwrap();
 
