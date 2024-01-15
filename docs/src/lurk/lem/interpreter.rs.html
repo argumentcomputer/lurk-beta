@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (62d7ed4a6 2024-01-11)" data-channel="nightly" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (30dfb9e04 2024-01-14)" data-channel="nightly" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../lurk/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -596,32 +596,9 @@
 <a href="#594" id="594">594</a>
 <a href="#595" id="595">595</a>
 <a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 
 <span class="kw">use super</span>::{
-    path::Path,
     pointers::{Ptr, RawPtr},
     slot::{SlotData, Val},
     store::{fetch_ptrs, intern_ptrs, Store},
@@ -760,11 +737,10 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         <span class="kw-2">mut </span>bindings: VarMap&lt;Val&gt;,
         <span class="kw-2">mut </span>hints: Hints,
-        <span class="kw-2">mut </span>path: Path,
         emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         pc: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame, Path)&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Frame&gt; {
         <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.ops {
             <span class="kw">match </span>op {
                 Op::Cproc(out, sym, inp) =&gt; {
@@ -784,10 +760,7 @@
                 Op::Call(out, func, inp) =&gt; {
                     <span class="comment">// Get the argument values
                     </span><span class="kw">let </span>inp_ptrs = bindings.get_many_ptr(inp)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>(frame, func_path) =
-                        func.call(<span class="kw-2">&amp;</span>inp_ptrs, store, hints, emitted, lang, pc)<span class="question-mark">?</span>;
-                    <span class="comment">// Extend the path
-                    </span>path.extend_from_path(<span class="kw-2">&amp;</span>func_path);
+                    <span class="kw">let </span>frame = func.call(<span class="kw-2">&amp;</span>inp_ptrs, store, hints, emitted, lang, pc)<span class="question-mark">?</span>;
                     <span class="comment">// Bind the output variables to the output values
                     </span>hints = frame.hints;
                     <span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(frame.output.into_iter()) {
@@ -1096,14 +1069,12 @@
                 <span class="kw">let </span>ptr = bindings.get_ptr(match_var)<span class="question-mark">?</span>;
                 <span class="kw">let </span>tag = ptr.tag();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = cases.get(tag) {
-                    path.push_tag_inplace(<span class="kw-2">*</span>tag);
-                    block.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, emitted, lang, pc)
                 } <span class="kw">else </span>{
-                    path.push_default_inplace();
                     <span class="kw">let </span><span class="prelude-val">Some</span>(def) = def <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"No match for tag {}"</span>, tag)
                     };
-                    def.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, emitted, lang, pc)
                 }
             }
             Ctrl::MatchSymbol(match_var, cases, def) =&gt; {
@@ -1115,23 +1086,20 @@
                     <span class="macro">bail!</span>(<span class="string">"Symbol bound to {match_var} wasn't interned"</span>);
                 };
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = cases.get(<span class="kw-2">&amp;</span>sym) {
-                    path.push_symbol_inplace(sym);
-                    block.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, emitted, lang, pc)
                 } <span class="kw">else </span>{
-                    path.push_default_inplace();
                     <span class="kw">let </span><span class="prelude-val">Some</span>(def) = def <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"No match for symbol {sym}"</span>)
                     };
-                    def.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, emitted, lang, pc)
                 }
             }
             Ctrl::If(b, true_block, false_block) =&gt; {
                 <span class="kw">let </span>b = bindings.get_bool(b)<span class="question-mark">?</span>;
-                path.push_bool_inplace(b);
                 <span class="kw">if </span>b {
-                    true_block.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    true_block.run(input, store, bindings, hints, emitted, lang, pc)
                 } <span class="kw">else </span>{
-                    false_block.run(input, store, bindings, hints, path, emitted, lang, pc)
+                    false_block.run(input, store, bindings, hints, emitted, lang, pc)
                 }
             }
             Ctrl::Return(output_vars) =&gt; {
@@ -1140,17 +1108,14 @@
                     output.push(bindings.get_ptr(var)<span class="question-mark">?</span>)
                 }
                 <span class="kw">let </span>input = input.to_vec();
-                <span class="prelude-val">Ok</span>((
-                    Frame {
-                        input,
-                        output,
-                        emitted: emitted.clone(),
-                        hints,
-                        blank: <span class="bool-val">false</span>,
-                        pc,
-                    },
-                    path,
-                ))
+                <span class="prelude-val">Ok</span>(Frame {
+                    input,
+                    output,
+                    emitted: emitted.clone(),
+                    hints,
+                    blank: <span class="bool-val">false</span>,
+                    pc,
+                })
             }
         }
     }
@@ -1165,7 +1130,7 @@
         emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         pc: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame, Path)&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Frame&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>bindings = VarMap::new();
         <span class="kw">for </span>(i, param) <span class="kw">in </span><span class="self">self</span>.input_params.iter().enumerate() {
             bindings.insert_ptr(param.clone(), args[i]);
@@ -1179,17 +1144,10 @@
         <span class="kw">let </span>commitment_init = hints.commitment.len();
         <span class="kw">let </span>bit_decomp_init = hints.bit_decomp.len();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>res = <span class="self">self</span>.body.run(
-            args,
-            store,
-            bindings,
-            hints,
-            Path::default(),
-            emitted,
-            lang,
-            pc,
-        )<span class="question-mark">?</span>;
-        <span class="kw">let </span>hints = <span class="kw-2">&amp;mut </span>res.<span class="number">0</span>.hints;
+        <span class="kw">let </span><span class="kw-2">mut </span>res = <span class="self">self
+            </span>.body
+            .run(args, store, bindings, hints, emitted, lang, pc)<span class="question-mark">?</span>;
+        <span class="kw">let </span>hints = <span class="kw-2">&amp;mut </span>res.hints;
 
         <span class="kw">let </span>hash4_used = hints.hash4.len() - hash4_init;
         <span class="kw">let </span>hash6_used = hints.hash6.len() - hash6_init;
@@ -1224,16 +1182,14 @@
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         pc: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Frame&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">self
-            </span>.call(
-                args,
-                store,
-                Hints::new_from_func(<span class="self">self</span>),
-                <span class="kw-2">&amp;mut </span><span class="macro">vec!</span>[],
-                lang,
-                pc,
-            )<span class="question-mark">?
-            </span>.<span class="number">0</span>)
+        <span class="self">self</span>.call(
+            args,
+            store,
+            Hints::new_from_func(<span class="self">self</span>),
+            <span class="kw-2">&amp;mut </span><span class="macro">vec!</span>[],
+            lang,
+            pc,
+        )
     }
 }
 </code></pre></div></section></main></body></html>
