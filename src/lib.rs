@@ -6,6 +6,7 @@ pub mod circuit;
 pub mod cli;
 pub mod config;
 pub mod coprocessor;
+pub mod coroutine;
 pub mod error;
 pub mod eval;
 pub mod field;

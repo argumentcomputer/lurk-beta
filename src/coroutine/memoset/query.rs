@@ -1,7 +1,7 @@
 use bellpepper_core::{ConstraintSystem, SynthesisError};
 
 use super::{CircuitScope, CircuitTranscript, LogMemo, Scope};
-use crate::coprocessor::AllocatedPtr;
+use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
 use crate::lem::{pointers::Ptr, store::Store};
