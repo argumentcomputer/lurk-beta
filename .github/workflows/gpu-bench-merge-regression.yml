@@ -43,6 +43,10 @@ jobs:
           GPU_NAME=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader,nounits | tail -n1)
           echo "GPU_ID=$(echo $GPU_NAME | awk '{ print $NF }')" | tee -a $GITHUB_ENV
           echo "GPU_NAME=$GPU_NAME" | tee -a $GITHUB_ENV
+      # Load Lurk bench env vars used in `justfile`, namely `LURK_BENCH_NOISE_THRESHOLD`
+      - uses: cardinalby/export-env-action@v2
+        with:
+          envFile: 'benches/bench.env'
       # Checkout gh-pages to check for cached bench result
       - name: Checkout gh-pages
         uses: actions/checkout@v4
@@ -122,6 +126,7 @@ jobs:
           else
             REGRESSION_FACTOR=1.1
           fi
+          echo "NOISE_THRESHOLD=$(echo "(REGRESSION_FACTOR-1)*100" | bc) | tee -a $GITHUB_ENV
 
           for r in $REGRESSIONS
           do
@@ -130,14 +135,13 @@ jobs:
               exit 1
             fi
           done
-
-          echo "NOISE_THRESHOLD=$("(REGRESSION_FACTOR-1)*100" | bc) | tee -a $GITHUB_ENV
         continue-on-error: true
       # Not possible to use ${{ github.event.number }} with the `merge_group` trigger
       - name: Get PR number from merge branch
         run: |
           echo "PR_NUMBER=$(echo ${{ github.event.merge_group.head_ref }} | sed -e 's/.*pr-\(.*\)-.*/\1/')" | tee -a $GITHUB_ENV
       - uses: JasonEtco/create-an-issue@v2
+        if: steps.regression-check.outcome == 'failure'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ env.PR_NUMBER }}
@@ -148,8 +152,8 @@ jobs:
           filename: .github/PERF_REGRESSION.md
       - name: Remove old main bench
         run: |
-          rm ${{ env.BASE_COMMIT }}.json
-          mv ${{ github.sha }}.json ${{ github.sha }}-${{ env.GPU_ID }}.json
+          rm fibonacci-${{ env.BASE_COMMIT }}.json
+          mv fibonacci-${{ github.sha }}.json fibonacci-${{ github.sha }}-${{ env.GPU_ID }}.json
         working-directory: ${{ github.workspace }}
       - name: Commit bench result to `gh-pages` branch if no regression
         if: steps.regression-check.outcome != 'failure'
@@ -157,4 +161,4 @@ jobs:
         with:
           branch: gh-pages
           commit_message: '[automated] GPU Benchmark from PR #${{ env.PR_NUMBER }}'
-          file_pattern: '${{ github.sha }}-${{ env.GPU_ID }}.json'
+          file_pattern: 'fibonacci-${{ github.sha }}-${{ env.GPU_ID }}.json'
