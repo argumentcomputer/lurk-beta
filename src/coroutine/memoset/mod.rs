@@ -277,13 +277,12 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
         let mut insert = |kv: Ptr| {
             let key = s.car_cdr(&kv).unwrap().0;
 
-            if insertions.get(&key).is_none() {
-                unique_keys.push(key);
-                insertions.insert(key, vec![kv]);
-            } else {
-                insertions
-                    .entry(key)
-                    .and_modify(|kvs: &mut Vec<Ptr>| kvs.push(kv));
+            match insertions.get_mut(&key) {
+                Some(kvs) => kvs.push(kv),
+                None => {
+                    unique_keys.push(key);
+                    insertions.insert(key, vec![kv]);
+                }
             }
         };
 
