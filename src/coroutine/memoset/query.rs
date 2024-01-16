@@ -50,9 +50,5 @@ where
         s.intern_symbol(&self.symbol())
     }
 
-    fn from_ptr<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        s: &Store<F>,
-        ptr: &Ptr,
-    ) -> Result<Option<Self>, SynthesisError>;
+    fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self>;
 }

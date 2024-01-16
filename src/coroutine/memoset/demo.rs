@@ -203,22 +203,20 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         }
     }
 
-    fn from_ptr<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        s: &Store<F>,
-        ptr: &Ptr,
-    ) -> Result<Option<Self>, SynthesisError> {
+    fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
         let query = DemoQuery::from_ptr(s, ptr);
-        Ok(if let Some(q) = query {
+        if let Some(q) = query {
             match q {
-                DemoQuery::Factorial(n) => Some(Self::Factorial(AllocatedPtr::alloc(cs, || {
-                    Ok(s.hash_ptr(&n))
-                })?)),
+                DemoQuery::Factorial(n) => {
+                    Some(Self::Factorial(AllocatedPtr::alloc_infallible(cs, || {
+                        s.hash_ptr(&n)
+                    })))
+                }
                 _ => unreachable!(),
             }
         } else {
             None
-        })
+        }
     }
 
     fn symbol(&self) -> Symbol {

@@ -191,7 +191,7 @@ pub struct Scope<Q, M> {
     /// internally-inserted keys
     internal_insertions: Vec<Ptr>,
     /// unique keys
-    all_insertions: Vec<Ptr>,
+    unique_inserted_keys: Vec<Ptr>,
 }
 
 impl<F: LurkField, Q> Default for Scope<Q, LogMemo<F>> {
@@ -202,7 +202,7 @@ impl<F: LurkField, Q> Default for Scope<Q, LogMemo<F>> {
             dependencies: Default::default(),
             toplevel_insertions: Default::default(),
             internal_insertions: Default::default(),
-            all_insertions: Default::default(),
+            unique_inserted_keys: Default::default(),
         }
     }
 }
@@ -258,7 +258,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
     fn finalize_transcript(&mut self, s: &Store<F>) -> Transcript<F> {
         let (transcript, insertions) = self.build_transcript(s);
         self.memoset.finalize_transcript(s, transcript.clone());
-        self.all_insertions = insertions;
+        self.unique_inserted_keys = insertions;
         transcript
     }
 
@@ -554,9 +554,31 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
-        for (i, kv) in scope.all_insertions.iter().enumerate() {
-            self.synthesize_prove_query::<_, Q::CQ>(cs, g, s, i, kv)?;
+        for (i, key) in scope.unique_inserted_keys.iter().enumerate() {
+            let cs = &mut cs.namespace(|| format!("internal-{i}"));
+
+            let _ = self.synthesize_prove_key_query::<_, Q>(cs, g, s, key)?;
         }
+        Ok(())
+    }
+
+    fn synthesize_prove_key_query<CS: ConstraintSystem<F>, Q: Query<F>>(
+        &mut self,
+        cs: &mut CS,
+        g: &mut GlobalAllocator<F>,
+        s: &Store<F>,
+        key: &Ptr,
+    ) -> Result<(), SynthesisError> {
+        let allocated_key =
+            AllocatedPtr::alloc(
+                &mut cs.namespace(|| "allocated_key"),
+                || Ok(s.hash_ptr(key)),
+            )
+            .unwrap();
+
+        let circuit_query = Q::CQ::from_ptr(&mut cs.namespace(|| "circuit_query"), s, key).unwrap();
+
+        self.synthesize_prove_query::<_, Q::CQ>(cs, g, s, allocated_key, circuit_query)?;
         Ok(())
     }
 
@@ -565,25 +587,13 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
-        i: usize,
-        key: &Ptr,
+        allocated_key: AllocatedPtr<F>,
+        circuit_query: CQ,
     ) -> Result<(), SynthesisError> {
-        let cs = &mut cs.namespace(|| format!("internal-{i}"));
-
-        let allocated_key =
-            AllocatedPtr::alloc(
-                &mut cs.namespace(|| "allocated_key"),
-                || Ok(s.hash_ptr(key)),
-            )
-            .unwrap();
-
-        let circuit_query = CQ::from_ptr(&mut cs.namespace(|| "circuit_query"), s, key).unwrap();
-
         let acc = self.acc.clone().unwrap();
         let transcript = self.transcript.clone();
 
         let (val, new_acc, new_transcript) = circuit_query
-            .expect("not a query form")
             .synthesize_eval(&mut cs.namespace(|| "eval"), g, s, self, &acc, &transcript)
             .unwrap();
 
