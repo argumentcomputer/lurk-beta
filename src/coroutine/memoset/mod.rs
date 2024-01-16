@@ -271,54 +271,61 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
     fn build_transcript(&self, s: &Store<F>) -> (Transcript<F>, Vec<Ptr>) {
         let mut transcript = Transcript::new(s);
 
+        let mut insertions: HashMap<Ptr, Vec<Ptr>> = HashMap::new();
+        let mut unique_keys: Vec<Ptr> = Default::default();
+
+        let mut insert = |kv: Ptr| {
+            let key = s.car_cdr(&kv).unwrap().0;
+
+            if insertions.get(&key).is_none() {
+                unique_keys.push(key);
+                insertions.insert(key, vec![kv]);
+            } else {
+                insertions
+                    .entry(key)
+                    .and_modify(|kvs: &mut Vec<Ptr>| kvs.push(kv));
+            }
+        };
+
         let internal_insertions_kv = self.internal_insertions.iter().map(|key| {
             let value = self.queries.get(key).expect("value missing for key");
             Transcript::make_kv(s, *key, *value)
         });
 
-        let mut insertions =
-            Vec::with_capacity(self.toplevel_insertions.len() + self.internal_insertions.len());
-        insertions.extend(&self.toplevel_insertions);
-        insertions.extend(internal_insertions_kv);
-
-        // Sort insertions by query type (index) for processing. This is because the transcript will be constructed
-        // sequentially by the circuits, and we potentially batch queries of the same type in a single coprocessor
-        // circuit.
-        insertions.sort_by_key(|kv| {
-            let (key, _) = s.car_cdr(kv).unwrap();
-
-            Q::from_ptr(s, &key).expect("invalid query").index()
-        });
-
+        for kv in &self.toplevel_insertions {
+            insert(*kv);
+        }
+        for kv in internal_insertions_kv {
+            insert(kv);
+        }
         for kv in self.toplevel_insertions.iter() {
             transcript.add(s, *kv);
         }
+
+        // Sort insertion keys by query type (index) for processing. This is because the transcript will be constructed
+        // sequentially by the circuits, and we potentially batch queries of the same type in a single coprocessor
+        // circuit.
+        unique_keys.sort_by_key(|k| Q::from_ptr(s, k).expect("invalid query").index());
 
         // Then add insertions and removals interleaved, sorted by query type. We interleave insertions and removals
         // because when proving later, each query's proof must record that its subquery proofs are being deferred
         // (insertions) before then proving itself (making use of any subquery results) and removing the now-proved
         // deferral from the MemoSet.
-        let unique_keys = insertions
-            .iter()
-            .dedup() // We need to process every key's dependencies once.
-            .map(|kv| {
-                let key = s.car_cdr(kv).unwrap().0;
-
-                if let Some(dependencies) = self.dependencies.get(&key) {
-                  dependencies
-                        .iter()
-                        .for_each(|dependency| {
-                            let k = dependency.to_ptr(s);
-                            let v = self
-                                .queries
-                                .get(&k)
-                                .expect("value missing for dependency key");
-                            // Add an insertion for each dependency (subquery) of the query identified by `key`. Notice
-                            // that these keys might already have been inserted before, but we need to repeat if so
-                            // because the proof must do so each time a query is used.
-                            let kv = Transcript::make_kv(s, k, *v);
-                              transcript.add(s, kv)
-                        })
+        for key in &unique_keys {
+            for kv in insertions.get(key).unwrap().iter().dedup() {
+                if let Some(dependencies) = self.dependencies.get(key) {
+                    dependencies.iter().for_each(|dependency| {
+                        let k = dependency.to_ptr(s);
+                        let v = self
+                            .queries
+                            .get(&k)
+                            .expect("value missing for dependency key");
+                        // Add an insertion for each dependency (subquery) of the query identified by `key`. Notice
+                        // that these keys might already have been inserted before, but we need to repeat if so
+                        // because the proof must do so each time a query is used.
+                        let kv = Transcript::make_kv(s, k, *v);
+                        transcript.add(s, kv)
+                    })
                 };
                 let count = self.memoset.count(kv);
                 let kv_count = Transcript::make_kv_count(s, *kv, count);
@@ -327,10 +334,8 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
                 // above, so each is removed only once. However, we freely choose the multiplicity (`count`) of the
                 // removal to match the total number of insertions actually made (considering dependencies).
                 transcript.add(s, kv_count);
-
-                key
-            })
-            .collect::<Vec<_>>();
+            }
+        }
 
         (transcript, unique_keys)
     }
@@ -798,6 +803,7 @@ mod test {
             }
             assert!(cs.is_satisfied());
         }
+
         {
             let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::default();
             scope.query(s, fact_4);
@@ -816,6 +822,16 @@ mod test {
             let g = &mut GlobalAllocator::default();
 
             scope.synthesize(cs, g, s).unwrap();
+
+            println!(
+                "transcript: {}",
+                scope
+                    .memoset
+                    .transcript
+                    .get()
+                    .unwrap()
+                    .fmt_to_string_simple(s)
+            );
 
             expect_eq(cs.num_constraints(), expect!["11408"]);
             expect_eq(cs.aux().len(), expect!["11445"]);
