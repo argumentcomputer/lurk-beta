@@ -126,22 +126,22 @@ jobs:
           else
             REGRESSION_FACTOR=1.1
           fi
-          echo "NOISE_THRESHOLD=$(echo "(REGRESSION_FACTOR-1)*100" | bc) | tee -a $GITHUB_ENV
+          echo "NOISE_THRESHOLD=$(echo "($REGRESSION_FACTOR-1)*100" | bc)" | tee -a $GITHUB_ENV
 
           for r in $REGRESSIONS
           do
             if (( $(echo "$r >= $REGRESSION_FACTOR" | bc -l) ))
             then
-              exit 1
+              echo "regression=true" | tee -a $GITHUB_OUTPUT
             fi
           done
-        continue-on-error: true
       # Not possible to use ${{ github.event.number }} with the `merge_group` trigger
       - name: Get PR number from merge branch
+        if: steps.regression-check.outputs.regression == 'true'
         run: |
           echo "PR_NUMBER=$(echo ${{ github.event.merge_group.head_ref }} | sed -e 's/.*pr-\(.*\)-.*/\1/')" | tee -a $GITHUB_ENV
       - uses: JasonEtco/create-an-issue@v2
-        if: steps.regression-check.outcome == 'failure'
+        if: steps.regression-check.outputs.regression == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ env.PR_NUMBER }}
@@ -151,12 +151,13 @@ jobs:
         with:
           filename: .github/PERF_REGRESSION.md
       - name: Remove old main bench
+        if: steps.regression-check.outputs.regression != 'true'
         run: |
           rm fibonacci-${{ env.BASE_COMMIT }}.json
           mv fibonacci-${{ github.sha }}.json fibonacci-${{ github.sha }}-${{ env.GPU_ID }}.json
         working-directory: ${{ github.workspace }}
       - name: Commit bench result to `gh-pages` branch if no regression
-        if: steps.regression-check.outcome != 'failure'
+        if: steps.regression-check.outputs.regression != 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           branch: gh-pages
