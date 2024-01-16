@@ -94,6 +94,10 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
             _ => unreachable!(),
         }
     }
+
+    fn count() -> usize {
+        1
+    }
 }
 
 impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
