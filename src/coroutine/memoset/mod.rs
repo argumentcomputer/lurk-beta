@@ -31,7 +31,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
-use itertools::Itertools;
+use indexmap::IndexSet;
 use once_cell::sync::OnceCell;
 
 use crate::circuit::gadgets::{
@@ -271,17 +271,21 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
     fn build_transcript(&self, s: &Store<F>) -> (Transcript<F>, Vec<Ptr>) {
         let mut transcript = Transcript::new(s);
 
-        let mut insertions: HashMap<Ptr, Vec<Ptr>> = HashMap::new();
+        // k -> [kv]
+        let mut insertions: HashMap<Ptr, IndexSet<Ptr>> = HashMap::new();
         let mut unique_keys: Vec<Ptr> = Default::default();
 
         let mut insert = |kv: Ptr| {
             let key = s.car_cdr(&kv).unwrap().0;
 
             if let Some(kvs) = insertions.get_mut(&key) {
-                kvs.push(kv)
+                kvs.insert(kv);
             } else {
                 unique_keys.push(key);
-                insertions.insert(key, vec![kv]);
+                let mut x = IndexSet::new();
+                x.insert(kv);
+
+                insertions.insert(key, x);
             }
         };
 
@@ -310,7 +314,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
         // (insertions) before then proving itself (making use of any subquery results) and removing the now-proved
         // deferral from the MemoSet.
         for key in &unique_keys {
-            for kv in insertions.get(key).unwrap().iter().dedup() {
+            for kv in insertions.get(key).unwrap().iter() {
                 if let Some(dependencies) = self.dependencies.get(key) {
                     dependencies.iter().for_each(|dependency| {
                         let k = dependency.to_ptr(s);
