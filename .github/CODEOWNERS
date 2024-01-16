@@ -15,6 +15,8 @@
 # Circuit
 /src/circuit/** @lurk-lab/lurk-circuit
 /src/lem/circuit.rs @lurk-lab/lurk-circuit
+/src/coprocessor/** @lurk-lab/lurk-circuit
+/src/coroutine/** @lurk-lab/lurk-circuit
 
 # Evaluation model
 /src/lem/eval.rs @lurk-lab/lurk-lem
