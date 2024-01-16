@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"lurk":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/arith/trait.Mul.html\" title=\"trait core::ops::arith::Mul\">Mul</a> for <a class=\"enum\" href=\"lurk/enum.UInt.html\" title=\"enum lurk::UInt\">UInt</a>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

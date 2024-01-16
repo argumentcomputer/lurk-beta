@@ -1,6 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/pointer.rs`."><title>pointer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (30dfb9e04 2024-01-14)" data-channel="nightly" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
-            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
-    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../lurk/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/pointer.rs`."><title>pointer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -429,20 +427,20 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Debug <span class="kw">for </span>AllocatedPtr&lt;F&gt; {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">let </span>tag = <span class="macro">format!</span>(
-            <span class="string">"AllocatedNum {{ value: {:?}, variable: {:?} }}"</span>,
+            <span class="string">&quot;AllocatedNum {{ value: {:?}, variable: {:?} }}&quot;</span>,
             <span class="self">self</span>.tag.get_value(),
             <span class="self">self</span>.tag.get_variable()
         );
         <span class="kw">let </span>hash = <span class="macro">format!</span>(
-            <span class="string">"AllocatedNum {{ value: {:?}, variable: {:?} }}"</span>,
+            <span class="string">&quot;AllocatedNum {{ value: {:?}, variable: {:?} }}&quot;</span>,
             <span class="self">self</span>.hash.get_value(),
             <span class="self">self</span>.hash.get_variable()
         );
-        f.debug_struct(<span class="string">"AllocatedPtr"</span>)
-            .field(<span class="string">"tag"</span>, <span class="kw-2">&amp;</span>tag)
-            .field(<span class="string">"hash"</span>, <span class="kw-2">&amp;</span>hash)
+        f.debug_struct(<span class="string">&quot;AllocatedPtr&quot;</span>)
+            .field(<span class="string">&quot;tag&quot;</span>, <span class="kw-2">&amp;</span>tag)
+            .field(<span class="string">&quot;hash&quot;</span>, <span class="kw-2">&amp;</span>hash)
             .finish()
     }
 }
@@ -456,13 +454,13 @@
         </span>Fo: FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;T, F&gt;, SynthesisError&gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>hash = <span class="prelude-val">None</span>;
-        <span class="kw">let </span>alloc_tag = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tag"</span>), || {
+        <span class="kw">let </span>alloc_tag = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), || {
             <span class="kw">let </span>ptr = value()<span class="question-mark">?</span>;
             hash = <span class="prelude-val">Some</span>(<span class="kw-2">*</span>ptr.value());
             <span class="prelude-val">Ok</span>(ptr.tag_field())
         })<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>alloc_hash = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>), || {
+        <span class="kw">let </span>alloc_hash = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), || {
             hash.ok_or(SynthesisError::AssignmentMissing)
         })<span class="question-mark">?</span>;
 
@@ -477,14 +475,14 @@
         </span>Fo: FnOnce() -&gt; ZPtr&lt;T, F&gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>hash = <span class="prelude-val">None</span>;
-        <span class="kw">let </span>alloc_tag = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tag"</span>), || {
+        <span class="kw">let </span>alloc_tag = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), || {
             <span class="kw">let </span>ptr = value();
             hash = <span class="prelude-val">Some</span>(<span class="kw-2">*</span>ptr.value());
             ptr.tag_field()
         });
 
         <span class="kw">let </span>alloc_hash =
-            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>), || hash.unwrap());
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), || hash.unwrap());
 
         AllocatedPtr {
             tag: alloc_tag,
@@ -497,7 +495,7 @@
         tag: F,
         alloc_hash: AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SynthesisError&gt; {
-        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tag"</span>), tag);
+        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), tag);
 
         <span class="prelude-val">Ok</span>(AllocatedPtr {
             tag: alloc_tag,
@@ -509,8 +507,8 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         value: ZPtr&lt;T, F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SynthesisError&gt; {
-        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tag"</span>), value.tag_field());
-        <span class="kw">let </span>alloc_hash = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>), <span class="kw-2">*</span>value.value());
+        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), value.tag_field());
+        <span class="kw">let </span>alloc_hash = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), <span class="kw-2">*</span>value.value());
 
         <span class="prelude-val">Ok</span>(AllocatedPtr {
             tag: alloc_tag,
@@ -534,15 +532,15 @@
         <span class="self">self</span>.tag.get_value().and_then(|tag| {
             <span class="self">self</span>.hash
                 .get_value()
-                .map(|hash| ZPtr::from_parts(Tag::from_field(<span class="kw-2">&amp;</span>tag).expect(<span class="string">"bad tag"</span>), hash))
+                .map(|hash| ZPtr::from_parts(Tag::from_field(<span class="kw-2">&amp;</span>tag).expect(<span class="string">&quot;bad tag&quot;</span>), hash))
         })
     }
 
     <span class="kw">pub fn </span>enforce_equal&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {
         <span class="comment">// debug_assert_eq!(self.tag.get_value(), other.tag.get_value());
-        </span>enforce_equal(cs, || <span class="string">"tags equal"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tag, <span class="kw-2">&amp;</span>other.tag);
+        </span>enforce_equal(cs, || <span class="string">&quot;tags equal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tag, <span class="kw-2">&amp;</span>other.tag);
         <span class="comment">// debug_assert_eq!(self.hash.get_value(), other.hash.get_value());
-        </span>enforce_equal(cs, || <span class="string">"hashes equal"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.hash, <span class="kw-2">&amp;</span>other.hash);
+        </span>enforce_equal(cs, || <span class="string">&quot;hashes equal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.hash, <span class="kw-2">&amp;</span>other.hash);
     }
 
     <span class="kw">pub fn </span>alloc_equal&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -550,15 +548,15 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         other: <span class="kw-2">&amp;</span><span class="self">Self</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="kw">let </span>tags_equal = alloc_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tags equal"</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.tag, <span class="kw-2">&amp;</span>other.tag)<span class="question-mark">?</span>;
+        <span class="kw">let </span>tags_equal = alloc_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tags equal&quot;</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.tag, <span class="kw-2">&amp;</span>other.tag)<span class="question-mark">?</span>;
         <span class="kw">let </span>hashes_equal = alloc_equal(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hashes equal"</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hashes equal&quot;</span>),
             <span class="kw-2">&amp;</span><span class="self">self</span>.hash,
             <span class="kw-2">&amp;</span>other.hash,
         )<span class="question-mark">?</span>;
 
         Boolean::and(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tags and hashes equal"</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tags and hashes equal&quot;</span>),
             <span class="kw-2">&amp;</span>tags_equal,
             <span class="kw-2">&amp;</span>hashes_equal,
         )
@@ -569,7 +567,7 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         tag: F,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        alloc_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tags equal"</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.tag, tag)
+        alloc_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tags equal&quot;</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.tag, tag)
     }
 
     <span class="doccomment">/// Enforce equality of two allocated pointers given an implication premise
@@ -580,13 +578,13 @@
         other: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     ) {
         implies_equal(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies tag equal"</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies tag equal&quot;</span>),
             premise,
             <span class="self">self</span>.tag(),
             other.tag(),
         );
         implies_equal(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies hash equal"</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies hash equal&quot;</span>),
             premise,
             <span class="self">self</span>.hash(),
             other.hash(),
@@ -594,34 +592,34 @@
     }
 
     <span class="kw">pub fn </span>is_cons&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"is_cons"</span>), ExprTag::Cons.to_field())
+        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_cons&quot;</span>), ExprTag::Cons.to_field())
     }
     <span class="kw">pub fn </span>is_str&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"is_str"</span>), ExprTag::Str.to_field())
+        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_str&quot;</span>), ExprTag::Str.to_field())
     }
     <span class="kw">pub fn </span>is_num&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"is_num"</span>), ExprTag::Num.to_field())
+        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_num&quot;</span>), ExprTag::Num.to_field())
     }
     <span class="kw">pub fn </span>is_u64&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"is_u64"</span>), ExprTag::U64.to_field())
+        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_u64&quot;</span>), ExprTag::U64.to_field())
     }
     <span class="kw">pub fn </span>is_char&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"is_char"</span>), ExprTag::Char.to_field())
+        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_char&quot;</span>), ExprTag::Char.to_field())
     }
     <span class="kw">pub fn </span>is_comm&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"is_comm"</span>), ExprTag::Comm.to_field())
+        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_comm&quot;</span>), ExprTag::Comm.to_field())
     }
     <span class="kw">pub fn </span>is_sym&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"is_sym"</span>), ExprTag::Sym.to_field())
+        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_sym&quot;</span>), ExprTag::Sym.to_field())
     }
     <span class="kw">pub fn </span>is_fun&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"is_fun"</span>), ExprTag::Fun.to_field())
+        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_fun&quot;</span>), ExprTag::Fun.to_field())
     }
     <span class="kw">pub fn </span>is_thunk&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"is_thunk"</span>), ExprTag::Thunk.to_field())
+        <span class="self">self</span>.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_thunk&quot;</span>), ExprTag::Thunk.to_field())
     }
 
     <span class="doccomment">/// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
@@ -634,8 +632,8 @@
     <span class="kw">where
         </span>CS: ConstraintSystem&lt;F&gt;,
     {
-        <span class="kw">let </span>tag = pick(cs.namespace(|| <span class="string">"tag"</span>), condition, a.tag(), b.tag())<span class="question-mark">?</span>;
-        <span class="kw">let </span>hash = pick(cs.namespace(|| <span class="string">"hash"</span>), condition, a.hash(), b.hash())<span class="question-mark">?</span>;
+        <span class="kw">let </span>tag = pick(cs.namespace(|| <span class="string">&quot;tag&quot;</span>), condition, a.tag(), b.tag())<span class="question-mark">?</span>;
+        <span class="kw">let </span>hash = pick(cs.namespace(|| <span class="string">&quot;hash&quot;</span>), condition, a.hash(), b.hash())<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(AllocatedPtr { tag, hash })
     }
@@ -650,12 +648,12 @@
         </span>CS: ConstraintSystem&lt;F&gt;,
     {
         <span class="kw">let </span>tag = pick_const(
-            cs.namespace(|| <span class="string">"tag"</span>),
+            cs.namespace(|| <span class="string">&quot;tag&quot;</span>),
             condition,
             a.tag_field(),
             b.tag_field(),
         )<span class="question-mark">?</span>;
-        <span class="kw">let </span>hash = pick_const(cs.namespace(|| <span class="string">"hash"</span>), condition, <span class="kw-2">*</span>a.value(), <span class="kw-2">*</span>b.value())<span class="question-mark">?</span>;
+        <span class="kw">let </span>hash = pick_const(cs.namespace(|| <span class="string">&quot;hash&quot;</span>), condition, <span class="kw-2">*</span>a.value(), <span class="kw-2">*</span>b.value())<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(AllocatedPtr { tag, hash })
     }
@@ -678,20 +676,20 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Debug <span class="kw">for </span>AllocatedContPtr&lt;F&gt; {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">let </span>tag = <span class="macro">format!</span>(
-            <span class="string">"AllocatedNum {{ value: {:?}, variable: {:?} }}"</span>,
+            <span class="string">&quot;AllocatedNum {{ value: {:?}, variable: {:?} }}&quot;</span>,
             <span class="self">self</span>.tag.get_value(),
             <span class="self">self</span>.tag.get_variable()
         );
         <span class="kw">let </span>hash = <span class="macro">format!</span>(
-            <span class="string">"AllocatedNum {{ value: {:?}, variable: {:?} }}"</span>,
+            <span class="string">&quot;AllocatedNum {{ value: {:?}, variable: {:?} }}&quot;</span>,
             <span class="self">self</span>.hash.get_value(),
             <span class="self">self</span>.hash.get_variable()
         );
-        f.debug_struct(<span class="string">"AllocatedContPtr"</span>)
-            .field(<span class="string">"tag"</span>, <span class="kw-2">&amp;</span>tag)
-            .field(<span class="string">"hash"</span>, <span class="kw-2">&amp;</span>hash)
+        f.debug_struct(<span class="string">&quot;AllocatedContPtr&quot;</span>)
+            .field(<span class="string">&quot;tag&quot;</span>, <span class="kw-2">&amp;</span>tag)
+            .field(<span class="string">&quot;hash&quot;</span>, <span class="kw-2">&amp;</span>hash)
             .finish()
     }
 }
@@ -705,13 +703,13 @@
         </span>Fo: FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;ZContPtr&lt;F&gt;, SynthesisError&gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>hash = <span class="prelude-val">None</span>;
-        <span class="kw">let </span>alloc_tag = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tag"</span>), || {
+        <span class="kw">let </span>alloc_tag = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), || {
             <span class="kw">let </span>ptr = value()<span class="question-mark">?</span>;
             hash = <span class="prelude-val">Some</span>(<span class="kw-2">*</span>ptr.value());
             <span class="prelude-val">Ok</span>(ptr.tag_field())
         })<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>alloc_hash = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>), || {
+        <span class="kw">let </span>alloc_hash = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), || {
             hash.ok_or(SynthesisError::AssignmentMissing)
         })<span class="question-mark">?</span>;
 
@@ -725,8 +723,8 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         value: ZContPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SynthesisError&gt; {
-        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tag"</span>), value.tag_field());
-        <span class="kw">let </span>alloc_hash = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>), <span class="kw-2">*</span>value.value());
+        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), value.tag_field());
+        <span class="kw">let </span>alloc_hash = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), <span class="kw-2">*</span>value.value());
 
         <span class="prelude-val">Ok</span>(AllocatedContPtr {
             tag: alloc_tag,
@@ -744,9 +742,9 @@
 
     <span class="kw">pub fn </span>enforce_equal&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {
         <span class="comment">// debug_assert_eq!(self.tag.get_value(), other.tag.get_value());
-        </span>enforce_equal(cs, || <span class="string">"tags equal"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tag, <span class="kw-2">&amp;</span>other.tag);
+        </span>enforce_equal(cs, || <span class="string">&quot;tags equal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tag, <span class="kw-2">&amp;</span>other.tag);
         <span class="comment">// debug_assert_eq!(self.hash.get_value(), other.hash.get_value());
-        </span>enforce_equal(cs, || <span class="string">"hashes equal"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.hash, <span class="kw-2">&amp;</span>other.hash);
+        </span>enforce_equal(cs, || <span class="string">&quot;hashes equal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.hash, <span class="kw-2">&amp;</span>other.hash);
     }
 
     <span class="kw">pub fn </span>alloc_equal&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -754,15 +752,15 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         other: <span class="kw-2">&amp;</span><span class="self">Self</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        <span class="kw">let </span>tags_equal = alloc_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tags equal"</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.tag, <span class="kw-2">&amp;</span>other.tag)<span class="question-mark">?</span>;
+        <span class="kw">let </span>tags_equal = alloc_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tags equal&quot;</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.tag, <span class="kw-2">&amp;</span>other.tag)<span class="question-mark">?</span>;
         <span class="kw">let </span>hashes_equal = alloc_equal(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hashes equal"</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hashes equal&quot;</span>),
             <span class="kw-2">&amp;</span><span class="self">self</span>.hash,
             <span class="kw-2">&amp;</span>other.hash,
         )<span class="question-mark">?</span>;
 
         Boolean::and(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tags and hashes equal"</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tags and hashes equal&quot;</span>),
             <span class="kw-2">&amp;</span>tags_equal,
             <span class="kw-2">&amp;</span>hashes_equal,
         )
@@ -773,7 +771,7 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         tag: F,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-        alloc_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tags equal"</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.tag, tag)
+        alloc_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tags equal&quot;</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.tag, tag)
     }
 
     <span class="doccomment">/// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
@@ -786,8 +784,8 @@
     <span class="kw">where
         </span>CS: ConstraintSystem&lt;F&gt;,
     {
-        <span class="kw">let </span>tag = pick(cs.namespace(|| <span class="string">"tag"</span>), condition, a.tag(), b.tag())<span class="question-mark">?</span>;
-        <span class="kw">let </span>hash = pick(cs.namespace(|| <span class="string">"hash"</span>), condition, a.hash(), b.hash())<span class="question-mark">?</span>;
+        <span class="kw">let </span>tag = pick(cs.namespace(|| <span class="string">&quot;tag&quot;</span>), condition, a.tag(), b.tag())<span class="question-mark">?</span>;
+        <span class="kw">let </span>hash = pick(cs.namespace(|| <span class="string">&quot;hash&quot;</span>), condition, a.hash(), b.hash())<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(AllocatedContPtr { tag, hash })
     }

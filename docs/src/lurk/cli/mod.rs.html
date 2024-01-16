@@ -1,6 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-4e54bb2b497cc83f.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0-nightly (30dfb9e04 2024-01-14)" data-channel="nightly" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0b2e2def73e61cbe.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
-            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
-    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../lurk/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -732,9 +730,9 @@
 
 <span class="attr">#[derive(Subcommand, Debug)]
 </span><span class="kw">enum </span>Command {
-    <span class="doccomment">/// Loads a file, processing forms sequentially ("load" can be elided)
+    <span class="doccomment">/// Loads a file, processing forms sequentially (&quot;load&quot; can be elided)
     </span>Load(LoadArgs),
-    <span class="doccomment">/// Enters Lurk's REPL environment ("repl" can be elided)
+    <span class="doccomment">/// Enters Lurk&#39;s REPL environment (&quot;repl&quot; can be elided)
     </span>Repl(ReplArgs),
     <span class="doccomment">/// Verifies a Lurk proof
     </span>Verify(VerifyArgs),
@@ -774,11 +772,11 @@
     </span><span class="attr">#[clap(long, value_parser)]
     </span>limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 
-    <span class="doccomment">/// Prover backend (defaults to "Nova")
+    <span class="doccomment">/// Prover backend (defaults to &quot;Nova&quot;)
     </span><span class="attr">#[clap(long, value_enum)]
     </span>backend: <span class="prelude-ty">Option</span>&lt;Backend&gt;,
 
-    <span class="doccomment">/// Arithmetic field (defaults to "Pallas")
+    <span class="doccomment">/// Arithmetic field (defaults to &quot;Pallas&quot;)
     </span><span class="attr">#[clap(long, value_enum)]
     </span>field: <span class="prelude-ty">Option</span>&lt;LanguageField&gt;,
 
@@ -887,11 +885,11 @@
     </span><span class="attr">#[clap(long, value_parser)]
     </span>limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 
-    <span class="doccomment">/// Prover backend (defaults to "Nova")
+    <span class="doccomment">/// Prover backend (defaults to &quot;Nova&quot;)
     </span><span class="attr">#[clap(long, value_enum)]
     </span>backend: <span class="prelude-ty">Option</span>&lt;Backend&gt;,
 
-    <span class="doccomment">/// Arithmetic field (defaults to "Pallas")
+    <span class="doccomment">/// Arithmetic field (defaults to &quot;Pallas&quot;)
     </span><span class="attr">#[clap(long, value_enum)]
     </span>field: <span class="prelude-ty">Option</span>&lt;LanguageField&gt;,
 
@@ -967,14 +965,14 @@
 }
 
 <span class="kw">fn </span>parse_filename(file: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Utf8PathBuf&gt; {
-    <span class="kw">if </span>file == <span class="string">"help" </span>{
-        <span class="macro">bail!</span>(<span class="string">"help is not a valid filename. printing help console instead"</span>);
+    <span class="kw">if </span>file == <span class="string">&quot;help&quot; </span>{
+        <span class="macro">bail!</span>(<span class="string">&quot;help is not a valid filename. printing help console instead&quot;</span>);
     }
     <span class="kw">let </span>path: Utf8PathBuf = file.into();
     <span class="prelude-val">Ok</span>(path)
 }
 
-<span class="kw">fn </span>get_store&lt;F: LurkField + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; serde::de::Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt;(
+<span class="kw">fn </span>get_store&lt;F: LurkField + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; serde::de::Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;&gt;(
     z_store_path: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Store&lt;F&gt;&gt; {
     <span class="kw">match </span>z_store_path {
@@ -988,7 +986,7 @@
 
 <span class="macro">macro_rules! </span>new_repl {
     ( <span class="macro-nonterminal">$cli</span>: expr, <span class="macro-nonterminal">$rc</span>: expr, <span class="macro-nonterminal">$limit</span>: expr, <span class="macro-nonterminal">$field</span>: path, <span class="macro-nonterminal">$backend</span>: expr ) =&gt; {{
-        <span class="kw">let </span>store = get_store(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$cli</span>.zstore).with_context(|| <span class="string">"reading store from file"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>store = get_store(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$cli</span>.zstore).with_context(|| <span class="string">&quot;reading store from file&quot;</span>)<span class="question-mark">?</span>;
         <span class="comment">// TODO: pick a predefined `Lang` according to a CLI parameter
         </span><span class="kw">let </span>lang = Lang::new();
         Repl::&lt;<span class="macro-nonterminal">$field</span>, Coproc&lt;<span class="macro-nonterminal">$field</span>&gt;&gt;::new(store, lang, <span class="macro-nonterminal">$rc</span>, <span class="macro-nonterminal">$limit</span>, <span class="macro-nonterminal">$backend</span>)
@@ -1037,7 +1035,7 @@
         <span class="kw">let </span>limit = config.limit;
         <span class="kw">let </span>backend = <span class="kw-2">&amp;</span>config.backend;
         <span class="kw">let </span>field = <span class="kw-2">&amp;</span>config.field;
-        validate_non_zero(<span class="string">"rc"</span>, rc)<span class="question-mark">?</span>;
+        validate_non_zero(<span class="string">&quot;rc&quot;</span>, rc)<span class="question-mark">?</span>;
         backend.validate_field(field)<span class="question-mark">?</span>;
         <span class="kw">match </span>field {
             LanguageField::BN256 =&gt; <span class="macro">repl!</span>(rc, limit, bn256::Fr, backend.clone()),
@@ -1090,7 +1088,7 @@
         <span class="kw">let </span>limit = config.limit;
         <span class="kw">let </span>backend = <span class="kw-2">&amp;</span>config.backend;
         <span class="kw">let </span>field = <span class="kw-2">&amp;</span>config.field;
-        validate_non_zero(<span class="string">"rc"</span>, rc)<span class="question-mark">?</span>;
+        validate_non_zero(<span class="string">&quot;rc&quot;</span>, rc)<span class="question-mark">?</span>;
         backend.validate_field(field)<span class="question-mark">?</span>;
         <span class="kw">match </span>field {
             LanguageField::BN256 =&gt; <span class="macro">load!</span>(rc, limit, bn256::Fr, backend.clone()),
@@ -1106,7 +1104,7 @@
     </span><span class="attr">#[clap(value_parser)]
     </span>proof_key: String,
 
-    <span class="doccomment">/// Arithmetic field (defaults to "Pallas")
+    <span class="doccomment">/// Arithmetic field (defaults to &quot;Pallas&quot;)
     </span><span class="attr">#[clap(long, value_enum)]
     </span>field: <span class="prelude-ty">Option</span>&lt;LanguageField&gt;,
 
@@ -1129,7 +1127,7 @@
     </span><span class="attr">#[clap(value_parser)]
     </span>proof_key: String,
 
-    <span class="doccomment">/// Arithmetic field (defaults to "Pallas")
+    <span class="doccomment">/// Arithmetic field (defaults to &quot;Pallas&quot;)
     </span><span class="attr">#[clap(long, value_enum)]
     </span>field: <span class="prelude-ty">Option</span>&lt;LanguageField&gt;,
 
@@ -1205,7 +1203,7 @@
             <span class="kw">let </span>entry = entry<span class="question-mark">?</span>;
             <span class="kw">let </span>path = entry.path();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(ex) = path.extension() {
-                <span class="kw">if </span>ex == <span class="string">"json" </span>{
+                <span class="kw">if </span>ex == <span class="string">&quot;json&quot; </span>{
                     <span class="kw">let </span>metadata_file = std::fs::File::open(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
 
                     <span class="kw">let </span>reader = BufReader::new(metadata_file);
@@ -1231,7 +1229,7 @@
             <span class="kw">let </span>metadata = <span class="self">self</span>.get_metadata()<span class="question-mark">?</span>;
             <span class="kw">for </span>(_path, data) <span class="kw">in </span>metadata.iter() {
                 <span class="macro">println!</span>(
-                    <span class="string">"{: &lt;9} {: &gt;4} {: &gt;6} {: &gt;35}"</span>,
+                    <span class="string">&quot;{: &lt;9} {: &gt;4} {: &gt;6} {: &gt;35}&quot;</span>,
                     <span class="kw-2">&amp;</span>data.cache_key[<span class="number">2</span>..<span class="number">10</span>],
                     data.rc,
                     data.abomonated,
@@ -1245,10 +1243,10 @@
                 .iter()
                 .find(|(<span class="kw">_</span>, data)| <span class="kw-2">&amp;</span>data.cache_key[<span class="number">2</span>..<span class="number">10</span>] == key)
             {
-                <span class="kw">let </span>path = json_path.with_extension(<span class="string">""</span>);
+                <span class="kw">let </span>path = json_path.with_extension(<span class="string">&quot;&quot;</span>);
                 fs::remove_file(path)<span class="question-mark">?</span>;
                 fs::remove_file(json_path)<span class="question-mark">?</span>;
-                <span class="macro">println!</span>(<span class="string">"cached param `{key}` removed"</span>);
+                <span class="macro">println!</span>(<span class="string">&quot;cached param `{key}` removed&quot;</span>);
             }
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = <span class="kw-2">&amp;</span><span class="self">self</span>.show {
@@ -1257,14 +1255,14 @@
                 .iter()
                 .find(|(<span class="kw">_</span>, data)| <span class="kw-2">&amp;</span>data.cache_key[<span class="number">2</span>..<span class="number">10</span>] == key)
             {
-                <span class="kw">let </span>path = json_path.with_extension(<span class="string">""</span>);
-                <span class="macro">println!</span>(<span class="string">"cached param `{path:?}`;"</span>);
-                <span class="macro">println!</span>(<span class="string">"{:?}"</span>, data);
+                <span class="kw">let </span>path = json_path.with_extension(<span class="string">&quot;&quot;</span>);
+                <span class="macro">println!</span>(<span class="string">&quot;cached param `{path:?}`;&quot;</span>);
+                <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, data);
             }
         }
         <span class="kw">if </span><span class="self">self</span>.clean {
             <span class="self">self</span>.clean()<span class="question-mark">?</span>;
-            <span class="macro">println!</span>(<span class="string">"public param cache cleaned"</span>);
+            <span class="macro">println!</span>(<span class="string">&quot;public param cache cleaned&quot;</span>);
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -1280,10 +1278,10 @@
                 <span class="kw">use </span><span class="kw">crate</span>::cli::lurk_proof::LurkProof;
                 <span class="kw">let </span><span class="kw-2">mut </span>cli_settings = HashMap::new();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = verify_args.public_params_dir {
-                    cli_settings.insert(<span class="string">"public_params_dir"</span>, dir.to_string());
+                    cli_settings.insert(<span class="string">&quot;public_params_dir&quot;</span>, dir.to_string());
                 }
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = verify_args.proofs_dir {
-                    cli_settings.insert(<span class="string">"proofs_dir"</span>, dir.to_string());
+                    cli_settings.insert(<span class="string">&quot;proofs_dir&quot;</span>, dir.to_string());
                 }
                 cli_config(verify_args.config.as_ref(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cli_settings));
 
@@ -1303,7 +1301,7 @@
                 <span class="kw">use </span><span class="kw">crate</span>::cli::lurk_proof::LurkProofMeta;
                 <span class="kw">let </span><span class="kw-2">mut </span>cli_settings = HashMap::new();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = inspect_args.proofs_dir {
-                    cli_settings.insert(<span class="string">"proofs_dir"</span>, dir.to_string());
+                    cli_settings.insert(<span class="string">&quot;proofs_dir&quot;</span>, dir.to_string());
                 }
                 cli_config(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cli_settings));
 
@@ -1323,12 +1321,12 @@
             }
             Command::Circom(circom_args) =&gt; {
                 <span class="kw">use </span><span class="kw">crate</span>::cli::circom::create_circom_gadget;
-                <span class="kw">if </span>circom_args.name == <span class="string">"main" </span>{
-                    <span class="macro">bail!</span>(<span class="string">"Circom gadget name cannot be `main`, see circom documentation"</span>)
+                <span class="kw">if </span>circom_args.name == <span class="string">&quot;main&quot; </span>{
+                    <span class="macro">bail!</span>(<span class="string">&quot;Circom gadget name cannot be `main`, see circom documentation&quot;</span>)
                 }
                 <span class="kw">let </span><span class="kw-2">mut </span>cli_settings = HashMap::new();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = circom_args.circom_dir {
-                    cli_settings.insert(<span class="string">"circom_dir"</span>, dir.to_string());
+                    cli_settings.insert(<span class="string">&quot;circom_dir&quot;</span>, dir.to_string());
                 }
                 cli_config(circom_args.config.as_ref(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cli_settings));
 
@@ -1337,7 +1335,7 @@
             Command::PublicParams(public_params_args) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>cli_settings = HashMap::new();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = public_params_args.public_params_dir.clone() {
-                    cli_settings.insert(<span class="string">"public_params_dir"</span>, dir.to_string());
+                    cli_settings.insert(<span class="string">&quot;public_params_dir&quot;</span>, dir.to_string());
                 }
 
                 cli_config(public_params_args.config.as_ref(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cli_settings));
