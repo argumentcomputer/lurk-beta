@@ -1,5 +1,6 @@
-# Run GPU benchmark on a local branch when manually triggered
-name: Manual GPU benchmarks
+# Run GPU benchmark on `main` and a local branch when manually triggered on the latter
+# Currently `main` benchmarks are uncached
+name: Manual GPU benchmarks compared to main
 
 on:
   workflow_dispatch:
@@ -10,7 +11,7 @@ concurrency:
 
 jobs:
   gpu-benchmark:
-    name: Manual GPU bench
+    name: Manual GPU bench comparison
     runs-on: [self-hosted, gpu-bench]
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +22,10 @@ jobs:
           gpu-framework: 'cuda'
       - uses: ./.github/actions/ci-env
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
       # Install dependencies
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -32,8 +37,21 @@ jobs:
           cargo install cargo-criterion
           cargo install criterion-table
       - name: Set bench output format type
-        run: echo "LURK_BENCH_OUTPUT=commit-comment" | tee -a $GITHUB_ENV
-      - name: Run GPU bench on branch
+        run: |
+          echo "LURK_BENCH_OUTPUT=commit-comment" | tee -a $GITHUB_ENV
+          echo "BASE_COMMIT=$(git rev-parse HEAD)" | tee -a $GITHUB_ENV
+          echo "GPU_NAME=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader,nounits | tail -n1)" | tee -a $GITHUB_ENV
+          echo "GPU_ID=$(echo ${{ env.GPU_NAME }} | awk '{ print $NF }')" | tee -a $GITHUB_ENV
+        working-directory: ${{ github.workspace }}/main
+      - name: Run GPU bench on base branch
+        run: |
+          # Copy justfile & env to main, overwriting existing config with that of PR branch
+          cp ../benches/justfile ../benches/bench.env .
+          just gpu-bench-ci fibonacci
+          # Copy bench output to PR branch
+          cp fibonacci-${{ env.BASE_COMMIT }}.json ..
+        working-directory: ${{ github.workspace }}/main
+      - name: Run GPU bench on PR branch
         run: |
           just gpu-bench-ci fibonacci
           cp fibonacci-${{ github.sha }}.json ..
@@ -60,7 +78,7 @@ jobs:
         working-directory: ${{ github.workspace }}
       # Create a `criterion-table` and write in commit comment
       - name: Run `criterion-table`
-        run: cat fibonacci-${{ github.sha }}.json | criterion-table > BENCHMARKS.md
+        run: cat fibonacci-${{ env.BASE_COMMIT }}.json fibonacci-${{ github.sha }}.json | criterion-table > BENCHMARKS.md
         working-directory: ${{ github.workspace }}
       - name: Write bench on commit comment
         uses: peter-evans/commit-comment@v3

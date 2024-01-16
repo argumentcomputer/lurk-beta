@@ -5,28 +5,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-
-env:
-  CARGO_TERM_COLOR: always
-  # Disable incremental compilation.
-  #
-  # Incremental compilation is useful as part of an edit-build-test-edit cycle,
-  # as it lets the compiler avoid recompiling code that hasn't changed. However,
-  # on CI, we're not making small edits; we're almost always building the entire
-  # project from scratch. Thus, incremental compilation on CI actually
-  # introduces *additional* overhead to support making future builds
-  # faster...but no future builds will ever occur in any given CI environment.
-  #
-  # See https://matklad.github.io/2021/09/04/fast-rust-builds.html#ci-workflow
-  # for details.
-  CARGO_INCREMENTAL: 0
-  # Allow more retries for network requests in cargo (downloading crates) and
-  # rustup (installing toolchains). This should help to reduce flaky CI failures
-  # from transient network timeouts or other issues.
-  CARGO_NET_RETRY: 10
-  RUSTUP_MAX_RETRIES: 10
-  # Don't emit giant backtraces in the CI logs.
-  RUST_BACKTRACE: short
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -35,9 +14,11 @@ concurrency:
 jobs:
   linux:
     runs-on: buildjet-16vcpu-ubuntu-2204
-    env:
-      RUSTFLAGS: -D warnings
     steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: lurk-lab/ci-workflows
+      - uses: ./.github/actions/ci-env
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -53,60 +34,16 @@ jobs:
         run: |
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
-  misc:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-      fail-fast: false
-    env:
-      RUSTFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@nextest
-      - uses: Swatinem/rust-cache@v2
-      - run: rustup target add wasm32-unknown-unknown
-      - name: Wasm build 
-        run: |
-          cargo build --target wasm32-unknown-unknown
-      # make sure benches don't bit-rot
-      - name: build benches
-        # TODO: --all-features
-        run: cargo build --benches
-      - name: Doctests
-        run: |
-          cargo test --doc --workspace --profile dev-ci
+  # Wasm build, rustfmt, clippy, doctests, and MSRV
+  code-quality:
+    uses: lurk-lab/ci-workflows/.github/workflows/lints.yml@main
 
-  clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-      # See '.cargo/config' for list of enabled/disabled clippy lints
-      - name: rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --check
-      - name: cargo clippy
-        run: cargo xclippy -D warnings
+  # Check documentation links aren't broken
+  link-checker:
+    uses: lurk-lab/ci-workflows/.github/workflows/links-check.yml@main
+    with: 
+      fail-fast: true
 
-  msrv:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install rustup
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-    - uses: Swatinem/rust-cache@v2
-    - name: Install cargo-msrv
-      run: cargo install cargo-msrv
-    - name: Check Rust MSRV
-      run: cargo msrv verify
+  # Lint dependencies for licensing and auditing issues as per https://github.com/lurk-lab/lurk-rs/blob/main/deny.toml
+  licenses-audits:
+    uses: lurk-lab/ci-workflows/.github/workflows/licenses-audits.yml@main

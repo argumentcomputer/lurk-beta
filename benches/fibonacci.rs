@@ -35,13 +35,10 @@ struct ProveParams {
 
 impl ProveParams {
     fn name_params(&self) -> (String, String) {
-        let output_type = bench_parameters_env().unwrap_or("stdout".into());
+        let output_type = output_type_env().unwrap_or("stdout".into());
         match output_type.as_ref() {
             "pr-comment" => ("fib".into(), format!("num-{}", self.fib_n)),
-            "commit-comment" => (
-                format!("fib-ref={}", self.sha),
-                format!("num-{}", self.fib_n),
-            ),
+            "commit-comment" => (format!("ref={}", self.sha), format!("num-{}", self.fib_n)),
             // TODO: refine "gh-pages",
             _ => (
                 "fib".into(),
@@ -51,9 +48,8 @@ impl ProveParams {
     }
 }
 
-fn bench_parameters_env() -> anyhow::Result<String> {
-    std::env::var("LURK_BENCH_OUTPUT")
-        .map_err(|e| anyhow!("Noise threshold env var isn't set: {e}"))
+fn output_type_env() -> anyhow::Result<String> {
+    std::env::var("LURK_BENCH_OUTPUT").map_err(|e| anyhow!("Output type env var isn't set: {e}"))
 }
 
 fn rc_env() -> anyhow::Result<Vec<usize>> {
