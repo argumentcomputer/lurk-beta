@@ -10,3 +10,11 @@ fn test_sha256_nivc() {
     cmd.args(["run", "--release", "--example", "sha256_nivc"]);
     cmd.assert().success();
 }
+
+#[test]
+#[ignore]
+fn test_sha256_ivc() {
+    let mut cmd = Command::new("cargo");
+    cmd.args(["run", "--release", "--example", "sha256_ivc"]);
+    cmd.assert().success();
+}
