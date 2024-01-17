@@ -55,7 +55,6 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{ConstraintSystem, SynthesisError};
 
 <span class="kw">use super</span>::{CircuitScope, CircuitTranscript, LogMemo, Scope};
@@ -85,7 +84,10 @@
         s.intern_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>.symbol())
     }
 
-    <span class="kw">fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
+    <span class="doccomment">/// What is this queries index? Used for ordering circuits and transcripts, grouped by query type.
+    </span><span class="kw">fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
+    <span class="doccomment">/// How many types of query are provided?
+    </span><span class="kw">fn </span>count() -&gt; usize;
 }
 
 <span class="kw">pub trait </span>CircuitQuery&lt;F: LurkField&gt;
@@ -108,10 +110,6 @@
         s.intern_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>.symbol())
     }
 
-    <span class="kw">fn </span>from_ptr&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
-        cs: <span class="kw-2">&amp;mut </span>CS,
-        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        ptr: <span class="kw-2">&amp;</span>Ptr,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, SynthesisError&gt;;
+    <span class="kw">fn </span>from_ptr&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
 }
 </code></pre></div></section></main></body></html>
