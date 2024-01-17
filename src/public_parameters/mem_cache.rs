@@ -40,6 +40,10 @@ pub(crate) static PUBLIC_PARAM_MEM_CACHE: Lazy<PublicParamMemCache> =
     });
 
 impl PublicParamMemCache {
+    /// ## Safety
+    // This assumes:
+    // 1. no one is mutating these params, which is reasonable if all accesses are Lurk processes,
+    // 2. our process only reads this once, otherwise the produced Arc will leak memory.
     fn get_from_disk_cache_or_update_with<
         'a,
         F: CurveCycleEquipped,
@@ -66,7 +70,7 @@ impl PublicParamMemCache {
                     let (pp, rest) =
                         unsafe { decode::<PublicParams<F, C1LEM<'a, F, C>>>(&mut bytes).unwrap() };
                     assert!(rest.is_empty());
-                    Ok(Arc::new(pp.clone())) // this clone is VERY expensive
+                    Ok(unsafe { Arc::from_raw(pp as *const PublicParams<F, C1LEM<'a, F, C>>) })
                 }
                 Err(Error::IO(e)) => {
                     warn!("{e}");
