@@ -1968,7 +1968,7 @@ fn char_num() {
 #[test]
 fn char_coercion() {
     let s = &Store::<Fr>::default();
-    let expr = r#"(char (- 0 4294967200))"#;
+    let expr = r#"(char (+ 4294967296 97))"#;
     let expected_a = s.read_with_default_state(r"#\a").unwrap();
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
