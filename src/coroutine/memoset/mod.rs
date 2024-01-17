@@ -31,7 +31,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
-use itertools::Itertools;
+use indexmap::IndexSet;
 use once_cell::sync::OnceCell;
 
 use crate::circuit::gadgets::{
@@ -190,8 +190,8 @@ pub struct Scope<Q, M> {
     toplevel_insertions: Vec<Ptr>,
     /// internally-inserted keys
     internal_insertions: Vec<Ptr>,
-    /// unique keys
-    all_insertions: Vec<Ptr>,
+    /// unique keys: query-index -> [key]
+    unique_inserted_keys: HashMap<usize, Vec<Ptr>>,
 }
 
 impl<F: LurkField, Q> Default for Scope<Q, LogMemo<F>> {
@@ -202,7 +202,7 @@ impl<F: LurkField, Q> Default for Scope<Q, LogMemo<F>> {
             dependencies: Default::default(),
             toplevel_insertions: Default::default(),
             internal_insertions: Default::default(),
-            all_insertions: Default::default(),
+            unique_inserted_keys: Default::default(),
         }
     }
 }
@@ -258,7 +258,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
     fn finalize_transcript(&mut self, s: &Store<F>) -> Transcript<F> {
         let (transcript, insertions) = self.build_transcript(s);
         self.memoset.finalize_transcript(s, transcript.clone());
-        self.all_insertions = insertions;
+        self.unique_inserted_keys = insertions;
         transcript
     }
 
@@ -268,28 +268,43 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
         }
     }
 
-    fn build_transcript(&self, s: &Store<F>) -> (Transcript<F>, Vec<Ptr>) {
+    fn build_transcript(&self, s: &Store<F>) -> (Transcript<F>, HashMap<usize, Vec<Ptr>>) {
         let mut transcript = Transcript::new(s);
+
+        // k -> [kv]
+        let mut insertions: HashMap<Ptr, IndexSet<Ptr>> = HashMap::new();
+        let mut unique_keys: HashMap<usize, Vec<Ptr>> = Default::default();
+
+        let mut insert = |kv: Ptr| {
+            let key = s.car_cdr(&kv).unwrap().0;
+
+            if let Some(kvs) = insertions.get_mut(&key) {
+                kvs.insert(kv);
+            } else {
+                let index = Q::from_ptr(s, &key).expect("bad query").index();
+                unique_keys
+                    .entry(index)
+                    .and_modify(|keys| keys.push(key))
+                    .or_insert_with(|| vec![key]);
+                //unique_keys.push(key);
+                let mut x = IndexSet::new();
+                x.insert(kv);
+
+                insertions.insert(key, x);
+            }
+        };
 
         let internal_insertions_kv = self.internal_insertions.iter().map(|key| {
             let value = self.queries.get(key).expect("value missing for key");
             Transcript::make_kv(s, *key, *value)
         });
 
-        let mut insertions =
-            Vec::with_capacity(self.toplevel_insertions.len() + self.internal_insertions.len());
-        insertions.extend(&self.toplevel_insertions);
-        insertions.extend(internal_insertions_kv);
-
-        // Sort insertions by query type (index) for processing. This is because the transcript will be constructed
-        // sequentially by the circuits, and we potentially batch queries of the same type in a single coprocessor
-        // circuit.
-        insertions.sort_by_key(|kv| {
-            let (key, _) = s.car_cdr(kv).unwrap();
-
-            Q::from_ptr(s, &key).expect("invalid query").index()
-        });
-
+        for kv in &self.toplevel_insertions {
+            insert(*kv);
+        }
+        for kv in internal_insertions_kv {
+            insert(kv);
+        }
         for kv in self.toplevel_insertions.iter() {
             transcript.add(s, *kv);
         }
@@ -298,16 +313,11 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
         // because when proving later, each query's proof must record that its subquery proofs are being deferred
         // (insertions) before then proving itself (making use of any subquery results) and removing the now-proved
         // deferral from the MemoSet.
-        let unique_keys = insertions
-            .iter()
-            .dedup() // We need to process every key's dependencies once.
-            .map(|kv| {
-                let key = s.car_cdr(kv).unwrap().0;
-
-                if let Some(dependencies) = self.dependencies.get(&key) {
-                  dependencies
-                        .iter()
-                        .for_each(|dependency| {
+        for index in 0..Q::count() {
+            for key in unique_keys.get(&index).expect("unreachable") {
+                for kv in insertions.get(key).unwrap().iter() {
+                    if let Some(dependencies) = self.dependencies.get(key) {
+                        dependencies.iter().for_each(|dependency| {
                             let k = dependency.to_ptr(s);
                             let v = self
                                 .queries
@@ -317,21 +327,19 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
                             // that these keys might already have been inserted before, but we need to repeat if so
                             // because the proof must do so each time a query is used.
                             let kv = Transcript::make_kv(s, k, *v);
-                              transcript.add(s, kv)
+                            transcript.add(s, kv)
                         })
-                };
-                let count = self.memoset.count(kv);
-                let kv_count = Transcript::make_kv_count(s, *kv, count);
+                    };
+                    let count = self.memoset.count(kv);
+                    let kv_count = Transcript::make_kv_count(s, *kv, count);
 
-                // Add removal for the query identified by `key`. The queries being removed here were deduplicated
-                // above, so each is removed only once. However, we freely choose the multiplicity (`count`) of the
-                // removal to match the total number of insertions actually made (considering dependencies).
-                transcript.add(s, kv_count);
-
-                key
-            })
-            .collect::<Vec<_>>();
-
+                    // Add removal for the query identified by `key`. The queries being removed here were deduplicated
+                    // above, so each is removed only once. However, we freely choose the multiplicity (`count`) of the
+                    // removal to match the total number of insertions actually made (considering dependencies).
+                    transcript.add(s, kv_count);
+                }
+            }
+        }
         (transcript, unique_keys)
     }
 
@@ -549,9 +557,45 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
-        for (i, kv) in scope.all_insertions.iter().enumerate() {
-            self.synthesize_prove_query::<_, Q::CQ>(cs, g, s, i, kv)?;
+        for (index, keys) in scope.unique_inserted_keys.iter() {
+            let cs = &mut cs.namespace(|| format!("query-index-{index}"));
+            self.synthesize_prove_queries::<_, Q>(cs, g, s, keys)?;
         }
+        Ok(())
+    }
+
+    fn synthesize_prove_queries<CS: ConstraintSystem<F>, Q: Query<F>>(
+        &mut self,
+        cs: &mut CS,
+        g: &mut GlobalAllocator<F>,
+        s: &Store<F>,
+        keys: &[Ptr],
+    ) -> Result<(), SynthesisError> {
+        for (i, key) in keys.iter().enumerate() {
+            let cs = &mut cs.namespace(|| format!("internal-{i}"));
+
+            self.synthesize_prove_key_query::<_, Q>(cs, g, s, key)?;
+        }
+        Ok(())
+    }
+
+    fn synthesize_prove_key_query<CS: ConstraintSystem<F>, Q: Query<F>>(
+        &mut self,
+        cs: &mut CS,
+        g: &mut GlobalAllocator<F>,
+        s: &Store<F>,
+        key: &Ptr,
+    ) -> Result<(), SynthesisError> {
+        let allocated_key =
+            AllocatedPtr::alloc(
+                &mut cs.namespace(|| "allocated_key"),
+                || Ok(s.hash_ptr(key)),
+            )
+            .unwrap();
+
+        let circuit_query = Q::CQ::from_ptr(&mut cs.namespace(|| "circuit_query"), s, key).unwrap();
+
+        self.synthesize_prove_query::<_, Q::CQ>(cs, g, s, &allocated_key, &circuit_query)?;
         Ok(())
     }
 
@@ -560,30 +604,18 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
-        i: usize,
-        key: &Ptr,
+        allocated_key: &AllocatedPtr<F>,
+        circuit_query: &CQ,
     ) -> Result<(), SynthesisError> {
-        let cs = &mut cs.namespace(|| format!("internal-{i}"));
-
-        let allocated_key =
-            AllocatedPtr::alloc(
-                &mut cs.namespace(|| "allocated_key"),
-                || Ok(s.hash_ptr(key)),
-            )
-            .unwrap();
-
-        let circuit_query = CQ::from_ptr(&mut cs.namespace(|| "circuit_query"), s, key).unwrap();
-
         let acc = self.acc.clone().unwrap();
         let transcript = self.transcript.clone();
 
         let (val, new_acc, new_transcript) = circuit_query
-            .expect("not a query form")
             .synthesize_eval(&mut cs.namespace(|| "eval"), g, s, self, &acc, &transcript)
             .unwrap();
 
         let (new_acc, new_transcript) =
-            self.synthesize_remove(cs, g, s, &new_acc, &new_transcript, &allocated_key, &val)?;
+            self.synthesize_remove(cs, g, s, &new_acc, &new_transcript, allocated_key, &val)?;
 
         self.acc = Some(new_acc);
         self.transcript = new_transcript;
@@ -798,6 +830,7 @@ mod test {
             }
             assert!(cs.is_satisfied());
         }
+
         {
             let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::default();
             scope.query(s, fact_4);
@@ -816,6 +849,16 @@ mod test {
             let g = &mut GlobalAllocator::default();
 
             scope.synthesize(cs, g, s).unwrap();
+
+            println!(
+                "transcript: {}",
+                scope
+                    .memoset
+                    .transcript
+                    .get()
+                    .unwrap()
+                    .fmt_to_string_simple(s)
+            );
 
             expect_eq(cs.num_constraints(), expect!["11408"]);
             expect_eq(cs.aux().len(), expect!["11445"]);

@@ -27,7 +27,10 @@ where
         s.intern_symbol(&self.symbol())
     }
 
+    /// What is this queries index? Used for ordering circuits and transcripts, grouped by query type.
     fn index(&self) -> usize;
+    /// How many types of query are provided?
+    fn count() -> usize;
 }
 
 pub trait CircuitQuery<F: LurkField>
@@ -50,9 +53,5 @@ where
         s.intern_symbol(&self.symbol())
     }
 
-    fn from_ptr<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        s: &Store<F>,
-        ptr: &Ptr,
-    ) -> Result<Option<Self>, SynthesisError>;
+    fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self>;
 }
