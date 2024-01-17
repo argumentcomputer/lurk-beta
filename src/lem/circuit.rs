@@ -43,7 +43,8 @@ use crate::{
         data::{allocate_constant, hash_poseidon},
         pointer::AllocatedPtr,
     },
-    coprocessor::Coprocessor,
+    coprocessor::{gadgets::construct_list, Coprocessor},
+    coroutine::memoset::{CircuitScope, LogMemoCircuit},
     eval::lang::Lang,
     field::{FWrap, LanguageField, LurkField},
     tag::{
@@ -441,6 +442,10 @@ impl Block {
                     g.alloc_tag(cs, &Sym);
                     g.alloc_tag(cs, &Env);
                 }
+                Op::Crout(_, nam, _) => {
+                    let nam_ptr = store.intern_symbol(nam);
+                    g.alloc_ptr(cs, &nam_ptr, store);
+                }
                 _ => (),
             }
         }
@@ -482,6 +487,7 @@ struct RecursiveContext<'a, F: LurkField, C> {
     bit_decomp_slots: &'a [&'a (Vec<AllocatedNum<F>>, AllocatedVal<F>)],
     blank: bool,
     bindings: &'a VarMap<Val>,
+    opt_scope: &'a mut Option<CircuitScope<F, LogMemoCircuit<F>>>,
 }
 
 fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
@@ -576,8 +582,32 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         }
 
         match op {
-            Op::Crout(_, _, _) => {
-                unimplemented!()
+            Op::Crout(out, nam, inp) => {
+                let Some(scope) = ctx.opt_scope else {
+                    bail!("synthesis is in non-memoset mode");
+                };
+                let v = ctx.bindings.get_ptr(out)?;
+
+                let query = {
+                    let inp_alloc = bound_allocations.get_ptr(inp)?;
+                    let nam_ptr = ctx.store.intern_symbol(nam);
+                    let nam_alloc = ctx.global_allocator.alloc_ptr(&mut cs, &nam_ptr, ctx.store);
+                    construct_list(
+                        &mut cs.namespace(|| "query"),
+                        ctx.global_allocator,
+                        ctx.store,
+                        &[nam_alloc, inp_alloc.clone()],
+                        None,
+                    )?
+                };
+                let out_ptr = scope.synthesize_toplevel_query(
+                    &mut cs,
+                    ctx.global_allocator,
+                    ctx.store,
+                    &query,
+                    v,
+                )?;
+                bound_allocations.insert(out.clone(), AllocatedVal::Pointer(out_ptr));
             }
             Op::Cproc(out, sym, inp) => {
                 let cproc = ctx
@@ -1442,6 +1472,7 @@ impl Func {
                     bit_decomp_slots,
                     blank: frame.blank,
                     bindings: &frame.hints.bindings,
+                    opt_scope: &mut None,
                 },
             )?;
         } else {
@@ -1470,6 +1501,7 @@ impl Func {
                     bit_decomp_slots,
                     blank: frame.blank,
                     bindings: &frame.hints.bindings,
+                    opt_scope: &mut None,
                 },
             )?;
         }

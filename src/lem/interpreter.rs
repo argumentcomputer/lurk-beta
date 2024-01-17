@@ -25,7 +25,7 @@ impl VarMap<Val> {
         args.iter().map(|arg| self.get_ptr(arg)).collect()
     }
 
-    fn get_ptr(&self, var: &Var) -> Result<Ptr> {
+    pub fn get_ptr(&self, var: &Var) -> Result<Ptr> {
         if let Val::Pointer(ptr) = self.get(var)? {
             return Ok(*ptr);
         }

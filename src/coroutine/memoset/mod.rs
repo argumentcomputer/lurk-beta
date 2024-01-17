@@ -1153,21 +1153,20 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             // NOTE: The returned value is unused here, but when actually hooked up to Lurk reduction, it must be used
             // as the result of evaluating the query.
             let _allocated_value =
-                self.synthesize_toplevel_query(cs, g, s, i, &allocated_key, value)?;
+                self.synthesize_toplevel_query(cs, g, s, &allocated_key, value)?;
         }
         Ok(())
     }
 
-    fn synthesize_toplevel_query<CS: ConstraintSystem<F>>(
+    pub fn synthesize_toplevel_query<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         s: &Store<F>,
-        i: usize,
         allocated_key: &AllocatedPtr<F>,
         value: Ptr,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        let cs = ns!(cs, format!("toplevel-{i}"));
+        let cs = ns!(cs, format!("toplevel"));
 
         let acc = self.acc.clone().unwrap();
         let insertion_transcript = self.transcript.clone();
