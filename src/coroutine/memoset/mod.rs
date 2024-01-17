@@ -60,11 +60,11 @@ use crate::z_ptr::ZPtr;
 use multiset::MultiSet;
 pub use query::{CircuitQuery, Query};
 
-mod demo;
+pub(crate) mod demo;
 mod env;
-mod multiset;
+pub(crate) mod multiset;
 mod prove;
-mod query;
+pub(crate) mod query;
 
 #[derive(Debug)]
 pub enum MemoSetError {

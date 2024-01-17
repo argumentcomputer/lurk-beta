@@ -14,14 +14,24 @@ use crate::tag::{ExprTag, Tag};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub(crate) enum DemoQuery<F> {
+pub enum DemoQuery<F> {
     Factorial(Ptr),
     Phantom(F),
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum DemoCircuitQuery<F: LurkField> {
+pub enum DemoCircuitQuery<F: LurkField> {
     Factorial(AllocatedPtr<F>),
+}
+
+impl<F: LurkField> DemoQuery<F> {
+    pub(crate) fn query(sym: &Symbol, ptr: Ptr) -> Option<Self> {
+        let nam = format!("{}", sym);
+        match nam.as_str() {
+            ".lurk.user.factorial" => Some(DemoQuery::Factorial(ptr)),
+            _ => None,
+        }
+    }
 }
 
 impl<F: LurkField> Query<F> for DemoQuery<F> {

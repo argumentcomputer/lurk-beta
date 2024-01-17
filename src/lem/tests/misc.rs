@@ -34,7 +34,15 @@ fn synthesize_test_helper(
     for input in inputs {
         let input = [input, nil, outermost];
         let frame = func
-            .call(&input, store, Default::default(), &mut vec![], &lang, 0)
+            .call(
+                &input,
+                store,
+                Default::default(),
+                &mut vec![],
+                &lang,
+                0,
+                None,
+            )
             .unwrap();
 
         let mut cs = TestConstraintSystem::<Fr>::new();

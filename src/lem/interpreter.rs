@@ -11,6 +11,8 @@ use super::{
 
 use crate::{
     coprocessor::Coprocessor,
+    coroutine::memoset::demo::DemoQuery,
+    coroutine::memoset::{LogMemo, Query, Scope},
     eval::lang::Lang,
     field::LurkField,
     num::Num as BaseNum,
@@ -142,11 +144,21 @@ impl Block {
         emitted: &mut Vec<Ptr>,
         lang: &Lang<F, C>,
         pc: usize,
+        mut opt_scope: Option<&mut Scope<DemoQuery<F>, LogMemo<F>, F>>,
     ) -> Result<Frame> {
         for op in &self.ops {
             match op {
-                Op::Crout(_, _, _) => {
-                    unimplemented!()
+                Op::Crout(out, sym, inp) => {
+                    let Some(scope) = opt_scope else {
+                        bail!("evaluation is in non-memoset mode");
+                    };
+                    let inp_ptr = bindings.get_ptr(inp)?;
+                    let query = DemoQuery::<F>::query(sym, inp_ptr)
+                        .expect("could not find coroutine {sym}");
+                    let out_ptr = query.eval(store, scope);
+                    bindings.insert(out.clone(), Val::Pointer(out_ptr));
+                    hints.bindings.insert(out.clone(), Val::Pointer(out_ptr));
+                    opt_scope = Some(scope);
                 }
                 Op::Cproc(out, sym, inp) => {
                     let inp_ptrs = bindings.get_many_ptr(inp)?;
@@ -165,7 +177,16 @@ impl Block {
                 Op::Call(out, func, inp) => {
                     // Get the argument values
                     let inp_ptrs = bindings.get_many_ptr(inp)?;
-                    let frame = func.call(&inp_ptrs, store, hints, emitted, lang, pc)?;
+                    let frame = {
+                        if let Some(scope) = opt_scope {
+                            let frame =
+                                func.call(&inp_ptrs, store, hints, emitted, lang, pc, Some(scope))?;
+                            opt_scope = Some(scope);
+                            frame
+                        } else {
+                            func.call(&inp_ptrs, store, hints, emitted, lang, pc, None)?
+                        }
+                    };
                     // Bind the output variables to the output values
                     hints = frame.hints;
                     for (var, ptr) in out.iter().zip(frame.output.into_iter()) {
@@ -474,12 +495,12 @@ impl Block {
                 let ptr = bindings.get_ptr(match_var)?;
                 let tag = ptr.tag();
                 if let Some(block) = cases.get(tag) {
-                    block.run(input, store, bindings, hints, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, emitted, lang, pc, opt_scope)
                 } else {
                     let Some(def) = def else {
                         bail!("No match for tag {}", tag)
                     };
-                    def.run(input, store, bindings, hints, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, emitted, lang, pc, opt_scope)
                 }
             }
             Ctrl::MatchSymbol(match_var, cases, def) => {
@@ -491,20 +512,20 @@ impl Block {
                     bail!("Symbol bound to {match_var} wasn't interned");
                 };
                 if let Some(block) = cases.get(&sym) {
-                    block.run(input, store, bindings, hints, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, emitted, lang, pc, opt_scope)
                 } else {
                     let Some(def) = def else {
                         bail!("No match for symbol {sym}")
                     };
-                    def.run(input, store, bindings, hints, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, emitted, lang, pc, opt_scope)
                 }
             }
             Ctrl::If(b, true_block, false_block) => {
                 let b = bindings.get_bool(b)?;
                 if b {
-                    true_block.run(input, store, bindings, hints, emitted, lang, pc)
+                    true_block.run(input, store, bindings, hints, emitted, lang, pc, opt_scope)
                 } else {
-                    false_block.run(input, store, bindings, hints, emitted, lang, pc)
+                    false_block.run(input, store, bindings, hints, emitted, lang, pc, opt_scope)
                 }
             }
             Ctrl::Return(output_vars) => {
@@ -535,6 +556,7 @@ impl Func {
         emitted: &mut Vec<Ptr>,
         lang: &Lang<F, C>,
         pc: usize,
+        scope: Option<&mut Scope<DemoQuery<F>, LogMemo<F>, F>>,
     ) -> Result<Frame> {
         let mut bindings = VarMap::new();
         for (i, param) in self.input_params.iter().enumerate() {
@@ -551,7 +573,7 @@ impl Func {
 
         let mut res = self
             .body
-            .run(args, store, bindings, hints, emitted, lang, pc)?;
+            .run(args, store, bindings, hints, emitted, lang, pc, scope)?;
         let hints = &mut res.hints;
 
         let hash4_used = hints.hash4.len() - hash4_init;
@@ -594,6 +616,7 @@ impl Func {
             &mut vec![],
             lang,
             pc,
+            None,
         )
     }
 }
