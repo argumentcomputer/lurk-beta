@@ -44,14 +44,15 @@ impl PublicParamMemCache {
     // This assumes:
     // 1. no one is mutating these params, which is reasonable if all accesses are Lurk processes,
     // 2. our process only reads this once, otherwise the produced Arc will leak memory.
+    // TODO: enforce this in a better way
     fn get_from_disk_cache_or_update_with<
         'a,
         F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'static,
-        Fn: FnOnce(&Instance<'static, F, C>) -> Arc<PublicParams<F, C1LEM<'a, F, C>>>,
+        C: Coprocessor<F> + 'a,
+        Fn: FnOnce(&Instance<'a, F, C>) -> Arc<PublicParams<F, C1LEM<'a, F, C>>>,
     >(
         &'static self,
-        instance: &Instance<'static, F, C>,
+        instance: &Instance<'a, F, C>,
         default: Fn,
     ) -> Result<Arc<PublicParams<F, C1LEM<'a, F, C>>>, Error>
     where
@@ -67,10 +68,16 @@ impl PublicParamMemCache {
             match disk_cache.read_bytes(instance, &mut bytes) {
                 Ok(()) => {
                     info!("loading abomonated {}", instance.key());
-                    let (pp, rest) =
-                        unsafe { decode::<PublicParams<F, C1LEM<'a, F, C>>>(&mut bytes).unwrap() };
-                    assert!(rest.is_empty());
-                    Ok(unsafe { Arc::from_raw(pp as *const PublicParams<F, C1LEM<'a, F, C>>) })
+                    let pp = unsafe {
+                        let (pp, rest) =
+                            decode::<PublicParams<F, C1LEM<'a, F, C>>>(&mut bytes).unwrap();
+                        assert!(rest.is_empty());
+                        std::mem::transmute_copy::<
+                            PublicParams<F, C1LEM<'a, F, C>>,
+                            PublicParams<F, C1LEM<'a, F, C>>,
+                        >(pp)
+                    };
+                    Ok(Arc::new(pp))
                 }
                 Err(Error::IO(e)) => {
                     warn!("{e}");

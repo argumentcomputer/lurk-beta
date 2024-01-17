@@ -18,9 +18,9 @@ use crate::public_parameters::error::Error;
 use self::disk_cache::DiskCache;
 use self::instance::Instance;
 
-pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
+pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
     instance: &Instance<'static, F, C>,
-) -> Result<Arc<PublicParams<F, C1LEM<'a, F, C>>>, Error>
+) -> Result<Arc<PublicParams<F, C1LEM<'static, F, C>>>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
