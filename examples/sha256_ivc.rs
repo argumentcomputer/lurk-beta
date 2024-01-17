@@ -87,7 +87,7 @@ fn main() {
     let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
         .in_scope(|| {
             nova_prover
-                .evaluate_and_prove(&pp, call, store.intern_nil(), store, 10000)
+                .evaluate_and_prove(&pp, call, store.intern_empty_env(), store, 10000)
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();

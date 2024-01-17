@@ -124,7 +124,7 @@ fn main() {
 
     let proof_start = Instant::now();
     let (proof, z0, zi, _num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000)
+        .evaluate_and_prove(&pp, ptr, store.intern_empty_env(), store, 10000)
         .unwrap();
     let proof_end = proof_start.elapsed();
 
