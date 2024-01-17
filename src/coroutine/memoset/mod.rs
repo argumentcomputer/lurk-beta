@@ -615,7 +615,7 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
             .unwrap();
 
         let (new_acc, new_transcript) =
-            self.synthesize_remove(cs, g, s, &new_acc, &new_transcript, &allocated_key, &val)?;
+            self.synthesize_remove(cs, g, s, &new_acc, &new_transcript, allocated_key, &val)?;
 
         self.acc = Some(new_acc);
         self.transcript = new_transcript;
