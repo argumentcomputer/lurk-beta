@@ -1,6 +1,6 @@
 use bellpepper_core::{ConstraintSystem, SynthesisError};
 
-use super::{CircuitScope, CircuitTranscript, LogMemo, Scope};
+use super::{CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope};
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
@@ -42,7 +42,7 @@ where
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemo<F>>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError>;

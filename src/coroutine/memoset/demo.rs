@@ -2,7 +2,7 @@ use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use super::{
     query::{CircuitQuery, Query},
-    CircuitScope, CircuitTranscript, LogMemo, Scope,
+    CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope,
 };
 use crate::circuit::gadgets::constraints::alloc_is_zero;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
@@ -106,7 +106,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemo<F>>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {

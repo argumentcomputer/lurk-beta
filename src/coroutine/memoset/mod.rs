@@ -131,9 +131,9 @@ impl<F: LurkField> CircuitTranscript<F> {
         s: &Store<F>,
         item: &AllocatedPtr<F>,
     ) -> Result<Self, SynthesisError> {
-        Ok(Self {
-            acc: construct_cons(cs, g, s, item, &self.acc)?,
-        })
+        let acc = construct_cons(cs, g, s, item, &self.acc)?;
+
+        Ok(Self { acc })
     }
 
     fn make_kv<CS: ConstraintSystem<F>>(
@@ -176,7 +176,7 @@ impl<F: LurkField> CircuitTranscript<F> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 /// A `Scope` tracks the queries made while evaluating, including the subqueries that result from evaluating other
 /// queries -- then makes use of the bookkeeping performed at evaluation time to synthesize proof of each query
 /// performed.
@@ -217,14 +217,82 @@ impl<F: LurkField, Q> Scope<Q, LogMemo<F>> {
     }
 }
 
-pub struct CircuitScope<F: LurkField, M> {
-    memoset: M,
+#[derive(Debug, Clone)]
+pub struct CircuitScope<F: LurkField, CM> {
+    memoset: CM, // CircuitMemoSet
     /// k -> v
     queries: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     /// k -> allocated v
     transcript: CircuitTranscript<F>,
     acc: Option<AllocatedPtr<F>>,
     transcribe_internal_insertions: bool,
+}
+
+pub struct CoroutineCircuit<'a, F: LurkField, CM, Q> {
+    queries: &'a HashMap<Ptr, Ptr>,
+    memoset: CM,
+    keys: Vec<Ptr>,
+    store: &'a Store<F>,
+    transcribe_internal_insertions: bool,
+    _p: PhantomData<Q>,
+}
+
+// TODO: Make this generic rather than specialized to LogMemo.
+// That will require a CircuitScopeTrait.
+impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q> {
+    fn new(
+        scope: &'a Scope<Q, LogMemo<F>>,
+        memoset: LogMemoCircuit<F>,
+        keys: Vec<Ptr>,
+        store: &'a Store<F>,
+    ) -> Self {
+        Self {
+            memoset,
+            queries: &scope.queries,
+            keys,
+            store,
+            transcribe_internal_insertions: scope.transcribe_internal_insertions,
+            _p: Default::default(),
+        }
+    }
+
+    // This is a supernova::StepCircuit method.
+    // // TODO: we need to create a supernova::StepCircuit that will prove up to a fixed number of queries of a given type.
+    fn synthesize<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS,
+        z: &[AllocatedPtr<F>],
+    ) -> Result<(Option<AllocatedNum<F>>, Vec<AllocatedPtr<F>>), SynthesisError> {
+        let g = &mut GlobalAllocator::<F>::default();
+
+        assert_eq!(6, z.len());
+        let [c, e, k, memoset_acc, transcript, r] = z else {
+            unreachable!()
+        };
+
+        let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>> = CircuitScope::from_queries(
+            cs,
+            g,
+            self.store,
+            self.memoset.clone(),
+            self.queries,
+            self.transcribe_internal_insertions,
+        );
+        circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
+
+        for (i, key) in self.keys.iter().enumerate() {
+            let cs = &mut cs.namespace(|| format!("internal-{i}"));
+            circuit_scope.synthesize_prove_key_query::<_, Q>(cs, g, self.store, key)?;
+        }
+
+        let (memoset_acc, transcript, r_num) = circuit_scope.io();
+        let r = AllocatedPtr::alloc_tag(&mut cs.namespace(|| "r"), ExprTag::Num.to_field(), r_num)?;
+
+        let z_out = vec![c.clone(), e.clone(), k.clone(), memoset_acc, transcript, r];
+
+        let next_pc = None; // FIXME.
+        Ok((next_pc, z_out))
+    }
 }
 
 impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
@@ -362,36 +430,83 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
         self.ensure_transcript_finalized(s);
-        let mut circuit_scope =
-            CircuitScope::from_scope(&mut cs.namespace(|| "transcript"), g, s, self);
+        // FIXME: Do we need to allocate a new GlobalAllocator here?
+        // Is it okay for this memoset circuit to be shared between all CoroutineCircuits?
+        let memoset_circuit = self
+            .memoset
+            .to_circuit(&mut cs.namespace(|| "memoset_circuit"));
+
+        let mut circuit_scope = CircuitScope::from_queries(
+            &mut cs.namespace(|| "transcript"),
+            g,
+            s,
+            memoset_circuit.clone(),
+            &self.queries,
+            self.transcribe_internal_insertions,
+        );
         circuit_scope.init(cs, g, s);
         {
             circuit_scope.synthesize_insert_toplevel_queries(self, cs, g, s)?;
-            circuit_scope.synthesize_prove_all_queries(self, cs, g, s)?;
+
+            {
+                let (memoset_acc, transcript, r_num) = circuit_scope.io();
+                let r = AllocatedPtr::alloc_tag(
+                    &mut cs.namespace(|| "r"),
+                    ExprTag::Num.to_field(),
+                    r_num,
+                )?;
+                let dummy = g.alloc_ptr(cs, &s.intern_nil(), s);
+                let z = vec![
+                    dummy.clone(),
+                    dummy.clone(),
+                    dummy.clone(),
+                    memoset_acc,
+                    transcript,
+                    r,
+                ];
+                for (index, keys) in self.unique_inserted_keys.iter() {
+                    let cs = &mut cs.namespace(|| format!("query-index-{index}"));
+
+                    let mut circuit: CoroutineCircuit<'_, F, LogMemoCircuit<F>, Q> =
+                        CoroutineCircuit::new(self, memoset_circuit.clone(), keys.clone(), s);
+
+                    let (_next_pc, z_out) = circuit.synthesize(cs, &z)?;
+                    {
+                        let memoset_acc = &z_out[3];
+                        let transcript = &z_out[4];
+                        let r = &z_out[5];
+
+                        circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
+                    }
+                }
+            }
         }
+
         circuit_scope.finalize(cs, g);
         Ok(())
     }
 }
 
-impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
-    fn from_scope<CS: ConstraintSystem<F>, Q: Query<F>>(
+impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
+    fn from_queries<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
-        scope: &Scope<Q, LogMemo<F>>,
+        memoset: LogMemoCircuit<F>,
+        queries: &HashMap<Ptr, Ptr>,
+        transcribe_internal_insertions: bool,
     ) -> Self {
-        let queries = scope
-            .queries
+        let queries = queries
             .iter()
             .map(|(k, v)| (s.hash_ptr(k), s.hash_ptr(v)))
             .collect();
+
         Self {
-            memoset: scope.memoset.clone(),
+            memoset,
             queries,
             transcript: CircuitTranscript::new(cs, g, s),
             acc: Default::default(),
-            transcribe_internal_insertions: scope.transcribe_internal_insertions,
+            transcribe_internal_insertions,
         }
     }
 
@@ -407,6 +522,25 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         );
 
         self.transcript = CircuitTranscript::new(cs, g, s);
+    }
+
+    fn io(&self) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedNum<F>) {
+        (
+            self.acc.as_ref().unwrap().clone(),
+            self.transcript.acc.clone(),
+            self.memoset.r.clone(),
+        )
+    }
+
+    fn update_from_io(
+        &mut self,
+        acc: AllocatedPtr<F>,
+        transcript: AllocatedPtr<F>,
+        r: &AllocatedPtr<F>,
+    ) {
+        self.acc = Some(acc);
+        self.transcript.acc = transcript;
+        self.memoset.r = r.hash().clone();
     }
 
     fn synthesize_insert_query<CS: ConstraintSystem<F>>(
@@ -486,7 +620,7 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
     }
 
     fn finalize<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, _g: &mut GlobalAllocator<F>) {
-        let r = self.memoset.allocated_r(cs);
+        let r = self.memoset.allocated_r();
         enforce_equal(cs, || "r_matches_transcript", self.transcript.r(), &r);
         enforce_equal_zero(cs, || "acc_is_zero", self.acc.clone().unwrap().hash());
     }
@@ -595,35 +729,6 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         Ok(())
     }
 
-    fn synthesize_prove_all_queries<CS: ConstraintSystem<F>, Q: Query<F>>(
-        &mut self,
-        scope: &mut Scope<Q, LogMemo<F>>,
-        cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
-        s: &Store<F>,
-    ) -> Result<(), SynthesisError> {
-        for (index, keys) in scope.unique_inserted_keys.iter() {
-            let cs = &mut cs.namespace(|| format!("query-index-{index}"));
-            self.synthesize_prove_queries::<_, Q>(cs, g, s, keys)?;
-        }
-        Ok(())
-    }
-
-    fn synthesize_prove_queries<CS: ConstraintSystem<F>, Q: Query<F>>(
-        &mut self,
-        cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
-        s: &Store<F>,
-        keys: &[Ptr],
-    ) -> Result<(), SynthesisError> {
-        for (i, key) in keys.iter().enumerate() {
-            let cs = &mut cs.namespace(|| format!("internal-{i}"));
-
-            self.synthesize_prove_key_query::<_, Q>(cs, g, s, key)?;
-        }
-        Ok(())
-    }
-
     fn synthesize_prove_key_query<CS: ConstraintSystem<F>, Q: Query<F>>(
         &mut self,
         cs: &mut CS,
@@ -674,12 +779,7 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
     }
 }
 
-pub trait MemoSet<F: LurkField>: Clone {
-    fn is_finalized(&self) -> bool;
-    fn finalize_transcript(&mut self, s: &Store<F>, transcript: Transcript<F>);
-    fn r(&self) -> Option<&F>;
-    fn map_to_element(&self, x: F) -> Option<F>;
-    fn add(&mut self, kv: Ptr);
+pub trait CircuitMemoSet<F: LurkField>: Clone {
     fn synthesize_remove_n<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -687,11 +787,8 @@ pub trait MemoSet<F: LurkField>: Clone {
         kv: &AllocatedPtr<F>,
         count: &AllocatedNum<F>,
     ) -> Result<AllocatedNum<F>, SynthesisError>;
-    fn count(&self, form: &Ptr) -> usize;
 
-    // Circuit
-
-    fn allocated_r<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> AllocatedNum<F>;
+    fn allocated_r(&self) -> AllocatedNum<F>;
 
     // x is H(k,v) = hash part of (cons k v)
     fn synthesize_map_to_element<CS: ConstraintSystem<F>>(
@@ -706,6 +803,22 @@ pub trait MemoSet<F: LurkField>: Clone {
         acc: &AllocatedNum<F>,
         kv: &AllocatedPtr<F>,
     ) -> Result<AllocatedNum<F>, SynthesisError>;
+
+    fn count(&self, form: &Ptr) -> usize;
+}
+
+pub trait MemoSet<F: LurkField>: Clone {
+    type CM: CircuitMemoSet<F>;
+
+    fn into_circuit<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Self::CM;
+    fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self::CM;
+
+    fn is_finalized(&self) -> bool;
+    fn finalize_transcript(&mut self, s: &Store<F>, transcript: Transcript<F>);
+    fn r(&self) -> Option<&F>;
+    fn map_to_element(&self, x: F) -> Option<F>;
+    fn add(&mut self, kv: Ptr);
+    fn count(&self, form: &Ptr) -> usize;
 }
 
 #[derive(Debug, Clone)]
@@ -714,7 +827,14 @@ pub struct LogMemo<F: LurkField> {
     r: OnceCell<F>,
     transcript: OnceCell<Transcript<F>>,
 
+    // Allocated only after transcript has been finalized.
     allocated_r: OnceCell<Option<AllocatedNum<F>>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LogMemoCircuit<F: LurkField> {
+    multiset: MultiSet<Ptr>,
+    r: AllocatedNum<F>,
 }
 
 impl<F: LurkField> Default for LogMemo<F> {
@@ -728,8 +848,37 @@ impl<F: LurkField> Default for LogMemo<F> {
         }
     }
 }
+impl<F: LurkField> LogMemo<F> {
+    fn allocated_r<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> AllocatedNum<F> {
+        self.allocated_r
+            .get_or_init(|| {
+                self.r()
+                    .map(|r| AllocatedNum::alloc_infallible(&mut cs.namespace(|| "r"), || *r))
+            })
+            .clone()
+            .unwrap()
+    }
+}
 
 impl<F: LurkField> MemoSet<F> for LogMemo<F> {
+    type CM = LogMemoCircuit<F>;
+
+    fn into_circuit<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Self::CM {
+        let r = self.allocated_r(cs);
+        LogMemoCircuit {
+            multiset: self.multiset,
+            r,
+        }
+    }
+
+    fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self::CM {
+        let r = self.allocated_r(cs);
+        LogMemoCircuit {
+            multiset: self.multiset.clone(),
+            r,
+        }
+    }
+
     fn count(&self, form: &Ptr) -> usize {
         self.multiset.get(form).unwrap_or(0)
     }
@@ -751,16 +900,6 @@ impl<F: LurkField> MemoSet<F> for LogMemo<F> {
         self.r.get()
     }
 
-    fn allocated_r<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> AllocatedNum<F> {
-        self.allocated_r
-            .get_or_init(|| {
-                self.r()
-                    .map(|r| AllocatedNum::alloc_infallible(&mut cs.namespace(|| "r"), || *r))
-            })
-            .clone()
-            .unwrap()
-    }
-
     // x is H(k,v) = hash part of (cons k v)
     fn map_to_element(&self, x: F) -> Option<F> {
         self.r().and_then(|r| {
@@ -769,21 +908,14 @@ impl<F: LurkField> MemoSet<F> for LogMemo<F> {
         })
     }
 
-    // x is H(k,v) = hash part of (cons k v)
-    // 1 / r + x
-    fn synthesize_map_to_element<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        x: AllocatedNum<F>,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
-        let r = self.allocated_r(cs);
-        let r_plus_x = r.add(&mut cs.namespace(|| "r+x"), &x)?;
-
-        invert(&mut cs.namespace(|| "invert(r+x)"), &r_plus_x)
-    }
-
     fn add(&mut self, kv: Ptr) {
         self.multiset.add(kv);
+    }
+}
+
+impl<F: LurkField> CircuitMemoSet<F> for LogMemoCircuit<F> {
+    fn allocated_r(&self) -> AllocatedNum<F> {
+        self.r.clone()
     }
 
     fn synthesize_add<CS: ConstraintSystem<F>>(
@@ -809,6 +941,23 @@ impl<F: LurkField> MemoSet<F> for LogMemo<F> {
         let scaled = element.mul(&mut cs.namespace(|| "scaled"), count)?;
         sub(&mut cs.namespace(|| "add to acc"), acc, &scaled)
     }
+
+    // x is H(k,v) = hash part of (cons k v)
+    // 1 / r + x
+    fn synthesize_map_to_element<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        x: AllocatedNum<F>,
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
+        let r = self.r.clone();
+        let r_plus_x = r.add(&mut cs.namespace(|| "r+x"), &x)?;
+
+        invert(&mut cs.namespace(|| "invert(r+x)"), &r_plus_x)
+    }
+
+    fn count(&self, form: &Ptr) -> usize {
+        self.multiset.get(form).unwrap_or(0)
+    }
 }
 
 #[cfg(test)]
@@ -826,10 +975,10 @@ mod test {
     fn test_query_with_internal_insertion_transcript() {
         test_query_aux(
             true,
-            expect!["10826"],
-            expect!["10859"],
-            expect!["11408"],
-            expect!["11445"],
+            expect!["10831"],
+            expect!["10864"],
+            expect!["11413"],
+            expect!["11450"],
         )
     }
 
@@ -837,10 +986,10 @@ mod test {
     fn test_query_without_internal_insertion_transcript() {
         test_query_aux(
             false,
-            expect!["9381"],
-            expect!["9414"],
-            expect!["9963"],
-            expect!["10000"],
+            expect!["9386"],
+            expect!["9419"],
+            expect!["9968"],
+            expect!["10005"],
         )
     }
 
