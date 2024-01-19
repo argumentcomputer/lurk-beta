@@ -9,58 +9,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  cpu-benchmark:
-    name: run fibonacci benchmark
-    runs-on: buildjet-32vcpu-ubuntu-2204
-    if:
-      github.event.issue.pull_request
-      && github.event.issue.state == 'open'
-      && contains(github.event.comment.body, '!benchmark')
-      && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: lurk-lab/ci-workflows
-      - uses: ./.github/actions/ci-env
-      # Get base branch of the PR
-      - uses: xt0rted/pull-request-comment-branch@v2
-        id: comment-branch
-      - uses: actions/checkout@v4
-      - name: Checkout PR branch
-        run: gh pr checkout $PR_NUMBER
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-      # Install dependencies
-      - name: Install dependencies
-        run: sudo apt-get install -y pkg-config libssl-dev
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Set output type
-        run: |
-          echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
-      - uses: cardinalby/export-env-action@v2
-        with:
-          envFile:
-            'benches/bench.env'
-      # Run the comparative benchmark and comment output on the PR
-      - uses: boa-dev/criterion-compare-action@v3
-        with:
-          # Optional. Compare only this benchmark target
-          benchName: "fibonacci"
-          # Needed. The name of the branch to compare with
-          branchName: ${{ steps.comment-branch.outputs.base_ref }}
-
-  gpu-benchmark:
-    name: run fibonacci benchmark on GPU
-    runs-on: [self-hosted, gpu-bench]
+  setup:
+    name: Set up benchmark parameters
+    runs-on: ubuntu-latest
     if:
       github.event.issue.pull_request
       && github.event.issue.state == 'open'
       && contains(github.event.comment.body, '!gpu-benchmark')
       && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
+    outputs:
+      benches: ${{ steps.bench-params.outputs.benches }}
+      features: ${{ steps.bench-params.outputs.features }}
+      env-vars: ${{ steps.bench-params.outputs.env-vars }}
+
     steps:
-      # Set up GPU env
+      - name: Load env vars
+        id: bench-params
+        run: |
+          printf "${{ github.event.comment.body }}" > comment.txt
+          BENCHES=$(awk '/Benches:/{f=1;next} /Features:/{f=0} f{gsub(/,/,"\",\"",$0); print "[\""$0"\"]"}' comment.txt)
+          FEATURES=$(awk '/Features:/{f=1;next} /Env vars:/{f=0} f{print $0}' comment.txt)
+          ENV_VARS=$(awk '/Env vars:/{f=1;next} /$EOF:/{f=0} f{print $0}' comment.txt)
+
+          for var in $ENV_VARS
+          do
+            echo $var | tee -a $GITHUB_ENV
+          done
+
+          echo "benches=$BENCHES" | tee -a $GITHUB_OUTPUT
+          echo "features=$FEATURES" | tee -a $GITHUB_OUTPUT
+
+  gpu-benchmark:
+    needs: [ setup ]
+    runs-on: [self-hosted, gpu-bench]
+    strategy:
+      matrix:
+        value: ${{ fromJSON(needs.setup.outputs.benches) }}
+    steps:
+      - name: Set env vars
+        run: |
+          echo "${{ matrix.value }}"
+          echo "LURK_BENCH_OUTPUT=pr-comment" | tee -a $GITHUB_ENV
+          for var in ${{ needs.setup.outputs.env-vars }}
+          do
+            echo $var | tee -a $GITHUB_ENV
+          done
       - uses: actions/checkout@v4
         with:
           repository: lurk-lab/ci-workflows
@@ -68,7 +61,7 @@ jobs:
         with:
           gpu-framework: 'cuda'
       - uses: ./.github/actions/ci-env
-      # Get base branch of the PR
+        # Get base branch of the PR
       - uses: xt0rted/pull-request-comment-branch@v2
         id: comment-branch
       - uses: actions/checkout@v4
@@ -80,18 +73,14 @@ jobs:
       # Install dependencies
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Set output type
-        run: echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
-      - uses: cardinalby/export-env-action@v2
-        with:
-          envFile: 'benches/bench.env'
       # Run the comparative benchmark and comment output on the PR
       - uses: boa-dev/criterion-compare-action@v3
         with:
           # Note: Removing `benchName` causes `criterion` errors: https://github.com/boa-dev/criterion-compare-action#troubleshooting
           # Optional. Compare only this benchmark target
-          benchName: "fibonacci"
+          benchName: ${{ matrix.value }}
           # Optional. Features activated in the benchmark
-          features: "cuda"
+          features: "cuda,${{ needs.setup.outputs.features }}"
           # Needed. The name of the branch to compare with
           branchName: ${{ steps.comment-branch.outputs.base_ref }}
+
