@@ -1,5 +1,5 @@
 use expect_test::{expect, Expect};
-use pasta_curves::pallas::Scalar as Fr;
+use halo2curves::bn256::Fr;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
@@ -124,7 +124,12 @@ fn do_test<C: Coprocessor<Fr>>(
     let new_cont = output[2];
 
     if let Some(expected_result) = expected_result {
-        assert!(s.ptr_eq(&expected_result, &new_expr));
+        assert!(
+            s.ptr_eq(&expected_result, &new_expr),
+            "assertion failed {} != {}",
+            expected_result.fmt_to_string_simple(s),
+            new_expr.fmt_to_string_simple(s)
+        );
     }
     if let Some(expected_env) = expected_env {
         assert!(s.ptr_eq(&expected_env, &new_env));
@@ -1818,7 +1823,7 @@ fn commitment_value() {
     let expr = "(num (commit 123))";
     let x = s
         .read_with_default_state(
-            "0x2937881eff06c2bcc2c8c1fa0818ae3733c759376f76fc10b7439269e9aaa9bc",
+            "0x0df269cc1a453b80d4694fe3e54f0ff2d68bfa6a6dd6320446af03691112e89d",
         )
         .unwrap();
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, &expect!["4"], &None);
@@ -1829,7 +1834,7 @@ fn commit_nil() {
     let s = &Store::<Fr>::default();
     let x = s
         .read_with_default_state(
-            "0x1f7f3e554ed27c104d79bb69346996d61a735d5bbedc2da7da2935036d9c4fad",
+            "0x2e78db30531cf5ddd836d2b5594d2895a78c71de06abf212c4bcb0de268d4557",
         )
         .unwrap();
 
@@ -1963,7 +1968,7 @@ fn char_num() {
 #[test]
 fn char_coercion() {
     let s = &Store::<Fr>::default();
-    let expr = r#"(char (- 0 4294967200))"#;
+    let expr = r#"(char (+ 4294967296 97))"#;
     let expected_a = s.read_with_default_state(r"#\a").unwrap();
     let terminal = s.cont_terminal();
     test_aux::<Coproc<Fr>>(
@@ -3752,7 +3757,7 @@ fn test_trie_lang() {
                       trie)";
     let res = s
         .read_with_default_state(
-            "0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53",
+            "0x2bfc4f437d5ca652511d67e06201b4fdf95c314c85ea987988746a253071bed6",
         )
         .unwrap();
 
@@ -3769,7 +3774,7 @@ fn test_trie_lang() {
     );
 
     let expr2 =
-        "(.lurk.trie.lookup 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123)";
+        "(.lurk.trie.lookup 0x2bfc4f437d5ca652511d67e06201b4fdf95c314c85ea987988746a253071bed6 123)";
     let res2 = s.comm(Fr::zero());
 
     test_aux_with_state(
@@ -3785,10 +3790,10 @@ fn test_trie_lang() {
     );
 
     let expr3 =
-        "(.lurk.trie.insert 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123 456)";
+        "(.lurk.trie.insert 0x2bfc4f437d5ca652511d67e06201b4fdf95c314c85ea987988746a253071bed6 123 456)";
     let res3 = s
         .read_with_default_state(
-            "0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27",
+            "0x21ad1dd339f26bb824ab861dbcf110c1bcb3b7658eea4b5e84780a3b4958bf95",
         )
         .unwrap();
 
@@ -3805,7 +3810,7 @@ fn test_trie_lang() {
     );
 
     let expr4 =
-        "(.lurk.trie.lookup 0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27 123)";
+        "(.lurk.trie.lookup 0x21ad1dd339f26bb824ab861dbcf110c1bcb3b7658eea4b5e84780a3b4958bf95 123)";
     let res4 = s.comm(Fr::from(456));
 
     test_aux_with_state(
