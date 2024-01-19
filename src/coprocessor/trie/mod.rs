@@ -617,10 +617,14 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         cs: &mut CS,
         key: &AllocatedNum<F>,
     ) -> Result<Vec<Vec<Boolean>>, SynthesisError> {
+        let (arity_bits, bits_needed) = Self::path_bit_dimensions();
+
         let mut bits = key.to_bits_le_strict(&mut cs.namespace(|| "bits"))?;
+        for _ in 0..bits_needed - bits.len() {
+            bits.push(Boolean::Constant(false));
+        }
         bits.reverse();
 
-        let (arity_bits, bits_needed) = Self::path_bit_dimensions();
         // each chunk is reversed due to little-endian encoding
         let path = bits[bits.len() - bits_needed..]
             .chunks(arity_bits)

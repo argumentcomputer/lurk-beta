@@ -1,5 +1,5 @@
 use expect_test::expect;
-use pasta_curves::pallas::Scalar as Fr;
+use halo2curves::bn256::Fr;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
@@ -2473,12 +2473,12 @@ fn test_prove_char_num() {
 #[test]
 fn test_prove_char_coercion() {
     let s = &Store::<Fr>::default();
-    let expr = r#"(char (- 0 4294967200))"#;
-    let expr2 = r#"(char (- 0 4294967199))"#;
+    let expr = r#"(char (+ 4294967296 97))"#;
+    let expr2 = r#"(char (+ 4294967296 98))"#;
     let expected_a = s.read_with_default_state(r"#\a").unwrap();
     let expected_b = s.read_with_default_state(r"#\b").unwrap();
     let terminal = s.cont_terminal();
-    test_aux::<_, Coproc<_>>(
+    test_aux::<_, Coproc<Fr>>(
         s,
         expr,
         Some(expected_a),
@@ -4188,7 +4188,7 @@ fn test_trie_lang() {
     let expr = s.read(state.clone(), expr).unwrap();
     let res = s
         .read_with_default_state(
-            "0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53",
+            "0x2bfc4f437d5ca652511d67e06201b4fdf95c314c85ea987988746a253071bed6",
         )
         .unwrap();
     nova_test_full_aux2::<_, TrieCoproc<_>>(
@@ -4206,7 +4206,7 @@ fn test_trie_lang() {
     );
 
     let expr2 =
-        "(.lurk.trie.lookup 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123)";
+        "(.lurk.trie.lookup 0x2bfc4f437d5ca652511d67e06201b4fdf95c314c85ea987988746a253071bed6 123)";
     let expr2 = s.read(state.clone(), expr2).unwrap();
     let res2 = s.comm(Fr::zero());
     nova_test_full_aux2::<_, TrieCoproc<_>>(
@@ -4224,11 +4224,11 @@ fn test_trie_lang() {
     );
 
     let expr3 =
-        "(.lurk.trie.insert 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123 456)";
+        "(.lurk.trie.insert 0x2bfc4f437d5ca652511d67e06201b4fdf95c314c85ea987988746a253071bed6 123 456)";
     let expr3 = s.read(state.clone(), expr3).unwrap();
     let res3 = s
         .read_with_default_state(
-            "0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27",
+            "0x21ad1dd339f26bb824ab861dbcf110c1bcb3b7658eea4b5e84780a3b4958bf95",
         )
         .unwrap();
     nova_test_full_aux2::<_, TrieCoproc<_>>(
@@ -4246,7 +4246,7 @@ fn test_trie_lang() {
     );
 
     let expr4 =
-        "(.lurk.trie.lookup 0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27 123)";
+        "(.lurk.trie.lookup 0x21ad1dd339f26bb824ab861dbcf110c1bcb3b7658eea4b5e84780a3b4958bf95 123)";
     let expr4 = s.read(state.clone(), expr4).unwrap();
     let res4 = s.comm(Fr::from(456));
     nova_test_full_aux2::<_, TrieCoproc<_>>(
