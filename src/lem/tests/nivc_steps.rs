@@ -1,4 +1,4 @@
-use pasta_curves::pallas::Scalar as Fr;
+use halo2curves::bn256::Fr;
 
 use crate::{
     coprocessor::test::DumbCoprocessor,
