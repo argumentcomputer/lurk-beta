@@ -27,10 +27,7 @@ use crate::{
     proof::nova::E2,
 };
 
-use self::{
-    nova::{CurveCycleEquipped, C1LEM},
-    supernova::FoldingConfig,
-};
+use self::{nova::CurveCycleEquipped, supernova::FoldingConfig};
 
 /// The State of a CEK machine.
 pub trait CEKState<Ptr> {
@@ -153,12 +150,12 @@ impl FoldingMode {
 }
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
+pub trait Prover<'a, F: CurveCycleEquipped, M: FrameLike<Ptr, FrameIO = Vec<Ptr>>> {
     /// Associated type for public parameters
     type PublicParams;
 
     /// Assiciated proof type, which must implement `RecursiveSNARKTrait`
-    type RecursiveSnark: RecursiveSNARKTrait<F, C1LEM<'a, F, C>, PublicParams = Self::PublicParams>;
+    type RecursiveSnark: RecursiveSNARKTrait<F, M, PublicParams = Self::PublicParams>;
 
     /// Returns a reference to the prover's FoldingMode
     fn folding_mode(&self) -> &FoldingMode;
@@ -170,7 +167,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     fn prove(
         &self,
         pp: &Self::PublicParams,
-        steps: Vec<C1LEM<'a, F, C>>,
+        steps: Vec<M>,
         store: &'a Store<F>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
