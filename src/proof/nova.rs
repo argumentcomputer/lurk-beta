@@ -238,8 +238,6 @@ where
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
         store: &'a Store<F>,
-        reduction_count: usize,
-        lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {
         assert!(!steps.is_empty());
         assert_eq!(steps[0].arity(), z0.len());
@@ -247,11 +245,7 @@ where
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
 
-        assert_eq!(steps[0].frames().unwrap().len(), reduction_count);
-        let (_circuit_primary, circuit_secondary): (
-            C1LEM<'a, F, C>,
-            TrivialCircuit<<E2<F> as Engine>::Scalar>,
-        ) = circuits(reduction_count, lang);
+        let circuit_secondary = TrivialCircuit::default();
 
         let num_steps = steps.len();
         tracing::debug!("steps.len: {num_steps}");
@@ -283,7 +277,6 @@ where
 
                 for circuit_primary in cc.iter() {
                     let circuit_primary = circuit_primary.lock().unwrap();
-                    assert_eq!(reduction_count, circuit_primary.frames().unwrap().len());
 
                     let mut r_snark = recursive_snark.unwrap_or_else(|| {
                         RecursiveSNARK::new(
@@ -305,7 +298,6 @@ where
             .unwrap()
         } else {
             for circuit_primary in steps.iter() {
-                assert_eq!(reduction_count, circuit_primary.frames().unwrap().len());
                 if debug {
                     // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                     use bellpepper_core::test_cs::TestConstraintSystem;

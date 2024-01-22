@@ -104,8 +104,6 @@ where
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
         store: &'a Store<F>,
-        reduction_count: usize,
-        lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError>;
 
     /// Compress a proof
@@ -190,14 +188,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
         let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
         let num_steps = steps.len();
 
-        let prove_output = Self::RecursiveSnark::prove_recursively(
-            pp,
-            &z0,
-            steps,
-            store,
-            self.reduction_count(),
-            lang,
-        )?;
+        let prove_output = Self::RecursiveSnark::prove_recursively(pp, &z0, steps, store)?;
 
         Ok((prove_output, z0, zi, num_steps))
     }

@@ -181,8 +181,6 @@ where
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
         store: &'a Store<F>,
-        _reduction_count: usize,
-        _lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {
         let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>, E2<F>>> = None;
 
