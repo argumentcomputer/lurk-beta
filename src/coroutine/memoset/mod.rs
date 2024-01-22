@@ -192,10 +192,19 @@ pub struct Scope<Q, M> {
     internal_insertions: Vec<Ptr>,
     /// unique keys: query-index -> [key]
     unique_inserted_keys: HashMap<usize, Vec<Ptr>>,
+    transcribe_internal_insertions: bool,
 }
+
+const DEFAULT_TRANSCRIBE_INTERNAL_INSERTIONS: bool = false;
 
 impl<F: LurkField, Q> Default for Scope<Q, LogMemo<F>> {
     fn default() -> Self {
+        Self::new(DEFAULT_TRANSCRIBE_INTERNAL_INSERTIONS)
+    }
+}
+
+impl<F: LurkField, Q> Scope<Q, LogMemo<F>> {
+    fn new(transcribe_internal_insertions: bool) -> Self {
         Self {
             memoset: Default::default(),
             queries: Default::default(),
@@ -203,6 +212,7 @@ impl<F: LurkField, Q> Default for Scope<Q, LogMemo<F>> {
             toplevel_insertions: Default::default(),
             internal_insertions: Default::default(),
             unique_inserted_keys: Default::default(),
+            transcribe_internal_insertions,
         }
     }
 }
@@ -214,6 +224,7 @@ pub struct CircuitScope<F: LurkField, M> {
     /// k -> allocated v
     transcript: CircuitTranscript<F>,
     acc: Option<AllocatedPtr<F>>,
+    transcribe_internal_insertions: bool,
 }
 
 impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
@@ -286,7 +297,6 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
                     .entry(index)
                     .and_modify(|keys| keys.push(key))
                     .or_insert_with(|| vec![key]);
-                //unique_keys.push(key);
                 let mut x = IndexSet::new();
                 x.insert(kv);
 
@@ -327,7 +337,9 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
                             // that these keys might already have been inserted before, but we need to repeat if so
                             // because the proof must do so each time a query is used.
                             let kv = Transcript::make_kv(s, k, *v);
-                            transcript.add(s, kv)
+                            if self.transcribe_internal_insertions {
+                                transcript.add(s, kv)
+                            }
                         })
                     };
                     let count = self.memoset.count(kv);
@@ -379,6 +391,7 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
             queries,
             transcript: CircuitTranscript::new(cs, g, s),
             acc: Default::default(),
+            transcribe_internal_insertions: scope.transcribe_internal_insertions,
         }
     }
 
@@ -405,9 +418,14 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         transcript: &CircuitTranscript<F>,
         key: &AllocatedPtr<F>,
         value: &AllocatedPtr<F>,
+        is_toplevel: bool,
     ) -> Result<(AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
         let kv = CircuitTranscript::make_kv(&mut cs.namespace(|| "kv"), g, s, key, value)?;
-        let new_transcript = transcript.add(&mut cs.namespace(|| "new_transcript"), g, s, &kv)?;
+        let new_transcript = if is_toplevel || self.transcribe_internal_insertions {
+            transcript.add(&mut cs.namespace(|| "new_transcript"), g, s, &kv)?
+        } else {
+            transcript.clone()
+        };
 
         let acc_v = acc.hash();
 
@@ -481,7 +499,34 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         key: &AllocatedPtr<F>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
+        not_dummy: &Boolean,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
+        self.synthesize_query_aux(cs, g, store, key, acc, transcript, not_dummy, true)
+    }
+
+    fn synthesize_internal_query<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        store: &Store<F>,
+        key: &AllocatedPtr<F>,
+        acc: &AllocatedPtr<F>,
+        transcript: &CircuitTranscript<F>,
+        not_dummy: &Boolean,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
+        self.synthesize_query_aux(cs, g, store, key, acc, transcript, not_dummy, false)
+    }
+
+    fn synthesize_query_aux<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        store: &Store<F>,
+        key: &AllocatedPtr<F>,
+        acc: &AllocatedPtr<F>,
+        transcript: &CircuitTranscript<F>,
         not_dummy: &Boolean, // TODO: use this more deeply?
+        is_toplevel: bool,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "value"), || {
             Ok(if not_dummy.get_value() == Some(true) {
@@ -495,7 +540,7 @@ impl<F: LurkField> CircuitScope<F, LogMemo<F>> {
         })?;
 
         let (new_acc, new_insertion_transcript) =
-            self.synthesize_insert_query(cs, g, store, acc, transcript, key, &value)?;
+            self.synthesize_insert_query(cs, g, store, acc, transcript, key, &value, is_toplevel)?;
 
         Ok((value, new_acc, new_insertion_transcript))
     }
@@ -778,9 +823,36 @@ mod test {
     use std::default::Default;
 
     #[test]
-    fn test_query() {
+    fn test_query_with_internal_insertion_transcript() {
+        test_query_aux(
+            true,
+            expect!["10826"],
+            expect!["10859"],
+            expect!["11408"],
+            expect!["11445"],
+        )
+    }
+
+    #[test]
+    fn test_query_without_internal_insertion_transcript() {
+        test_query_aux(
+            false,
+            expect!["9381"],
+            expect!["9414"],
+            expect!["9963"],
+            expect!["10000"],
+        )
+    }
+
+    fn test_query_aux(
+        transcribe_internal_insertions: bool,
+        expected_constraints_simple: Expect,
+        expected_aux_simple: Expect,
+        expected_constraints_compound: Expect,
+        expected_aux_compound: Expect,
+    ) {
         let s = &Store::<F>::default();
-        let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::default();
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::new(transcribe_internal_insertions);
         let state = State::init_lurk_state();
 
         let fact_4 = s.read_with_default_state("(factorial 4)").unwrap();
@@ -820,8 +892,8 @@ mod test {
                     .fmt_to_string_simple(s)
             );
 
-            expect_eq(cs.num_constraints(), expect!["10826"]);
-            expect_eq(cs.aux().len(), expect!["10859"]);
+            expect_eq(cs.num_constraints(), expected_constraints_simple);
+            expect_eq(cs.aux().len(), expected_aux_simple);
 
             let unsat = cs.which_is_unsatisfied();
 
@@ -832,7 +904,8 @@ mod test {
         }
 
         {
-            let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::default();
+            let mut scope: Scope<DemoQuery<F>, LogMemo<F>> =
+                Scope::new(transcribe_internal_insertions);
             scope.query(s, fact_4);
             scope.query(s, fact_3);
 
@@ -860,8 +933,8 @@ mod test {
                     .fmt_to_string_simple(s)
             );
 
-            expect_eq(cs.num_constraints(), expect!["11408"]);
-            expect_eq(cs.aux().len(), expect!["11445"]);
+            expect_eq(cs.num_constraints(), expected_constraints_compound);
+            expect_eq(cs.aux().len(), expected_aux_compound);
 
             let unsat = cs.which_is_unsatisfied();
             if unsat.is_some() {

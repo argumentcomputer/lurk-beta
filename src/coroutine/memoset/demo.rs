@@ -157,7 +157,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
                         )?
                     };
 
-                    let (sub_result, new_acc, new_transcript) = scope.synthesize_query(
+                    let (sub_result, new_acc, new_transcript) = scope.synthesize_internal_query(
                         &mut cs.namespace(|| "recursive query"),
                         g,
                         store,
