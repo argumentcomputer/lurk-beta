@@ -140,7 +140,7 @@ where
 
     if check_nova {
         let pp = public_params(reduction_count, lang.clone());
-        let (proof, z0, zi, _num_steps) = nova_prover.prove(&pp, &frames, s).unwrap();
+        let (proof, z0, zi, _num_steps) = nova_prover.prove_from_frames(&pp, &frames, s).unwrap();
 
         let res = proof.verify(&pp, &z0, &zi);
         if res.is_err() {

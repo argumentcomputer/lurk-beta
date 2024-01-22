@@ -28,7 +28,7 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::store::Store,
+    lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, E1, E2},
         Prover, RecursiveSNARKTrait,
@@ -153,7 +153,11 @@ pub struct SuperNovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C> {
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C>
+where
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     /// Create a new SuperNovaProver with a reduction count and a `Lang`
     #[inline]
     pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -163,6 +167,25 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
             folding_mode: FoldingMode::NIVC,
             _phantom: PhantomData,
         }
+    }
+
+    /// Generate a proof from a sequence of frames
+    pub fn prove_from_frames(
+        &self,
+        pp: &PublicParams<F, C1LEM<'a, F, C>>,
+        frames: &[Frame],
+        store: &'a Store<F>,
+    ) -> Result<(Proof<'a, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
+        let folding_config = self
+            .folding_mode()
+            .folding_config(self.lang().clone(), self.reduction_count());
+        let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
+        self.prove(pp, steps, store)
+    }
+
+    #[inline]
+    fn lang(&self) -> &Arc<Lang<F, C>> {
+        &self.lang
     }
 }
 
@@ -318,13 +341,21 @@ where
     }
 
     #[inline]
-    fn lang(&self) -> &Arc<Lang<F, C>> {
-        &self.lang
-    }
-
-    #[inline]
     fn folding_mode(&self) -> &FoldingMode {
         &self.folding_mode
+    }
+
+    fn evaluate_and_prove(
+        &self,
+        pp: &Self::PublicParams,
+        expr: Ptr,
+        env: Ptr,
+        store: &'a Store<F>,
+        limit: usize,
+    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
+        let eval_config = self.folding_mode().eval_config(self.lang());
+        let frames = C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config)?;
+        self.prove_from_frames(pp, &frames, store)
     }
 }
 

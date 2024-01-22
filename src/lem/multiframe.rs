@@ -76,6 +76,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 
     #[inline]
+    pub fn input(&self) -> &Option<Vec<Ptr>> {
+        &self.input
+    }
+
+    #[inline]
     pub fn output(&self) -> &Option<Vec<Ptr>> {
         &self.output
     }

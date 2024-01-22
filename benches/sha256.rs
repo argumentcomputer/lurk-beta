@@ -22,7 +22,7 @@ use lurk::{
         pointers::Ptr,
         store::Store,
     },
-    proof::{nova::NovaProver, supernova::SuperNovaProver, Prover, RecursiveSNARKTrait},
+    proof::{nova::NovaProver, supernova::SuperNovaProver, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         public_params, supernova_public_params,
@@ -138,7 +138,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let result = prover.prove(&pp, frames, store);
+                    let result = prover.prove_from_frames(&pp, frames, store);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -219,7 +219,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let (proof, _, _, _) = prover.prove(&pp, frames, store).unwrap();
+                    let (proof, _, _, _) = prover.prove_from_frames(&pp, frames, store).unwrap();
                     let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);
@@ -303,7 +303,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let result = prover.prove(&pp, frames, store);
+                    let result = prover.prove_from_frames(&pp, frames, store);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

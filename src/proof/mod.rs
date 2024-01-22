@@ -23,7 +23,7 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::{eval::EvalConfig, interpreter::Frame, pointers::Ptr, store::Store},
+    lem::{eval::EvalConfig, pointers::Ptr, store::Store},
     proof::nova::E2,
 };
 
@@ -171,26 +171,19 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     /// Returns the number of reductions for the prover.
     fn reduction_count(&self) -> usize;
 
-    /// Returns a reference to the Prover's Lang.
-    fn lang(&self) -> &Arc<Lang<F, C>>;
-
-    /// Generate a proof from a sequence of frames
+    /// Generates a recursive proof from a vector of `M`
     fn prove(
         &self,
         pp: &Self::PublicParams,
-        frames: &[Frame],
+        steps: Vec<C1LEM<'a, F, C>>,
         store: &'a Store<F>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
-        let z0 = store.to_scalar_vector(frames[0].input());
-        let zi = store.to_scalar_vector(frames.last().unwrap().output());
+        let input = steps[0].input().as_ref().unwrap();
+        let z0 = store.to_scalar_vector(input);
+        let output = steps.last().unwrap().output().as_ref().unwrap();
+        let zi = store.to_scalar_vector(output);
 
-        let lang = self.lang().clone();
-        let folding_config = self
-            .folding_mode()
-            .folding_config(lang.clone(), self.reduction_count());
-
-        let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
         let num_steps = steps.len();
 
         let prove_output = Self::RecursiveSnark::prove_recursively(pp, &z0, steps, store)?;
@@ -206,11 +199,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
         env: Ptr,
         store: &'a Store<F>,
         limit: usize,
-    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
-        let eval_config = self.folding_mode().eval_config(self.lang());
-        let frames = C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config)?;
-        self.prove(pp, &frames, store)
-    }
+    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError>;
 
     /// Returns the expected total number of steps for the prover given raw iterations.
     fn expected_num_steps(&self, raw_iterations: usize) -> usize {

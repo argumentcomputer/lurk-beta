@@ -12,7 +12,7 @@ use lurk::{
         pointers::Ptr,
         store::Store,
     },
-    proof::{supernova::SuperNovaProver, Prover, RecursiveSNARKTrait},
+    proof::{supernova::SuperNovaProver, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         supernova_public_params,
@@ -94,7 +94,11 @@ fn main() {
     println!("Beginning proof step...");
     let proof_start = Instant::now();
     let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
-        .in_scope(|| supernova_prover.prove(&pp, &frames, store).unwrap());
+        .in_scope(|| {
+            supernova_prover
+                .prove_from_frames(&pp, &frames, store)
+                .unwrap()
+        });
     let proof_end = proof_start.elapsed();
 
     println!("Proofs took {:?}", proof_end);
