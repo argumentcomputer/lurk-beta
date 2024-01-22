@@ -299,9 +299,7 @@ where
                     use bellpepper_core::test_cs::TestConstraintSystem;
                     let mut cs = TestConstraintSystem::<<E1<F> as Engine>::Scalar>::new();
 
-                    // This is a CircuitFrame, not an EvalFrame
-                    let first_frame = circuit_primary.frames().unwrap().iter().next().unwrap();
-                    let zi = store.to_scalar_vector(first_frame.input());
+                    let zi = store.to_scalar_vector(circuit_primary.input());
                     let zi_allocated: Vec<_> = zi
                         .iter()
                         .enumerate()
