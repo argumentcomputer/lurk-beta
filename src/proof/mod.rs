@@ -88,7 +88,7 @@ pub trait Provable<F: LurkField> {
 // * `Prover`, which abstracts over Nova and SuperNova provers
 
 /// Trait to abstract Nova and SuperNova proofs
-pub trait RecursiveSNARKTrait<'a, F: CurveCycleEquipped, M>
+pub trait RecursiveSNARKTrait<F: CurveCycleEquipped, M>
 where
     Self: Sized,
 {
@@ -103,7 +103,7 @@ where
         pp: &Self::PublicParams,
         z0: &[F],
         steps: Vec<M>,
-        store: &'a Store<F>,
+        store: &Store<F>,
     ) -> Result<Self, ProofError>;
 
     /// Compress a proof
@@ -158,12 +158,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     type PublicParams;
 
     /// Assiciated proof type, which must implement `RecursiveSNARKTrait`
-    type RecursiveSnark: RecursiveSNARKTrait<
-        'a,
-        F,
-        C1LEM<'a, F, C>,
-        PublicParams = Self::PublicParams,
-    >;
+    type RecursiveSnark: RecursiveSNARKTrait<F, C1LEM<'a, F, C>, PublicParams = Self::PublicParams>;
 
     /// Returns a reference to the prover's FoldingMode
     fn folding_mode(&self) -> &FoldingMode;

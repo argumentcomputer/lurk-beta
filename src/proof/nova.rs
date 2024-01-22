@@ -223,7 +223,7 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     )
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C1LEM<'a, F, C>>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
     for Proof<'a, F, C>
 where
     <F as PrimeField>::Repr: Abomonation,
@@ -238,7 +238,7 @@ where
         pp: &PublicParams<F, C1LEM<'a, F, C>>,
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
-        store: &'a Store<F>,
+        store: &Store<F>,
     ) -> Result<Self, ProofError> {
         assert!(!steps.is_empty());
         assert_eq!(steps[0].arity(), z0.len());

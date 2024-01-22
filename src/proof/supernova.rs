@@ -189,7 +189,7 @@ where
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C1LEM<'a, F, C>>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
     for Proof<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
@@ -204,7 +204,7 @@ where
         pp: &PublicParams<F, C1LEM<'a, F, C>>,
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
-        store: &'a Store<F>,
+        store: &Store<F>,
     ) -> Result<Self, ProofError> {
         let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>, E2<F>>> = None;
 
