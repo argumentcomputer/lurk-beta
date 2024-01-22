@@ -128,7 +128,7 @@ where
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
+pub enum Proof<F: CurveCycleEquipped, C1: SuperStepCircuit<F>>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -136,10 +136,7 @@ where
     /// A proof for the intermediate steps of a recursive computation
     Recursive(Box<RecursiveSNARK<E1<F>, E2<F>>>),
     /// A proof for the final step of a recursive computation
-    Compressed(
-        Box<CompressedSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>,
-        PhantomData<&'a C>,
-    ),
+    Compressed(Box<CompressedSNARK<E1<F>, E2<F>, C1, C2<F>, SS1<F>, SS2<F>>>),
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
@@ -175,7 +172,7 @@ where
         pp: &PublicParams<F, C1LEM<'a, F, C>>,
         frames: &[Frame],
         store: &'a Store<F>,
-    ) -> Result<(Proof<'a, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<F, C1LEM<'a, F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
         let folding_config = self
             .folding_mode()
             .folding_config(self.lang().clone(), self.reduction_count());
@@ -190,7 +187,7 @@ where
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
-    for Proof<'a, F, C>
+    for Proof<F, C1LEM<'a, F, C>>
 where
     <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
@@ -301,14 +298,14 @@ where
 
     fn compress(self, pp: &PublicParams<F, C1LEM<'a, F, C>>) -> Result<Self, ProofError> {
         match &self {
-            Self::Recursive(recursive_snark) => Ok(Self::Compressed(
-                Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
+            Self::Recursive(recursive_snark) => {
+                let snark = CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
                     &pp.pp,
                     &pp.pk,
                     recursive_snark,
-                )?),
-                PhantomData,
-            )),
+                )?;
+                Ok(Self::Compressed(Box::new(snark)))
+            }
             Self::Compressed(..) => Ok(self),
         }
     }
@@ -320,7 +317,7 @@ where
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
             Self::Recursive(p) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
-            Self::Compressed(p, _) => p.verify(&pp.pp, &pp.vk, z0_primary, &z0_secondary)?,
+            Self::Compressed(p) => p.verify(&pp.pp, &pp.vk, z0_primary, &z0_secondary)?,
         };
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == &zi_secondary_verified)
@@ -334,7 +331,7 @@ where
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
-    type RecursiveSnark = Proof<'a, F, C>;
+    type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
 
     #[inline]
     fn reduction_count(&self) -> usize {

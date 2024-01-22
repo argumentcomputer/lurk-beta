@@ -10,7 +10,7 @@ use crate::{
     field::LurkField,
     lem::{pointers::ZPtr, store::Store},
     proof::{
-        nova::{self, CurveCycleEquipped, E1, E2},
+        nova::{self, CurveCycleEquipped, C1LEM, E1, E2},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -131,7 +131,7 @@ pub(crate) enum LurkProof<
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     Nova {
-        proof: nova::Proof<'a, F, C>,
+        proof: nova::Proof<F, C1LEM<'a, F, C>>,
         public_inputs: Vec<F>,
         public_outputs: Vec<F>,
         rc: usize,
