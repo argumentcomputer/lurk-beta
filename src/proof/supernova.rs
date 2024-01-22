@@ -166,7 +166,8 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C> for Proof<'a, F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C1LEM<'a, F, C>>
+    for Proof<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,

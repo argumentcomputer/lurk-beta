@@ -223,7 +223,8 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     )
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C> for Proof<'a, F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C1LEM<'a, F, C>>
+    for Proof<'a, F, C>
 where
     <F as PrimeField>::Repr: Abomonation,
     <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
