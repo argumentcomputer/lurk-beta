@@ -174,10 +174,8 @@ pub trait Prover<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
         store: &'a Store<F>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
-        let input = steps[0].input().as_ref().unwrap();
-        let z0 = store.to_scalar_vector(input);
-        let output = steps.last().unwrap().output().as_ref().unwrap();
-        let zi = store.to_scalar_vector(output);
+        let z0 = store.to_scalar_vector(steps[0].input());
+        let zi = store.to_scalar_vector(steps.last().unwrap().output());
 
         let num_steps = steps.len();
 
