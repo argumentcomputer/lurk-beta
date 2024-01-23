@@ -28,7 +28,7 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::store::Store,
+    lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, E1, E2},
         Prover, RecursiveSNARKTrait,
@@ -128,7 +128,7 @@ where
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
+pub enum Proof<F: CurveCycleEquipped, C1: SuperStepCircuit<F>>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -136,10 +136,7 @@ where
     /// A proof for the intermediate steps of a recursive computation
     Recursive(Box<RecursiveSNARK<E1<F>, E2<F>>>),
     /// A proof for the final step of a recursive computation
-    Compressed(
-        Box<CompressedSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>,
-        PhantomData<&'a C>,
-    ),
+    Compressed(Box<CompressedSNARK<E1<F>, E2<F>, C1, C2<F>, SS1<F>, SS2<F>>>),
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
@@ -153,7 +150,11 @@ pub struct SuperNovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C> {
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C>
+where
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     /// Create a new SuperNovaProver with a reduction count and a `Lang`
     #[inline]
     pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -164,9 +165,29 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
             _phantom: PhantomData,
         }
     }
+
+    /// Generate a proof from a sequence of frames
+    pub fn prove_from_frames(
+        &self,
+        pp: &PublicParams<F, C1LEM<'a, F, C>>,
+        frames: &[Frame],
+        store: &'a Store<F>,
+    ) -> Result<(Proof<F, C1LEM<'a, F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
+        let folding_config = self
+            .folding_mode()
+            .folding_config(self.lang().clone(), self.reduction_count());
+        let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
+        self.prove(pp, steps, store)
+    }
+
+    #[inline]
+    fn lang(&self) -> &Arc<Lang<F, C>> {
+        &self.lang
+    }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C> for Proof<'a, F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
+    for Proof<F, C1LEM<'a, F, C>>
 where
     <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
@@ -180,9 +201,7 @@ where
         pp: &PublicParams<F, C1LEM<'a, F, C>>,
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
-        store: &'a Store<F>,
-        _reduction_count: usize,
-        _lang: Arc<Lang<F, C>>,
+        store: &Store<F>,
     ) -> Result<Self, ProofError> {
         let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>, E2<F>>> = None;
 
@@ -279,14 +298,14 @@ where
 
     fn compress(self, pp: &PublicParams<F, C1LEM<'a, F, C>>) -> Result<Self, ProofError> {
         match &self {
-            Self::Recursive(recursive_snark) => Ok(Self::Compressed(
-                Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
+            Self::Recursive(recursive_snark) => {
+                let snark = CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
                     &pp.pp,
                     &pp.pk,
                     recursive_snark,
-                )?),
-                PhantomData,
-            )),
+                )?;
+                Ok(Self::Compressed(Box::new(snark)))
+            }
             Self::Compressed(..) => Ok(self),
         }
     }
@@ -298,20 +317,21 @@ where
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
             Self::Recursive(p) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
-            Self::Compressed(p, _) => p.verify(&pp.pp, &pp.vk, z0_primary, &z0_secondary)?,
+            Self::Compressed(p) => p.verify(&pp.pp, &pp.vk, z0_primary, &z0_secondary)?,
         };
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == &zi_secondary_verified)
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F, C> for SuperNovaProver<'a, F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F, C1LEM<'a, F, C>>
+    for SuperNovaProver<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
-    type RecursiveSnark = Proof<'a, F, C>;
+    type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
 
     #[inline]
     fn reduction_count(&self) -> usize {
@@ -319,13 +339,21 @@ where
     }
 
     #[inline]
-    fn lang(&self) -> &Arc<Lang<F, C>> {
-        &self.lang
-    }
-
-    #[inline]
     fn folding_mode(&self) -> &FoldingMode {
         &self.folding_mode
+    }
+
+    fn evaluate_and_prove(
+        &self,
+        pp: &Self::PublicParams,
+        expr: Ptr,
+        env: Ptr,
+        store: &'a Store<F>,
+        limit: usize,
+    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
+        let eval_config = self.folding_mode().eval_config(self.lang());
+        let frames = C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config)?;
+        self.prove_from_frames(pp, &frames, store)
     }
 }
 

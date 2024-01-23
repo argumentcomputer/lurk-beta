@@ -26,7 +26,7 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::store::Store,
+    lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{supernova::FoldingConfig, FrameLike, Prover},
 };
 
@@ -151,24 +151,19 @@ where
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
+pub enum Proof<F: CurveCycleEquipped, C1: StepCircuit<F>>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// A proof for the intermediate steps of a recursive computation along with
     /// the number of steps used for verification
-    Recursive(
-        Box<RecursiveSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>>,
-        usize,
-        PhantomData<&'a C>,
-    ),
+    Recursive(Box<RecursiveSNARK<E1<F>, E2<F>, C1, C2<F>>>, usize),
     /// A proof for the final step of a recursive computation along with the number
     /// of steps used for verification
     Compressed(
-        Box<CompressedSNARK<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>,
+        Box<CompressedSNARK<E1<F>, E2<F>, C1, C2<F>, SS1<F>, SS2<F>>>,
         usize,
-        PhantomData<&'a C>,
     ),
 }
 
@@ -223,7 +218,8 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     )
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<'a, F, C> for Proof<'a, F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
+    for Proof<F, C1LEM<'a, F, C>>
 where
     <F as PrimeField>::Repr: Abomonation,
     <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
@@ -237,9 +233,7 @@ where
         pp: &PublicParams<F, C1LEM<'a, F, C>>,
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
-        store: &'a Store<F>,
-        reduction_count: usize,
-        lang: Arc<Lang<F, C>>,
+        store: &Store<F>,
     ) -> Result<Self, ProofError> {
         assert!(!steps.is_empty());
         assert_eq!(steps[0].arity(), z0.len());
@@ -247,11 +241,7 @@ where
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
 
-        assert_eq!(steps[0].frames().unwrap().len(), reduction_count);
-        let (_circuit_primary, circuit_secondary): (
-            C1LEM<'a, F, C>,
-            TrivialCircuit<<E2<F> as Engine>::Scalar>,
-        ) = circuits(reduction_count, lang);
+        let circuit_secondary = TrivialCircuit::default();
 
         let num_steps = steps.len();
         tracing::debug!("steps.len: {num_steps}");
@@ -283,7 +273,6 @@ where
 
                 for circuit_primary in cc.iter() {
                     let circuit_primary = circuit_primary.lock().unwrap();
-                    assert_eq!(reduction_count, circuit_primary.frames().unwrap().len());
 
                     let mut r_snark = recursive_snark.unwrap_or_else(|| {
                         RecursiveSNARK::new(
@@ -305,15 +294,12 @@ where
             .unwrap()
         } else {
             for circuit_primary in steps.iter() {
-                assert_eq!(reduction_count, circuit_primary.frames().unwrap().len());
                 if debug {
                     // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                     use bellpepper_core::test_cs::TestConstraintSystem;
                     let mut cs = TestConstraintSystem::<<E1<F> as Engine>::Scalar>::new();
 
-                    // This is a CircuitFrame, not an EvalFrame
-                    let first_frame = circuit_primary.frames().unwrap().iter().next().unwrap();
-                    let zi = store.to_scalar_vector(first_frame.input());
+                    let zi = store.to_scalar_vector(circuit_primary.input());
                     let zi_allocated: Vec<_> = zi
                         .iter()
                         .enumerate()
@@ -348,20 +334,18 @@ where
         Ok(Self::Recursive(
             Box::new(recursive_snark.unwrap()),
             num_steps,
-            PhantomData,
         ))
     }
 
     fn compress(self, pp: &PublicParams<F, C1LEM<'a, F, C>>) -> Result<Self, ProofError> {
         match self {
-            Self::Recursive(recursive_snark, num_steps, _) => Ok(Self::Compressed(
+            Self::Recursive(recursive_snark, num_steps) => Ok(Self::Compressed(
                 Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
                     &pp.pp,
                     &pp.pk,
                     &recursive_snark,
                 )?),
                 num_steps,
-                PhantomData,
             )),
             Self::Compressed(..) => Ok(self),
         }
@@ -373,10 +357,10 @@ where
         let zi_secondary = &z0_secondary;
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p, num_steps, _) => {
+            Self::Recursive(p, num_steps) => {
                 p.verify(&pp.pp, *num_steps, z0_primary, &z0_secondary)?
             }
-            Self::Compressed(p, num_steps, _) => {
+            Self::Compressed(p, num_steps) => {
                 p.verify(&pp.vk, *num_steps, z0_primary, &z0_secondary)?
             }
         };
@@ -395,7 +379,11 @@ pub struct NovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
     _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<'a, F, C> {
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C>
+where
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     /// Create a new NovaProver with a reduction count and a `Lang`
     #[inline]
     pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -406,15 +394,35 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<'a, F, C> {
             _phantom: PhantomData,
         }
     }
+
+    /// Generate a proof from a sequence of frames
+    pub fn prove_from_frames(
+        &self,
+        pp: &PublicParams<F, C1LEM<'a, F, C>>,
+        frames: &[Frame],
+        store: &'a Store<F>,
+    ) -> Result<(Proof<F, C1LEM<'a, F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
+        let folding_config = self
+            .folding_mode()
+            .folding_config(self.lang().clone(), self.reduction_count());
+        let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
+        self.prove(pp, steps, store)
+    }
+
+    #[inline]
+    fn lang(&self) -> &Arc<Lang<F, C>> {
+        &self.lang
+    }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C> for NovaProver<'a, F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C1LEM<'a, F, C>>
+    for NovaProver<'a, F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
-    type RecursiveSnark = Proof<'a, F, C>;
+    type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
 
     #[inline]
     fn reduction_count(&self) -> usize {
@@ -422,12 +430,20 @@ where
     }
 
     #[inline]
-    fn lang(&self) -> &Arc<Lang<F, C>> {
-        &self.lang
-    }
-
-    #[inline]
     fn folding_mode(&self) -> &FoldingMode {
         &self.folding_mode
+    }
+
+    fn evaluate_and_prove(
+        &self,
+        pp: &Self::PublicParams,
+        expr: Ptr,
+        env: Ptr,
+        store: &'a Store<F>,
+        limit: usize,
+    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
+        let eval_config = self.folding_mode().eval_config(self.lang());
+        let frames = C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config)?;
+        self.prove_from_frames(pp, &frames, store)
     }
 }

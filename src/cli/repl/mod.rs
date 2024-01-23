@@ -41,7 +41,7 @@ use crate::{
     parser,
     proof::{
         nova::{CurveCycleEquipped, NovaProver},
-        Prover, RecursiveSNARKTrait,
+        RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
@@ -342,7 +342,7 @@ where
 
                     info!("Proving");
                     let (proof, public_inputs, public_outputs, num_steps) =
-                        prover.prove(&pp, frames, &self.store)?;
+                        prover.prove_from_frames(&pp, frames, &self.store)?;
                     info!("Compressing proof");
                     let proof = proof.compress(&pp)?;
                     assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));

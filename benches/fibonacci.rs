@@ -10,7 +10,6 @@ use lurk::{
     eval::lang::{Coproc, Lang},
     lem::{eval::evaluate, store::Store},
     proof::nova::NovaProver,
-    proof::Prover,
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
@@ -116,7 +115,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let result = prover.prove(&pp, frames, &store);
+                    let result = prover.prove_from_frames(&pp, frames, &store);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

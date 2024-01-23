@@ -75,11 +75,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         self.frames.as_ref()
     }
 
-    #[inline]
-    pub fn output(&self) -> &Option<Vec<Ptr>> {
-        &self.output
-    }
-
     pub fn emitted(_store: &Store<F>, eval_frame: &Frame) -> Vec<Ptr> {
         eval_frame.emitted.clone()
     }
@@ -382,6 +377,19 @@ impl CEKState<Ptr> for Vec<Ptr> {
     }
     fn cont(&self) -> &Ptr {
         &self[2]
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike<Ptr> for MultiFrame<'a, F, C> {
+    type FrameIO = Vec<Ptr>;
+    #[inline]
+    fn input(&self) -> &Vec<Ptr> {
+        self.input.as_ref().unwrap()
+    }
+
+    #[inline]
+    fn output(&self) -> &Vec<Ptr> {
+        self.output.as_ref().unwrap()
     }
 }
 

@@ -14,7 +14,7 @@ use crate::{
     proof::{
         nova::{public_params, CurveCycleEquipped, NovaProver, C1LEM, E1, E2},
         supernova::FoldingConfig,
-        CEKState, EvaluationStore, Provable, Prover, RecursiveSNARKTrait,
+        CEKState, EvaluationStore, FrameLike, Provable, Prover, RecursiveSNARKTrait,
     },
 };
 
@@ -140,7 +140,7 @@ where
 
     if check_nova {
         let pp = public_params(reduction_count, lang.clone());
-        let (proof, z0, zi, _num_steps) = nova_prover.prove(&pp, &frames, s).unwrap();
+        let (proof, z0, zi, _num_steps) = nova_prover.prove_from_frames(&pp, &frames, s).unwrap();
 
         let res = proof.verify(&pp, &z0, &zi);
         if res.is_err() {
@@ -207,7 +207,7 @@ where
 
         assert!(delta == Delta::Equal);
     }
-    let output = previous_frame.unwrap().output().as_ref().unwrap();
+    let output = previous_frame.unwrap().output();
 
     if let Some(expected_emitted) = expected_emitted {
         let mut emitted_vec = Vec::default();
