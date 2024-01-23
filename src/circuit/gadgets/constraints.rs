@@ -978,11 +978,11 @@ mod tests {
 
             // All values are false, popcount must be zero
             test_sum(None, 0, true);
-            // Insert true into a random position, now popocount must be one
+            // Insert true into a random position, now popcount must be one
             test_sum(Some(i), 1, true);
-            // Insert true into a distinct random position, now popocount must be two
+            // Insert true into a distinct random position, now popcount must be two
             test_sum(Some(j), 2, true);
-            // Insert true again into a distinct random position, now popocount must be three
+            // Insert true again into a distinct random position, now popcount must be three
             test_sum(Some(k), 3, true);
 
             // negative test, sum can't be a random number between 4 and MAX

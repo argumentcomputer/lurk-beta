@@ -81,9 +81,9 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, reference: &str)
     let circom_gadget = circom_dir().join(reference);
 
     // We expect a format <AUTHOR>/<NAME> for the name.
-    // TODO: should we switch to check regex: ^[a-zA-Z0-9]+([_-]?[a-zA-Z0-9]+)*\/[a-zA-Z0-9]+([_-]?[a-zA-Z0-9]+)*$ ?
     let reference_split: Vec<&str> = reference.split('/').collect();
-    if reference_split.len() != 2 {
+    if reference_split.len() != 2 || reference_split[0].is_empty() || reference_split[1].is_empty()
+    {
         bail!("Expected a reference of format \"<AUTHOR>/<NAME>\", got \"{reference}\"");
     }
 
@@ -123,11 +123,11 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, reference: &str)
         .expect("circom failed");
 
     if !output.status.success() {
-        println!(
+        eprintln!(
             "{} Please check that your input files are correct,",
             Red.bold().paint("Circom failed.")
         );
-        println!("  and refer to the circom stderr output for further information:\n");
+        eprintln!("  and refer to the circom stderr output for further information:\n");
         bail!("{}", String::from_utf8_lossy(&output.stderr));
     }
 

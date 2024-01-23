@@ -67,7 +67,8 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
         Some("v0.1.0")
     }
 
-    fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
+    fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
+        dbg!(input);
         // TODO: actually use the lurk inputs
         let input_bytes = [
             116, 101, 115, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -109,13 +110,13 @@ enum KeccakCoproc<F: LurkField> {
 
 fn main() {
     let store = &Store::<Fr>::default();
-    let sym_str = Symbol::new(&[".circom_keccak"], false); // two inputs
+    let sym_str = Symbol::new(&["circom_keccak"], false); // two inputs
     let circom_keccak: CircomKeccak<Fr> = CircomKeccak::new(0);
     let mut lang = Lang::<Fr, KeccakCoproc<Fr>>::new();
     lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_keccak));
     let lang_rc = Arc::new(lang);
 
-    let expr = "(.circom_keccak)".to_string();
+    let expr = "(cons 'circom_keccak \"aaa\")".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();
 
     let nova_prover = NovaProver::<Fr, KeccakCoproc<Fr>, MultiFrame<'_, _, _>>::new(

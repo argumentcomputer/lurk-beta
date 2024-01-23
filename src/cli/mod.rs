@@ -474,7 +474,7 @@ struct CircomArgs {
     circom_folder: Utf8PathBuf,
 
     /// The reference of the circom gadget. The reference is formatted as "<AUTHOR>/<NAME>
-    /// It has to be noted that the name cannot be `main`, see circom documentation.
+    /// Note: the name cannot be `main`, see circom documentation.
     #[clap(long, value_parser)]
     reference: String,
 

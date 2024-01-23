@@ -17,6 +17,7 @@ pub mod non_wasm {
     use camino::Utf8PathBuf;
     use circom_scotia::r1cs::CircomConfig;
 
+    use crate::circuit::gadgets::circom::CircomGadgetReference;
     use crate::coprocessor::circom::error::CircomCoprocessorError;
     use crate::{
         circuit::gadgets::{circom::CircomGadget, pointer::AllocatedPtr},
@@ -27,7 +28,7 @@ pub mod non_wasm {
     };
 
     /// Returns a pretty error prelude for error messages.
-    fn error_prelude() -> String {
+    pub(crate) fn error_prelude() -> String {
         format!("{}", Red.bold().paint("error"))
     }
 
@@ -36,32 +37,25 @@ pub mod non_wasm {
     fn get_local_gadget<F: LurkField, C: CircomGadget<F>>(
         gadget: &C,
     ) -> Result<Option<(Utf8PathBuf, Utf8PathBuf)>, CircomCoprocessorError> {
-        // Check if the targeted directory exists.
-        if !circom_dir().join(gadget.reference()).exists() {
-            std::fs::create_dir_all(circom_dir().join(gadget.reference())).map_err(|err| {
-                CircomCoprocessorError::AssetCreationFailure {
-                    prelude: error_prelude(),
-                    reference: String::from(gadget.reference()),
-                    trace: format!("{}", err),
+        return match gadget.reference().confirm_or_create_local(true)? {
+            Some(_) => {
+                let r1cs = circom_dir()
+                    .join(gadget.reference().identifier())
+                    .join(gadget.reference().name())
+                    .with_extension("r1cs");
+                let wasm = circom_dir()
+                    .join(gadget.reference().identifier())
+                    .join(gadget.reference().name())
+                    .with_extension("wasm");
+
+                if r1cs.exists() && wasm.exists() {
+                    return Ok(Some((r1cs, wasm)));
                 }
-            })?;
-            return Ok(None);
-        }
 
-        let r1cs = circom_dir()
-            .join(gadget.reference())
-            .join(gadget.reference().split('/').collect::<Vec<&str>>()[1])
-            .with_extension("r1cs");
-        let wasm = circom_dir()
-            .join(gadget.reference())
-            .join(gadget.reference().split('/').collect::<Vec<&str>>()[1])
-            .with_extension("wasm");
-
-        if r1cs.exists() && wasm.exists() {
-            return Ok(Some((r1cs, wasm)));
+                Ok(None)
+            }
+            None => Ok(None),
         };
-
-        Ok(None)
     }
 
     /// Tries to fetch a gadget from a remote Git repository. The repository has to follow our standard
@@ -69,54 +63,44 @@ pub mod non_wasm {
     fn get_remote_gadget<F: LurkField, C: CircomGadget<F>>(
         gadget: &C,
     ) -> Result<Option<(Utf8PathBuf, Utf8PathBuf)>, CircomCoprocessorError> {
-        let name = gadget.reference().split('/').collect::<Vec<&str>>()[1];
+        let identifier_as_string = String::from(gadget.reference().identifier());
 
         // Check that we have a proper version for a remote release. If not, look if gadget repo exist
         // and return error accordingly.
         if gadget.version().is_none() {
             let prelude = error_prelude();
-            let ref_as_string = String::from(gadget.reference());
 
             let response =
-                reqwest::blocking::get(format!("https://github.com/{}", gadget.reference()))
+                reqwest::blocking::get(format!("https://github.com/{identifier_as_string}"))
                     .map_err(|err| CircomCoprocessorError::RemoteCallFailure {
                         prelude: prelude.clone(),
-                        reference: ref_as_string.clone(),
-                        trace: format!("{}", err),
+                        reference: gadget.reference().clone(),
+                        source: err.into(),
                     })?;
 
             if !response.status().is_success() {
                 return Err(CircomCoprocessorError::GadgetNotFound {
-                    reference: ref_as_string.clone(),
-                    name: String::from(name),
+                    reference: gadget.reference().clone(),
+                    name: String::from(gadget.reference().name()),
                     prelude,
                 });
             }
 
             return Err(CircomCoprocessorError::MissingGadgetVersion {
                 prelude,
-                reference: ref_as_string.clone(),
+                reference: identifier_as_string.clone(),
             });
         }
         // Check if the targeted directory on file system exists.
-        if !circom_dir().join(gadget.reference()).exists() {
-            std::fs::create_dir_all(circom_dir().join(gadget.reference())).map_err(|err| {
-                CircomCoprocessorError::AssetCreationFailure {
-                    prelude: error_prelude(),
-                    reference: String::from(gadget.reference()),
-                    trace: format!("{}", err),
-                }
-            })?;
-        }
+        gadget.reference().confirm_or_create_local(true)?;
 
-        let name = gadget.reference().split('/').collect::<Vec<&str>>()[1];
         let r1cs = circom_dir()
-            .join(gadget.reference())
-            .join(name)
+            .join(gadget.reference().identifier())
+            .join(gadget.reference().name())
             .with_extension("r1cs");
         let wasm = circom_dir()
-            .join(gadget.reference())
-            .join(name)
+            .join(gadget.reference().identifier())
+            .join(gadget.reference().name())
             .with_extension("wasm");
 
         get_from_github(gadget.reference(), gadget.version().unwrap(), "r1cs")?;
@@ -127,34 +111,36 @@ pub mod non_wasm {
 
     /// Download a named resource from a given release for a given repository on Github.
     fn get_from_github(
-        repository: &str,
+        reference: &CircomGadgetReference,
         release: &str,
         extension: &str,
     ) -> Result<(), CircomCoprocessorError> {
-        let name = repository.split('/').collect::<Vec<&str>>()[1];
+        let name = reference.name();
+        let identifier = reference.identifier();
+
         let asset_url = format!(
-            "https://github.com/{repository}/releases/download/{release}/{name}.{extension}"
+            "https://github.com/{identifier}/releases/download/{release}/{name}.{extension}"
         );
 
         let path = circom_dir()
-            .join(repository)
+            .join(reference.identifier())
             .join(name)
             .with_extension(extension);
 
         let response = reqwest::blocking::get(format!(
-            "https://github.com/{repository}/releases/download/{release}/{name}.{extension}"
+            "https://github.com/{identifier}/releases/download/{release}/{name}.{extension}"
         ))
         .map_err(|err| CircomCoprocessorError::RemoteCallFailure {
             prelude: error_prelude(),
-            reference: String::from(repository),
-            trace: format!("{}", err),
+            reference: reference.clone(),
+            source: err.into(),
         })?;
 
         let mut out =
             fs::File::create(path).map_err(|err| CircomCoprocessorError::AssetCreationFailure {
                 prelude: error_prelude(),
-                reference: String::from(repository),
-                trace: format!("{}", err),
+                reference: reference.clone(),
+                source: err.into(),
             })?;
 
         let response_byte =
@@ -162,16 +148,16 @@ pub mod non_wasm {
                 .bytes()
                 .map_err(|err| CircomCoprocessorError::PayloadProcessingError {
                     prelude: error_prelude(),
-                    reference: String::from(repository),
-                    trace: format!("{}", err),
+                    reference: reference.clone(),
+                    source: err.into(),
                     asset_url,
                 })?;
 
         out.write_all(response_byte).map_err(|err| {
             CircomCoprocessorError::AssetCreationFailure {
                 prelude: error_prelude(),
-                reference: String::from(repository),
-                trace: format!("{}", err),
+                reference: reference.clone(),
+                source: err.into(),
             }
         })?;
 
@@ -188,8 +174,8 @@ pub mod non_wasm {
             None => match get_remote_gadget(gadget)? {
                 Some(paths) => Ok(paths),
                 None => Err(CircomCoprocessorError::GadgetNotFound {
-                    reference: String::from(gadget.reference()),
-                    name: String::from(gadget.reference().split('/').collect::<Vec<&str>>()[1]),
+                    reference: gadget.reference().clone(),
+                    name: String::from(gadget.reference().name()),
                     prelude: error_prelude(),
                 }),
             },
@@ -237,11 +223,21 @@ pub mod non_wasm {
                     eprintln!("{:?}", e);
                     SynthesisError::Unsatisfiable
                 })?;
-            let output = circom_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
-            let num_tag = g.alloc_tag(cs, &crate::tag::ExprTag::Num);
-            let res = AllocatedPtr::from_parts(num_tag.clone(), output);
 
-            Ok(res)
+            let outputs = circom_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
+
+            let mut vec_ptr = Vec::with_capacity(outputs.len());
+
+            for output in outputs {
+                let num_tag = g.alloc_tag(cs, &crate::tag::ExprTag::Num);
+
+                vec_ptr.push(AllocatedPtr::from_parts(num_tag.clone(), output));
+            }
+
+            //let tag = g.alloc_tag(cs, &crate::tag::ExprTag::)
+            //let res = AllocatedPtr::from_parts()
+
+            Ok(vec_ptr[0].clone())
         }
     }
 
@@ -278,9 +274,9 @@ pub mod non_wasm {
             CircomCoprocessor::create(gadget).unwrap()
         }
 
-        /// The defined name of this coprocessor, which is just the inner gadget's name.
-        pub fn name(&self) -> &str {
-            self.gadget.reference()
+        /// The defined reference of this coprocessor, which is just the inner gadget's identifier.
+        pub fn name(&self) -> String {
+            self.gadget.reference().identifier()
         }
     }
 }
