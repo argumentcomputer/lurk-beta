@@ -32,7 +32,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
-use lurk::circuit::gadgets::circom::CircomGadget;
+use lurk::circuit::gadgets::circom::{CircomGadget, CircomGadgetReference};
 use lurk::circuit::gadgets::pointer::AllocatedPtr;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -51,32 +51,37 @@ use lurk::public_parameters::{
 use lurk::Symbol;
 use lurk_macros::Coproc;
 
+use anyhow::Result;
+use circom_scotia::r1cs::CircomInput;
+
 const REDUCTION_COUNT: usize = 1;
 
 #[derive(Debug, Clone)]
 pub struct CircomSha256<F: LurkField> {
     _n: usize,
     pub(crate) _p: PhantomData<F>,
+    reference: CircomGadgetReference,
 }
 
 impl<F: LurkField> CircomSha256<F> {
-    fn new(n: usize) -> Self {
-        CircomSha256 {
+    fn new(n: usize) -> Result<Self> {
+        Ok(CircomSha256 {
             _n: n,
             _p: PhantomData,
-        }
+            reference: CircomGadgetReference::new("iden3/sha256_2_test")?,
+        })
     }
 }
 
 impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
-    fn reference(&self) -> &str {
-        "iden3/sha256_2_test"
+    fn reference(&self) -> &CircomGadgetReference {
+        &self.reference
     }
 
-    fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
+    fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<CircomInput<F>> {
         // TODO: actually use the lurk inputs
-        let a = ("a".into(), vec![F::ZERO]);
-        let b = ("b".into(), vec![F::ZERO]);
+        let a = CircomInput::new("a".into(), vec![F::ZERO]);
+        let b = CircomInput::new("b".into(), vec![F::ZERO]);
         vec![a, b]
     }
 
@@ -102,8 +107,10 @@ enum Sha256Coproc<F: LurkField> {
 fn main() {
     let store = &Store::default();
     let sym_str = Symbol::new(&[".circom_sha256_2"], false); // two inputs
-    let circom_sha256: CircomSha256<Bn> = CircomSha256::new(0);
+
+    let circom_sha256: CircomSha256<Bn> = CircomSha256::new(0).unwrap();
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
+
     lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_sha256));
     let lang_rc = Arc::new(lang);
 
