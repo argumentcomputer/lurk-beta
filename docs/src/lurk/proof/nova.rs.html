@@ -431,6 +431,22 @@
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem};
 <span class="kw">use </span>ff::PrimeField;
@@ -459,7 +475,7 @@
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::store::Store,
+    lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{supernova::FoldingConfig, FrameLike, Prover},
 };
 
@@ -584,24 +600,19 @@
 <span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
 #[serde(bound = <span class="string">&quot;&quot;</span>)]
-</span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;
+</span><span class="kw">pub enum </span>Proof&lt;F: CurveCycleEquipped, C1: StepCircuit&lt;F&gt;&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="doccomment">/// A proof for the intermediate steps of a recursive computation along with
     /// the number of steps used for verification
-    </span>Recursive(
-        Box&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;&gt;&gt;,
-        usize,
-        PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C&gt;,
-    ),
+    </span>Recursive(Box&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1, C2&lt;F&gt;&gt;&gt;, usize),
     <span class="doccomment">/// A proof for the final step of a recursive computation along with the number
     /// of steps used for verification
     </span>Compressed(
-        Box&lt;CompressedSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;,
+        Box&lt;CompressedSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;,
         usize,
-        PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C&gt;,
     ),
 }
 
@@ -656,7 +667,8 @@
     )
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; RecursiveSNARKTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; <span class="kw">for </span>Proof&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; RecursiveSNARKTrait&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
+    <span class="kw">for </span>Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
 <span class="kw">where
     </span>&lt;F <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;&lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::E2 <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
@@ -670,9 +682,7 @@
         pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
         z0: <span class="kw-2">&amp;</span>[F],
         steps: Vec&lt;C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
-        reduction_count: usize,
-        lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="macro">assert!</span>(!steps.is_empty());
         <span class="macro">assert_eq!</span>(steps[<span class="number">0</span>].arity(), z0.len());
@@ -680,11 +690,7 @@
         <span class="kw">let </span>z0_primary = z0;
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
 
-        <span class="macro">assert_eq!</span>(steps[<span class="number">0</span>].frames().unwrap().len(), reduction_count);
-        <span class="kw">let </span>(_circuit_primary, circuit_secondary): (
-            C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
-            TrivialCircuit&lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar&gt;,
-        ) = circuits(reduction_count, lang);
+        <span class="kw">let </span>circuit_secondary = TrivialCircuit::default();
 
         <span class="kw">let </span>num_steps = steps.len();
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;steps.len: {num_steps}&quot;</span>);
@@ -716,7 +722,6 @@
 
                 <span class="kw">for </span>circuit_primary <span class="kw">in </span>cc.iter() {
                     <span class="kw">let </span>circuit_primary = circuit_primary.lock().unwrap();
-                    <span class="macro">assert_eq!</span>(reduction_count, circuit_primary.frames().unwrap().len());
 
                     <span class="kw">let </span><span class="kw-2">mut </span>r_snark = recursive_snark.unwrap_or_else(|| {
                         RecursiveSNARK::new(
@@ -738,15 +743,12 @@
             .unwrap()
         } <span class="kw">else </span>{
             <span class="kw">for </span>circuit_primary <span class="kw">in </span>steps.iter() {
-                <span class="macro">assert_eq!</span>(reduction_count, circuit_primary.frames().unwrap().len());
                 <span class="kw">if </span>debug {
                     <span class="comment">// For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                     </span><span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
                     <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar&gt;::new();
 
-                    <span class="comment">// This is a CircuitFrame, not an EvalFrame
-                    </span><span class="kw">let </span>first_frame = circuit_primary.frames().unwrap().iter().next().unwrap();
-                    <span class="kw">let </span>zi = store.to_scalar_vector(first_frame.input());
+                    <span class="kw">let </span>zi = store.to_scalar_vector(circuit_primary.input());
                     <span class="kw">let </span>zi_allocated: Vec&lt;<span class="kw">_</span>&gt; = zi
                         .iter()
                         .enumerate()
@@ -781,20 +783,18 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Recursive(
             Box::new(recursive_snark.unwrap()),
             num_steps,
-            PhantomData,
         ))
     }
 
     <span class="kw">fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Recursive(recursive_snark, num_steps, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Compressed(
+            <span class="self">Self</span>::Recursive(recursive_snark, num_steps) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Compressed(
                 Box::new(CompressedSNARK::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;::prove(
                     <span class="kw-2">&amp;</span>pp.pp,
                     <span class="kw-2">&amp;</span>pp.pk,
                     <span class="kw-2">&amp;</span>recursive_snark,
                 )<span class="question-mark">?</span>),
                 num_steps,
-                PhantomData,
             )),
             <span class="self">Self</span>::Compressed(..) =&gt; <span class="prelude-val">Ok</span>(<span class="self">self</span>),
         }
@@ -806,10 +806,10 @@
         <span class="kw">let </span>zi_secondary = <span class="kw-2">&amp;</span>z0_secondary;
 
         <span class="kw">let </span>(zi_primary_verified, zi_secondary_verified) = <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Recursive(p, num_steps, <span class="kw">_</span>) =&gt; {
+            <span class="self">Self</span>::Recursive(p, num_steps) =&gt; {
                 p.verify(<span class="kw-2">&amp;</span>pp.pp, <span class="kw-2">*</span>num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary)<span class="question-mark">?
             </span>}
-            <span class="self">Self</span>::Compressed(p, num_steps, <span class="kw">_</span>) =&gt; {
+            <span class="self">Self</span>::Compressed(p, num_steps) =&gt; {
                 p.verify(<span class="kw-2">&amp;</span>pp.vk, <span class="kw-2">*</span>num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary)<span class="question-mark">?
             </span>}
         };
@@ -828,7 +828,11 @@
     _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>()&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+<span class="kw">where
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+{
     <span class="doccomment">/// Create a new NovaProver with a reduction count and a `Lang`
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new(reduction_count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; <span class="self">Self </span>{
@@ -839,15 +843,35 @@
             _phantom: PhantomData,
         }
     }
+
+    <span class="doccomment">/// Generate a proof from a sequence of frames
+    </span><span class="kw">pub fn </span>prove_from_frames(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
+        frames: <span class="kw-2">&amp;</span>[Frame],
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
+        <span class="kw">let </span>folding_config = <span class="self">self
+            </span>.folding_mode()
+            .folding_config(<span class="self">self</span>.lang().clone(), <span class="self">self</span>.reduction_count());
+        <span class="kw">let </span>steps = C1LEM::&lt;<span class="lifetime">&#39;a</span>, F, C&gt;::from_frames(frames, store, <span class="kw-2">&amp;</span>folding_config.into());
+        <span class="self">self</span>.prove(pp, steps, store)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.lang
+    }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C&gt; <span class="kw">for </span>NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
+    <span class="kw">for </span>NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
 <span class="kw">where
     </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;;
-    <span class="kw">type </span>RecursiveSnark = Proof&lt;<span class="lifetime">&#39;a</span>, F, C&gt;;
+    <span class="kw">type </span>RecursiveSnark = Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;;
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
@@ -855,13 +879,21 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.lang
-    }
-
-    <span class="attr">#[inline]
     </span><span class="kw">fn </span>folding_mode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FoldingMode {
         <span class="kw-2">&amp;</span><span class="self">self</span>.folding_mode
+    }
+
+    <span class="kw">fn </span>evaluate_and_prove(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
+        expr: Ptr,
+        env: Ptr,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
+        limit: usize,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::RecursiveSnark, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
+        <span class="kw">let </span>eval_config = <span class="self">self</span>.folding_mode().eval_config(<span class="self">self</span>.lang());
+        <span class="kw">let </span>frames = C1LEM::&lt;<span class="lifetime">&#39;a</span>, F, C&gt;::build_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>eval_config)<span class="question-mark">?</span>;
+        <span class="self">self</span>.prove_from_frames(pp, <span class="kw-2">&amp;</span>frames, store)
     }
 }
 </code></pre></div></section></main></body></html>

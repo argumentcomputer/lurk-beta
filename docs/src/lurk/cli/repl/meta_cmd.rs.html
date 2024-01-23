@@ -1143,7 +1143,7 @@
     },
     package::{Package, SymbolRef},
     proof::{
-        nova::{<span class="self">self</span>, CurveCycleEquipped, E1, E2},
+        nova::{<span class="self">self</span>, CurveCycleEquipped, C1LEM, E1, E2},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -2224,7 +2224,7 @@
 {
     Nova {
         args: LurkData&lt;F&gt;,
-        proof: nova::Proof&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+        proof: nova::Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
     },
 }
 

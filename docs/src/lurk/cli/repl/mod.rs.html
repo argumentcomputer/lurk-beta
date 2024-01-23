@@ -707,7 +707,7 @@
     parser,
     proof::{
         nova::{CurveCycleEquipped, NovaProver},
-        Prover, RecursiveSNARKTrait,
+        RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
@@ -1008,7 +1008,7 @@
 
                     <span class="macro">info!</span>(<span class="string">&quot;Proving&quot;</span>);
                     <span class="kw">let </span>(proof, public_inputs, public_outputs, num_steps) =
-                        prover.prove(<span class="kw-2">&amp;</span>pp, frames, <span class="kw-2">&amp;</span><span class="self">self</span>.store)<span class="question-mark">?</span>;
+                        prover.prove_from_frames(<span class="kw-2">&amp;</span>pp, frames, <span class="kw-2">&amp;</span><span class="self">self</span>.store)<span class="question-mark">?</span>;
                     <span class="macro">info!</span>(<span class="string">&quot;Compressing proof&quot;</span>);
                     <span class="kw">let </span>proof = proof.compress(<span class="kw-2">&amp;</span>pp)<span class="question-mark">?</span>;
                     <span class="macro">assert_eq!</span>(<span class="self">self</span>.rc * num_steps, pad(n_frames, <span class="self">self</span>.rc));

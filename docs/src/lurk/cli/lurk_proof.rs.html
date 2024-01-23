@@ -215,7 +215,7 @@
     field::LurkField,
     lem::{pointers::ZPtr, store::Store},
     proof::{
-        nova::{<span class="self">self</span>, CurveCycleEquipped, E1, E2},
+        nova::{<span class="self">self</span>, CurveCycleEquipped, C1LEM, E1, E2},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -336,7 +336,7 @@
     &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     Nova {
-        proof: nova::Proof&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+        proof: nova::Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
         public_inputs: Vec&lt;F&gt;,
         public_outputs: Vec&lt;F&gt;,
         rc: usize,
