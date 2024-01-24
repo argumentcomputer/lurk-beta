@@ -774,7 +774,7 @@ mod test {
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     use demo::DemoQuery;
     use expect_test::{expect, Expect};
-    use pasta_curves::pallas::Scalar as F;
+    use halo2curves::bn256::Fr as F;
     use std::default::Default;
 
     #[test]
