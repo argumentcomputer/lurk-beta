@@ -235,7 +235,7 @@ mod test {
     use super::*;
 
     use ff::Field;
-    use pasta_curves::pallas::Scalar as F;
+    use halo2curves::bn256::Fr as F;
 
     #[test]
     fn test_factorial() {
