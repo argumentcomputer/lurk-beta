@@ -51,6 +51,7 @@ use multiset::MultiSet;
 pub use query::{CircuitQuery, Query};
 
 mod demo;
+mod env;
 mod multiset;
 mod query;
 
@@ -528,6 +529,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
         }
 
         circuit_scope.finalize(cs, g);
+
         Ok(())
     }
 

@@ -13,6 +13,7 @@ use crate::{
         circuit::GlobalAllocator,
         pointers::{Ptr, ZPtr},
         store::{expect_ptrs, Store},
+        tag,
     },
     tag::{ExprTag, Tag},
 };
@@ -143,6 +144,86 @@ pub(crate) fn construct_list<F: LurkField, CS: ConstraintSystem<F>>(
                 &acc,
             )
         })
+}
+
+/// Constructs an `Env` pointer
+#[allow(dead_code)]
+#[inline]
+pub(crate) fn construct_env<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    g: &GlobalAllocator<F>,
+    store: &Store<F>,
+    var_hash: &AllocatedNum<F>,
+    val: &AllocatedPtr<F>,
+    next_env: &AllocatedNum<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let tag = g.alloc_tag_cloned(cs, &ExprTag::Env);
+
+    let hash = hash_poseidon(
+        cs,
+        vec![
+            var_hash.clone(),
+            val.tag().clone(),
+            val.hash().clone(),
+            next_env.clone(),
+        ],
+        store.poseidon_cache.constants.c4(),
+    )?;
+
+    Ok(AllocatedPtr::from_parts(tag, hash))
+}
+
+/// Deconstructs `env`, assumed to be a composition of a symbol hash, a value `Ptr`, and a next `Env` hash.
+///
+/// # Panics
+/// Panics if the store can't deconstruct the env hash.
+#[allow(dead_code)]
+pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    s: &Store<F>,
+    not_dummy: &Boolean,
+    env: &AllocatedNum<F>,
+) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedNum<F>), SynthesisError> {
+    let env_zptr = ZPtr::from_parts(tag::Tag::Expr(ExprTag::Env), env.get_value().unwrap());
+    let env_ptr = s.to_ptr(&env_zptr);
+
+    let (a, b, c, d) = {
+        if let Some([v, val, new_env]) = s.pop_binding(env_ptr) {
+            let v_zptr = s.hash_ptr(&v);
+            let val_zptr = s.hash_ptr(&val);
+            let new_env_zptr = s.hash_ptr(&new_env);
+            (
+                *v_zptr.value(),
+                val_zptr.tag().to_field::<F>(),
+                *val_zptr.value(),
+                *new_env_zptr.value(),
+            )
+        } else {
+            (F::ZERO, F::ZERO, F::ZERO, F::ZERO)
+        }
+    };
+
+    let key_sym_hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "key_sym_hash"), || a);
+    let val_tag = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "val_tag"), || b);
+    let val_hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "val_hash"), || c);
+    let new_env_hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "new_env_hash"), || d);
+
+    let hash = hash_poseidon(
+        &mut cs.namespace(|| "hash"),
+        vec![
+            key_sym_hash.clone(),
+            val_tag.clone(),
+            val_hash.clone(),
+            new_env_hash.clone(),
+        ],
+        s.poseidon_cache.constants.c4(),
+    )?;
+
+    let val = AllocatedPtr::from_parts(val_tag, val_hash);
+
+    implies_equal(&mut cs.namespace(|| "hash equality"), not_dummy, env, &hash);
+
+    Ok((key_sym_hash, val, new_env_hash))
 }
 
 /// Retrieves the `Ptr` that corresponds to `a_ptr` by using the `Store` as the

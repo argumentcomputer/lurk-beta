@@ -622,6 +622,11 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    pub fn intern_t(&self) -> Ptr {
+        self.intern_lurk_symbol("t")
+    }
+
+    #[inline]
     pub fn intern_user_symbol(&self, name: &str) -> Ptr {
         self.intern_symbol(&user_sym(name))
     }
