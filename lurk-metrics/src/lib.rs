@@ -77,7 +77,7 @@ impl MetricsSink {
         };
 
         sink.install();
-        metrics::set_recorder(&MetricsRecorder).unwrap();
+        metrics::set_global_recorder(MetricsRecorder).unwrap();
 
         handle
     }
@@ -181,19 +181,19 @@ mod tests {
         let threads = Arc::clone(&sink.threads);
 
         sink.install();
-        metrics::set_recorder(&MetricsRecorder).unwrap();
+        metrics::set_global_recorder(MetricsRecorder).unwrap();
 
-        metrics::counter!("test_counter", 1, "type" => "foo");
-        metrics::counter!("test_counter", 1, "type" => "bar");
-        metrics::counter!("test_counter", 2, "type" => "foo");
-        metrics::counter!("test_counter", 2, "type" => "bar");
-        metrics::counter!("test_counter", 3, "type" => "foo");
-        metrics::counter!("test_counter", 4, "type" => "bar");
+        metrics::counter!("test_counter", "type" => "foo").increment(1);
+        metrics::counter!("test_counter", "type" => "bar").increment(1);
+        metrics::counter!("test_counter", "type" => "foo").increment(2);
+        metrics::counter!("test_counter", "type" => "bar").increment(2);
+        metrics::counter!("test_counter", "type" => "foo").increment(3);
+        metrics::counter!("test_counter", "type" => "bar").increment(4);
 
-        metrics::gauge!("test_gauge", 5.0, "type" => "foo");
-        metrics::gauge!("test_gauge", 5.0, "type" => "bar");
-        metrics::gauge!("test_gauge", 2.0, "type" => "foo");
-        metrics::gauge!("test_gauge", 3.0, "type" => "bar");
+        metrics::gauge!("test_gauge", "type" => "foo").set(5.0);
+        metrics::gauge!("test_gauge", "type" => "bar").set(5.0);
+        metrics::gauge!("test_gauge", "type" => "foo").set(2.0);
+        metrics::gauge!("test_gauge", "type" => "bar").set(3.0);
 
         let metrics = MetricsSink::aggregate(&threads);
         assert_eq!(metrics.iter().count(), 4);
