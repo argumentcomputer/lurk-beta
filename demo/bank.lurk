@@ -65,7 +65,7 @@
 
 !(def initial-total-funds (emit (total-funds people)))
 
-;; We can check a database to see if funds were conserved by comparing with the inital total.
+;; We can check a database to see if funds were conserved by comparing with the initial total.
 
 !(def funds-are-conserved? (lambda (db) (= initial-total-funds (total-funds db))))
 
