@@ -1,7 +1,7 @@
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use super::{
-    query::{CircuitQuery, Query},
+    query::{CircuitQuery, Query, RecursiveQuery},
     CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope,
 };
 use crate::circuit::gadgets::constraints::{alloc_equal, alloc_is_zero};
@@ -92,6 +92,8 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
     }
 }
 
+impl<F: LurkField> RecursiveQuery<F> for EnvCircuitQuery<F> {}
+
 impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
@@ -145,65 +147,26 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
                     &immediate_bound,
                 )?;
 
-                let (recursive_result, recursive_acc, recursive_transcript) = {
-                    let subquery = {
-                        let symbol = g.alloc_ptr(cs, &self.symbol_ptr(store), store);
+                let new_env_alloc = AllocatedPtr::from_parts(env_tag.clone(), new_env);
+                let var_alloc = AllocatedPtr::from_parts(sym_tag.clone(), var.clone());
 
-                        let new_env_x = AllocatedPtr::from_parts(env_tag.clone(), new_env);
-                        let var_x = AllocatedPtr::from_parts(sym_tag.clone(), var.clone());
-
-                        let recursive_args = construct_cons(
-                            &mut cs.namespace(|| "recursive_args"),
-                            g,
-                            store,
-                            &var_x,
-                            &new_env_x,
-                        )?;
-
-                        construct_cons(
-                            &mut cs.namespace(|| "subquery"),
-                            g,
-                            store,
-                            &symbol,
-                            &recursive_args,
-                        )?
-                    };
-
-                    let (sub_result, new_acc, new_transcript) = scope.synthesize_internal_query(
-                        &mut cs.namespace(|| "recursive query"),
-                        g,
-                        store,
-                        &subquery,
-                        acc,
-                        transcript,
-                        &is_immediate.not(),
-                    )?;
-
-                    (sub_result, new_acc, new_transcript)
-                };
-
-                let value = AllocatedPtr::pick(
-                    &mut cs.namespace(|| "pick value"),
-                    &is_immediate,
-                    &immediate_result,
-                    &recursive_result,
+                let recursive_args = construct_cons(
+                    &mut cs.namespace(|| "recursive_args"),
+                    g,
+                    store,
+                    &var_alloc,
+                    &new_env_alloc,
                 )?;
 
-                let acc = AllocatedPtr::pick(
-                    &mut cs.namespace(|| "pick acc"),
-                    &is_immediate,
-                    acc,
-                    &recursive_acc,
-                )?;
-
-                let transcript = CircuitTranscript::pick(
-                    &mut cs.namespace(|| "pick recursive_transcript"),
-                    &is_immediate,
-                    transcript,
-                    &recursive_transcript,
-                )?;
-
-                Ok((value, acc, transcript))
+                self.recurse(
+                    cs,
+                    g,
+                    store,
+                    scope,
+                    &recursive_args,
+                    &is_immediate.not(),
+                    (&immediate_result, acc, transcript),
+                )
             }
         }
     }

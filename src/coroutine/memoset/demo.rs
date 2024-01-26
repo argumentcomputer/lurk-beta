@@ -1,7 +1,7 @@
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use super::{
-    query::{CircuitQuery, Query},
+    query::{CircuitQuery, Query, RecursiveQuery},
     CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope,
 };
 use crate::circuit::gadgets::constraints::alloc_is_zero;
@@ -106,6 +106,32 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
     }
 }
 
+impl<F: LurkField> RecursiveQuery<F> for DemoCircuitQuery<F> {
+    // It would be nice if this could be passed to `CircuitQuery::recurse` as an optional closure, rather than be a
+    // trait method. That would allow more generality. The types get complicated, though. For generality, we should
+    // support a context object that can be initialized once in `synthesize_eval` and be passed through for use here.
+    fn post_recursion<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        subquery_result: AllocatedPtr<F>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        match self {
+            Self::Factorial(n) => {
+                let result_f = n.hash().mul(
+                    &mut cs.namespace(|| "incremental multiplication"),
+                    subquery_result.hash(),
+                )?;
+
+                AllocatedPtr::alloc_tag(
+                    &mut cs.namespace(|| "result"),
+                    ExprTag::Num.to_field(),
+                    result_f,
+                )
+            }
+        }
+    }
+}
+
 impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
@@ -117,8 +143,6 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
         match self {
-            // TODO: Factor out the recursive boilerplate so individual queries can just implement their distinct logic
-            // using a sane framework.
             Self::Factorial(n) => {
                 // FIXME: Check n tag or decide not to.
                 let base_case_f = g.alloc_const(cs, F::ONE);
@@ -130,85 +154,45 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
 
                 let n_is_zero = alloc_is_zero(&mut cs.namespace(|| "n_is_zero"), n.hash())?;
 
-                let (recursive_result, recursive_acc, recursive_transcript) = {
-                    let new_n = AllocatedNum::alloc(&mut cs.namespace(|| "new_n"), || {
-                        n.hash()
-                            .get_value()
-                            .map(|n| n - F::ONE)
-                            .ok_or(SynthesisError::AssignmentMissing)
-                    })?;
+                let new_n = AllocatedNum::alloc(&mut cs.namespace(|| "new_n"), || {
+                    n.hash()
+                        .get_value()
+                        .map(|n| n - F::ONE)
+                        .ok_or(SynthesisError::AssignmentMissing)
+                })?;
 
-                    // new_n * 1 = n - 1
-                    cs.enforce(
-                        || "enforce_new_n",
-                        |lc| lc + new_n.get_variable(),
-                        |lc| lc + CS::one(),
-                        |lc| lc + n.hash().get_variable() - CS::one(),
-                    );
+                // new_n * 1 = n - 1
+                cs.enforce(
+                    || "enforce_new_n",
+                    |lc| lc + new_n.get_variable(),
+                    |lc| lc + CS::one(),
+                    |lc| lc + n.hash().get_variable() - CS::one(),
+                );
 
-                    let subquery = {
-                        let symbol = g.alloc_ptr(cs, &self.symbol_ptr(store), store);
-
-                        let new_num = AllocatedPtr::alloc_tag(
-                            &mut cs.namespace(|| "new_num"),
-                            ExprTag::Num.to_field(),
-                            new_n,
-                        )?;
-                        construct_list(
-                            &mut cs.namespace(|| "subquery"),
-                            g,
-                            store,
-                            &[&symbol, &new_num],
-                            None,
-                        )?
-                    };
-
-                    let (sub_result, new_acc, new_transcript) = scope.synthesize_internal_query(
-                        &mut cs.namespace(|| "recursive query"),
-                        g,
-                        store,
-                        &subquery,
-                        acc,
-                        transcript,
-                        &n_is_zero.not(),
-                    )?;
-
-                    let result_f = n.hash().mul(
-                        &mut cs.namespace(|| "incremental multiplication"),
-                        sub_result.hash(),
-                    )?;
-
-                    let result = AllocatedPtr::alloc_tag(
-                        &mut cs.namespace(|| "result"),
-                        ExprTag::Num.to_field(),
-                        result_f,
-                    )?;
-
-                    (result, new_acc, new_transcript)
-                };
-
-                let value = AllocatedPtr::pick(
-                    &mut cs.namespace(|| "pick value"),
-                    &n_is_zero,
-                    &base_case,
-                    &recursive_result,
+                let new_num = AllocatedPtr::alloc_tag(
+                    &mut cs.namespace(|| "new_num"),
+                    ExprTag::Num.to_field(),
+                    new_n,
                 )?;
 
-                let acc = AllocatedPtr::pick(
-                    &mut cs.namespace(|| "pick acc"),
-                    &n_is_zero,
-                    acc,
-                    &recursive_acc,
+                // FIXME: Don't bother making this wasteful list.
+                let recursive_args = construct_list(
+                    &mut cs.namespace(|| "recursive_args"),
+                    g,
+                    store,
+                    &[&new_num],
+                    None,
                 )?;
 
-                let transcript = CircuitTranscript::pick(
-                    &mut cs.namespace(|| "pick recursive_transcript"),
-                    &n_is_zero,
-                    transcript,
-                    &recursive_transcript,
-                )?;
-
-                Ok((value, acc, transcript))
+                self.recurse(
+                    cs,
+                    g,
+                    store,
+                    scope,
+                    &recursive_args,
+                    &n_is_zero.not(),
+                    (&base_case, acc, transcript),
+                )
             }
         }
     }
