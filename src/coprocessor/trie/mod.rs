@@ -617,10 +617,14 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         cs: &mut CS,
         key: &AllocatedNum<F>,
     ) -> Result<Vec<Vec<Boolean>>, SynthesisError> {
+        let (arity_bits, bits_needed) = Self::path_bit_dimensions();
+
         let mut bits = key.to_bits_le_strict(&mut cs.namespace(|| "bits"))?;
+        for _ in 0..bits_needed - bits.len() {
+            bits.push(Boolean::Constant(false));
+        }
         bits.reverse();
 
-        let (arity_bits, bits_needed) = Self::path_bit_dimensions();
         // each chunk is reversed due to little-endian encoding
         let path = bits[bits.len() - bits_needed..]
             .chunks(arity_bits)
@@ -911,9 +915,9 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Default
 #[cfg(test)]
 mod test {
     use super::*;
-    use ff::PrimeField;
+    use expect_test::{expect, Expect};
+    use halo2curves::bn256::Fr;
     use once_cell::sync::OnceCell;
-    use pasta_curves::pallas::Scalar as Fr;
 
     static POSEIDON_CACHE: OnceCell<PoseidonCache<Fr>> = OnceCell::new();
     static INVERSE_POSEIDON_CACHE: OnceCell<InversePoseidonCache<Fr>> = OnceCell::new();
@@ -926,39 +930,28 @@ mod test {
         INVERSE_POSEIDON_CACHE.get_or_init(InversePoseidonCache::default)
     }
 
+    fn check(actual: Fr, expect: &Expect) {
+        let actual = format!("{:?}", actual);
+        expect.assert_eq(&actual);
+    }
+
     #[test]
     fn test_empty_roots() {
         let t: Trie<'_, Fr, 8, 3> =
             Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 512);
         assert_eq!(Fr::zero(), Trie::<'_, Fr, 8, 3>::empty_element());
         assert_eq!(Fr::zero(), t.empty_root_for_height(0));
-        assert_eq!(
-            scalar_from_u64s([
-                0xa81830c13a876b1c,
-                0x83b4610d346c2a33,
-                0x528056fe84bb9846,
-                0x0ef417527046e53c
-            ]),
-            t.empty_root_for_height(1)
+        check(
+            t.empty_root_for_height(1),
+            &expect!["0x1ca5b207085f3f0f324a2e0704b18fff1cda2e2d686aa85343fea91df77bf35b"],
         );
-
-        assert_eq!(
-            scalar_from_u64s([
-                0x33ff39660bc554aa,
-                0xd85d92c9279a65e7,
-                0x8e0f305f27de3d65,
-                0x089120e96e4b6dc5
-            ]),
-            t.empty_root_for_height(2)
+        check(
+            t.empty_root_for_height(2),
+            &expect!["0x0637ddaef5cd53ba6711c328952208d846222066701e10c34d3a6df7350de8aa"],
         );
-        assert_eq!(
-            scalar_from_u64s([
-                0xa52e7d0bbbee086b,
-                0x06e4ba3d56dbd7fa,
-                0xed7adffde497af73,
-                0x2fd6f6c5e5d21d60
-            ]),
-            t.empty_root_for_height(3)
+        check(
+            t.empty_root_for_height(3),
+            &expect!["0x08127a45502f5939273edd1957c8748ae39992e2a459d99f999992a842df99a5"],
         );
     }
 
@@ -994,72 +987,41 @@ mod test {
         }
     }
 
-    pub(crate) fn scalar_from_u64s(parts: [u64; 4]) -> Fr {
-        let mut le_bytes = [0u8; 32];
-        le_bytes[0..8].copy_from_slice(&parts[0].to_le_bytes());
-        le_bytes[8..16].copy_from_slice(&parts[1].to_le_bytes());
-        le_bytes[16..24].copy_from_slice(&parts[2].to_le_bytes());
-        le_bytes[24..32].copy_from_slice(&parts[3].to_le_bytes());
-        let mut repr = <Fr as PrimeField>::Repr::default();
-        repr.as_mut().copy_from_slice(&le_bytes[..]);
-        Fr::from_repr_vartime(repr).expect("u64s exceed scalar field modulus")
-    }
-
     #[test]
     fn test_hashes() {
         {
             let mut t0: Trie<'_, Fr, 8, 1> =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 8);
-            assert_eq!(
-                scalar_from_u64s([
-                    0xa81830c13a876b1c,
-                    0x83b4610d346c2a33,
-                    0x528056fe84bb9846,
-                    0x0ef417527046e53c
-                ]),
-                t0.empty_root()
+            check(
+                t0.empty_root(),
+                &expect!["0x1ca5b207085f3f0f324a2e0704b18fff1cda2e2d686aa85343fea91df77bf35b"],
             );
             assert_eq!(t0.empty_root(), t0.root());
         }
         {
             let mut t1: Trie<'_, Fr, 8, 2> =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 64);
-            assert_eq!(
-                scalar_from_u64s([
-                    0x33ff39660bc554aa,
-                    0xd85d92c9279a65e7,
-                    0x8e0f305f27de3d65,
-                    0x089120e96e4b6dc5
-                ]),
-                t1.empty_root()
+            check(
+                t1.empty_root(),
+                &expect!["0x0637ddaef5cd53ba6711c328952208d846222066701e10c34d3a6df7350de8aa"],
             );
             assert_eq!(t1.empty_root(), t1.root());
         }
         {
             let mut t2: Trie<'_, Fr, 8, 3> =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 512);
-            assert_eq!(
-                scalar_from_u64s([
-                    0xa52e7d0bbbee086b,
-                    0x06e4ba3d56dbd7fa,
-                    0xed7adffde497af73,
-                    0x2fd6f6c5e5d21d60
-                ]),
-                t2.empty_root()
+            check(
+                t2.empty_root(),
+                &expect!["0x08127a45502f5939273edd1957c8748ae39992e2a459d99f999992a842df99a5"],
             );
             assert_eq!(t2.empty_root(), t2.root());
         }
         {
             let mut t3: Trie<'_, Fr, 8, 4> =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), 4096);
-            assert_eq!(
-                scalar_from_u64s([
-                    0xd95987b58e6c5852,
-                    0x261c08dca064c6c3,
-                    0x191320220a5d5d84,
-                    0x2cdb105f591c0e94
-                ]),
-                t3.empty_root()
+            check(
+                t3.empty_root(),
+                &expect!["0x12c2ef2ab5df25442fe23d8711bf985f02c39e83930517f7103d4bd4228c6cfb"],
             );
             assert_eq!(t3.empty_root(), t3.root());
         }

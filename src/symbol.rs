@@ -274,8 +274,8 @@ impl Symbol {
             Span,
         };
         use crate::syntax::Syntax;
+        use halo2curves::bn256::Fr as Scalar;
         use nom::{sequence::preceded, Parser};
-        use pasta_curves::pallas::Scalar;
         match preceded(
             parse_space::<Scalar>,
             parse_symbol(State::default().rccell(), true),

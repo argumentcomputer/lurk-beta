@@ -823,7 +823,7 @@ mod tests {
 
     use bellpepper_core::test_cs::TestConstraintSystem;
     use ff::Field;
-    use pasta_curves::pallas::Scalar as Fr;
+    use halo2curves::bn256::Fr;
     use proptest::prelude::*;
     use std::ops::{AddAssign, SubAssign};
 

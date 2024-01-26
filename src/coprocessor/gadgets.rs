@@ -529,7 +529,7 @@ pub fn a_ptr_as_z_ptr<T: Tag, F: LurkField>(
 mod test {
     use bellpepper::util_cs::witness_cs::WitnessCS;
     use bellpepper_core::{boolean::Boolean, test_cs::TestConstraintSystem, ConstraintSystem};
-    use pasta_curves::Fq;
+    use halo2curves::bn256::Fr as Fq;
 
     use crate::{
         circuit::gadgets::pointer::AllocatedPtr,

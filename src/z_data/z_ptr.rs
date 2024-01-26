@@ -22,8 +22,8 @@ use crate::tag::{ContTag, ExprTag, Tag};
 #[cfg_attr(
     not(target_arch = "wasm32"),
     serde_test(
-        types(ExprTag, pasta_curves::pallas::Scalar),
-        types(ContTag, pasta_curves::pallas::Scalar),
+        types(ExprTag, halo2curves::bn256::Fr),
+        types(ContTag, halo2curves::bn256::Fr),
         zdata(true)
     )
 )]
@@ -132,7 +132,7 @@ pub type ZContPtr<F> = ZPtr<ContTag, F>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pasta_curves::pallas::Scalar;
+    use halo2curves::bn256::Fr as Scalar;
 
     proptest! {
         #[test]

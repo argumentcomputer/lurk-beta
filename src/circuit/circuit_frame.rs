@@ -37,7 +37,7 @@ mod tests {
     use bellpepper_core::test_cs::TestConstraintSystem;
     use bellpepper_core::ConstraintSystem;
 
-    use pasta_curves::pallas::Scalar as Fr;
+    use halo2curves::bn256::Fr;
 
     #[test]
     fn test_enforce_popcount() {

@@ -976,12 +976,12 @@ mod tests {
     fn test_sequential_and_parallel_witnesses_equivalences() {
         let lurk_step = eval_step();
         let num_slots_per_frame = lurk_step.slots_count.total();
-        let store = Store::<Fq>::default();
+        let store = Store::<Bn>::default();
         let mut cs = WitnessCS::new();
 
         let expr = store.read_with_default_state("(if t (+ 5 5) 6)").unwrap();
 
-        let frames = evaluate::<Fq, Coproc<Fq>>(None, expr, &store, 10).unwrap();
+        let frames = evaluate::<Bn, Coproc<Bn>>(None, expr, &store, 10).unwrap();
 
         let sequential_slots_witnesses =
             generate_slots_witnesses(&store, &frames, num_slots_per_frame, false);
@@ -1046,7 +1046,7 @@ mod tests {
 
         let mut cs_clone = cs.clone();
 
-        let lang = Lang::<Fq, Coproc<Fq>>::new();
+        let lang = Lang::<Bn, Coproc<Bn>>::new();
 
         let output_sequential = synthesize_frames_sequential(
             &mut cs,
@@ -1082,20 +1082,20 @@ mod tests {
 
     #[test]
     fn non_self_evaluating() {
-        let store = Store::default();
+        let store = Store::<Bn>::default();
 
         // not self-evaluating
         let expr = store.read_with_default_state("(+ 1 2)").unwrap();
 
-        let lang = Arc::new(Lang::<Fq, Coproc<Fq>>::new());
-        let mut frames = evaluate::<Fq, Coproc<Fq>>(None, expr, &store, 1).unwrap();
+        let lang = Arc::new(Lang::<Bn, Coproc<Bn>>::new());
+        let mut frames = evaluate::<Bn, Coproc<Bn>>(None, expr, &store, 1).unwrap();
         assert_eq!(frames.len(), 1);
 
         let mut frame = frames.pop().unwrap();
         // faking a trivial evaluation frame
         frame.output = vec![expr, store.intern_empty_env(), store.cont_terminal()];
 
-        let mut cs = TestConstraintSystem::<Fq>::new();
+        let mut cs = TestConstraintSystem::<Bn>::new();
 
         let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), 1));
 

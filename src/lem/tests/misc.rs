@@ -1,6 +1,6 @@
 use bellpepper::util_cs::Comparable;
 use bellpepper_core::{test_cs::TestConstraintSystem, Delta};
-use pasta_curves::pallas::Scalar as Fr;
+use halo2curves::bn256::Fr;
 
 use crate::{
     eval::lang::{DummyCoprocessor, Lang},

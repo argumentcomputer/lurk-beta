@@ -177,7 +177,7 @@ where
 mod tests {
     use super::{instance::Kind, *};
     use crate::eval::lang::{Coproc, Lang};
-    use pasta_curves::pallas::Scalar as S1;
+    use halo2curves::bn256::Fr as S1;
     use tempfile::Builder;
 
     #[test]

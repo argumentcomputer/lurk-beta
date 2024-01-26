@@ -30,7 +30,7 @@ impl serde::de::Error for SerdeError {
 mod tests {
     use crate::field::FWrap;
     use crate::z_data::{from_z_data, to_z_data};
-    use pasta_curves::pallas::Scalar;
+    use halo2curves::bn256::Fr as Scalar;
     use proptest::prelude::*;
     use serde::{Deserialize, Serialize};
     use std::collections::BTreeMap;

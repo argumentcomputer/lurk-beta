@@ -294,8 +294,8 @@ mod tests {
     use proptest::proptest;
 
     use ff::Field;
-    use pasta_curves::pallas::Scalar;
-    use pasta_curves::pallas::Scalar as Fr;
+    use halo2curves::bn256::Fr as Scalar;
+    use halo2curves::bn256::Fr;
 
     proptest! {
         #![proptest_config(ProptestConfig {

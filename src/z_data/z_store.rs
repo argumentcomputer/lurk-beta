@@ -25,7 +25,7 @@ use crate::field::LurkField;
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[cfg_attr(
     not(target_arch = "wasm32"),
-    serde_test(types(pasta_curves::pallas::Scalar), zdata(true))
+    serde_test(types(halo2curves::bn256::Fr), zdata(true))
 )]
 /// A `ZStore` is a content-addressed, serializable representation of a Lurk store
 ///

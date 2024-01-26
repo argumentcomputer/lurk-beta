@@ -15,7 +15,7 @@ use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     not(target_arch = "wasm32"),
-    serde_test(types(pasta_curves::pallas::Scalar), zdata(true))
+    serde_test(types(halo2curves::bn256::Fr), zdata(true))
 )]
 /// A `ZCont` is the content-addressed representation of a Lurk continuation, which enables
 /// efficient serialization and sharing of hashed Lurk data via associated `ZContPtr`s.
