@@ -28,7 +28,6 @@ pub(crate) enum DemoCircuitQuery<F: LurkField> {
 impl<F: LurkField> Query<F> for DemoQuery<F> {
     type CQ = DemoCircuitQuery<F>;
 
-    // DemoQuery and Scope depend on each other.
     fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>>) -> Ptr {
         match self {
             Self::Factorial(n) => {
@@ -47,15 +46,6 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
             }
             _ => unreachable!(),
         }
-    }
-
-    fn recursive_eval(
-        &self,
-        scope: &mut Scope<Self, LogMemo<F>>,
-        s: &Store<F>,
-        subquery: Self,
-    ) -> Ptr {
-        scope.query_recursively(s, self, subquery)
     }
 
     fn symbol(&self) -> Symbol {

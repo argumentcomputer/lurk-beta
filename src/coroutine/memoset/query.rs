@@ -19,7 +19,9 @@ where
         scope: &mut Scope<Self, LogMemo<F>>,
         s: &Store<F>,
         subquery: Self,
-    ) -> Ptr;
+    ) -> Ptr {
+        scope.query_recursively(s, self, subquery)
+    }
     fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self>;
     fn to_ptr(&self, s: &Store<F>) -> Ptr;
     fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ;

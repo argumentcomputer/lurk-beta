@@ -47,15 +47,6 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         }
     }
 
-    fn recursive_eval(
-        &self,
-        scope: &mut Scope<Self, LogMemo<F>>,
-        s: &Store<F>,
-        subquery: Self,
-    ) -> Ptr {
-        scope.query_recursively(s, self, subquery)
-    }
-
     fn symbol(&self) -> Symbol {
         match self {
             Self::Lookup(_, _) => Symbol::sym(&["lurk", "env", "lookup"]),
