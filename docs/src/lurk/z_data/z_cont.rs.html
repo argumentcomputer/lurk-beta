@@ -357,7 +357,7 @@
 <span class="attr">#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
-    serde_test(types(pasta_curves::pallas::Scalar), zdata(<span class="bool-val">true</span>))
+    serde_test(types(halo2curves::bn256::Fr), zdata(<span class="bool-val">true</span>))
 )]
 </span><span class="doccomment">/// A `ZCont` is the content-addressed representation of a Lurk continuation, which enables
 /// efficient serialization and sharing of hashed Lurk data via associated `ZContPtr`s.

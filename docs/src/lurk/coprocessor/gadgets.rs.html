@@ -1342,7 +1342,7 @@
 </span><span class="kw">mod </span>test {
     <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
     <span class="kw">use </span>bellpepper_core::{boolean::Boolean, test_cs::TestConstraintSystem, ConstraintSystem};
-    <span class="kw">use </span>pasta_curves::Fq;
+    <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Fq;
 
     <span class="kw">use crate</span>::{
         circuit::gadgets::pointer::AllocatedPtr,

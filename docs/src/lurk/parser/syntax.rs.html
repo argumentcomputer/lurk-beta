@@ -1425,8 +1425,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>tests {
+    <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Scalar;
     <span class="kw">use </span>nom::Parser;
-    <span class="kw">use </span>pasta_curves::pallas::Scalar;
     <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
     </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 
@@ -1852,7 +1852,7 @@
         ));
         <span class="macro">assert!</span>(test(
             parse_num(),
-            <span class="string">&quot;0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000000&quot;</span>,
+            <span class="string">&quot;0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000&quot;</span>,
             <span class="prelude-val">Some</span>(Syntax::Num(
                 Pos::No,
                 Num::Scalar(&lt;Scalar <span class="kw">as </span>ff::Field&gt;::ZERO - Scalar::from(<span class="number">1u64</span>))
@@ -1860,7 +1860,7 @@
         ));
         <span class="macro">assert!</span>(test(
             parse_num(),
-            <span class="string">&quot;0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001&quot;</span>,
+            <span class="string">&quot;0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001&quot;</span>,
             <span class="prelude-val">None</span>,
         ));
         <span class="macro">assert!</span>(test(parse_num(), <span class="string">&quot;-0&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">num!</span>(<span class="number">0</span>))));
@@ -1876,9 +1876,9 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>unit_parse_syntax_misc() {
         <span class="kw">let </span>vec: Vec&lt;u8&gt; = <span class="macro">vec!</span>[
-            <span class="number">0x3e</span>, <span class="number">0x2e</span>, <span class="number">0x50</span>, <span class="number">0x55</span>, <span class="number">0xdc</span>, <span class="number">0xf6</span>, <span class="number">0x14</span>, <span class="number">0x86</span>, <span class="number">0xb0</span>, <span class="number">0x3b</span>, <span class="number">0xb8</span>, <span class="number">0x0e</span>, <span class="number">0xd2</span>, <span class="number">0xb3</span>,
-            <span class="number">0xf1</span>, <span class="number">0xa3</span>, <span class="number">0x5c</span>, <span class="number">0x30</span>, <span class="number">0xe1</span>, <span class="number">0x22</span>, <span class="number">0xde</span>, <span class="number">0xfe</span>, <span class="number">0xba</span>, <span class="number">0xe8</span>, <span class="number">0x24</span>, <span class="number">0xfa</span>, <span class="number">0xe4</span>, <span class="number">0xed</span>,
-            <span class="number">0x32</span>, <span class="number">0x40</span>, <span class="number">0x8e</span>, <span class="number">0x87</span>,
+            <span class="number">0x19</span>, <span class="number">0x1d</span>, <span class="number">0x3d</span>, <span class="number">0x47</span>, <span class="number">0x43</span>, <span class="number">0xb4</span>, <span class="number">0xd1</span>, <span class="number">0xce</span>, <span class="number">0x39</span>, <span class="number">0x36</span>, <span class="number">0xa0</span>, <span class="number">0xa6</span>, <span class="number">0x68</span>, <span class="number">0xcf</span>,
+            <span class="number">0x6f</span>, <span class="number">0x64</span>, <span class="number">0x50</span>, <span class="number">0x28</span>, <span class="number">0x45</span>, <span class="number">0x79</span>, <span class="number">0xdb</span>, <span class="number">0xe2</span>, <span class="number">0x66</span>, <span class="number">0xe3</span>, <span class="number">0x64</span>, <span class="number">0x5b</span>, <span class="number">0x67</span>, <span class="number">0x64</span>,
+            <span class="number">0xcf</span>, <span class="number">0x24</span>, <span class="number">0xb9</span>, <span class="number">0x36</span>,
         ]
         .into_iter()
         .rev()
@@ -1893,7 +1893,7 @@
         ));
         <span class="macro">assert!</span>(test(
             parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
-            <span class="string">&quot;(0x3e2e5055dcf61486b03bb80ed2b3f1a35c30e122defebae824fae4ed32408e87)&quot;</span>,
+            <span class="string">&quot;(0x191d3d4743b4d1ce3936a0a668cf6f6450284579dbe266e3645b6764cf24b936)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">num!</span>(Num::Scalar(f_from_le_bytes(<span class="kw-2">&amp;</span>vec)))])),
         ));
         <span class="macro">assert!</span>(test(

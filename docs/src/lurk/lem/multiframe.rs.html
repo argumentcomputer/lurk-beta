@@ -2087,12 +2087,12 @@
     </span><span class="kw">fn </span>test_sequential_and_parallel_witnesses_equivalences() {
         <span class="kw">let </span>lurk_step = eval_step();
         <span class="kw">let </span>num_slots_per_frame = lurk_step.slots_count.total();
-        <span class="kw">let </span>store = Store::&lt;Fq&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Bn&gt;::default();
         <span class="kw">let </span><span class="kw-2">mut </span>cs = WitnessCS::new();
 
         <span class="kw">let </span>expr = store.read_with_default_state(<span class="string">&quot;(if t (+ 5 5) 6)&quot;</span>).unwrap();
 
-        <span class="kw">let </span>frames = evaluate::&lt;Fq, Coproc&lt;Fq&gt;&gt;(<span class="prelude-val">None</span>, expr, <span class="kw-2">&amp;</span>store, <span class="number">10</span>).unwrap();
+        <span class="kw">let </span>frames = evaluate::&lt;Bn, Coproc&lt;Bn&gt;&gt;(<span class="prelude-val">None</span>, expr, <span class="kw-2">&amp;</span>store, <span class="number">10</span>).unwrap();
 
         <span class="kw">let </span>sequential_slots_witnesses =
             generate_slots_witnesses(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frames, num_slots_per_frame, <span class="bool-val">false</span>);
@@ -2157,7 +2157,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>cs_clone = cs.clone();
 
-        <span class="kw">let </span>lang = Lang::&lt;Fq, Coproc&lt;Fq&gt;&gt;::new();
+        <span class="kw">let </span>lang = Lang::&lt;Bn, Coproc&lt;Bn&gt;&gt;::new();
 
         <span class="kw">let </span>output_sequential = synthesize_frames_sequential(
             <span class="kw-2">&amp;mut </span>cs,
@@ -2193,20 +2193,20 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>non_self_evaluating() {
-        <span class="kw">let </span>store = Store::default();
+        <span class="kw">let </span>store = Store::&lt;Bn&gt;::default();
 
         <span class="comment">// not self-evaluating
         </span><span class="kw">let </span>expr = store.read_with_default_state(<span class="string">&quot;(+ 1 2)&quot;</span>).unwrap();
 
-        <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fq, Coproc&lt;Fq&gt;&gt;::new());
-        <span class="kw">let </span><span class="kw-2">mut </span>frames = evaluate::&lt;Fq, Coproc&lt;Fq&gt;&gt;(<span class="prelude-val">None</span>, expr, <span class="kw-2">&amp;</span>store, <span class="number">1</span>).unwrap();
+        <span class="kw">let </span>lang = Arc::new(Lang::&lt;Bn, Coproc&lt;Bn&gt;&gt;::new());
+        <span class="kw">let </span><span class="kw-2">mut </span>frames = evaluate::&lt;Bn, Coproc&lt;Bn&gt;&gt;(<span class="prelude-val">None</span>, expr, <span class="kw-2">&amp;</span>store, <span class="number">1</span>).unwrap();
         <span class="macro">assert_eq!</span>(frames.len(), <span class="number">1</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>frame = frames.pop().unwrap();
         <span class="comment">// faking a trivial evaluation frame
         </span>frame.output = <span class="macro">vec!</span>[expr, store.intern_empty_env(), store.cont_terminal()];
 
-        <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fq&gt;::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Bn&gt;::new();
 
         <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), <span class="number">1</span>));
 

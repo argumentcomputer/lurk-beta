@@ -829,8 +829,8 @@
     <span class="kw">use </span>proptest::proptest;
 
     <span class="kw">use </span>ff::Field;
-    <span class="kw">use </span>pasta_curves::pallas::Scalar;
-    <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
+    <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Scalar;
+    <span class="kw">use </span>halo2curves::bn256::Fr;
 
     <span class="macro">proptest! </span>{
         <span class="attr">#![proptest_config(ProptestConfig {

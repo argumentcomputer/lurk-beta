@@ -707,8 +707,8 @@
             Span,
         };
         <span class="kw">use </span><span class="kw">crate</span>::syntax::Syntax;
+        <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Scalar;
         <span class="kw">use </span>nom::{sequence::preceded, Parser};
-        <span class="kw">use </span>pasta_curves::pallas::Scalar;
         <span class="kw">match </span>preceded(
             parse_space::&lt;Scalar&gt;,
             parse_symbol(State::default().rccell(), <span class="bool-val">true</span>),

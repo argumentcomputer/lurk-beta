@@ -814,8 +814,8 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>tests {
     <span class="kw">use </span><span class="kw">crate</span>::z_data::{from_z_data, to_z_data};
-    <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
-    <span class="kw">use </span>pasta_curves::{pallas, vesta};
+    <span class="kw">use </span>halo2curves::bn256::Fr;
+    <span class="kw">use </span>halo2curves::{bn256, grumpkin};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -827,11 +827,11 @@
 
     <span class="macro">proptest! </span>{
       <span class="attr">#[test]
-      </span><span class="kw">fn </span>prop_pallas_repr_bytes_consistency(f1 <span class="kw">in </span>any::&lt;FWrap&lt;pallas::Scalar&gt;&gt;()) {
+      </span><span class="kw">fn </span>prop_bn256_repr_bytes_consistency(f1 <span class="kw">in </span>any::&lt;FWrap&lt;bn256::Fr&gt;&gt;()) {
           repr_bytes_consistency(f1)
       }
       <span class="attr">#[test]
-      </span><span class="kw">fn </span>prop_vesta_repr_bytes_consistency(f1 <span class="kw">in </span>any::&lt;FWrap&lt;vesta::Scalar&gt;&gt;()) {
+      </span><span class="kw">fn </span>prop_grumpkin_repr_bytes_consistency(f1 <span class="kw">in </span>any::&lt;FWrap&lt;grumpkin::Fr&gt;&gt;()) {
           repr_bytes_consistency(f1)
       }
     }
@@ -886,11 +886,11 @@
         repr_canonicity(f1)
       }
       <span class="attr">#[test]
-      </span><span class="kw">fn </span>prop_pallas_repr_canonicity(f1 <span class="kw">in </span>any::&lt;FWrap&lt;pallas::Scalar&gt;&gt;()) {
+      </span><span class="kw">fn </span>prop_bn256_repr_canonicity(f1 <span class="kw">in </span>any::&lt;FWrap&lt;bn256::Fr&gt;&gt;()) {
           repr_canonicity(f1)
       }
       <span class="attr">#[test]
-      </span><span class="kw">fn </span>prop_vesta_repr_canonicity(f1 <span class="kw">in </span>any::&lt;FWrap&lt;vesta::Scalar&gt;&gt;()) {
+      </span><span class="kw">fn </span>prop_grumpkin_repr_canonicity(f1 <span class="kw">in </span>any::&lt;FWrap&lt;grumpkin::Fr&gt;&gt;()) {
           repr_canonicity(f1)
       }
       <span class="attr">#[test]
@@ -916,8 +916,8 @@
     // we use this library with.
     </span><span class="macro">proptest! </span>{
         <span class="attr">#[test]
-        </span><span class="kw">fn </span>prop_pallas_tag_roundtrip(x <span class="kw">in </span>any::&lt;u64&gt;()){
-            <span class="kw">let </span>f1 = pallas::Scalar::from(x);
+        </span><span class="kw">fn </span>prop_bn256_tag_roundtrip(x <span class="kw">in </span>any::&lt;u64&gt;()){
+            <span class="kw">let </span>f1 = bn256::Fr::from(x);
             <span class="kw">let </span>bytes = f1.to_repr().as_ref().to_vec();
             <span class="kw">let </span><span class="kw-2">mut </span>bytes_from_u64 = [<span class="number">0u8</span>; <span class="number">32</span>];
             bytes_from_u64[..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>x.to_le_bytes());
@@ -925,8 +925,8 @@
         }
 
         <span class="attr">#[test]
-        </span><span class="kw">fn </span>prop_vesta_tag_roundtrip(x <span class="kw">in </span>any::&lt;u64&gt;()){
-            <span class="kw">let </span>f1 = vesta::Scalar::from(x);
+        </span><span class="kw">fn </span>prop_grumpkin_tag_roundtrip(x <span class="kw">in </span>any::&lt;u64&gt;()){
+            <span class="kw">let </span>f1 = grumpkin::Fr::from(x);
             <span class="kw">let </span>bytes = f1.to_repr().as_ref().to_vec();
             <span class="kw">let </span><span class="kw-2">mut </span>bytes_from_u64 = [<span class="number">0u8</span>; <span class="number">32</span>];
             bytes_from_u64[..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>x.to_le_bytes());

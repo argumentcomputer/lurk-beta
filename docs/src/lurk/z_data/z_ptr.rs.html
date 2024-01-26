@@ -171,8 +171,8 @@
 #[cfg_attr(
     not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
     serde_test(
-        types(ExprTag, pasta_curves::pallas::Scalar),
-        types(ContTag, pasta_curves::pallas::Scalar),
+        types(ExprTag, halo2curves::bn256::Fr),
+        types(ContTag, halo2curves::bn256::Fr),
         zdata(<span class="bool-val">true</span>)
     )
 )]
@@ -281,7 +281,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span>pasta_curves::pallas::Scalar;
+    <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Scalar;
 
     <span class="macro">proptest! </span>{
         <span class="attr">#[test]

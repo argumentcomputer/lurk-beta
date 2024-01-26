@@ -1693,6 +1693,8 @@
 <a href="#1693" id="1693">1693</a>
 <a href="#1694" id="1694">1694</a>
 <a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -3375,6 +3377,8 @@
         <span class="kw">let </span>bit_decomp_cost = <span class="kw">match </span>F::FIELD {
             LanguageField::Pallas =&gt; <span class="number">298</span>,
             LanguageField::Vesta =&gt; <span class="number">301</span>,
+            <span class="comment">// TODO: investigate how to properly compute this number, as it was obtained empirically
+            </span>LanguageField::BN256 =&gt; <span class="number">354</span>,
             <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(),
         };
 

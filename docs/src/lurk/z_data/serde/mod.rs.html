@@ -103,7 +103,7 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span><span class="kw">crate</span>::field::FWrap;
     <span class="kw">use </span><span class="kw">crate</span>::z_data::{from_z_data, to_z_data};
-    <span class="kw">use </span>pasta_curves::pallas::Scalar;
+    <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Scalar;
     <span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
     <span class="kw">use </span>serde::{Deserialize, Serialize};
     <span class="kw">use </span>std::collections::BTreeMap;

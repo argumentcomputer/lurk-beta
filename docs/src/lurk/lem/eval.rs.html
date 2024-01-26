@@ -3478,7 +3478,7 @@
     };
     <span class="kw">use </span>bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     <span class="kw">use </span>expect_test::{expect, Expect};
-    <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
+    <span class="kw">use </span>halo2curves::bn256::Fr;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_counts() {
@@ -3497,8 +3497,8 @@
         expect_eq(func.slots_count.commitment, <span class="macro">expect!</span>[<span class="string">&quot;1&quot;</span>]);
         expect_eq(func.slots_count.bit_decomp, <span class="macro">expect!</span>[<span class="string">&quot;3&quot;</span>]);
         expect_eq(cs.num_inputs(), <span class="macro">expect!</span>[<span class="string">&quot;1&quot;</span>]);
-        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">&quot;8927&quot;</span>]);
-        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">&quot;10857&quot;</span>]);
+        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">&quot;9095&quot;</span>]);
+        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">&quot;11025&quot;</span>]);
         <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), cs.num_constraints());
     }
 }

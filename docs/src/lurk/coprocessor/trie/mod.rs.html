@@ -1197,44 +1197,6 @@
 <a href="#1197" id="1197">1197</a>
 <a href="#1198" id="1198">1198</a>
 <a href="#1199" id="1199">1199</a>
-<a href="#1200" id="1200">1200</a>
-<a href="#1201" id="1201">1201</a>
-<a href="#1202" id="1202">1202</a>
-<a href="#1203" id="1203">1203</a>
-<a href="#1204" id="1204">1204</a>
-<a href="#1205" id="1205">1205</a>
-<a href="#1206" id="1206">1206</a>
-<a href="#1207" id="1207">1207</a>
-<a href="#1208" id="1208">1208</a>
-<a href="#1209" id="1209">1209</a>
-<a href="#1210" id="1210">1210</a>
-<a href="#1211" id="1211">1211</a>
-<a href="#1212" id="1212">1212</a>
-<a href="#1213" id="1213">1213</a>
-<a href="#1214" id="1214">1214</a>
-<a href="#1215" id="1215">1215</a>
-<a href="#1216" id="1216">1216</a>
-<a href="#1217" id="1217">1217</a>
-<a href="#1218" id="1218">1218</a>
-<a href="#1219" id="1219">1219</a>
-<a href="#1220" id="1220">1220</a>
-<a href="#1221" id="1221">1221</a>
-<a href="#1222" id="1222">1222</a>
-<a href="#1223" id="1223">1223</a>
-<a href="#1224" id="1224">1224</a>
-<a href="#1225" id="1225">1225</a>
-<a href="#1226" id="1226">1226</a>
-<a href="#1227" id="1227">1227</a>
-<a href="#1228" id="1228">1228</a>
-<a href="#1229" id="1229">1229</a>
-<a href="#1230" id="1230">1230</a>
-<a href="#1231" id="1231">1231</a>
-<a href="#1232" id="1232">1232</a>
-<a href="#1233" id="1233">1233</a>
-<a href="#1234" id="1234">1234</a>
-<a href="#1235" id="1235">1235</a>
-<a href="#1236" id="1236">1236</a>
-<a href="#1237" id="1237">1237</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `trie` module implements a Trie with the following properties:
 //! Big-endian bits of the (field element) key are taken N at a time, where the underlying hash has arity 2^N. This
 //! forms a fixed-length path whose final element is either zero or some non-zero payload. If the payload is assumed to
@@ -1854,10 +1816,14 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         key: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;Boolean&gt;&gt;, SynthesisError&gt; {
+        <span class="kw">let </span>(arity_bits, bits_needed) = <span class="self">Self</span>::path_bit_dimensions();
+
         <span class="kw">let </span><span class="kw-2">mut </span>bits = key.to_bits_le_strict(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bits&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">for _ in </span><span class="number">0</span>..bits_needed - bits.len() {
+            bits.push(Boolean::Constant(<span class="bool-val">false</span>));
+        }
         bits.reverse();
 
-        <span class="kw">let </span>(arity_bits, bits_needed) = <span class="self">Self</span>::path_bit_dimensions();
         <span class="comment">// each chunk is reversed due to little-endian encoding
         </span><span class="kw">let </span>path = bits[bits.len() - bits_needed..]
             .chunks(arity_bits)
@@ -2148,9 +2114,9 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span>ff::PrimeField;
+    <span class="kw">use </span>expect_test::{expect, Expect};
+    <span class="kw">use </span>halo2curves::bn256::Fr;
     <span class="kw">use </span>once_cell::sync::OnceCell;
-    <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
 
     <span class="kw">static </span>POSEIDON_CACHE: OnceCell&lt;PoseidonCache&lt;Fr&gt;&gt; = OnceCell::new();
     <span class="kw">static </span>INVERSE_POSEIDON_CACHE: OnceCell&lt;InversePoseidonCache&lt;Fr&gt;&gt; = OnceCell::new();
@@ -2163,39 +2129,28 @@
         INVERSE_POSEIDON_CACHE.get_or_init(InversePoseidonCache::default)
     }
 
+    <span class="kw">fn </span>check(actual: Fr, expect: <span class="kw-2">&amp;</span>Expect) {
+        <span class="kw">let </span>actual = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, actual);
+        expect.assert_eq(<span class="kw-2">&amp;</span>actual);
+    }
+
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_empty_roots() {
         <span class="kw">let </span>t: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
             Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">512</span>);
         <span class="macro">assert_eq!</span>(Fr::zero(), Trie::&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt;::empty_element());
         <span class="macro">assert_eq!</span>(Fr::zero(), t.empty_root_for_height(<span class="number">0</span>));
-        <span class="macro">assert_eq!</span>(
-            scalar_from_u64s([
-                <span class="number">0xa81830c13a876b1c</span>,
-                <span class="number">0x83b4610d346c2a33</span>,
-                <span class="number">0x528056fe84bb9846</span>,
-                <span class="number">0x0ef417527046e53c
-            </span>]),
-            t.empty_root_for_height(<span class="number">1</span>)
+        check(
+            t.empty_root_for_height(<span class="number">1</span>),
+            <span class="kw-2">&amp;</span><span class="macro">expect!</span>[<span class="string">&quot;0x1ca5b207085f3f0f324a2e0704b18fff1cda2e2d686aa85343fea91df77bf35b&quot;</span>],
         );
-
-        <span class="macro">assert_eq!</span>(
-            scalar_from_u64s([
-                <span class="number">0x33ff39660bc554aa</span>,
-                <span class="number">0xd85d92c9279a65e7</span>,
-                <span class="number">0x8e0f305f27de3d65</span>,
-                <span class="number">0x089120e96e4b6dc5
-            </span>]),
-            t.empty_root_for_height(<span class="number">2</span>)
+        check(
+            t.empty_root_for_height(<span class="number">2</span>),
+            <span class="kw-2">&amp;</span><span class="macro">expect!</span>[<span class="string">&quot;0x0637ddaef5cd53ba6711c328952208d846222066701e10c34d3a6df7350de8aa&quot;</span>],
         );
-        <span class="macro">assert_eq!</span>(
-            scalar_from_u64s([
-                <span class="number">0xa52e7d0bbbee086b</span>,
-                <span class="number">0x06e4ba3d56dbd7fa</span>,
-                <span class="number">0xed7adffde497af73</span>,
-                <span class="number">0x2fd6f6c5e5d21d60
-            </span>]),
-            t.empty_root_for_height(<span class="number">3</span>)
+        check(
+            t.empty_root_for_height(<span class="number">3</span>),
+            <span class="kw-2">&amp;</span><span class="macro">expect!</span>[<span class="string">&quot;0x08127a45502f5939273edd1957c8748ae39992e2a459d99f999992a842df99a5&quot;</span>],
         );
     }
 
@@ -2231,72 +2186,41 @@
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>scalar_from_u64s(parts: [u64; <span class="number">4</span>]) -&gt; Fr {
-        <span class="kw">let </span><span class="kw-2">mut </span>le_bytes = [<span class="number">0u8</span>; <span class="number">32</span>];
-        le_bytes[<span class="number">0</span>..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>parts[<span class="number">0</span>].to_le_bytes());
-        le_bytes[<span class="number">8</span>..<span class="number">16</span>].copy_from_slice(<span class="kw-2">&amp;</span>parts[<span class="number">1</span>].to_le_bytes());
-        le_bytes[<span class="number">16</span>..<span class="number">24</span>].copy_from_slice(<span class="kw-2">&amp;</span>parts[<span class="number">2</span>].to_le_bytes());
-        le_bytes[<span class="number">24</span>..<span class="number">32</span>].copy_from_slice(<span class="kw-2">&amp;</span>parts[<span class="number">3</span>].to_le_bytes());
-        <span class="kw">let </span><span class="kw-2">mut </span>repr = &lt;Fr <span class="kw">as </span>PrimeField&gt;::Repr::default();
-        repr.as_mut().copy_from_slice(<span class="kw-2">&amp;</span>le_bytes[..]);
-        Fr::from_repr_vartime(repr).expect(<span class="string">&quot;u64s exceed scalar field modulus&quot;</span>)
-    }
-
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_hashes() {
         {
             <span class="kw">let </span><span class="kw-2">mut </span>t0: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">1</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">8</span>);
-            <span class="macro">assert_eq!</span>(
-                scalar_from_u64s([
-                    <span class="number">0xa81830c13a876b1c</span>,
-                    <span class="number">0x83b4610d346c2a33</span>,
-                    <span class="number">0x528056fe84bb9846</span>,
-                    <span class="number">0x0ef417527046e53c
-                </span>]),
-                t0.empty_root()
+            check(
+                t0.empty_root(),
+                <span class="kw-2">&amp;</span><span class="macro">expect!</span>[<span class="string">&quot;0x1ca5b207085f3f0f324a2e0704b18fff1cda2e2d686aa85343fea91df77bf35b&quot;</span>],
             );
             <span class="macro">assert_eq!</span>(t0.empty_root(), t0.root());
         }
         {
             <span class="kw">let </span><span class="kw-2">mut </span>t1: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">2</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">64</span>);
-            <span class="macro">assert_eq!</span>(
-                scalar_from_u64s([
-                    <span class="number">0x33ff39660bc554aa</span>,
-                    <span class="number">0xd85d92c9279a65e7</span>,
-                    <span class="number">0x8e0f305f27de3d65</span>,
-                    <span class="number">0x089120e96e4b6dc5
-                </span>]),
-                t1.empty_root()
+            check(
+                t1.empty_root(),
+                <span class="kw-2">&amp;</span><span class="macro">expect!</span>[<span class="string">&quot;0x0637ddaef5cd53ba6711c328952208d846222066701e10c34d3a6df7350de8aa&quot;</span>],
             );
             <span class="macro">assert_eq!</span>(t1.empty_root(), t1.root());
         }
         {
             <span class="kw">let </span><span class="kw-2">mut </span>t2: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">3</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">512</span>);
-            <span class="macro">assert_eq!</span>(
-                scalar_from_u64s([
-                    <span class="number">0xa52e7d0bbbee086b</span>,
-                    <span class="number">0x06e4ba3d56dbd7fa</span>,
-                    <span class="number">0xed7adffde497af73</span>,
-                    <span class="number">0x2fd6f6c5e5d21d60
-                </span>]),
-                t2.empty_root()
+            check(
+                t2.empty_root(),
+                <span class="kw-2">&amp;</span><span class="macro">expect!</span>[<span class="string">&quot;0x08127a45502f5939273edd1957c8748ae39992e2a459d99f999992a842df99a5&quot;</span>],
             );
             <span class="macro">assert_eq!</span>(t2.empty_root(), t2.root());
         }
         {
             <span class="kw">let </span><span class="kw-2">mut </span>t3: Trie&lt;<span class="lifetime">&#39;_</span>, Fr, <span class="number">8</span>, <span class="number">4</span>&gt; =
                 Trie::new_with_capacity(poseidon_cache(), inverse_poseidon_cache(), <span class="number">4096</span>);
-            <span class="macro">assert_eq!</span>(
-                scalar_from_u64s([
-                    <span class="number">0xd95987b58e6c5852</span>,
-                    <span class="number">0x261c08dca064c6c3</span>,
-                    <span class="number">0x191320220a5d5d84</span>,
-                    <span class="number">0x2cdb105f591c0e94
-                </span>]),
-                t3.empty_root()
+            check(
+                t3.empty_root(),
+                <span class="kw-2">&amp;</span><span class="macro">expect!</span>[<span class="string">&quot;0x12c2ef2ab5df25442fe23d8711bf985f02c39e83930517f7103d4bd4228c6cfb&quot;</span>],
             );
             <span class="macro">assert_eq!</span>(t3.empty_root(), t3.root());
         }
