@@ -6,7 +6,6 @@ use super::{
 };
 use crate::circuit::gadgets::constraints::alloc_is_zero;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
-use crate::coprocessor::gadgets::construct_list;
 use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
 use crate::lem::{pointers::Ptr, store::Store};
@@ -60,7 +59,7 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
         let sym = s.fetch_sym(&head).expect("head should be sym");
 
         if sym == Symbol::sym(&["lurk", "user", "factorial"]) {
-            let (num, _) = s.car_cdr(&body).expect("query body should be cons");
+            let num = body;
             Some(Self::Factorial(num))
         } else {
             None
@@ -72,7 +71,7 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
             Self::Factorial(n) => {
                 let factorial = s.intern_symbol(&self.symbol());
 
-                s.list(vec![factorial, *n])
+                s.cons(factorial, *n)
             }
             _ => unreachable!(),
         }
@@ -175,21 +174,12 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
                     new_n,
                 )?;
 
-                // FIXME: Don't bother making this wasteful list.
-                let recursive_args = construct_list(
-                    &mut cs.namespace(|| "recursive_args"),
-                    g,
-                    store,
-                    &[&new_num],
-                    None,
-                )?;
-
                 self.recurse(
                     cs,
                     g,
                     store,
                     scope,
-                    &recursive_args,
+                    &new_num,
                     &n_is_zero.not(),
                     (&base_case, acc, transcript),
                 )

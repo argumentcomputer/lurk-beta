@@ -1122,8 +1122,8 @@ mod test {
             Scope::new(transcribe_internal_insertions, circuit_query_rc);
         let state = State::init_lurk_state();
 
-        let fact_4 = s.read_with_default_state("(factorial 4)").unwrap();
-        let fact_3 = s.read_with_default_state("(factorial 3)").unwrap();
+        let fact_4 = s.read_with_default_state("(factorial . 4)").unwrap();
+        let fact_3 = s.read_with_default_state("(factorial . 3)").unwrap();
 
         let expect_eq = |computed: usize, expected: Expect| {
             expected.assert_eq(&computed.to_string());
