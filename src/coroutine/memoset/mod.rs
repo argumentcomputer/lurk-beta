@@ -27,6 +27,7 @@
 //! results computed 'naturally' during evaluation. We then separate and sort in an order matching that which the NIVC
 //! prover will follow when provably maintaining the multiset accumulator and Fiat-Shamir transcript in the circuit.
 
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
@@ -193,18 +194,21 @@ pub struct Scope<Q, M> {
     /// unique keys: query-index -> [key]
     unique_inserted_keys: HashMap<usize, Vec<Ptr>>,
     transcribe_internal_insertions: bool,
+    // This may become an explicit map or something allowing more fine-grained control.
+    default_rc: usize,
 }
 
+const DEFAULT_RC_FOR_QUERY: usize = 1;
 const DEFAULT_TRANSCRIBE_INTERNAL_INSERTIONS: bool = false;
 
 impl<F: LurkField, Q> Default for Scope<Q, LogMemo<F>> {
     fn default() -> Self {
-        Self::new(DEFAULT_TRANSCRIBE_INTERNAL_INSERTIONS)
+        Self::new(DEFAULT_TRANSCRIBE_INTERNAL_INSERTIONS, DEFAULT_RC_FOR_QUERY)
     }
 }
 
 impl<F: LurkField, Q> Scope<Q, LogMemo<F>> {
-    fn new(transcribe_internal_insertions: bool) -> Self {
+    fn new(transcribe_internal_insertions: bool, default_rc: usize) -> Self {
         Self {
             memoset: Default::default(),
             queries: Default::default(),
@@ -213,6 +217,7 @@ impl<F: LurkField, Q> Scope<Q, LogMemo<F>> {
             internal_insertions: Default::default(),
             unique_inserted_keys: Default::default(),
             transcribe_internal_insertions,
+            default_rc,
         }
     }
 }
@@ -232,8 +237,10 @@ pub struct CoroutineCircuit<'a, F: LurkField, CM, Q> {
     queries: &'a HashMap<Ptr, Ptr>,
     memoset: CM,
     keys: Vec<Ptr>,
+    query_index: usize,
     store: &'a Store<F>,
     transcribe_internal_insertions: bool,
+    rc: usize,
     _p: PhantomData<Q>,
 }
 
@@ -244,14 +251,19 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
         scope: &'a Scope<Q, LogMemo<F>>,
         memoset: LogMemoCircuit<F>,
         keys: Vec<Ptr>,
+        query_index: usize,
         store: &'a Store<F>,
+        rc: usize,
     ) -> Self {
+        assert!(keys.len() <= rc);
         Self {
             memoset,
             queries: &scope.queries,
             keys,
+            query_index,
             store,
             transcribe_internal_insertions: scope.transcribe_internal_insertions,
+            rc,
             _p: Default::default(),
         }
     }
@@ -280,9 +292,21 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
         );
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
-        for (i, key) in self.keys.iter().enumerate() {
+        for (i, key) in self
+            .keys
+            .iter()
+            .map(Some)
+            .pad_using(self.rc, |_| None)
+            .enumerate()
+        {
             let cs = &mut cs.namespace(|| format!("internal-{i}"));
-            circuit_scope.synthesize_prove_key_query::<_, Q>(cs, g, self.store, key)?;
+            circuit_scope.synthesize_prove_key_query::<_, Q>(
+                cs,
+                g,
+                self.store,
+                key,
+                self.query_index,
+            )?;
         }
 
         let (memoset_acc, transcript, r_num) = circuit_scope.io();
@@ -456,7 +480,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
                     r_num,
                 )?;
                 let dummy = g.alloc_ptr(cs, &s.intern_nil(), s);
-                let z = vec![
+                let mut z = vec![
                     dummy.clone(),
                     dummy.clone(),
                     dummy.clone(),
@@ -467,16 +491,37 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
                 for (index, keys) in self.unique_inserted_keys.iter() {
                     let cs = &mut cs.namespace(|| format!("query-index-{index}"));
 
-                    let mut circuit: CoroutineCircuit<'_, F, LogMemoCircuit<F>, Q> =
-                        CoroutineCircuit::new(self, memoset_circuit.clone(), keys.clone(), s);
+                    let rc = self.rc_for_query(*index);
 
-                    let (_next_pc, z_out) = circuit.synthesize(cs, &z)?;
-                    {
-                        let memoset_acc = &z_out[3];
-                        let transcript = &z_out[4];
-                        let r = &z_out[5];
+                    for (i, chunk) in keys.chunks(rc).enumerate() {
+                        // This namespace exists only because we are putting multiple 'chunks' into a single, larger circuit (as a stage in development).
+                        // It shouldn't exist, when instead we have only the single NIVC circuit repeated multiple times.
+                        let cs = &mut cs.namespace(|| format!("chunk-{i}"));
 
-                        circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
+                        let mut circuit: CoroutineCircuit<'_, F, LogMemoCircuit<F>, Q> =
+                            CoroutineCircuit::new(
+                                self,
+                                memoset_circuit.clone(),
+                                chunk.to_vec(),
+                                *index,
+                                s,
+                                rc,
+                            );
+
+                        let (_next_pc, z_out) = circuit.synthesize(cs, &z)?;
+                        {
+                            let memoset_acc = &z_out[3];
+                            let transcript = &z_out[4];
+                            let r = &z_out[5];
+
+                            circuit_scope.update_from_io(
+                                memoset_acc.clone(),
+                                transcript.clone(),
+                                r,
+                            );
+
+                            z = z_out;
+                        }
                     }
                 }
             }
@@ -484,6 +529,10 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
 
         circuit_scope.finalize(cs, g);
         Ok(())
+    }
+
+    fn rc_for_query(&self, _index: usize) -> usize {
+        self.default_rc
     }
 }
 
@@ -734,18 +783,34 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         cs: &mut CS,
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
-        key: &Ptr,
+        key: Option<&Ptr>,
+        index: usize,
     ) -> Result<(), SynthesisError> {
-        let allocated_key =
-            AllocatedPtr::alloc(
-                &mut cs.namespace(|| "allocated_key"),
-                || Ok(s.hash_ptr(key)),
-            )
-            .unwrap();
+        let allocated_key = AllocatedPtr::alloc(&mut cs.namespace(|| "allocated_key"), || {
+            if let Some(key) = key {
+                Ok(s.hash_ptr(key))
+            } else {
+                Ok(s.hash_ptr(&s.intern_nil()))
+            }
+        })
+        .unwrap();
 
-        let circuit_query = Q::CQ::from_ptr(&mut cs.namespace(|| "circuit_query"), s, key).unwrap();
+        let circuit_query = if let Some(key) = key {
+            Q::CQ::from_ptr(&mut cs.namespace(|| "circuit_query"), s, key).unwrap()
+        } else {
+            Q::CQ::dummy_from_index(&mut cs.namespace(|| "circuit_query"), s, index)
+        };
 
-        self.synthesize_prove_query::<_, Q::CQ>(cs, g, s, &allocated_key, &circuit_query)?;
+        let not_dummy = key.is_some();
+
+        self.synthesize_prove_query::<_, Q::CQ>(
+            cs,
+            g,
+            s,
+            &allocated_key,
+            &circuit_query,
+            not_dummy,
+        )?;
         Ok(())
     }
 
@@ -756,6 +821,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         s: &Store<F>,
         allocated_key: &AllocatedPtr<F>,
         circuit_query: &CQ,
+        not_dummy: bool,
     ) -> Result<(), SynthesisError> {
         let acc = self.acc.clone().unwrap();
         let transcript = self.transcript.clone();
@@ -767,8 +833,22 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         let (new_acc, new_transcript) =
             self.synthesize_remove(cs, g, s, &new_acc, &new_transcript, allocated_key, &val)?;
 
-        self.acc = Some(new_acc);
-        self.transcript = new_transcript;
+        // Prover can choose non-deterministically whether or not a given query is a dummy, to allow for padding.
+        let final_acc = AllocatedPtr::pick(
+            &mut cs.namespace(|| "final_acc"),
+            &Boolean::Constant(not_dummy),
+            &new_acc,
+            self.acc.as_ref().expect("acc missing"),
+        )?;
+        let final_transcript = CircuitTranscript::pick(
+            &mut cs.namespace(|| "final_transcripot"),
+            &Boolean::Constant(not_dummy),
+            &new_transcript,
+            &self.transcript,
+        )?;
+
+        self.acc = Some(final_acc);
+        self.transcript = final_transcript;
 
         Ok(())
     }
@@ -975,10 +1055,27 @@ mod test {
     fn test_query_with_internal_insertion_transcript() {
         test_query_aux(
             true,
-            expect!["10831"],
-            expect!["10864"],
-            expect!["11413"],
-            expect!["11450"],
+            expect!["10875"],
+            expect!["10908"],
+            expect!["11457"],
+            expect!["11494"],
+            1,
+        );
+        test_query_aux(
+            true,
+            expect!["12908"],
+            expect!["12947"],
+            expect!["13490"],
+            expect!["13533"],
+            3,
+        );
+        test_query_aux(
+            true,
+            expect!["21106"],
+            expect!["21169"],
+            expect!["21688"],
+            expect!["21755"],
+            10,
         )
     }
 
@@ -986,10 +1083,27 @@ mod test {
     fn test_query_without_internal_insertion_transcript() {
         test_query_aux(
             false,
-            expect!["9386"],
-            expect!["9419"],
-            expect!["9968"],
-            expect!["10005"],
+            expect!["9430"],
+            expect!["9463"],
+            expect!["10012"],
+            expect!["10049"],
+            1,
+        );
+        test_query_aux(
+            false,
+            expect!["11174"],
+            expect!["11213"],
+            expect!["11756"],
+            expect!["11799"],
+            3,
+        );
+        test_query_aux(
+            false,
+            expect!["18216"],
+            expect!["18279"],
+            expect!["18798"],
+            expect!["18865"],
+            10,
         )
     }
 
@@ -999,9 +1113,11 @@ mod test {
         expected_aux_simple: Expect,
         expected_constraints_compound: Expect,
         expected_aux_compound: Expect,
+        circuit_query_rc: usize,
     ) {
         let s = &Store::<F>::default();
-        let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::new(transcribe_internal_insertions);
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>> =
+            Scope::new(transcribe_internal_insertions, circuit_query_rc);
         let state = State::init_lurk_state();
 
         let fact_4 = s.read_with_default_state("(factorial 4)").unwrap();
@@ -1054,7 +1170,7 @@ mod test {
 
         {
             let mut scope: Scope<DemoQuery<F>, LogMemo<F>> =
-                Scope::new(transcribe_internal_insertions);
+                Scope::new(transcribe_internal_insertions, circuit_query_rc);
             scope.query(s, fact_4);
             scope.query(s, fact_3);
 

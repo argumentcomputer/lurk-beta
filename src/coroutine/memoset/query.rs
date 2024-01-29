@@ -22,6 +22,9 @@ where
     ) -> Ptr;
     fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self>;
     fn to_ptr(&self, s: &Store<F>) -> Ptr;
+    fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ;
+    fn dummy_from_index(s: &Store<F>, index: usize) -> Self;
+
     fn symbol(&self) -> Symbol;
     fn symbol_ptr(&self, s: &Store<F>) -> Ptr {
         s.intern_symbol(&self.symbol())
@@ -54,4 +57,6 @@ where
     }
 
     fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self>;
+
+    fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self;
 }

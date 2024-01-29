@@ -88,6 +88,22 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
         }
     }
 
+    fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ {
+        match self {
+            DemoQuery::Factorial(n) => {
+                Self::CQ::Factorial(AllocatedPtr::alloc_infallible(cs, || s.hash_ptr(n)))
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn dummy_from_index(s: &Store<F>, index: usize) -> Self {
+        match index {
+            0 => Self::Factorial(s.num(0.into())),
+            _ => unreachable!(),
+        }
+    }
+
     fn index(&self) -> usize {
         match self {
             Self::Factorial(_) => 0,
@@ -208,19 +224,11 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
     }
 
     fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
-        let query = DemoQuery::from_ptr(s, ptr);
-        if let Some(q) = query {
-            match q {
-                DemoQuery::Factorial(n) => {
-                    Some(Self::Factorial(AllocatedPtr::alloc_infallible(cs, || {
-                        s.hash_ptr(&n)
-                    })))
-                }
-                _ => unreachable!(),
-            }
-        } else {
-            None
-        }
+        DemoQuery::from_ptr(s, ptr).map(|q| q.to_circuit(cs, s))
+    }
+
+    fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self {
+        DemoQuery::dummy_from_index(s, index).to_circuit(cs, s)
     }
 
     fn symbol(&self) -> Symbol {
