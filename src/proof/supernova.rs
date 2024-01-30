@@ -420,9 +420,6 @@ pub fn circuit_cache_key<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     lang: Arc<Lang<F, C>>,
     circuit_index: usize,
 ) -> F
-where
-    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, 2));
     let circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
@@ -437,9 +434,6 @@ pub fn circuit_cache_keys<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     rc: usize,
     lang: &Arc<Lang<F, C>>,
 ) -> CircuitDigests<E1<F>>
-where
-    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     let num_circuits = lang.coprocessor_count() + 1;
     let digests = (0..num_circuits)
