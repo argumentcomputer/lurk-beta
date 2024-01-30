@@ -77,7 +77,9 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
         &self.reference
     }
 
-    fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<CircomInput<F>> {
+    fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<CircomInput<F>> {
+        dbg!(input.len());
+        dbg!(input.get(0).unwrap());
         // TODO: actually use the lurk inputs
         let a = CircomInput::new("a".into(), vec![F::ZERO]);
         let b = CircomInput::new("b".into(), vec![F::ZERO]);
@@ -92,6 +94,10 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
             )
             .unwrap(),
         )
+    }
+
+    fn arity(&self) -> usize {
+        2
     }
 }
 
@@ -113,7 +119,7 @@ fn main() {
     lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_sha256));
     let lang_rc = Arc::new(lang);
 
-    let expr = "(.circom_sha256_2)".to_string();
+    let expr = "(.circom_sha256_2 \"a\" \"b\")".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();
 
     let nova_prover = NovaProver::<Bn, Sha256Coproc<Bn>>::new(REDUCTION_COUNT, lang_rc.clone());
