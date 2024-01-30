@@ -1,7 +1,6 @@
 use ::nova::{supernova::FlatAuxParams, traits::Engine, FlatPublicParams};
 use abomonation::{decode, Abomonation};
 use once_cell::sync::OnceCell;
-use std::sync::Arc;
 use tap::TapFallible;
 use tracing::{info, warn};
 
@@ -20,13 +19,12 @@ use crate::public_parameters::instance::Instance;
 
 pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
     instance: &Instance<F, C>,
-) -> Result<Arc<PublicParams<F, C1LEM<'a, F, C>>>, Error>
+) -> Result<PublicParams<F, C1LEM<'a, F, C>>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default =
-        |instance: &Instance<F, C>| Arc::new(nova::public_params(instance.rc, instance.lang()));
+    let default = |instance: &Instance<F, C>| nova::public_params(instance.rc, instance.lang());
 
     // subdirectory search
     let disk_cache = DiskCache::new(public_params_dir()).unwrap();
@@ -44,23 +42,21 @@ where
                 assert!(rest.is_empty());
                 let pp =
                     PublicParams::from(NovaPublicParams::<F, C1LEM<'a, F, C>>::from(pp.clone())); // this clone is VERY expensive
-                Ok(Arc::new(pp))
+                Ok(pp)
             }
             Err(Error::IO(e)) => {
                 warn!("{e}");
                 info!("Generating fresh public parameters");
                 let pp = default(instance);
-                let pp = Arc::try_unwrap(pp).unwrap().pp;
-                let fp = FlatPublicParams::try_from(pp).unwrap();
+                let fp = FlatPublicParams::try_from(pp.pp).unwrap();
                 // maybe just directly write
                 disk_cache
                     .write_abomonated(instance, &fp)
                     .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
                     .map_err(|e| Error::Cache(format!("Disk write error: {e}")))?;
-                Ok(Arc::new(PublicParams::from(NovaPublicParams::<
-                    F,
-                    C1LEM<'a, F, C>,
-                >::from(fp))))
+                Ok(PublicParams::from(
+                    NovaPublicParams::<F, C1LEM<'a, F, C>>::from(fp),
+                ))
             }
             _ => unreachable!(),
         }

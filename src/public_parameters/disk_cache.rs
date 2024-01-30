@@ -1,7 +1,6 @@
 use std::fs::create_dir_all;
 use std::io::{BufReader, BufWriter, Read};
 use std::marker::PhantomData;
-use std::sync::Arc;
 
 use abomonation::{encode, Abomonation};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -41,7 +40,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> DiskCache<F, C> {
     pub(crate) fn read<'a>(
         &self,
         instance: &Instance<F, C>,
-    ) -> Result<Arc<PublicParams<F, C1LEM<'a, F, C>>>, Error> {
+    ) -> Result<PublicParams<F, C1LEM<'a, F, C>>, Error> {
         let file = instance.open(&self.dir)?;
         let reader = BufReader::new(file);
         bincode::deserialize_from(reader)
@@ -62,7 +61,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> DiskCache<F, C> {
     pub(crate) fn write(
         &self,
         instance: &Instance<F, C>,
-        data: &Arc<PublicParams<F, C1LEM<'_, F, C>>>,
+        data: &PublicParams<F, C1LEM<'_, F, C>>,
     ) -> Result<(), Error> {
         let file = instance.create(&self.dir)?;
         let writer = BufWriter::new(&file);
