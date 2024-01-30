@@ -1,6 +1,4 @@
-use abomonation::Abomonation;
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem};
-use ff::PrimeField;
 use halo2curves::bn256::Fr as Bn256Scalar;
 use nova::{
     errors::NovaError,
@@ -167,11 +165,7 @@ impl<F: CurveCycleEquipped, SC: StepCircuit<F>> From<NovaPublicParams<F, SC>>
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<F: CurveCycleEquipped, C1: StepCircuit<F>>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+pub enum Proof<F: CurveCycleEquipped, C1: StepCircuit<F>> {
     /// A proof for the intermediate steps of a recursive computation along with
     /// the number of steps used for verification
     Recursive(Box<RecursiveSNARK<E1<F>, E2<F>, C1, C2<F>>>, usize),
@@ -202,11 +196,7 @@ pub fn circuit_cache_key<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<F, C1LEM<'a, F, C>>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+) -> PublicParams<F, C1LEM<'a, F, C>> {
     let (circuit_primary, circuit_secondary) = circuits(reduction_count, lang);
 
     let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
@@ -238,9 +228,6 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
     for Proof<F, C1LEM<'a, F, C>>
-where
-    <F as PrimeField>::Repr: Abomonation,
-    <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
 
@@ -397,11 +384,7 @@ pub struct NovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
     _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C> {
     /// Create a new NovaProver with a reduction count and a `Lang`
     #[inline]
     pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -435,9 +418,6 @@ where
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C1LEM<'a, F, C>>
     for NovaProver<'a, F, C>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
     type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;

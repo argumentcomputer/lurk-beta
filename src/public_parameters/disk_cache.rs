@@ -5,11 +5,10 @@ use std::sync::Arc;
 
 use abomonation::{encode, Abomonation};
 use camino::{Utf8Path, Utf8PathBuf};
-use nova::traits::Engine;
 
 use crate::config::lurk_config;
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::{CurveCycleEquipped, PublicParams, C1LEM, E1, E2};
+use crate::proof::nova::{CurveCycleEquipped, PublicParams, C1LEM};
 use crate::public_parameters::error::Error;
 
 use super::instance::Instance;
@@ -29,12 +28,7 @@ where
     _t: PhantomData<(F, C)>,
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> DiskCache<F, C>
-where
-    // technical bounds that would disappear once associated_type_bounds stabilizes
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> DiskCache<F, C> {
     pub(crate) fn new(disk_cache_path: &Utf8Path) -> Result<Self, Error> {
         create_dir_all(disk_cache_path)?;
 

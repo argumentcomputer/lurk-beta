@@ -116,8 +116,7 @@ impl Metadata {
     }
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C>
-{
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
     pub fn new(rc: usize, lang: Arc<Lang<F, C>>, abomonated: bool, kind: Kind) -> Self {
         let cache_key = match kind {
             Kind::NovaPublicParams => nova::circuit_cache_key::<F, C>(rc, lang.clone()),
@@ -168,8 +167,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C>
     }
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C>
-{
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
     /// The key (or cache_key) of this [Instance] used to retrieve it from the file cache
     pub fn lang(&self) -> Arc<Lang<F, C>> {
         self.lang.clone()

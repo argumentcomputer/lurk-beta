@@ -1,10 +1,7 @@
 mod nova_tests_lem;
-
-use abomonation::Abomonation;
 use bellpepper::util_cs::{metric_cs::MetricCS, witness_cs::WitnessCS, Comparable};
 use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, Delta};
 use expect_test::Expect;
-use nova::traits::Engine;
 use std::sync::Arc;
 
 use crate::{
@@ -12,7 +9,7 @@ use crate::{
     eval::lang::Lang,
     lem::{eval::EvalConfig, pointers::Ptr, store::Store},
     proof::{
-        nova::{public_params, CurveCycleEquipped, NovaProver, C1LEM, E1, E2},
+        nova::{public_params, CurveCycleEquipped, NovaProver, C1LEM},
         supernova::FoldingConfig,
         CEKState, EvaluationStore, FrameLike, Provable, Prover, RecursiveSNARKTrait,
     },
@@ -45,12 +42,7 @@ fn test_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
     expected_emitted: Option<&[Ptr]>,
     expected_iterations: &Expect,
     lang: &Option<Arc<Lang<F, C>>>,
-)
-// technical bounds that would disappear once associated_type_bounds stabilizes
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+) {
     for chunk_size in REDUCTION_COUNTS_TO_TEST {
         nova_test_full_aux::<F, C>(
             s,
@@ -80,12 +72,7 @@ fn nova_test_full_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
     check_nova: bool,
     limit: Option<usize>,
     lang: &Option<Arc<Lang<F, C>>>,
-)
-// technical bounds that would disappear once associated_type_bounds stabilizes
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+) {
     let expr = EvaluationStore::read(s, expr).unwrap();
 
     let f = |l| {
@@ -124,12 +111,7 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     check_nova: bool,
     limit: Option<usize>,
     lang: Arc<Lang<F, C>>,
-)
-// technical bounds that would disappear once associated_type_bounds stabilizes
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+) {
     let limit = limit.unwrap_or(10000);
 
     let e = s.initial_empty_env();

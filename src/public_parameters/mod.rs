@@ -1,7 +1,9 @@
-use ::nova::{
-    supernova::snark::CompressedSNARK, supernova::FlatAuxParams, traits::Engine, FlatPublicParams,
-};
+use ::nova::{supernova::FlatAuxParams, traits::Engine, FlatPublicParams};
 use abomonation::{decode, Abomonation};
+use once_cell::sync::OnceCell;
+use std::sync::Arc;
+use tap::TapFallible;
+use tracing::{info, warn};
 
 use crate::coprocessor::Coprocessor;
 use crate::proof::nova::{self, NovaCircuitShape, NovaPublicParams, PublicParams, C1LEM};
@@ -12,14 +14,9 @@ mod error;
 pub mod instance;
 
 use crate::proof::supernova::{self, SuperNovaAuxParams, SuperNovaPublicParams};
-use crate::public_parameters::disk_cache::public_params_dir;
+use crate::public_parameters::disk_cache::{public_params_dir, DiskCache};
 use crate::public_parameters::error::Error;
-
-use self::disk_cache::DiskCache;
-use self::instance::Instance;
-use std::sync::Arc;
-use tap::TapFallible;
-use tracing::{info, warn};
+use crate::public_parameters::instance::Instance;
 
 pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
     instance: &Instance<F, C>,
@@ -156,9 +153,11 @@ where
             circuit_params_vec,
             aux_params,
         );
-        let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
 
-        supernova::PublicParams { pp, pk, vk }
+        supernova::PublicParams {
+            pp,
+            pk_and_vk: OnceCell::new(),
+        }
     } else {
         println!("generating running claim params");
         let pp = default(instance_primary);
@@ -178,9 +177,11 @@ where
             circuit_params_vec,
             aux_params,
         );
-        let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
 
-        supernova::PublicParams { pp, pk, vk }
+        supernova::PublicParams {
+            pp,
+            pk_and_vk: OnceCell::new(),
+        }
     };
 
     Ok(pp)

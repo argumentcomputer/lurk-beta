@@ -1,5 +1,3 @@
-use abomonation::Abomonation;
-use ff::PrimeField;
 use nova::{
     supernova::{
         self,
@@ -13,6 +11,7 @@ use nova::{
         Engine,
     },
 };
+use once_cell::sync::OnceCell;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -47,26 +46,47 @@ pub type SuperNovaAuxParams<F> = AuxParams<E1<F>, E2<F>>;
 pub type SuperNovaPublicParams<F, C1> = supernova::PublicParams<E1<F>, E2<F>, C1, C2<F>>;
 
 /// A struct that contains public parameters for the SuperNova proving system.
-pub struct PublicParams<F: CurveCycleEquipped, SC: SuperStepCircuit<F>>
-where
-    // technical bounds that would disappear once associated_type_bounds stabilizes
-    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
-{
+pub struct PublicParams<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> {
     /// Public params for SuperNova.
     pub pp: SuperNovaPublicParams<F, SC>,
-    /// Prover key for SuperNova
-    pub pk: ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
-    /// Verifier key for SuperNova
-    pub vk: VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    /// Prover key and Verifier key for SuperNova
+    // TODO: mark as #[serde(skip)] when serializing
+    pub pk_and_vk: OnceCell<(
+        ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+        VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    )>,
 }
 
-impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> Index<usize> for PublicParams<F, SC>
-where
-    // technical bounds that would disappear once associated_type_bounds stabilizes
-    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> PublicParams<F, SC> {
+    /// provides a reference to a ProverKey suitable for producing a CompressedProof
+    pub fn pk(&self) -> &ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>> {
+        let (pk, _vk) = self.pk_and_vk.get_or_init(|| {
+            CompressedSNARK::<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>::setup(&self.pp).unwrap()
+        });
+        pk
+    }
+
+    /// provides a reference to a VerifierKey suitable for verifying a CompressedProof
+    pub fn vk(&self) -> &VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>> {
+        let (_pk, vk) = self.pk_and_vk.get_or_init(|| {
+            CompressedSNARK::<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>::setup(&self.pp).unwrap()
+        });
+        vk
+    }
+}
+
+impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> From<SuperNovaPublicParams<F, SC>>
+    for PublicParams<F, SC>
 {
+    fn from(pp: SuperNovaPublicParams<F, SC>) -> PublicParams<F, SC> {
+        PublicParams {
+            pp,
+            pk_and_vk: OnceCell::new(),
+        }
+    }
+}
+
+impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> Index<usize> for PublicParams<F, SC> {
     type Output = NovaCircuitShape<F>;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -74,12 +94,7 @@ where
     }
 }
 
-impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> PublicParams<F, SC>
-where
-    // technical bounds that would disappear once associated_type_bounds stabilizes
-    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
-{
+impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> PublicParams<F, SC> {
     /// return the digest
     pub fn digest(&self) -> F {
         self.pp.digest()
@@ -104,11 +119,7 @@ pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<E2<F>, EE2<F>>;
 pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<F, C1LEM<'a, F, C>>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+) -> PublicParams<F, C1LEM<'a, F, C>> {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
     let non_uniform_circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
 
@@ -121,18 +132,16 @@ where
         &*commitment_size_hint1,
         &*commitment_size_hint2,
     );
-    let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
-    PublicParams { pp, pk, vk }
+    PublicParams {
+        pp,
+        pk_and_vk: OnceCell::new(),
+    }
 }
 
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<F: CurveCycleEquipped, C1: SuperStepCircuit<F>>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+pub enum Proof<F: CurveCycleEquipped, C1: SuperStepCircuit<F>> {
     /// A proof for the intermediate steps of a recursive computation
     Recursive(Box<RecursiveSNARK<E1<F>, E2<F>>>),
     /// A proof for the final step of a recursive computation
@@ -150,11 +159,7 @@ pub struct SuperNovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
     _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C> {
     /// Create a new SuperNovaProver with a reduction count and a `Lang`
     #[inline]
     pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -188,9 +193,6 @@ where
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
     for Proof<F, C1LEM<'a, F, C>>
-where
-    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
 
@@ -301,7 +303,7 @@ where
             Self::Recursive(recursive_snark) => {
                 let snark = CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
                     &pp.pp,
-                    &pp.pk,
+                    pp.pk(),
                     recursive_snark,
                 )?;
                 Ok(Self::Compressed(Box::new(snark)))
@@ -317,7 +319,7 @@ where
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
             Self::Recursive(p) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
-            Self::Compressed(p) => p.verify(&pp.pp, &pp.vk, z0_primary, &z0_secondary)?,
+            Self::Compressed(p) => p.verify(&pp.pp, pp.vk(), z0_primary, &z0_secondary)?,
         };
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == &zi_secondary_verified)
@@ -326,9 +328,6 @@ where
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F, C1LEM<'a, F, C>>
     for SuperNovaProver<'a, F, C>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
     type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
@@ -419,8 +418,7 @@ pub fn circuit_cache_key<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
     circuit_index: usize,
-) -> F
-{
+) -> F {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, 2));
     let circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
     let num_circuits = circuit.num_circuits();
@@ -433,8 +431,7 @@ pub fn circuit_cache_key<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 pub fn circuit_cache_keys<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     rc: usize,
     lang: &Arc<Lang<F, C>>,
-) -> CircuitDigests<E1<F>>
-{
+) -> CircuitDigests<E1<F>> {
     let num_circuits = lang.coprocessor_count() + 1;
     let digests = (0..num_circuits)
         .map(|circuit_index| circuit_cache_key::<F, C>(rc, lang.clone(), circuit_index))

@@ -126,10 +126,7 @@ pub(crate) enum LurkProof<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + Serialize + DeserializeOwned,
-> where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+> {
     Nova {
         proof: nova::Proof<F, C1LEM<'a, F, C>>,
         public_inputs: Vec<F>,
@@ -141,9 +138,6 @@ pub(crate) enum LurkProof<
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a + Serialize + DeserializeOwned>
     HasFieldModulus for LurkProof<'a, F, C>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
@@ -152,13 +146,21 @@ where
 
 impl<'a, F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + DeserializeOwned>
     LurkProof<'a, F, C>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
         dump(self, &proof_path(proof_key))
+    }
+}
+
+impl<
+        F: CurveCycleEquipped + DeserializeOwned,
+        C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
+    > LurkProof<'static, F, C>
+{
+    #[inline]
+    pub(crate) fn is_cached(proof_key: &str) -> bool {
+        load::<Self>(&proof_path(proof_key)).is_ok()
     }
 }
 
@@ -178,11 +180,6 @@ where
             println!("✗ Proof \"{proof_key}\" failed on verification");
         }
         Ok(())
-    }
-
-    #[inline]
-    pub(crate) fn is_cached(proof_key: &str) -> bool {
-        load::<Self>(&proof_path(proof_key)).is_ok()
     }
 
     fn verify(&self) -> Result<bool> {
