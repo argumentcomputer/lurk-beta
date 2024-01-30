@@ -337,7 +337,6 @@ where
                     let instance =
                         Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
                     let pp = public_params(&instance)?;
-
                     let prover = NovaProver::<_, C>::new(self.rc, self.lang.clone());
 
                     info!("Proving");

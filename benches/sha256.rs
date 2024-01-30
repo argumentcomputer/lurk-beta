@@ -111,7 +111,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
 
     // use cached public params
-    let instance: Instance<'_, Fr, Sha256Coproc<Fr>> = Instance::new(
+    let instance: Instance<Fr, Sha256Coproc<Fr>> = Instance::new(
         reduction_count,
         lang_rc.clone(),
         true,

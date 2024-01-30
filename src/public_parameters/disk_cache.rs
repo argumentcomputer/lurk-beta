@@ -1,6 +1,7 @@
 use std::fs::create_dir_all;
 use std::io::{BufReader, BufWriter, Read};
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 use abomonation::{encode, Abomonation};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -19,16 +20,16 @@ pub(crate) fn public_params_dir() -> &'static Utf8PathBuf {
     &lurk_config(None, None).public_params_dir
 }
 
-pub(crate) struct DiskCache<'a, F, C>
+pub(crate) struct DiskCache<F, C>
 where
     F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
+    C: Coprocessor<F>,
 {
     dir: Utf8PathBuf,
-    _t: PhantomData<(&'a (), F, C)>,
+    _t: PhantomData<(F, C)>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> DiskCache<'a, F, C>
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> DiskCache<F, C>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -43,10 +44,10 @@ where
         })
     }
 
-    pub(crate) fn read(
+    pub(crate) fn read<'a>(
         &self,
-        instance: &Instance<'a, F, C>,
-    ) -> Result<PublicParams<F, C1LEM<'a, F, C>>, Error> {
+        instance: &Instance<F, C>,
+    ) -> Result<Arc<PublicParams<F, C1LEM<'a, F, C>>>, Error> {
         let file = instance.open(&self.dir)?;
         let reader = BufReader::new(file);
         bincode::deserialize_from(reader)
@@ -55,7 +56,7 @@ where
 
     pub(crate) fn read_bytes(
         &self,
-        instance: &Instance<'a, F, C>,
+        instance: &Instance<F, C>,
         byte_sink: &mut Vec<u8>,
     ) -> Result<(), Error> {
         let file = instance.open(&self.dir)?;
@@ -66,18 +67,18 @@ where
 
     pub(crate) fn write(
         &self,
-        instance: &Instance<'a, F, C>,
-        data: &PublicParams<F, C1LEM<'a, F, C>>,
+        instance: &Instance<F, C>,
+        data: &Arc<PublicParams<F, C1LEM<'_, F, C>>>,
     ) -> Result<(), Error> {
         let file = instance.create(&self.dir)?;
         let writer = BufWriter::new(&file);
-        bincode::serialize_into(writer, &data)
+        bincode::serialize_into(writer, data)
             .map_err(|e| Error::Cache(format!("Public param cache serialization error: {}", e)))
     }
 
     pub(crate) fn write_abomonated<V: Abomonation>(
         &self,
-        instance: &Instance<'a, F, C>,
+        instance: &Instance<F, C>,
         data: &V,
     ) -> Result<(), Error> {
         let mut file = instance.create(&self.dir)?;

@@ -13,6 +13,7 @@ use nova::{
     },
     CompressedSNARK, ProverKey, R1CSWithArity, RecursiveSNARK, VerifierKey,
 };
+use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -112,39 +113,54 @@ pub type NovaPublicParams<F, C1> = nova::PublicParams<E1<F>, E2<F>, C1, C2<F>>;
 pub struct PublicParams<F, SC: StepCircuit<F>>
 where
     F: CurveCycleEquipped,
-    // technical bounds that would disappear once associated_type_bounds stabilizes
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    pp: NovaPublicParams<F, SC>,
-    pk: ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
-    vk: VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    /// Public parameters for the Nova proving system.
+    pub pp: NovaPublicParams<F, SC>,
+    /// Prover and verifier key for final proof compression
+    #[serde(skip)]
+    pk_and_vk: OnceCell<(
+        ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+        VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    )>,
 }
 
-impl<F: CurveCycleEquipped, SC: StepCircuit<F>> Abomonation for PublicParams<F, SC>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+// this avoids dipping into the pk/vk
+impl<F: CurveCycleEquipped, SC: StepCircuit<F> + std::fmt::Debug> std::fmt::Debug
+    for PublicParams<F, SC>
 {
-    unsafe fn entomb<W: std::io::Write>(&self, bytes: &mut W) -> std::io::Result<()> {
-        self.pp.entomb(bytes)?;
-        self.pk.entomb(bytes)?;
-        self.vk.entomb(bytes)?;
-        Ok(())
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PublicParams")
+            .field("pp", &self.pp)
+            .finish()
+    }
+}
+
+impl<F: CurveCycleEquipped, SC: StepCircuit<F>> PublicParams<F, SC> {
+    /// provides a reference to a ProverKey suitable for producing a CompressedProof
+    pub fn pk(&self) -> &ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>> {
+        let (pk, _vk) = self.pk_and_vk.get_or_init(|| {
+            CompressedSNARK::<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>::setup(&self.pp).unwrap()
+        });
+        pk
     }
 
-    unsafe fn exhume<'b>(&mut self, mut bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
-        let temp = bytes;
-        bytes = self.pp.exhume(temp)?;
-        let temp = bytes;
-        bytes = self.pk.exhume(temp)?;
-        let temp = bytes;
-        bytes = self.vk.exhume(temp)?;
-        Some(bytes)
+    /// provides a reference to a VerifierKey suitable for verifying a CompressedProof
+    pub fn vk(&self) -> &VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>> {
+        let (_pk, vk) = self.pk_and_vk.get_or_init(|| {
+            CompressedSNARK::<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>::setup(&self.pp).unwrap()
+        });
+        vk
     }
+}
 
-    fn extent(&self) -> usize {
-        self.pp.extent() + self.pk.extent() + self.vk.extent()
+impl<F: CurveCycleEquipped, SC: StepCircuit<F>> From<NovaPublicParams<F, SC>>
+    for PublicParams<F, SC>
+{
+    fn from(pp: NovaPublicParams<F, SC>) -> PublicParams<F, SC> {
+        PublicParams {
+            pp,
+            pk_and_vk: OnceCell::new(),
+        }
     }
 }
 
@@ -202,8 +218,10 @@ where
         &*commitment_size_hint1,
         &*commitment_size_hint2,
     );
-    let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
-    PublicParams { pp, pk, vk }
+    PublicParams {
+        pp,
+        pk_and_vk: OnceCell::new(),
+    }
 }
 
 /// Generates the circuits for the Nova proving system.
@@ -342,7 +360,7 @@ where
             Self::Recursive(recursive_snark, num_steps) => Ok(Self::Compressed(
                 Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
                     &pp.pp,
-                    &pp.pk,
+                    pp.pk(),
                     &recursive_snark,
                 )?),
                 num_steps,
@@ -361,7 +379,7 @@ where
                 p.verify(&pp.pp, *num_steps, z0_primary, &z0_secondary)?
             }
             Self::Compressed(p, num_steps) => {
-                p.verify(&pp.vk, *num_steps, z0_primary, &z0_secondary)?
+                p.verify(pp.vk(), *num_steps, z0_primary, &z0_secondary)?
             }
         };
 
