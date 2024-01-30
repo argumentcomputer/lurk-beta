@@ -19,6 +19,7 @@ pub mod non_wasm {
 
     use crate::circuit::gadgets::circom::CircomGadgetReference;
     use crate::coprocessor::circom::error::CircomCoprocessorError;
+    use crate::coprocessor::gadgets::construct_list;
     use crate::{
         circuit::gadgets::{circom::CircomGadget, pointer::AllocatedPtr},
         cli::paths::circom_dir,
@@ -206,14 +207,14 @@ pub mod non_wasm {
     impl<F: LurkField, C: CircomGadget<F>> CoCircuit<F> for CircomCoprocessor<F, C> {
         /// TODO: Generalize
         fn arity(&self) -> usize {
-            0
+            self.gadget.arity()
         }
 
         fn synthesize_simple<CS: ConstraintSystem<F>>(
             &self,
-            cs: &mut CS,
+            mut cs: &mut CS,
             g: &crate::lem::circuit::GlobalAllocator<F>,
-            _s: &Store<F>,
+            s: &Store<F>,
             _not_dummy: &bellpepper_core::boolean::Boolean,
             args: &[AllocatedPtr<F>],
         ) -> std::result::Result<AllocatedPtr<F>, SynthesisError> {
@@ -234,17 +235,22 @@ pub mod non_wasm {
                 vec_ptr.push(AllocatedPtr::from_parts(num_tag.clone(), output));
             }
 
-            //let tag = g.alloc_tag(cs, &crate::tag::ExprTag::)
-            //let res = AllocatedPtr::from_parts()
+            let list_root_ptr = construct_list(
+                &mut cs,
+                g,
+                s,
+                vec_ptr.iter().collect::<Vec<&AllocatedPtr<F>>>().as_slice(),
+                None,
+            )?;
 
-            Ok(vec_ptr[0].clone())
+            Ok(list_root_ptr)
         }
     }
 
     impl<F: LurkField, C: CircomGadget<F> + Debug> Coprocessor<F> for CircomCoprocessor<F, C> {
         /// TODO: Generalize
         fn eval_arity(&self) -> usize {
-            0
+            self.gadget.arity()
         }
 
         fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
