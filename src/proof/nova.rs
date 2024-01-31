@@ -9,7 +9,7 @@ use nova::{
         snark::RelaxedR1CSSNARKTrait,
         Engine,
     },
-    CompressedSNARK, ProverKey, R1CSWithArity, RecursiveSNARK, VerifierKey,
+    AuxParams, CompressedSNARK, ProverKey, R1CSWithArity, RecursiveSNARK, VerifierKey,
 };
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
@@ -53,6 +53,11 @@ pub trait CurveCycleEquipped: LurkField {
     type E1: Engine<Base = <Self::E2 as Engine>::Scalar, Scalar = Self>;
     /// The  group type for the second curve in the cycle.
     type E2: Engine<Base = <Self::E1 as Engine>::Scalar>;
+
+    /// Label the the primary curve
+    const PRIMARY: &'static str;
+    /// Label the the secondary curve
+    const SECONDARY: &'static str;
 }
 
 impl CurveCycleEquipped for pallas::Scalar {
@@ -61,6 +66,9 @@ impl CurveCycleEquipped for pallas::Scalar {
 
     type E1 = PallasEngine;
     type E2 = VestaEngine;
+
+    const PRIMARY: &'static str = "pallas";
+    const SECONDARY: &'static str = "vesta";
 }
 // The impl CurveCycleEquipped for vesta::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 
@@ -70,6 +78,9 @@ impl CurveCycleEquipped for Bn256Scalar {
 
     type E1 = Bn256Engine;
     type E2 = GrumpkinEngine;
+
+    const PRIMARY: &'static str = "bn256";
+    const SECONDARY: &'static str = "grumpkin";
 }
 // The impl CurveCycleEquipped for grumpkin::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 
@@ -101,6 +112,9 @@ pub type C2<F> = TrivialCircuit<<E2<F> as Engine>::Scalar>;
 
 /// Type alias for Nova Circuit Parameters with the curve cycle types defined above.
 pub type NovaCircuitShape<F> = R1CSWithArity<E1<F>>;
+
+/// Type alias for Nova Aux Parameters with the curve cycle types defined above.
+pub type NovaAuxParams<F> = AuxParams<E1<F>, E2<F>>;
 
 /// Type alias for Nova Public Parameters with the curve cycle types defined above.
 pub type NovaPublicParams<F, C1> = nova::PublicParams<E1<F>, E2<F>, C1, C2<F>>;
