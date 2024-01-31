@@ -88,8 +88,11 @@ pub enum Kind {
     NovaPublicParams,
     /// Tag for [supernova::SuperNovaAuxParams] instances
     SuperNovaAuxParams,
-    /// Tag for [supernova::SuperNovaCircuitParams] instances
+    /// Tag for [nova::NovaCircuitShape] instances
     SuperNovaCircuitParams(usize),
+
+    /// Tag for [CommitmentKey] instances
+    CommitmentKey,
 }
 
 /// What we put into the cache
@@ -123,7 +126,8 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
             Kind::SuperNovaAuxParams => supernova::circuit_cache_keys::<F, C>(rc, &lang).digest(),
             Kind::SuperNovaCircuitParams(circuit_index) => {
                 supernova::circuit_cache_key::<F, C>(rc, lang.clone(), circuit_index)
-            }
+            },
+            Kind::CommitmentKey => panic!("use `Instance::new_cks` instead"),
         };
         Instance {
             rc,
@@ -132,6 +136,28 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
             cache_key,
             kind,
         }
+    }
+
+    /// This is a hack for now. `rc` is the size of the key
+    pub fn new_cks(primary_len: usize, secondary_len: usize, abomonated: bool) -> (Self, Self) {
+        let primary_ck = compute_cache_key(F::PRIMARY);
+        let secondary_ck = compute_cache_key(F::SECONDARY);
+        let primary = Instance {
+            rc: primary_len,
+            lang: Arc::new(Lang::new()),
+            abomonated,
+            cache_key: primary_ck,
+            kind: Kind::CommitmentKey,
+        };
+        let secondary = Instance {
+            rc: secondary_len,
+            lang: Arc::new(Lang::new()),
+            abomonated,
+            cache_key: secondary_ck,
+            kind: Kind::CommitmentKey,
+        };
+
+        (primary, secondary)
     }
 
     /// If this [Instance] is of [Kind::SuperNovaAuxParams], then generate the `num_circuits + 1`
@@ -221,7 +247,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
 }
 
 /// Compute the cache key of any serializable object
-fn compute_cache_key<F: CurveCycleEquipped, T: Serialize>(o: &T) -> F {
+fn compute_cache_key<F: CurveCycleEquipped, T: Serialize + ?Sized>(o: &T) -> F {
     // obtain a vector of bytes representing public parameters
     let bytes = bincode::serialize(o).unwrap();
 

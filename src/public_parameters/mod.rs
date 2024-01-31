@@ -1,12 +1,11 @@
-use ::nova::{supernova::FlatAuxParams, traits::Engine, FlatPublicParams};
+use ::nova::traits::Engine;
+use ::nova::{CommitmentKey, CommitmentKeyParams};
 use abomonation::{decode, Abomonation};
 use once_cell::sync::OnceCell;
-use tap::TapFallible;
-use tracing::{info, warn};
 
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::{self, NovaCircuitShape, NovaPublicParams, PublicParams, C1LEM};
-use crate::proof::nova::{CurveCycleEquipped, C2, E1, E2};
+use crate::proof::nova::{self, NovaCircuitShape, NovaAuxParams, NovaPublicParams, C1LEM};
+use crate::proof::nova::{CurveCycleEquipped, E1, E2};
 
 pub mod disk_cache;
 mod error;
@@ -17,66 +16,133 @@ use crate::public_parameters::disk_cache::{public_params_dir, DiskCache};
 use crate::public_parameters::error::Error;
 use crate::public_parameters::instance::Instance;
 
-pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
+pub fn nova_aux_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     instance: &Instance<F, C>,
-) -> Result<PublicParams<F, C1LEM<'a, F, C>>, Error>
+) -> Result<NovaAuxParams<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default = |instance: &Instance<F, C>| nova::public_params(instance.rc, instance.lang());
+    let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
-    // subdirectory search
-    let disk_cache = DiskCache::new(public_params_dir()).unwrap();
-
-    // read the file if it exists, otherwise initialize
-    if instance.abomonated {
-        let mut bytes = vec![];
-        match disk_cache.read_bytes(instance, &mut bytes) {
-            Ok(()) => {
-                info!("loading abomonated {}", instance.key());
-                let (pp, rest) = unsafe {
-                    decode::<FlatPublicParams<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>>(&mut bytes)
-                        .unwrap()
-                };
-                assert!(rest.is_empty());
-                let pp =
-                    PublicParams::from(NovaPublicParams::<F, C1LEM<'a, F, C>>::from(pp.clone())); // this clone is VERY expensive
-                Ok(pp)
-            }
-            Err(Error::IO(e)) => {
-                warn!("{e}");
-                info!("Generating fresh public parameters");
-                let pp = default(instance);
-                let fp = FlatPublicParams::try_from(pp.pp).unwrap();
-                // maybe just directly write
-                disk_cache
-                    .write_abomonated(instance, &fp)
-                    .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
-                    .map_err(|e| Error::Cache(format!("Disk write error: {e}")))?;
-                Ok(PublicParams::from(
-                    NovaPublicParams::<F, C1LEM<'a, F, C>>::from(fp),
-                ))
-            }
-            _ => unreachable!(),
-        }
-    } else {
-        // read the file if it exists, otherwise initialize
-        if let Ok(pp) = disk_cache.read(instance) {
-            info!("loading abomonated {}", instance.key());
-            Ok(pp)
+    let mut bytes = vec![];
+    disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
+        if let Some((aux_params, remaining)) =
+            unsafe { decode::<NovaAuxParams<F>>(&mut bytes) }
+        {
+            assert!(remaining.is_empty());
+            Ok(aux_params.clone())
         } else {
-            let pp = default(instance);
-            disk_cache
-                .write(instance, &pp)
-                .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
-                .map_err(|e| Error::Cache(format!("Disk write error: {e}")))?;
-            Ok(pp)
+            Err(Error::Cache("failed to decode bytes".into()))
         }
-    }
+    })
 }
 
-pub fn supernova_circuit_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
+/// Attempts to extract abomonated public parameters.
+pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
+    instance_primary: &Instance<F, C>,
+) -> Result<nova::PublicParams<F, C1LEM<'a, F, C>>, Error>
+where
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    let default = |instance: &Instance<F, C>| {
+        nova::public_params::<'a, F, C>(instance.rc, instance.lang())
+    };
+    let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
+
+    let maybe_circuit_params_vec = instance_primary
+        .circuit_param_instances()
+        .iter()
+        .map(|instance| circuit_params::<F, C>(instance))
+        .collect::<Result<Vec<NovaCircuitShape<F>>, _>>();
+
+    let maybe_aux_params = nova_aux_params::<F, C>(instance_primary);
+
+    let pp = if let (Ok(mut circuit_params_vec), Ok(aux_params)) =
+        (maybe_circuit_params_vec, maybe_aux_params)
+    {
+        let (primary, secondary) = Instance::<F, C>::new_cks(
+            aux_params.ck_primary_len,
+            aux_params.ck_secondary_len,
+            instance_primary.abomonated,
+        );
+        let ck_params = commitment_key_params(&primary, &secondary)?;
+        let pp = NovaPublicParams::<F, C1LEM<'a, F, C>>::from_parts(
+            circuit_params_vec.remove(0), // there should only be one element
+            ck_params,
+            aux_params,
+        );
+
+        nova::PublicParams::from(pp)
+    } else {
+        let pp = default(instance_primary);
+
+        let (circuit_shape, ck_params, aux_params) = pp.pp.into_parts();
+
+        disk_cache.write_abomonated(instance_primary, &aux_params)?;
+
+        let (primary, secondary) = Instance::new_cks(
+            aux_params.ck_primary_len,
+            aux_params.ck_secondary_len,
+            instance_primary.abomonated,
+        );
+        disk_cache.write_abomonated(&primary, &ck_params.primary)?;
+        disk_cache.write_abomonated(&secondary, &ck_params.secondary)?;
+
+        let instance = instance_primary.reindex(0);
+        disk_cache.write_abomonated(&instance, &circuit_shape)?;
+
+        let pp = NovaPublicParams::<F, C1LEM<'a, F, C>>::from_parts(
+            circuit_shape,
+            ck_params,
+            aux_params,
+        );
+
+        nova::PublicParams::from(pp)
+    };
+
+    Ok(pp)
+}
+
+pub fn commitment_key_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
+    primary: &Instance<F, C>,
+    secondary: &Instance<F, C>,
+) -> Result<CommitmentKeyParams<E1<F>, E2<F>>, Error>
+where
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
+
+    let mut bytes = vec![];
+    let ck_primary = disk_cache.read_bytes(primary, &mut bytes).and_then(|()| {
+        if let Some((pp, remaining)) = unsafe { decode::<CommitmentKey<E1<F>>>(&mut bytes) } {
+            assert!(remaining.is_empty());
+            eprintln!("Using disk-cached commitment key for {}", primary.key());
+            Ok(pp.clone())
+        } else {
+            Err(Error::Cache("failed to decode bytes".into()))
+        }
+    })?;
+    let ck_secondary = disk_cache
+        .read_bytes(secondary, &mut bytes)
+        .and_then(|()| {
+            if let Some((pp, remaining)) = unsafe { decode::<CommitmentKey<E2<F>>>(&mut bytes) } {
+                assert!(remaining.is_empty());
+                eprintln!("Using disk-cached commitment key for {}", secondary.key());
+                Ok(pp.clone())
+            } else {
+                Err(Error::Cache("failed to decode bytes".into()))
+            }
+        })?;
+    Ok(CommitmentKeyParams {
+        primary: ck_primary,
+        secondary: ck_secondary,
+    })
+}
+
+pub fn circuit_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     instance: &Instance<F, C>,
 ) -> Result<NovaCircuitShape<F>, Error>
 where
@@ -89,7 +155,7 @@ where
     disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
         if let Some((pp, remaining)) = unsafe { decode::<NovaCircuitShape<F>>(&mut bytes) } {
             assert!(remaining.is_empty());
-            eprintln!("Using disk-cached public params for {}", instance.key());
+            eprintln!("Using disk-cached circuit params for {}", instance.key());
             Ok(pp.clone())
         } else {
             Err(Error::Cache("failed to decode bytes".into()))
@@ -108,11 +174,11 @@ where
 
     let mut bytes = vec![];
     disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
-        if let Some((flat_aux_params, remaining)) =
-            unsafe { decode::<FlatAuxParams<E1<F>, E2<F>>>(&mut bytes) }
+        if let Some((aux_params, remaining)) =
+            unsafe { decode::<SuperNovaAuxParams<F>>(&mut bytes) }
         {
             assert!(remaining.is_empty());
-            Ok(SuperNovaAuxParams::<F>::from(flat_aux_params.clone()))
+            Ok(aux_params.clone())
         } else {
             Err(Error::Cache("failed to decode bytes".into()))
         }
@@ -135,7 +201,7 @@ where
     let maybe_circuit_params_vec = instance_primary
         .circuit_param_instances()
         .iter()
-        .map(|instance| supernova_circuit_params::<F, C>(instance))
+        .map(|instance| circuit_params::<F, C>(instance))
         .collect::<Result<Vec<NovaCircuitShape<F>>, _>>();
 
     let maybe_aux_params = supernova_aux_params::<F, C>(instance_primary);
@@ -143,10 +209,15 @@ where
     let pp = if let (Ok(circuit_params_vec), Ok(aux_params)) =
         (maybe_circuit_params_vec, maybe_aux_params)
     {
-        println!("generating public params");
-
+        let (primary, secondary) = Instance::<F, C>::new_cks(
+            aux_params.ck_primary_len,
+            aux_params.ck_secondary_len,
+            instance_primary.abomonated,
+        );
+        let ck_params = commitment_key_params(&primary, &secondary)?;
         let pp = SuperNovaPublicParams::<F, C1LEM<'a, F, C>>::from_parts_unchecked(
             circuit_params_vec,
+            ck_params,
             aux_params,
         );
 
@@ -155,14 +226,19 @@ where
             pk_and_vk: OnceCell::new(),
         }
     } else {
-        println!("generating running claim params");
         let pp = default(instance_primary);
 
-        let (circuit_params_vec, aux_params) = pp.pp.into_parts();
+        let (circuit_params_vec, ck_params, aux_params) = pp.pp.into_parts();
 
-        let flat_aux_params = FlatAuxParams::<E1<F>, E2<F>>::try_from(aux_params).unwrap();
-        disk_cache.write_abomonated(instance_primary, &flat_aux_params)?;
-        let aux_params = SuperNovaAuxParams::<F>::from(flat_aux_params);
+        disk_cache.write_abomonated(instance_primary, &aux_params)?;
+
+        let (primary, secondary) = Instance::<F, C>::new_cks(
+            aux_params.ck_primary_len,
+            aux_params.ck_secondary_len,
+            instance_primary.abomonated,
+        );
+        disk_cache.write_abomonated(&primary, &ck_params.primary)?;
+        disk_cache.write_abomonated(&secondary, &ck_params.secondary)?;
 
         for (circuit_index, circuit_params) in circuit_params_vec.iter().enumerate() {
             let instance = instance_primary.reindex(circuit_index);
@@ -171,6 +247,7 @@ where
 
         let pp = SuperNovaPublicParams::<F, C1LEM<'a, F, C>>::from_parts_unchecked(
             circuit_params_vec,
+            ck_params,
             aux_params,
         );
 
