@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CircuitScope","CircuitTranscript","LogMemo","Scope","Transcript"],"trait":["CircuitQuery","MemoSet","Query"]};
+window.SIDEBAR_ITEMS = {"struct":["CircuitScope","CircuitTranscript","CoroutineCircuit","LogMemo","LogMemoCircuit","Scope","Transcript"],"trait":["CircuitMemoSet","CircuitQuery","MemoSet","Query"]};

@@ -55,9 +55,14 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{ConstraintSystem, SynthesisError};
 
-<span class="kw">use super</span>::{CircuitScope, CircuitTranscript, LogMemo, Scope};
+<span class="kw">use super</span>::{CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope};
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::lem::circuit::GlobalAllocator;
@@ -79,6 +84,9 @@
     ) -&gt; Ptr;
     <span class="kw">fn </span>from_ptr(s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
     <span class="kw">fn </span>to_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr;
+    <span class="kw">fn </span>to_circuit&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="self">Self</span>::CQ;
+    <span class="kw">fn </span>dummy_from_index(s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, index: usize) -&gt; <span class="self">Self</span>;
+
     <span class="kw">fn </span>symbol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Symbol;
     <span class="kw">fn </span>symbol_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr {
         s.intern_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>.symbol())
@@ -99,7 +107,7 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt;;
@@ -111,5 +119,7 @@
     }
 
     <span class="kw">fn </span>from_ptr&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
+
+    <span class="kw">fn </span>dummy_from_index&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, index: usize) -&gt; <span class="self">Self</span>;
 }
 </code></pre></div></section></main></body></html>

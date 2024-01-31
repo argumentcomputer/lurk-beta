@@ -255,11 +255,19 @@
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 <span class="kw">use super</span>::{
     query::{CircuitQuery, Query},
-    CircuitScope, CircuitTranscript, LogMemo, Scope,
+    CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope,
 };
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::constraints::alloc_is_zero;
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr;
@@ -345,6 +353,22 @@
         }
     }
 
+    <span class="kw">fn </span>to_circuit&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="self">Self</span>::CQ {
+        <span class="kw">match </span><span class="self">self </span>{
+            DemoQuery::Factorial(n) =&gt; {
+                <span class="self">Self</span>::CQ::Factorial(AllocatedPtr::alloc_infallible(cs, || s.hash_ptr(n)))
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+        }
+    }
+
+    <span class="kw">fn </span>dummy_from_index(s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, index: usize) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>index {
+            <span class="number">0 </span>=&gt; <span class="self">Self</span>::Factorial(s.num(<span class="number">0</span>.into())),
+            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+        }
+    }
+
     <span class="kw">fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Factorial(<span class="kw">_</span>) =&gt; <span class="number">0</span>,
@@ -363,7 +387,7 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt; {
@@ -465,19 +489,11 @@
     }
 
     <span class="kw">fn </span>from_ptr&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>query = DemoQuery::from_ptr(s, ptr);
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(q) = query {
-            <span class="kw">match </span>q {
-                DemoQuery::Factorial(n) =&gt; {
-                    <span class="prelude-val">Some</span>(<span class="self">Self</span>::Factorial(AllocatedPtr::alloc_infallible(cs, || {
-                        s.hash_ptr(<span class="kw-2">&amp;</span>n)
-                    })))
-                }
-                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
-            }
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>}
+        DemoQuery::from_ptr(s, ptr).map(|q| q.to_circuit(cs, s))
+    }
+
+    <span class="kw">fn </span>dummy_from_index&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, index: usize) -&gt; <span class="self">Self </span>{
+        DemoQuery::dummy_from_index(s, index).to_circuit(cs, s)
     }
 
     <span class="kw">fn </span>symbol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Symbol {
