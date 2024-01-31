@@ -12,7 +12,6 @@ rust-version = "1.72" # allows msrv verify to work in CI
 [dependencies]
 ahash = "0.8.6"
 anyhow = { workspace = true }
-anymap = "1.0.0-beta.2"
 base32ct = { version = "0.2.0", features = ["std"] }
 base-x = "0.2.11"
 bellpepper = { workspace = true }
@@ -125,7 +124,7 @@ clap = "4.3.17"
 ff = "0.13"
 metrics = "0.22.0"
 neptune = { git = "https://github.com/lurk-lab/neptune", branch = "dev", features = ["abomonation"] }
-nova = { git = "https://github.com/lurk-lab/arecibo", branch = "dev", package = "arecibo" }
+nova = { git = "https://github.com/lurk-lab/arecibo", branch = "dev", package = "arecibo", features = ["abomonate"] }
 once_cell = "1.18.0"
 pairing = { version = "0.23" }
 pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch = "dev" }

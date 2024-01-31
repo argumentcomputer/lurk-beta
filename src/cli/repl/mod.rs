@@ -3,7 +3,6 @@ mod meta_cmd;
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
-use ff::PrimeField;
 use nova::traits::Engine;
 use rustyline::{
     error::ReadlineError,
@@ -40,7 +39,7 @@ use crate::{
     },
     parser,
     proof::{
-        nova::{CurveCycleEquipped, NovaProver},
+        nova::{CurveCycleEquipped, NovaProver, E1, E2},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -167,8 +166,8 @@ impl<
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
     > Repl<F, C>
 where
-    <F as PrimeField>::Repr: Abomonation,
-    <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub(crate) fn new(
         store: Store<F>,
@@ -337,7 +336,6 @@ where
                     let instance =
                         Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
                     let pp = public_params(&instance)?;
-
                     let prover = NovaProver::<_, C>::new(self.rc, self.lang.clone());
 
                     info!("Proving");

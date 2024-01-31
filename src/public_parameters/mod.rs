@@ -1,79 +1,83 @@
-use ::nova::{supernova::snark::CompressedSNARK, traits::Engine};
+use ::nova::{supernova::FlatAuxParams, traits::Engine, FlatPublicParams};
 use abomonation::{decode, Abomonation};
-use std::sync::Arc;
+use once_cell::sync::OnceCell;
+use tap::TapFallible;
+use tracing::{info, warn};
 
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::{self, NovaCircuitShape, PublicParams, C1LEM};
-use crate::proof::nova::{CurveCycleEquipped, E1, E2};
+use crate::proof::nova::{self, NovaCircuitShape, NovaPublicParams, PublicParams, C1LEM};
+use crate::proof::nova::{CurveCycleEquipped, C2, E1, E2};
 
 pub mod disk_cache;
 mod error;
 pub mod instance;
-mod mem_cache;
 
 use crate::proof::supernova::{self, SuperNovaAuxParams, SuperNovaPublicParams};
-use crate::public_parameters::disk_cache::public_params_dir;
+use crate::public_parameters::disk_cache::{public_params_dir, DiskCache};
 use crate::public_parameters::error::Error;
-
-use self::disk_cache::DiskCache;
-use self::instance::Instance;
+use crate::public_parameters::instance::Instance;
 
 pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
-    instance: &Instance<'static, F, C>,
-) -> Result<Arc<PublicParams<F, C1LEM<'a, F, C>>>, Error>
+    instance: &Instance<F, C>,
+) -> Result<PublicParams<F, C1LEM<'a, F, C>>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let f = |instance: &Instance<'static, F, C>| {
-        Arc::new(nova::public_params(instance.rc, instance.lang()))
-    };
-    mem_cache::PUBLIC_PARAM_MEM_CACHE.get_from_mem_cache_or_update_with(instance, f)
-}
+    let default = |instance: &Instance<F, C>| nova::public_params(instance.rc, instance.lang());
 
-/// Attempts to extract abomonated public parameters.
-/// To avoid all copying overhead, we zerocopy all of the data within the file;
-/// this leads to extremely high performance, but restricts the lifetime of the data
-/// to the lifetime of the file. Thus, we cannot pass a reference out and must
-/// rely on a closure to capture the data and continue the computation in `bind`.
-pub fn with_public_params<'a, F, C, M, Fn, T>(
-    instance: &Instance<'a, F, C>,
-    bind: Fn,
-) -> Result<T, Error>
-where
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'a,
-    Fn: FnOnce(&PublicParams<F, C1LEM<'a, F, C>>) -> T,
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
-    let default = |instance: &Instance<'a, F, C>| nova::public_params(instance.rc, instance.lang());
-    let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
+    // subdirectory search
+    let disk_cache = DiskCache::new(public_params_dir()).unwrap();
 
-    let mut bytes = vec![];
-    let pp = disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
-        if let Some((pp, remaining)) = unsafe { decode(&mut bytes) } {
-            assert!(remaining.is_empty());
-            eprintln!("Using disk-cached public params for {}", instance.key());
+    // read the file if it exists, otherwise initialize
+    if instance.abomonated {
+        let mut bytes = vec![];
+        match disk_cache.read_bytes(instance, &mut bytes) {
+            Ok(()) => {
+                info!("loading abomonated {}", instance.key());
+                let (pp, rest) = unsafe {
+                    decode::<FlatPublicParams<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>>(&mut bytes)
+                        .unwrap()
+                };
+                assert!(rest.is_empty());
+                let pp =
+                    PublicParams::from(NovaPublicParams::<F, C1LEM<'a, F, C>>::from(pp.clone())); // this clone is VERY expensive
+                Ok(pp)
+            }
+            Err(Error::IO(e)) => {
+                warn!("{e}");
+                info!("Generating fresh public parameters");
+                let pp = default(instance);
+                let fp = FlatPublicParams::try_from(pp.pp).unwrap();
+                // maybe just directly write
+                disk_cache
+                    .write_abomonated(instance, &fp)
+                    .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
+                    .map_err(|e| Error::Cache(format!("Disk write error: {e}")))?;
+                Ok(PublicParams::from(
+                    NovaPublicParams::<F, C1LEM<'a, F, C>>::from(fp),
+                ))
+            }
+            _ => unreachable!(),
+        }
+    } else {
+        // read the file if it exists, otherwise initialize
+        if let Ok(pp) = disk_cache.read(instance) {
+            info!("loading abomonated {}", instance.key());
             Ok(pp)
         } else {
-            Err(Error::Cache("failed to decode bytes".into()))
-        }
-    });
-
-    match pp {
-        Ok(pp) => Ok(bind(pp)),
-        Err(e) => {
-            eprintln!("{e}");
             let pp = default(instance);
-            disk_cache.write_abomonated(instance, &pp)?;
-            Ok(bind(&pp))
+            disk_cache
+                .write(instance, &pp)
+                .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
+                .map_err(|e| Error::Cache(format!("Disk write error: {e}")))?;
+            Ok(pp)
         }
     }
 }
 
 pub fn supernova_circuit_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
-    instance: &Instance<'a, F, C>,
+    instance: &Instance<F, C>,
 ) -> Result<NovaCircuitShape<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -94,7 +98,7 @@ where
 }
 
 pub fn supernova_aux_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
-    instance: &Instance<'a, F, C>,
+    instance: &Instance<F, C>,
 ) -> Result<SuperNovaAuxParams<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -104,11 +108,11 @@ where
 
     let mut bytes = vec![];
     disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
-        if let Some((aux_params, remaining)) =
-            unsafe { decode::<SuperNovaAuxParams<F>>(&mut bytes) }
+        if let Some((flat_aux_params, remaining)) =
+            unsafe { decode::<FlatAuxParams<E1<F>, E2<F>>>(&mut bytes) }
         {
             assert!(remaining.is_empty());
-            Ok(aux_params.clone())
+            Ok(SuperNovaAuxParams::<F>::from(flat_aux_params.clone()))
         } else {
             Err(Error::Cache("failed to decode bytes".into()))
         }
@@ -117,13 +121,13 @@ where
 
 /// Attempts to extract abomonated public parameters.
 pub fn supernova_public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
-    instance_primary: &Instance<'a, F, C>,
+    instance_primary: &Instance<F, C>,
 ) -> Result<supernova::PublicParams<F, C1LEM<'a, F, C>>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default = |instance: &Instance<'a, F, C>| {
+    let default = |instance: &Instance<F, C>| {
         supernova::public_params::<'a, F, C>(instance.rc, instance.lang())
     };
     let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
@@ -145,16 +149,20 @@ where
             circuit_params_vec,
             aux_params,
         );
-        let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
 
-        supernova::PublicParams { pp, pk, vk }
+        supernova::PublicParams {
+            pp,
+            pk_and_vk: OnceCell::new(),
+        }
     } else {
         println!("generating running claim params");
         let pp = default(instance_primary);
 
         let (circuit_params_vec, aux_params) = pp.pp.into_parts();
 
-        disk_cache.write_abomonated(instance_primary, &aux_params)?;
+        let flat_aux_params = FlatAuxParams::<E1<F>, E2<F>>::try_from(aux_params).unwrap();
+        disk_cache.write_abomonated(instance_primary, &flat_aux_params)?;
+        let aux_params = SuperNovaAuxParams::<F>::from(flat_aux_params);
 
         for (circuit_index, circuit_params) in circuit_params_vec.iter().enumerate() {
             let instance = instance_primary.reindex(circuit_index);
@@ -165,9 +173,11 @@ where
             circuit_params_vec,
             aux_params,
         );
-        let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
 
-        supernova::PublicParams { pp, pk, vk }
+        supernova::PublicParams {
+            pp,
+            pk_and_vk: OnceCell::new(),
+        }
     };
 
     Ok(pp)
@@ -178,6 +188,7 @@ mod tests {
     use super::{instance::Kind, *};
     use crate::eval::lang::{Coproc, Lang};
     use halo2curves::bn256::Fr as S1;
+    use std::sync::Arc;
     use tempfile::Builder;
 
     #[test]

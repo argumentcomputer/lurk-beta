@@ -90,6 +90,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
         true,
         Kind::NovaPublicParams,
     );
+    let store = Store::default();
     let pp = public_params(&instance).unwrap();
 
     // Track the number of `Lurk frames / sec`
@@ -103,8 +104,6 @@ fn fibonacci_prove<M: measurement::Measurement>(
         BenchmarkId::new(name, params),
         &prove_params,
         |b, prove_params| {
-            let store = Store::default();
-
             let ptr = fib_expr::<pasta_curves::Fq>(&store);
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
@@ -119,7 +118,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
-            )
+            );
         },
     );
 }

@@ -77,7 +77,7 @@ fn main() {
 
     let pp_start = Instant::now();
     let instance = Instance::new(REDUCTION_COUNT, lang_rc, true, Kind::NovaPublicParams);
-    // see the documentation on `with_public_params`
+    // see the documentation on `public_params`
     let pp = public_params(&instance).unwrap();
     let pp_end = pp_start.elapsed();
     println!("Public parameters took {:?}", pp_end);

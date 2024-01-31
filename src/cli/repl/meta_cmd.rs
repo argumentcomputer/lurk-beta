@@ -2,7 +2,6 @@ use ::nova::traits::Engine;
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
-use ff::PrimeField;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, process};
 
@@ -49,8 +48,8 @@ impl<
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
     > MetaCmd<F, C>
 where
-    <F as PrimeField>::Repr: Abomonation,
-    <<<F as CurveCycleEquipped>::E2 as Engine>::Scalar as PrimeField>::Repr: Abomonation,
+    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     const LOAD: MetaCmd<F, C> = MetaCmd {
         name: "load",

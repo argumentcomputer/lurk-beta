@@ -38,12 +38,10 @@
 use std::{
     fs::File,
     io::{self, BufReader, BufWriter},
-    marker::PhantomData,
     sync::Arc,
 };
 
-use ::nova::{constants::NUM_HASH_BITS, traits::Engine};
-use abomonation::Abomonation;
+use ::nova::constants::NUM_HASH_BITS;
 use camino::Utf8Path;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -52,7 +50,7 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
     proof::{
-        nova::{self, CurveCycleEquipped, E1, E2},
+        nova::{self, CurveCycleEquipped},
         supernova::{self},
     },
 };
@@ -69,13 +67,12 @@ use crate::{
 /// we derive the `num_circuits + 1` circuit param instances. This makes sure that we keep the SuperNova
 /// instances as modular as possible, and reuse as much overlapping circuit params as possible.
 #[derive(Debug)]
-pub struct Instance<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
+pub struct Instance<F: CurveCycleEquipped, C: Coprocessor<F>> {
     pub rc: usize,
     pub lang: Arc<Lang<F, C>>,
     pub abomonated: bool,
     pub cache_key: F,
     pub kind: Kind,
-    pub _p: PhantomData<&'a ()>,
 }
 
 /// From [::nova], there are 3 "kinds" of public param objects that need to be cached.
@@ -107,7 +104,7 @@ pub struct Metadata {
 
 impl Metadata {
     fn from_instance<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
-        instance: &Instance<'a, F, C>,
+        instance: &Instance<F, C>,
     ) -> Self {
         Metadata {
             rc: instance.rc,
@@ -119,17 +116,13 @@ impl Metadata {
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Instance<'a, F, C>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
     pub fn new(rc: usize, lang: Arc<Lang<F, C>>, abomonated: bool, kind: Kind) -> Self {
         let cache_key = match kind {
-            Kind::NovaPublicParams => nova::circuit_cache_key::<'a, F, C>(rc, lang.clone()),
+            Kind::NovaPublicParams => nova::circuit_cache_key::<F, C>(rc, lang.clone()),
             Kind::SuperNovaAuxParams => supernova::circuit_cache_keys::<F, C>(rc, &lang).digest(),
             Kind::SuperNovaCircuitParams(circuit_index) => {
-                supernova::circuit_cache_key::<'a, F, C>(rc, lang.clone(), circuit_index)
+                supernova::circuit_cache_key::<F, C>(rc, lang.clone(), circuit_index)
             }
         };
         Instance {
@@ -138,7 +131,6 @@ where
             abomonated,
             cache_key,
             kind,
-            _p: PhantomData,
         }
     }
 
@@ -175,11 +167,7 @@ where
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Instance<'a, F, C>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
     /// The key (or cache_key) of this [Instance] used to retrieve it from the file cache
     pub fn lang(&self) -> Arc<Lang<F, C>> {
         self.lang.clone()

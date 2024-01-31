@@ -1,10 +1,8 @@
-use abomonation::Abomonation;
 use anyhow::Result;
 use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
 use elsa::sync::FrozenMap;
-use ff::PrimeField;
-use nova::{supernova::NonUniformCircuit, traits::Engine};
+use nova::supernova::NonUniformCircuit;
 use once_cell::sync::OnceCell;
 use rayon::prelude::*;
 use std::sync::Arc;
@@ -904,8 +902,6 @@ impl<'a, F, C> NonUniformCircuit<E1<F>, E2<F>, MultiFrame<'a, F, C>, C2<F>> for 
 where
     F: CurveCycleEquipped + LurkField,
     C: Coprocessor<F> + 'a,
-    <<E1<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as PrimeField>::Repr: Abomonation,
 {
     fn num_circuits(&self) -> usize {
         assert_eq!(self.pc, 0);
