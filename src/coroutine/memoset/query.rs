@@ -1,6 +1,6 @@
 use bellpepper_core::{ConstraintSystem, SynthesisError};
 
-use super::{CircuitScope, CircuitTranscript, LogMemo, Scope};
+use super::{CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope};
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
@@ -22,6 +22,9 @@ where
     ) -> Ptr;
     fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self>;
     fn to_ptr(&self, s: &Store<F>) -> Ptr;
+    fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ;
+    fn dummy_from_index(s: &Store<F>, index: usize) -> Self;
+
     fn symbol(&self) -> Symbol;
     fn symbol_ptr(&self, s: &Store<F>) -> Ptr {
         s.intern_symbol(&self.symbol())
@@ -42,7 +45,7 @@ where
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemo<F>>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError>;
@@ -54,4 +57,6 @@ where
     }
 
     fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self>;
+
+    fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self;
 }
