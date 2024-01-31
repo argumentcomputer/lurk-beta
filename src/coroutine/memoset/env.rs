@@ -85,10 +85,10 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
             EnvQuery::Lookup(var, env) => {
                 let mut var_cs = cs.namespace(|| "var");
                 let allocated_var =
-                    AllocatedNum::alloc_infallible(&mut var_cs, || *s.hash_ptr(&var).value());
+                    AllocatedNum::alloc_infallible(&mut var_cs, || *s.hash_ptr(var).value());
                 let mut env_cs = var_cs.namespace(|| "env");
                 let allocated_env =
-                    AllocatedNum::alloc_infallible(&mut env_cs, || *s.hash_ptr(&env).value());
+                    AllocatedNum::alloc_infallible(&mut env_cs, || *s.hash_ptr(env).value());
                 Self::CQ::Lookup(allocated_var, allocated_env)
             }
             _ => unreachable!(),
