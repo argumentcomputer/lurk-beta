@@ -12,7 +12,6 @@ rust-version = "1.72" # allows msrv verify to work in CI
 [dependencies]
 ahash = "0.8.6"
 anyhow = { workspace = true }
-anymap = "1.0.0-beta.2"
 base32ct = { version = "0.2.0", features = ["std"] }
 base-x = "0.2.11"
 bellpepper = { workspace = true }
