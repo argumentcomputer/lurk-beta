@@ -662,14 +662,11 @@
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
 <a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
-<span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>nova::traits::Engine;
 <span class="kw">use </span>rustyline::{
     error::ReadlineError,
@@ -706,7 +703,7 @@
     },
     parser,
     proof::{
-        nova::{CurveCycleEquipped, NovaProver},
+        nova::{CurveCycleEquipped, NovaProver, E1, E2},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -833,8 +830,8 @@
         C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">&#39;static</span>,
     &gt; Repl&lt;F, C&gt;
 <span class="kw">where
-    </span>&lt;F <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;&lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::E2 <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
         store: Store&lt;F&gt;,
@@ -1003,7 +1000,6 @@
                     <span class="kw">let </span>instance =
                         Instance::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone(), <span class="bool-val">true</span>, Kind::NovaPublicParams);
                     <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
-
                     <span class="kw">let </span>prover = NovaProver::&lt;<span class="kw">_</span>, C&gt;::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone());
 
                     <span class="macro">info!</span>(<span class="string">&quot;Proving&quot;</span>);

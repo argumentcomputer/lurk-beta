@@ -200,9 +200,6 @@
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>::nova::traits::Engine;
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
@@ -331,10 +328,7 @@
     <span class="lifetime">&#39;a</span>,
     F: CurveCycleEquipped,
     C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned,
-&gt; <span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
+&gt; {
     Nova {
         proof: nova::Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
         public_inputs: Vec&lt;F&gt;,
@@ -346,9 +340,6 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a </span>+ Serialize + DeserializeOwned&gt;
     HasFieldModulus <span class="kw">for </span>LurkProof&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">fn </span>field_modulus() -&gt; String {
         F::MODULUS.to_owned()
@@ -357,13 +348,21 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped + Serialize, C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned&gt;
     LurkProof&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="attr">#[inline]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>persist(<span class="self">self</span>, proof_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         dump(<span class="self">self</span>, <span class="kw-2">&amp;</span>proof_path(proof_key))
+    }
+}
+
+<span class="kw">impl</span>&lt;
+        F: CurveCycleEquipped + DeserializeOwned,
+        C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">&#39;static</span>,
+    &gt; LurkProof&lt;<span class="lifetime">&#39;static</span>, F, C&gt;
+{
+    <span class="attr">#[inline]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_cached(proof_key: <span class="kw-2">&amp;</span>str) -&gt; bool {
+        load::&lt;<span class="self">Self</span>&gt;(<span class="kw-2">&amp;</span>proof_path(proof_key)).is_ok()
     }
 }
 
@@ -383,11 +382,6 @@
             <span class="macro">println!</span>(<span class="string">&quot;✗ Proof \&quot;{proof_key}\&quot; failed on verification&quot;</span>);
         }
         <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="attr">#[inline]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_cached(proof_key: <span class="kw-2">&amp;</span>str) -&gt; bool {
-        load::&lt;<span class="self">Self</span>&gt;(<span class="kw-2">&amp;</span>proof_path(proof_key)).is_ok()
     }
 
     <span class="kw">fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {

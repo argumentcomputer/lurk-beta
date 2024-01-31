@@ -79,23 +79,16 @@
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::create_dir_all;
 <span class="kw">use </span>std::io::{BufReader, BufWriter, Read};
 <span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use </span>abomonation::{encode, Abomonation};
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
-<span class="kw">use </span>nova::traits::Engine;
 
 <span class="kw">use </span><span class="kw">crate</span>::config::lurk_config;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
-<span class="kw">use </span><span class="kw">crate</span>::proof::nova::{CurveCycleEquipped, PublicParams, C1LEM, E1, E2};
+<span class="kw">use </span><span class="kw">crate</span>::proof::nova::{CurveCycleEquipped, PublicParams, C1LEM};
 <span class="kw">use </span><span class="kw">crate</span>::public_parameters::error::Error;
 
 <span class="kw">use </span><span class="kw">super</span>::instance::Instance;
@@ -106,21 +99,16 @@
     <span class="kw-2">&amp;</span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>).public_params_dir
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DiskCache&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DiskCache&lt;F, C&gt;
 <span class="kw">where
     </span>F: CurveCycleEquipped,
-    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
+    C: Coprocessor&lt;F&gt;,
 {
     dir: Utf8PathBuf,
-    _t: PhantomData&lt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(), F, C)&gt;,
+    _t: PhantomData&lt;(F, C)&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; DiskCache&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
-<span class="kw">where
-    </span><span class="comment">// technical bounds that would disappear once associated_type_bounds stabilizes
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; DiskCache&lt;F, C&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         create_dir_all(disk_cache_path)<span class="question-mark">?</span>;
 
@@ -130,9 +118,9 @@
         })
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+        instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;, Error&gt; {
         <span class="kw">let </span>file = instance.open(<span class="kw-2">&amp;</span><span class="self">self</span>.dir)<span class="question-mark">?</span>;
         <span class="kw">let </span>reader = BufReader::new(file);
@@ -142,7 +130,7 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read_bytes(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+        instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
         byte_sink: <span class="kw-2">&amp;mut </span>Vec&lt;u8&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>file = instance.open(<span class="kw-2">&amp;</span><span class="self">self</span>.dir)<span class="question-mark">?</span>;
@@ -153,18 +141,18 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
-        data: <span class="kw-2">&amp;</span>PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
+        instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
+        data: <span class="kw-2">&amp;</span>PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;_</span>, F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>file = instance.create(<span class="kw-2">&amp;</span><span class="self">self</span>.dir)<span class="question-mark">?</span>;
         <span class="kw">let </span>writer = BufWriter::new(<span class="kw-2">&amp;</span>file);
-        bincode::serialize_into(writer, <span class="kw-2">&amp;</span>data)
+        bincode::serialize_into(writer, data)
             .map_err(|e| Error::Cache(<span class="macro">format!</span>(<span class="string">&quot;Public param cache serialization error: {}&quot;</span>, e)))
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_abomonated&lt;V: Abomonation&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+        instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
         data: <span class="kw-2">&amp;</span>V,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>file = instance.create(<span class="kw-2">&amp;</span><span class="self">self</span>.dir)<span class="question-mark">?</span>;

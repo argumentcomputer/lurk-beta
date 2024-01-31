@@ -445,11 +445,7 @@
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
 <a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
-<span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem};
-<span class="kw">use </span>ff::PrimeField;
+</pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem};
 <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Bn256Scalar;
 <span class="kw">use </span>nova::{
     errors::NovaError,
@@ -462,6 +458,7 @@
     },
     CompressedSNARK, ProverKey, R1CSWithArity, RecursiveSNARK, VerifierKey,
 };
+<span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>pasta_curves::pallas;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{
@@ -561,50 +558,61 @@
 </span><span class="kw">pub struct </span>PublicParams&lt;F, SC: StepCircuit&lt;F&gt;&gt;
 <span class="kw">where
     </span>F: CurveCycleEquipped,
-    <span class="comment">// technical bounds that would disappear once associated_type_bounds stabilizes
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    pp: NovaPublicParams&lt;F, SC&gt;,
-    pk: ProverKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
-    vk: VerifierKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+    <span class="doccomment">/// Public parameters for the Nova proving system.
+    </span><span class="kw">pub </span>pp: NovaPublicParams&lt;F, SC&gt;,
+    <span class="doccomment">/// Prover and verifier key for final proof compression
+    </span><span class="attr">#[serde(skip)]
+    </span>pk_and_vk: OnceCell&lt;(
+        ProverKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+        VerifierKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+    )&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: CurveCycleEquipped, SC: StepCircuit&lt;F&gt;&gt; Abomonation <span class="kw">for </span>PublicParams&lt;F, SC&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+<span class="comment">// this avoids dipping into the pk/vk
+</span><span class="kw">impl</span>&lt;F: CurveCycleEquipped, SC: StepCircuit&lt;F&gt; + std::fmt::Debug&gt; std::fmt::Debug
+    <span class="kw">for </span>PublicParams&lt;F, SC&gt;
 {
-    <span class="kw">unsafe fn </span>entomb&lt;W: std::io::Write&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;mut </span>W) -&gt; std::io::Result&lt;()&gt; {
-        <span class="self">self</span>.pp.entomb(bytes)<span class="question-mark">?</span>;
-        <span class="self">self</span>.pk.entomb(bytes)<span class="question-mark">?</span>;
-        <span class="self">self</span>.vk.entomb(bytes)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">&quot;PublicParams&quot;</span>)
+            .field(<span class="string">&quot;pp&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.pp)
+            .finish()
+    }
+}
+
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped, SC: StepCircuit&lt;F&gt;&gt; PublicParams&lt;F, SC&gt; {
+    <span class="doccomment">/// provides a reference to a ProverKey suitable for producing a CompressedProof
+    </span><span class="kw">pub fn </span>pk(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProverKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt; {
+        <span class="kw">let </span>(pk, _vk) = <span class="self">self</span>.pk_and_vk.get_or_init(|| {
+            CompressedSNARK::&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;::setup(<span class="kw-2">&amp;</span><span class="self">self</span>.pp).unwrap()
+        });
+        pk
     }
 
-    <span class="kw">unsafe fn </span>exhume&lt;<span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>bytes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>[u8]&gt; {
-        <span class="kw">let </span>temp = bytes;
-        bytes = <span class="self">self</span>.pp.exhume(temp)<span class="question-mark">?</span>;
-        <span class="kw">let </span>temp = bytes;
-        bytes = <span class="self">self</span>.pk.exhume(temp)<span class="question-mark">?</span>;
-        <span class="kw">let </span>temp = bytes;
-        bytes = <span class="self">self</span>.vk.exhume(temp)<span class="question-mark">?</span>;
-        <span class="prelude-val">Some</span>(bytes)
+    <span class="doccomment">/// provides a reference to a VerifierKey suitable for verifying a CompressedProof
+    </span><span class="kw">pub fn </span>vk(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VerifierKey&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt; {
+        <span class="kw">let </span>(_pk, vk) = <span class="self">self</span>.pk_and_vk.get_or_init(|| {
+            CompressedSNARK::&lt;E1&lt;F&gt;, E2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;::setup(<span class="kw-2">&amp;</span><span class="self">self</span>.pp).unwrap()
+        });
+        vk
     }
+}
 
-    <span class="kw">fn </span>extent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.pp.extent() + <span class="self">self</span>.pk.extent() + <span class="self">self</span>.vk.extent()
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped, SC: StepCircuit&lt;F&gt;&gt; From&lt;NovaPublicParams&lt;F, SC&gt;&gt;
+    <span class="kw">for </span>PublicParams&lt;F, SC&gt;
+{
+    <span class="kw">fn </span>from(pp: NovaPublicParams&lt;F, SC&gt;) -&gt; PublicParams&lt;F, SC&gt; {
+        PublicParams {
+            pp,
+            pk_and_vk: OnceCell::new(),
+        }
     }
 }
 
 <span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
 #[serde(bound = <span class="string">&quot;&quot;</span>)]
-</span><span class="kw">pub enum </span>Proof&lt;F: CurveCycleEquipped, C1: StepCircuit&lt;F&gt;&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
+</span><span class="kw">pub enum </span>Proof&lt;F: CurveCycleEquipped, C1: StepCircuit&lt;F&gt;&gt; {
     <span class="doccomment">/// A proof for the intermediate steps of a recursive computation along with
     /// the number of steps used for verification
     </span>Recursive(Box&lt;RecursiveSNARK&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1, C2&lt;F&gt;&gt;&gt;, usize),
@@ -635,11 +643,7 @@
 </span><span class="kw">pub fn </span>public_params&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt;(
     reduction_count: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
-) -&gt; PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
+) -&gt; PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt; {
     <span class="kw">let </span>(circuit_primary, circuit_secondary) = circuits(reduction_count, lang);
 
     <span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;E1&lt;F&gt;&gt;&gt;::ck_floor();
@@ -651,8 +655,10 @@
         <span class="kw-2">&amp;*</span>commitment_size_hint1,
         <span class="kw-2">&amp;*</span>commitment_size_hint2,
     );
-    <span class="kw">let </span>(pk, vk) = CompressedSNARK::setup(<span class="kw-2">&amp;</span>pp).unwrap();
-    PublicParams { pp, pk, vk }
+    PublicParams {
+        pp,
+        pk_and_vk: OnceCell::new(),
+    }
 }
 
 <span class="doccomment">/// Generates the circuits for the Nova proving system.
@@ -669,9 +675,6 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; RecursiveSNARKTrait&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
     <span class="kw">for </span>Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
-<span class="kw">where
-    </span>&lt;F <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;&lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::E2 <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;;
 
@@ -791,7 +794,7 @@
             <span class="self">Self</span>::Recursive(recursive_snark, num_steps) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Compressed(
                 Box::new(CompressedSNARK::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;::prove(
                     <span class="kw-2">&amp;</span>pp.pp,
-                    <span class="kw-2">&amp;</span>pp.pk,
+                    pp.pk(),
                     <span class="kw-2">&amp;</span>recursive_snark,
                 )<span class="question-mark">?</span>),
                 num_steps,
@@ -810,7 +813,7 @@
                 p.verify(<span class="kw-2">&amp;</span>pp.pp, <span class="kw-2">*</span>num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary)<span class="question-mark">?
             </span>}
             <span class="self">Self</span>::Compressed(p, num_steps) =&gt; {
-                p.verify(<span class="kw-2">&amp;</span>pp.vk, <span class="kw-2">*</span>num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary)<span class="question-mark">?
+                p.verify(pp.vk(), <span class="kw-2">*</span>num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary)<span class="question-mark">?
             </span>}
         };
 
@@ -828,11 +831,7 @@
     _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>()&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="doccomment">/// Create a new NovaProver with a reduction count and a `Lang`
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new(reduction_count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; <span class="self">Self </span>{
@@ -866,9 +865,6 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
     <span class="kw">for </span>NovaProver&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;;
     <span class="kw">type </span>RecursiveSnark = Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;;
