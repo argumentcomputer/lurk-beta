@@ -106,7 +106,7 @@ pub type NovaCircuitShape<F> = R1CSWithArity<E1<F>>;
 pub type NovaPublicParams<F, C1> = nova::PublicParams<E1<F>, E2<F>, C1, C2<F>>;
 
 /// A struct that contains public parameters for the Nova proving system.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct PublicParams<F, SC: StepCircuit<F>>
 where
