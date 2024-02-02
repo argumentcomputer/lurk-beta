@@ -407,10 +407,10 @@ pub struct CoroutineCircuit<'a, F: LurkField, CM, Q> {
 
 // TODO: Make this generic rather than specialized to LogMemo.
 // That will require a CircuitScopeTrait.
-impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q> {
+impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
     fn new(
         scope: &'a Scope<Q, LogMemo<F>, F>,
-        memoset: LogMemoCircuit<F>,
+        memoset: LogMemo<F>,
         keys: Vec<Ptr>,
         query_index: usize,
         next_query_index: usize,
@@ -432,22 +432,16 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
 
     fn blank(
         query_index: usize,
-        r: AllocatedNum<F>,
-        queries: &'a HashMap<Ptr, Ptr>,
+        memoset: LogMemo<F>,
         store: &'a Store<F>,
-    ) -> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q> {
-        let memoset = LogMemoCircuit {
-            multiset: MultiSet::new(),
-            r,
-        };
+    ) -> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
         Self {
             memoset,
-            queries,
+            provenances: Default::default(),
             keys: Default::default(),
             query_index,
             next_query_index: 0,
             store,
-            transcribe_internal_insertions: Default::default(),
             rc: 0,
             _p: Default::default(),
         }
@@ -467,8 +461,12 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
             unreachable!()
         };
 
+        let memoset = LogMemoCircuit {
+            multiset: self.memoset.multiset.clone(),
+            r: r.hash().clone(),
+        };
         let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>> =
-            CircuitScope::new(cs, g, self.store, self.memoset.clone(), &self.provenances);
+            CircuitScope::new(cs, g, self.store, memoset, &self.provenances);
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
         for (i, key) in self
@@ -753,7 +751,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
             {
                 let (memoset_acc, transcript, r_num) = circuit_scope.io();
-                let r = AllocatedPtr::alloc_tag(ns!(cs, "r"), ExprTag::Num.to_field(), r_num)?;
+                let r = AllocatedPtr::from_parts(g.alloc_tag(cs, &ExprTag::Num).clone(), r_num);
                 let dummy = g.alloc_ptr(cs, &s.intern_nil(), s);
                 let mut z = vec![
                     dummy.clone(),
@@ -775,16 +773,15 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
                         // Not used here
                         let next_query_index = 0;
-                        let circuit: CoroutineCircuit<'_, F, LogMemoCircuit<F>, Q> =
-                            CoroutineCircuit::new(
-                                self,
-                                memoset_circuit.clone(),
-                                chunk.to_vec(),
-                                *index,
-                                next_query_index,
-                                s,
-                                rc,
-                            );
+                        let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
+                            self,
+                            self.memoset.clone(),
+                            chunk.to_vec(),
+                            *index,
+                            next_query_index,
+                            s,
+                            rc,
+                        );
 
                         let (_next_pc, z_out) = circuit.synthesize(cs, &z)?;
                         {

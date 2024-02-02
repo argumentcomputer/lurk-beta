@@ -4,8 +4,8 @@ use crate::{
     field::LurkField,
     lem::{pointers::Ptr, store::Store},
     proof::{
-        nova::{CurveCycleEquipped, E1, E2},
-        supernova::{Proof, PublicParams, C2, SS1, SS2},
+        nova::{CurveCycleEquipped, E1},
+        supernova::{Proof, PublicParams, C2},
         FrameLike, Prover, RecursiveSNARKTrait,
     },
 };
@@ -14,10 +14,7 @@ use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use tracing::info;
 
 use super::query::Query;
-use super::{
-    CoroutineCircuit, LogMemo, LogMemoCircuit, Scope, DEFAULT_RC_FOR_QUERY,
-    DEFAULT_TRANSCRIBE_INTERNAL_INSERTIONS,
-};
+use super::{CoroutineCircuit, LogMemo, Scope, DEFAULT_RC_FOR_QUERY};
 
 use nova::supernova::{
     error::SuperNovaError, snark::CompressedSNARK, NonUniformCircuit, RecursiveSNARK, StepCircuit,
@@ -26,7 +23,7 @@ use std::marker::PhantomData;
 
 const COROUTINE_ARITY: usize = 12;
 
-type Coroutine<'a, F, Q> = CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q>;
+type Coroutine<'a, F, Q> = CoroutineCircuit<'a, F, LogMemo<F>, Q>;
 
 #[derive(Debug)]
 struct MemosetProver<'a, F, Q> {
@@ -36,22 +33,20 @@ struct MemosetProver<'a, F, Q> {
     _phantom: PhantomData<&'a (F, Q)>,
 }
 
-impl<'a, F, Q> NonUniformCircuit<E1<F>, E2<F>, Coroutine<'a, F, Q>, C2<F>> for Coroutine<'a, F, Q>
+impl<'a, F, Q> NonUniformCircuit<E1<F>> for Coroutine<'a, F, Q>
 where
     F: CurveCycleEquipped + LurkField,
     Q: Query<F> + 'a + Send + Sync,
 {
+    type C1 = Coroutine<'a, F, Q>;
+    type C2 = C2<F>;
+
     fn num_circuits(&self) -> usize {
         Q::count()
     }
 
     fn primary_circuit(&self, circuit_index: usize) -> Coroutine<'a, F, Q> {
-        Coroutine::blank(
-            circuit_index,
-            self.memoset.r.clone(),
-            self.queries,
-            self.store,
-        )
+        Coroutine::blank(circuit_index, self.memoset.clone(), self.store)
     }
 
     fn secondary_circuit(&self) -> C2<F> {
@@ -98,18 +93,18 @@ impl<'a, F: LurkField, Q: Query<F> + Send + Sync> StepCircuit<F> for Coroutine<'
 impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
     RecursiveSNARKTrait<F, Coroutine<'a, F, Q>> for Proof<F, Coroutine<'a, F, Q>>
 {
-    type PublicParams = PublicParams<F, Coroutine<'a, F, Q>>;
+    type PublicParams = PublicParams<F>;
 
     type ErrorType = SuperNovaError;
 
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
     fn prove_recursively(
-        pp: &PublicParams<F, Coroutine<'a, F, Q>>,
+        pp: &PublicParams<F>,
         z0: &[F],
         steps: Vec<Coroutine<'a, F, Q>>,
         _store: &Store<F>,
     ) -> Result<Self, ProofError> {
-        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>, E2<F>>> = None;
+        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>>> = None;
 
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
@@ -142,20 +137,17 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
             prove_step(i, step);
         }
         // This probably should be made unnecessary.
-        Ok(Self::Recursive(Box::new(
-            recursive_snark_option.expect("RecursiveSNARK missing"),
-        )))
+        Ok(Self::Recursive(
+            Box::new(recursive_snark_option.expect("RecursiveSNARK missing")),
+            PhantomData,
+        ))
     }
 
-    fn compress(self, pp: &PublicParams<F, Coroutine<'a, F, Q>>) -> Result<Self, ProofError> {
+    fn compress(self, pp: &PublicParams<F>) -> Result<Self, ProofError> {
         match &self {
-            Self::Recursive(recursive_snark) => {
-                let snark = CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
-                    &pp.pp,
-                    pp.pk(),
-                    recursive_snark,
-                )?;
-                Ok(Self::Compressed(Box::new(snark)))
+            Self::Recursive(recursive_snark, _) => {
+                let snark = CompressedSNARK::prove(&pp.pp, pp.pk(), recursive_snark)?;
+                Ok(Self::Compressed(Box::new(snark), PhantomData))
             }
             Self::Compressed(..) => Ok(self),
         }
@@ -167,8 +159,8 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
         let zi_secondary = &z0_secondary;
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
-            Self::Compressed(p) => p.verify(&pp.pp, pp.vk(), z0_primary, &z0_secondary)?,
+            Self::Recursive(p, _) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
+            Self::Compressed(p, _) => p.verify(&pp.pp, pp.vk(), z0_primary, &z0_secondary)?,
         };
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == &zi_secondary_verified)
@@ -191,7 +183,7 @@ impl<'a, F: LurkField, Q: Query<F> + Send + Sync> FrameLike<Ptr> for Coroutine<'
 impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> Prover<'a, F, Coroutine<'a, F, Q>>
     for MemosetProver<'a, F, Q>
 {
-    type PublicParams = PublicParams<F, Coroutine<'a, F, Q>>;
+    type PublicParams = PublicParams<F>;
     type RecursiveSnark = Proof<F, Coroutine<'a, F, Q>>;
 
     #[inline]
@@ -212,9 +204,8 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> Prover<'a, F, Corouti
         store: &'a Store<F>,
         _limit: usize,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
-        let transcribe_internal = DEFAULT_TRANSCRIBE_INTERNAL_INSERTIONS;
         let circuit_query_rc = DEFAULT_RC_FOR_QUERY;
-        let mut scope: Scope<Q, LogMemo<F>> = Scope::new(transcribe_internal, circuit_query_rc);
+        let mut scope: Scope<Q, LogMemo<F>, F> = Scope::new(circuit_query_rc);
         scope.query(store, expr);
         scope.finalize_transcript(store);
         let steps = Vec::new();
