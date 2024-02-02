@@ -58,6 +58,7 @@ pub use query::{CircuitQuery, Query};
 mod demo;
 mod env;
 mod multiset;
+mod prove;
 mod query;
 
 #[derive(Debug)]
@@ -392,11 +393,13 @@ pub struct CircuitScope<F: LurkField, CM> {
     acc: Option<AllocatedPtr<F>>,
 }
 
+#[derive(Clone)]
 pub struct CoroutineCircuit<'a, F: LurkField, CM, Q> {
     provenances: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     memoset: CM,
     keys: Vec<Ptr>,
     query_index: usize,
+    next_query_index: usize,
     store: &'a Store<F>,
     rc: usize,
     _p: PhantomData<Q>,
@@ -410,6 +413,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
         memoset: LogMemoCircuit<F>,
         keys: Vec<Ptr>,
         query_index: usize,
+        next_query_index: usize,
         store: &'a Store<F>,
         rc: usize,
     ) -> Self {
@@ -419,8 +423,32 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
             provenances: scope.provenances(store).clone(), // FIXME
             keys,
             query_index,
+            next_query_index,
             store,
             rc,
+            _p: Default::default(),
+        }
+    }
+
+    fn blank(
+        query_index: usize,
+        r: AllocatedNum<F>,
+        queries: &'a HashMap<Ptr, Ptr>,
+        store: &'a Store<F>,
+    ) -> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q> {
+        let memoset = LogMemoCircuit {
+            multiset: MultiSet::new(),
+            r,
+        };
+        Self {
+            memoset,
+            queries,
+            keys: Default::default(),
+            query_index,
+            next_query_index: 0,
+            store,
+            transcribe_internal_insertions: Default::default(),
+            rc: 0,
             _p: Default::default(),
         }
     }
@@ -428,7 +456,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
     // This is a supernova::StepCircuit method.
     // // TODO: we need to create a supernova::StepCircuit that will prove up to a fixed number of queries of a given type.
     fn synthesize<CS: ConstraintSystem<F>>(
-        &mut self,
+        &self,
         cs: &mut CS,
         z: &[AllocatedPtr<F>],
     ) -> Result<(Option<AllocatedNum<F>>, Vec<AllocatedPtr<F>>), SynthesisError> {
@@ -465,8 +493,10 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
 
         let z_out = vec![c.clone(), e.clone(), k.clone(), memoset_acc, transcript, r];
 
-        let next_pc = None; // FIXME.
-        Ok((next_pc, z_out))
+        let next_pc = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "next_pc"), || {
+            F::from_u64(self.next_query_index as u64)
+        });
+        Ok((Some(next_pc), z_out))
     }
 }
 
@@ -743,12 +773,15 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                         // It shouldn't exist, when instead we have only the single NIVC circuit repeated multiple times.
                         let cs = ns!(cs, format!("chunk-{i}"));
 
-                        let mut circuit: CoroutineCircuit<'_, F, LogMemoCircuit<F>, Q> =
+                        // Not used here
+                        let next_query_index = 0;
+                        let circuit: CoroutineCircuit<'_, F, LogMemoCircuit<F>, Q> =
                             CoroutineCircuit::new(
                                 self,
                                 memoset_circuit.clone(),
                                 chunk.to_vec(),
                                 *index,
+                                next_query_index,
                                 s,
                                 rc,
                             );
