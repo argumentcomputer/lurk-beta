@@ -553,7 +553,7 @@
 </span><span class="kw">pub type </span>NovaPublicParams&lt;F, C1&gt; = nova::PublicParams&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1, C2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// A struct that contains public parameters for the Nova proving system.
-</span><span class="attr">#[derive(Clone, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Serialize, Deserialize)]
 #[serde(bound = <span class="string">&quot;&quot;</span>)]
 </span><span class="kw">pub struct </span>PublicParams&lt;F, SC: StepCircuit&lt;F&gt;&gt;
 <span class="kw">where
