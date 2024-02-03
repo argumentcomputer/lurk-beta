@@ -10,7 +10,6 @@ license.workspace = true
 rust-version = "1.72" # allows msrv verify to work in CI
 
 [dependencies]
-ahash = "0.8.6"
 anyhow = { workspace = true }
 base32ct = { version = "0.2.0", features = ["std"] }
 base-x = "0.2.11"
@@ -30,7 +29,6 @@ indexmap = { version = "2.1.0", features = ["rayon", "serde"] }
 itertools = "0.12"
 lurk-macros = { version = "0.2.0", path = "lurk-macros" }
 lurk-metrics = { version = "0.2.0", path = "lurk-metrics" }
-metrics = { workspace = true }
 neptune = { workspace = true, features = ["arity2", "arity4", "arity8", "arity16", "pasta"] }
 nom = "7.1.3"
 nom_locate = "4.1.0"
@@ -71,7 +69,7 @@ arc-swap = "1.6.0"
 halo2curves = { version = "0.6.0", features = ["bits", "derive_serde"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-memmap = { version = "0.5.10", package = "memmap2" }
+pprof = { version = "0.13", optional = true} # only used in tests, under feature "flamegraph"
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = "0.8.5"
@@ -92,7 +90,6 @@ ascii_table = "4.0.2"
 criterion = "0.5"
 expect-test = "1.4.1"
 hex = "0.4.3"
-pprof = { version = "0.13" }
 statrs = "0.16.0"
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
