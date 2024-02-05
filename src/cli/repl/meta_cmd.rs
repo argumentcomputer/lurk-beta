@@ -1,7 +1,8 @@
-use ::nova::traits::Engine;
+use ::nova::supernova::StepCircuit;
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
+use ff::PrimeField;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, process};
 
@@ -22,7 +23,7 @@ use crate::{
     },
     package::{Package, SymbolRef},
     proof::{
-        nova::{self, CurveCycleEquipped, C1LEM, E1, E2},
+        nova::{self, CurveCycleEquipped, Dual, C1LEM},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -44,12 +45,13 @@ pub(super) struct MetaCmd<F: LurkField, C: Coprocessor<F> + Serialize + Deserial
 }
 
 impl<
+        'a,
         F: CurveCycleEquipped + Serialize + DeserializeOwned,
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
     > MetaCmd<F, C>
 where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    F::Repr: Abomonation,
+    <Dual<F> as PrimeField>::Repr: Abomonation,
 {
     const LOAD: MetaCmd<F, C> = MetaCmd {
         name: "load",
@@ -992,7 +994,7 @@ where
 
             let (fun, proto_rc) = Self::get_fun_and_rc(repl, ptcl)?;
 
-            match load::<ProtocolProof<'_, _, C>>(&path)? {
+            match load::<ProtocolProof<F, C1LEM<'a, F, C>>>(&path)? {
                 ProtocolProof::Nova {
                     args: LurkData { z_ptr, z_dag },
                     proof,
@@ -1096,23 +1098,14 @@ fn get_path<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned>(
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-enum ProtocolProof<'a, F: CurveCycleEquipped, C: Coprocessor<F> + Serialize + DeserializeOwned>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+enum ProtocolProof<F: CurveCycleEquipped, S> {
     Nova {
         args: LurkData<F>,
-        proof: nova::Proof<F, C1LEM<'a, F, C>>,
+        proof: nova::Proof<F, S>,
     },
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a + Serialize + DeserializeOwned>
-    HasFieldModulus for ProtocolProof<'a, F, C>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+impl<F: CurveCycleEquipped, S: StepCircuit<F>> HasFieldModulus for ProtocolProof<F, S> {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
     }

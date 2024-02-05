@@ -3,7 +3,7 @@ use ascii_table::{Align, AsciiTable};
 use criterion::black_box;
 use lurk::{
     eval::lang::{Coproc, Lang},
-    lem::{eval::evaluate, multiframe::MultiFrame, store::Store},
+    lem::{eval::evaluate, store::Store},
     proof::nova::{public_params, NovaProver, PublicParams},
 };
 use num_traits::ToPrimitive;
@@ -157,7 +157,7 @@ fn main() {
 
     let frames = evaluate::<Fr, Coproc<Fr>>(None, program, &store, limit).unwrap();
 
-    let lang = Lang::<Fr, Coproc<Fr>>::new();
+    let lang = Lang::<Fr>::new();
     let lang_arc = Arc::new(lang.clone());
 
     let mut data = Vec::with_capacity(rc_vec.len());
@@ -166,8 +166,7 @@ fn main() {
         let prover: NovaProver<'_, _, _> = NovaProver::new(rc, lang_arc.clone());
         println!("Getting public params for rc={rc}");
         // TODO: use cache once it's fixed
-        let pp: PublicParams<_, MultiFrame<'_, _, Coproc<Fr>>> =
-            public_params(rc, lang_arc.clone());
+        let pp: PublicParams<_> = public_params(rc, lang_arc.clone());
         let n_folds_data = (0..=max_n_folds)
             .map(|n_folds| {
                 let n_frames = n_iters(n_folds, rc);

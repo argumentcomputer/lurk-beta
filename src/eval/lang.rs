@@ -73,7 +73,7 @@ pub enum Coproc<F: LurkField> {
 ///
 // TODO: Define a trait for the Hash and parameterize on that also.
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
-pub struct Lang<F, C> {
+pub struct Lang<F, C = Coproc<F>> {
     /// An IndexMap that stores coprocessors with their associated `Sym` keys.
     coprocessors: IndexMap<Symbol, C>,
     _p: PhantomData<F>,
@@ -185,12 +185,12 @@ pub(crate) mod test {
 
     #[test]
     fn lang() {
-        Lang::<Fr, Coproc<Fr>>::new();
+        Lang::<Fr>::new();
     }
 
     #[test]
     fn dummy_lang() {
-        let _lang = Lang::<Fr, Coproc<Fr>>::new_with_bindings(vec![(
+        let _lang = Lang::<Fr>::new_with_bindings(vec![(
             sym!("coproc", "dummy"),
             DummyCoprocessor::new().into(),
         )]);

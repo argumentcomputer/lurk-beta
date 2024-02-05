@@ -68,7 +68,7 @@ fn compute_coeffs<F: LurkField>(store: &Store<F>) -> (usize, usize) {
         store.intern_empty_env(),
         store.cont_outermost(),
     ];
-    let lang: Lang<F, Coproc<F>> = Lang::new();
+    let lang: Lang<F> = Lang::new();
     let mut coef_lin = 0;
     let coef_ang;
     let step_func = eval_step();

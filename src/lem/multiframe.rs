@@ -15,7 +15,7 @@ use crate::{
     eval::lang::Lang,
     field::{LanguageField, LurkField},
     proof::{
-        nova::{CurveCycleEquipped, E1, E2},
+        nova::{CurveCycleEquipped, E1},
         supernova::{FoldingConfig, C2},
         CEKState, EvaluationStore, FrameLike, Provable,
     },
@@ -898,11 +898,14 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::supernova::StepCircuit<F> for Mu
     }
 }
 
-impl<'a, F, C> NonUniformCircuit<E1<F>, E2<F>, MultiFrame<'a, F, C>, C2<F>> for MultiFrame<'a, F, C>
+impl<'a, F, C> NonUniformCircuit<E1<F>> for MultiFrame<'a, F, C>
 where
     F: CurveCycleEquipped + LurkField,
     C: Coprocessor<F> + 'a,
 {
+    type C1 = MultiFrame<'a, F, C>;
+    type C2 = C2<F>;
+
     fn num_circuits(&self) -> usize {
         assert_eq!(self.pc, 0);
         self.get_lang().coprocessor_count() + 1
@@ -1042,7 +1045,7 @@ mod tests {
 
         let mut cs_clone = cs.clone();
 
-        let lang = Lang::<Bn, Coproc<Bn>>::new();
+        let lang = Lang::<Bn>::new();
 
         let output_sequential = synthesize_frames_sequential(
             &mut cs,
@@ -1083,7 +1086,7 @@ mod tests {
         // not self-evaluating
         let expr = store.read_with_default_state("(+ 1 2)").unwrap();
 
-        let lang = Arc::new(Lang::<Bn, Coproc<Bn>>::new());
+        let lang = Arc::new(Lang::<Bn>::new());
         let mut frames = evaluate::<Bn, Coproc<Bn>>(None, expr, &store, 1).unwrap();
         assert_eq!(frames.len(), 1);
 

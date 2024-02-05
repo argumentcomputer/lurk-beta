@@ -38,7 +38,7 @@ fn sha256_ivc<F: LurkField>(
     state: Rc<RefCell<State>>,
     arity: usize,
     n: usize,
-    input: &Vec<usize>,
+    input: &[usize],
 ) -> Ptr {
     assert_eq!(n, input.len());
     let input = input
@@ -128,7 +128,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
-                &(0..prove_params.n).collect(),
+                &(0..prove_params.n).collect::<Vec<_>>(),
             );
 
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
@@ -209,7 +209,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
-                &(0..prove_params.n).collect(),
+                &(0..prove_params.n).collect::<Vec<_>>(),
             );
 
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
@@ -293,7 +293,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
-                &(0..prove_params.n).collect(),
+                &(0..prove_params.n).collect::<Vec<_>>(),
             );
 
             let prover = SuperNovaProver::new(prove_params.reduction_count, lang_rc.clone());

@@ -1,6 +1,6 @@
-use ::nova::traits::Engine;
 use abomonation::Abomonation;
 use anyhow::{bail, Result};
+use ff::PrimeField;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 
@@ -10,7 +10,7 @@ use crate::{
     field::LurkField,
     lem::{pointers::ZPtr, store::Store},
     proof::{
-        nova::{self, CurveCycleEquipped, C1LEM, E1, E2},
+        nova::{self, CurveCycleEquipped, Dual, C1LEM},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -154,9 +154,10 @@ impl<'a, F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + Dese
 }
 
 impl<
+        'a,
         F: CurveCycleEquipped + DeserializeOwned,
-        C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
-    > LurkProof<'static, F, C>
+        C: Coprocessor<F> + Serialize + DeserializeOwned + 'a,
+    > LurkProof<'a, F, C>
 {
     #[inline]
     pub(crate) fn is_cached(proof_key: &str) -> bool {
@@ -165,12 +166,13 @@ impl<
 }
 
 impl<
+        'a,
         F: CurveCycleEquipped + DeserializeOwned,
-        C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
-    > LurkProof<'static, F, C>
+        C: Coprocessor<F> + Serialize + DeserializeOwned + 'a,
+    > LurkProof<'a, F, C>
 where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    F::Repr: Abomonation,
+    <Dual<F> as PrimeField>::Repr: Abomonation,
 {
     pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
         let lurk_proof = load::<Self>(&proof_path(proof_key))?;

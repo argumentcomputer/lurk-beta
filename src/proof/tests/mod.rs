@@ -1,4 +1,4 @@
-mod nova_tests_lem;
+mod nova_tests;
 use bellpepper::util_cs::{metric_cs::MetricCS, witness_cs::WitnessCS, Comparable};
 use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, Delta};
 use expect_test::Expect;
@@ -130,7 +130,8 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
         }
         assert!(res.unwrap());
 
-        let compressed = proof.compress(&pp).unwrap();
+        let compressed: crate::proof::nova::Proof<F, C1LEM<'a, F, C>> =
+            proof.compress(&pp).unwrap();
         let res2 = compressed.verify(&pp, &z0, &zi);
 
         assert!(res2.unwrap());

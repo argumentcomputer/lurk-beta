@@ -80,7 +80,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
 ) {
     let limit = fib_limit(prove_params.fib_n, prove_params.reduction_count);
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+    let lang_pallas = Lang::<pallas::Scalar>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
 
     // use cached public params

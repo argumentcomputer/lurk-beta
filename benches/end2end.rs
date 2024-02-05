@@ -59,7 +59,7 @@ fn end2end_benchmark(c: &mut Criterion) {
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     // setup
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas = Lang::<Fq>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
 
     let store = Store::default();
@@ -234,7 +234,7 @@ fn prove_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas = Lang::<Fq>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
 
     // use cached public params
@@ -282,7 +282,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas = Lang::<Fq>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
 
     // use cached public params
@@ -324,7 +324,7 @@ fn verify_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas = Lang::<Fq>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
 
     // use cached public params
@@ -377,7 +377,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
-    let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+    let lang_pallas = Lang::<Fq>::new();
     let lang_pallas_rc = Arc::new(lang_pallas.clone());
 
     // use cached public params

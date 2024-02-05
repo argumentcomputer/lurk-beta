@@ -1,8 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, SamplingMode};
-use lurk::{
-    eval::lang::{Coproc, Lang},
-    proof::nova,
-};
+use lurk::{eval::lang::Lang, proof::nova};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -14,8 +11,7 @@ const DEFAULT_REDUCTION_COUNT: usize = 10;
 fn public_params_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("public_params_benchmark");
     group.sampling_mode(SamplingMode::Flat);
-    let lang_pallas =
-        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
+    let lang_pallas = Lang::<pasta_curves::pallas::Scalar>::new();
     let lang_pallas_rc = Arc::new(lang_pallas);
 
     let reduction_count = DEFAULT_REDUCTION_COUNT;

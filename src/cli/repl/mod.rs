@@ -3,7 +3,7 @@ mod meta_cmd;
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
-use nova::traits::Engine;
+use ff::PrimeField;
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -39,7 +39,7 @@ use crate::{
     },
     parser,
     proof::{
-        nova::{CurveCycleEquipped, NovaProver, E1, E2},
+        nova::{CurveCycleEquipped, Dual, NovaProver},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -166,8 +166,8 @@ impl<
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
     > Repl<F, C>
 where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    F::Repr: Abomonation,
+    <Dual<F> as PrimeField>::Repr: Abomonation,
 {
     pub(crate) fn new(
         store: Store<F>,

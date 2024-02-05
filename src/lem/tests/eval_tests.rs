@@ -87,7 +87,7 @@ fn do_test_aux<C: Coprocessor<Fr>>(
             lang,
         )
     } else {
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Lang::<Fr>::new();
         do_test(
             s,
             ptr,
