@@ -11,14 +11,14 @@ const DEFAULT_REDUCTION_COUNT: usize = 10;
 fn public_params_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("public_params_benchmark");
     group.sampling_mode(SamplingMode::Flat);
-    let lang_pallas = Lang::<pasta_curves::pallas::Scalar>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas);
+    let lang = Lang::<halo2curves::bn256::Fr>::new();
+    let lang_rc = Arc::new(lang);
 
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     group.bench_function("public_params_nova", |b| {
         b.iter(|| {
-            let result = nova::public_params(reduction_count, lang_pallas_rc.clone());
+            let result = nova::public_params(reduction_count, lang_rc.clone());
             black_box(result)
         })
     });

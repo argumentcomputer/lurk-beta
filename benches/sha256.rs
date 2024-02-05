@@ -10,7 +10,7 @@ use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
 };
-use pasta_curves::pallas::Scalar as Fr;
+use halo2curves::bn256::Fr as Bn;
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use lurk::{
@@ -101,17 +101,17 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
     let limit = 10000;
 
-    let store = &Store::<Fr>::default();
+    let store = &Store::<Bn>::default();
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
-    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
 
     // use cached public params
-    let instance: Instance<Fr, Sha256Coproc<Fr>> = Instance::new(
+    let instance: Instance<Bn, Sha256Coproc<Bn>> = Instance::new(
         reduction_count,
         lang_rc.clone(),
         true,
@@ -182,10 +182,10 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 
     let limit = 10000;
 
-    let store = &Store::<Fr>::default();
+    let store = &Store::<Bn>::default();
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
-    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
@@ -265,10 +265,10 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
 
     let limit = 10000;
 
-    let store = &Store::<Fr>::default();
+    let store = &Store::<Bn>::default();
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
-    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
     let lang_rc = Arc::new(lang.clone());
 
