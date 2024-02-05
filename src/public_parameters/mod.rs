@@ -1,4 +1,4 @@
-use ::nova::{supernova::FlatAuxParams, traits::Engine, FlatPublicParams};
+use ::nova::{supernova::FlatAuxParams, FlatPublicParams};
 use abomonation::{decode, Abomonation};
 use once_cell::sync::OnceCell;
 use tap::TapFallible;
@@ -21,7 +21,7 @@ pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
     instance: &Instance<F, C>,
 ) -> Result<PublicParams<F>, Error>
 where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as ff::PrimeField>::Repr: Abomonation,
     <Dual<F> as ff::PrimeField>::Repr: Abomonation,
 {
     let default = |instance: &Instance<F, C>| nova::public_params(instance.rc, instance.lang());
@@ -74,7 +74,7 @@ pub fn supernova_circuit_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + '
     instance: &Instance<F, C>,
 ) -> Result<NovaCircuitShape<F>, Error>
 where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as ff::PrimeField>::Repr: Abomonation,
     <Dual<F> as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
@@ -95,7 +95,7 @@ pub fn supernova_aux_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     instance: &Instance<F, C>,
 ) -> Result<SuperNovaAuxParams<F>, Error>
 where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as ff::PrimeField>::Repr: Abomonation,
     <Dual<F> as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
@@ -118,7 +118,7 @@ pub fn supernova_public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a
     instance_primary: &Instance<F, C>,
 ) -> Result<supernova::PublicParams<F>, Error>
 where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as ff::PrimeField>::Repr: Abomonation,
     <Dual<F> as ff::PrimeField>::Repr: Abomonation,
 {
     let default =

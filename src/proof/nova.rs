@@ -293,7 +293,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                 if debug {
                     // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                     use bellpepper_core::test_cs::TestConstraintSystem;
-                    let mut cs = TestConstraintSystem::<<E1<F> as Engine>::Scalar>::new();
+                    let mut cs = TestConstraintSystem::<F>::new();
 
                     let zi = store.to_scalar_vector(circuit_primary.input());
                     let zi_allocated: Vec<_> = zi
