@@ -70,6 +70,13 @@ impl CurveCycleEquipped for Bn256Scalar {
 /// Convenience alias for the primary group type pegged to a LurkField through a CurveCycleEquipped type.
 pub type E1<F> = <F as CurveCycleEquipped>::E1;
 
+/// Convenience alias for the Dual field of a CurveCycleEquipped field.
+/// By definition, this is both:
+/// - the Base field for the associated Primary Engine,
+/// - the Scalar field for the Secondary Engine.
+pub type Dual<F> =
+    <<<F as CurveCycleEquipped>::E1 as NovaCurveCycleEquipped>::Secondary as Engine>::Scalar;
+
 /// Type alias for the Evaluation Engine using G1 group elements.
 pub type EE1<F> = <F as CurveCycleEquipped>::EE1;
 /// Type alias for the Evaluation Engine using G2 group elements.
@@ -89,7 +96,7 @@ pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<SecEng<E1<F>>, EE2<F>>;
 /// to reflect it this should not be used outside the Nova context
 pub type C1LEM<'a, F, C> = crate::lem::multiframe::MultiFrame<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-pub type C2<F> = TrivialCircuit<<SecEng<E1<F>> as Engine>::Scalar>;
+pub type C2<F> = TrivialCircuit<Dual<F>>;
 
 /// Type alias for Nova Circuit Parameters with the curve cycle types defined above.
 pub type NovaCircuitShape<F> = R1CSWithArity<E1<F>>;

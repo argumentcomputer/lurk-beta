@@ -1,7 +1,7 @@
-use ::nova::traits::{Engine, SecEng};
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
+use ff::PrimeField;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, process};
 
@@ -22,7 +22,7 @@ use crate::{
     },
     package::{Package, SymbolRef},
     proof::{
-        nova::{self, CurveCycleEquipped, C1LEM, E1},
+        nova::{self, CurveCycleEquipped, Dual, C1LEM},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -48,8 +48,8 @@ impl<
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
     > MetaCmd<F, C>
 where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    F::Repr: Abomonation,
+    <Dual<F> as PrimeField>::Repr: Abomonation,
 {
     const LOAD: MetaCmd<F, C> = MetaCmd {
         name: "load",
@@ -1104,11 +1104,7 @@ enum ProtocolProof<F: CurveCycleEquipped> {
     },
 }
 
-impl<F: CurveCycleEquipped> HasFieldModulus for ProtocolProof<F>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+impl<F: CurveCycleEquipped> HasFieldModulus for ProtocolProof<F> {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
     }

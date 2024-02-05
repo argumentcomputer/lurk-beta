@@ -7,7 +7,7 @@ use nova::{
     },
     traits::{
         snark::{BatchedRelaxedR1CSSNARKTrait, RelaxedR1CSSNARKTrait},
-        Engine, SecEng,
+        SecEng,
     },
 };
 use once_cell::sync::OnceCell;
@@ -28,7 +28,7 @@ use crate::{
     field::LurkField,
     lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{
-        nova::{CurveCycleEquipped, NovaCircuitShape, E1},
+        nova::{CurveCycleEquipped, Dual, NovaCircuitShape, E1},
         Prover, RecursiveSNARKTrait,
     },
 };
@@ -36,7 +36,7 @@ use crate::{
 use super::{nova::C1LEM, FoldingMode};
 
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-pub type C2<F> = TrivialSecondaryCircuit<<SecEng<E1<F>> as Engine>::Scalar>;
+pub type C2<F> = TrivialSecondaryCircuit<Dual<F>>;
 
 /// Type alias for SuperNova Aux Parameters with the curve cycle types defined above.
 pub type SuperNovaAuxParams<F> = AuxParams<E1<F>>;

@@ -1,8 +1,4 @@
-use ::nova::{
-    supernova::FlatAuxParams,
-    traits::{Engine, SecEng},
-    FlatPublicParams,
-};
+use ::nova::{supernova::FlatAuxParams, traits::Engine, FlatPublicParams};
 use abomonation::{decode, Abomonation};
 use once_cell::sync::OnceCell;
 use tap::TapFallible;
@@ -10,7 +6,7 @@ use tracing::{info, warn};
 
 use crate::coprocessor::Coprocessor;
 use crate::proof::nova::{self, NovaCircuitShape, NovaPublicParams, PublicParams};
-use crate::proof::nova::{CurveCycleEquipped, E1};
+use crate::proof::nova::{CurveCycleEquipped, Dual, E1};
 
 pub mod disk_cache;
 mod error;
@@ -26,7 +22,7 @@ pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
 ) -> Result<PublicParams<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <Dual<F> as ff::PrimeField>::Repr: Abomonation,
 {
     let default = |instance: &Instance<F, C>| nova::public_params(instance.rc, instance.lang());
 
@@ -79,7 +75,7 @@ pub fn supernova_circuit_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + '
 ) -> Result<NovaCircuitShape<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <Dual<F> as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
@@ -100,7 +96,7 @@ pub fn supernova_aux_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 ) -> Result<SuperNovaAuxParams<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <Dual<F> as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
@@ -123,7 +119,7 @@ pub fn supernova_public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a
 ) -> Result<supernova::PublicParams<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <Dual<F> as ff::PrimeField>::Repr: Abomonation,
 {
     let default =
         |instance: &Instance<F, C>| supernova::public_params::<F, C>(instance.rc, instance.lang());
