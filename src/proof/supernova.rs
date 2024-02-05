@@ -118,7 +118,7 @@ pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
     lang: Arc<Lang<F, C>>,
 ) -> PublicParams<F> {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    let non_uniform_circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
+    let non_uniform_circuit = C1LEM::<'_, F, C>::blank(folding_config, 0);
 
     // grab hints for the compressed SNARK variants we will use this with
     let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();

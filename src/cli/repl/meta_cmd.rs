@@ -964,7 +964,7 @@ where
             let mut z_dag = ZDag::default();
             let z_ptr = z_dag.populate_with(&args, &repl.store, &mut Default::default());
             let args = LurkData { z_ptr, z_dag };
-            match load::<LurkProof<_, C>>(&proof_path(&proof_key))? {
+            match load::<LurkProof<'_, _, C>>(&proof_path(&proof_key))? {
                 LurkProof::Nova { proof, .. } => {
                     dump(ProtocolProof::Nova { args, proof }, &path)?;
                     println!("Protocol proof saved at {path}");
