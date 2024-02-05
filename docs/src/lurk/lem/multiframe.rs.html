@@ -1105,6 +1105,9 @@
 <a href="#1105" id="1105">1105</a>
 <a href="#1106" id="1106">1106</a>
 <a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
 <span class="kw">use </span>bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
@@ -1122,7 +1125,7 @@
     eval::lang::Lang,
     field::{LanguageField, LurkField},
     proof::{
-        nova::{CurveCycleEquipped, E1, E2},
+        nova::{CurveCycleEquipped, E1},
         supernova::{FoldingConfig, C2},
         CEKState, EvaluationStore, FrameLike, Provable,
     },
@@ -2005,11 +2008,14 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F, C&gt; NonUniformCircuit&lt;E1&lt;F&gt;, E2&lt;F&gt;, MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F, C&gt; NonUniformCircuit&lt;E1&lt;F&gt;&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
 <span class="kw">where
     </span>F: CurveCycleEquipped + LurkField,
     C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
 {
+    <span class="kw">type </span>C1 = MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;;
+    <span class="kw">type </span>C2 = C2&lt;F&gt;;
+
     <span class="kw">fn </span>num_circuits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="macro">assert_eq!</span>(<span class="self">self</span>.pc, <span class="number">0</span>);
         <span class="self">self</span>.get_lang().coprocessor_count() + <span class="number">1
@@ -2149,7 +2155,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>cs_clone = cs.clone();
 
-        <span class="kw">let </span>lang = Lang::&lt;Bn, Coproc&lt;Bn&gt;&gt;::new();
+        <span class="kw">let </span>lang = Lang::&lt;Bn&gt;::new();
 
         <span class="kw">let </span>output_sequential = synthesize_frames_sequential(
             <span class="kw-2">&amp;mut </span>cs,
@@ -2190,7 +2196,7 @@
         <span class="comment">// not self-evaluating
         </span><span class="kw">let </span>expr = store.read_with_default_state(<span class="string">&quot;(+ 1 2)&quot;</span>).unwrap();
 
-        <span class="kw">let </span>lang = Arc::new(Lang::&lt;Bn, Coproc&lt;Bn&gt;&gt;::new());
+        <span class="kw">let </span>lang = Arc::new(Lang::&lt;Bn&gt;::new());
         <span class="kw">let </span><span class="kw-2">mut </span>frames = evaluate::&lt;Bn, Coproc&lt;Bn&gt;&gt;(<span class="prelude-val">None</span>, expr, <span class="kw-2">&amp;</span>store, <span class="number">1</span>).unwrap();
         <span class="macro">assert_eq!</span>(frames.len(), <span class="number">1</span>);
 

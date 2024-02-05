@@ -198,7 +198,6 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 
 </span><span class="doccomment">//! This module offers a connection the the backend proving engine of Lurk.
@@ -216,7 +215,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">use </span>::nova::traits::Engine;
+<span class="kw">use </span>ff::Field;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use crate</span>::{
@@ -225,7 +224,7 @@
     eval::lang::Lang,
     field::LurkField,
     lem::{eval::EvalConfig, pointers::Ptr, store::Store},
-    proof::nova::E2,
+    proof::nova::Dual,
 };
 
 <span class="kw">use </span><span class="self">self</span>::{nova::CurveCycleEquipped, supernova::FoldingConfig};
@@ -312,9 +311,8 @@
 
     <span class="doccomment">/// Return the `z0_secondary`
     </span><span class="attr">#[inline]
-    </span><span class="kw">fn </span>z0_secondary() -&gt; Vec&lt;&lt;F::E2 <span class="kw">as </span>Engine&gt;::Scalar&gt; {
-        <span class="kw">use </span>ff::Field;
-        <span class="macro">vec!</span>[&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar::ZERO]
+    </span><span class="kw">fn </span>z0_secondary() -&gt; Vec&lt;Dual&lt;F&gt;&gt; {
+        <span class="macro">vec!</span>[Dual::&lt;F&gt;::ZERO]
     }
 }
 

@@ -200,9 +200,11 @@
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>::nova::traits::Engine;
-<span class="kw">use </span>abomonation::Abomonation;
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 <span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
@@ -212,7 +214,7 @@
     field::LurkField,
     lem::{pointers::ZPtr, store::Store},
     proof::{
-        nova::{<span class="self">self</span>, CurveCycleEquipped, C1LEM, E1, E2},
+        nova::{<span class="self">self</span>, CurveCycleEquipped, Dual, C1LEM},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -356,9 +358,10 @@
 }
 
 <span class="kw">impl</span>&lt;
+        <span class="lifetime">&#39;a</span>,
         F: CurveCycleEquipped + DeserializeOwned,
-        C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">&#39;static</span>,
-    &gt; LurkProof&lt;<span class="lifetime">&#39;static</span>, F, C&gt;
+        C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">&#39;a</span>,
+    &gt; LurkProof&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
 {
     <span class="attr">#[inline]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_cached(proof_key: <span class="kw-2">&amp;</span>str) -&gt; bool {
@@ -367,12 +370,13 @@
 }
 
 <span class="kw">impl</span>&lt;
+        <span class="lifetime">&#39;a</span>,
         F: CurveCycleEquipped + DeserializeOwned,
-        C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">&#39;static</span>,
-    &gt; LurkProof&lt;<span class="lifetime">&#39;static</span>, F, C&gt;
+        C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">&#39;a</span>,
+    &gt; LurkProof&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
 <span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>F::Repr: Abomonation,
+    &lt;Dual&lt;F&gt; <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_proof(proof_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>lurk_proof = load::&lt;<span class="self">Self</span>&gt;(<span class="kw-2">&amp;</span>proof_path(proof_key))<span class="question-mark">?</span>;

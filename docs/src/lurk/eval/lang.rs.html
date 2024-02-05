@@ -271,7 +271,7 @@
 ///
 </span><span class="comment">// TODO: Define a trait for the Hash and parameterize on that also.
 </span><span class="attr">#[derive(Debug, Default, Clone, Deserialize, Serialize)]
-</span><span class="kw">pub struct </span>Lang&lt;F, C&gt; {
+</span><span class="kw">pub struct </span>Lang&lt;F, C = Coproc&lt;F&gt;&gt; {
     <span class="doccomment">/// An IndexMap that stores coprocessors with their associated `Sym` keys.
     </span>coprocessors: IndexMap&lt;Symbol, C&gt;,
     _p: PhantomData&lt;F&gt;,
@@ -383,12 +383,12 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>lang() {
-        Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new();
+        Lang::&lt;Fr&gt;::new();
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>dummy_lang() {
-        <span class="kw">let </span>_lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new_with_bindings(<span class="macro">vec!</span>[(
+        <span class="kw">let </span>_lang = Lang::&lt;Fr&gt;::new_with_bindings(<span class="macro">vec!</span>[(
             <span class="macro">sym!</span>(<span class="string">&quot;coproc&quot;</span>, <span class="string">&quot;dummy&quot;</span>),
             DummyCoprocessor::new().into(),
         )]);

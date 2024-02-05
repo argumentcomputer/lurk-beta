@@ -76,9 +76,6 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::create_dir_all;
 <span class="kw">use </span>std::io::{BufReader, BufWriter, Read};
 <span class="kw">use </span>std::marker::PhantomData;
@@ -88,7 +85,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::config::lurk_config;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
-<span class="kw">use </span><span class="kw">crate</span>::proof::nova::{CurveCycleEquipped, PublicParams, C1LEM};
+<span class="kw">use </span><span class="kw">crate</span>::proof::nova::{CurveCycleEquipped, PublicParams};
 <span class="kw">use </span><span class="kw">crate</span>::public_parameters::error::Error;
 
 <span class="kw">use </span><span class="kw">super</span>::instance::Instance;
@@ -118,10 +115,7 @@
         })
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read&lt;<span class="lifetime">&#39;a</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;, Error&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;PublicParams&lt;F&gt;, Error&gt; {
         <span class="kw">let </span>file = instance.open(<span class="kw-2">&amp;</span><span class="self">self</span>.dir)<span class="question-mark">?</span>;
         <span class="kw">let </span>reader = BufReader::new(file);
         bincode::deserialize_from(reader)
@@ -142,7 +136,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
-        data: <span class="kw-2">&amp;</span>PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;_</span>, F, C&gt;&gt;,
+        data: <span class="kw-2">&amp;</span>PublicParams&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>file = instance.create(<span class="kw-2">&amp;</span><span class="self">self</span>.dir)<span class="question-mark">?</span>;
         <span class="kw">let </span>writer = BufWriter::new(<span class="kw-2">&amp;</span>file);

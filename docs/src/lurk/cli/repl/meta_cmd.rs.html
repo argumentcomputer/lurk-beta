@@ -1110,17 +1110,11 @@
 <a href="#1110" id="1110">1110</a>
 <a href="#1111" id="1111">1111</a>
 <a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>::nova::traits::Engine;
+</pre></div><pre class="rust"><code><span class="kw">use </span>::nova::supernova::StepCircuit;
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
+<span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 <span class="kw">use </span>std::{collections::HashMap, process};
 
@@ -1141,7 +1135,7 @@
     },
     package::{Package, SymbolRef},
     proof::{
-        nova::{<span class="self">self</span>, CurveCycleEquipped, C1LEM, E1, E2},
+        nova::{<span class="self">self</span>, CurveCycleEquipped, Dual, C1LEM},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -1163,12 +1157,13 @@
 }
 
 <span class="kw">impl</span>&lt;
+        <span class="lifetime">&#39;a</span>,
         F: CurveCycleEquipped + Serialize + DeserializeOwned,
         C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">&#39;static</span>,
     &gt; MetaCmd&lt;F, C&gt;
 <span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>F::Repr: Abomonation,
+    &lt;Dual&lt;F&gt; <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">const </span>LOAD: MetaCmd&lt;F, C&gt; = MetaCmd {
         name: <span class="string">&quot;load&quot;</span>,
@@ -2111,7 +2106,7 @@
 
             <span class="kw">let </span>(fun, proto_rc) = <span class="self">Self</span>::get_fun_and_rc(repl, ptcl)<span class="question-mark">?</span>;
 
-            <span class="kw">match </span>load::&lt;ProtocolProof&lt;<span class="lifetime">&#39;_</span>, <span class="kw">_</span>, C&gt;&gt;(<span class="kw-2">&amp;</span>path)<span class="question-mark">? </span>{
+            <span class="kw">match </span>load::&lt;ProtocolProof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;&gt;(<span class="kw-2">&amp;</span>path)<span class="question-mark">? </span>{
                 ProtocolProof::Nova {
                     args: LurkData { z_ptr, z_dag },
                     proof,
@@ -2215,23 +2210,14 @@
 </span><span class="attr">#[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = <span class="string">&quot;F: Serialize&quot;</span>, deserialize = <span class="string">&quot;F: DeserializeOwned&quot;</span>))]
-</span><span class="kw">enum </span>ProtocolProof&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
+</span><span class="kw">enum </span>ProtocolProof&lt;F: CurveCycleEquipped, S&gt; {
     Nova {
         args: LurkData&lt;F&gt;,
-        proof: nova::Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
+        proof: nova::Proof&lt;F, S&gt;,
     },
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a </span>+ Serialize + DeserializeOwned&gt;
-    HasFieldModulus <span class="kw">for </span>ProtocolProof&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
-<span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped, S: StepCircuit&lt;F&gt;&gt; HasFieldModulus <span class="kw">for </span>ProtocolProof&lt;F, S&gt; {
     <span class="kw">fn </span>field_modulus() -&gt; String {
         F::MODULUS.to_owned()
     }

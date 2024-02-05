@@ -667,7 +667,7 @@
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
-<span class="kw">use </span>nova::traits::Engine;
+<span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -703,7 +703,7 @@
     },
     parser,
     proof::{
-        nova::{CurveCycleEquipped, NovaProver, E1, E2},
+        nova::{CurveCycleEquipped, Dual, NovaProver},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -830,8 +830,8 @@
         C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">&#39;static</span>,
     &gt; Repl&lt;F, C&gt;
 <span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>F::Repr: Abomonation,
+    &lt;Dual&lt;F&gt; <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
         store: Store&lt;F&gt;,

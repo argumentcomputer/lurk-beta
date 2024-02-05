@@ -192,28 +192,15 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>::nova::{supernova::FlatAuxParams, traits::Engine, FlatPublicParams};
+</pre></div><pre class="rust"><code><span class="kw">use </span>::nova::{supernova::FlatAuxParams, FlatPublicParams};
 <span class="kw">use </span>abomonation::{decode, Abomonation};
 <span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>tap::TapFallible;
 <span class="kw">use </span>tracing::{info, warn};
 
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
-<span class="kw">use </span><span class="kw">crate</span>::proof::nova::{<span class="self">self</span>, NovaCircuitShape, NovaPublicParams, PublicParams, C1LEM};
-<span class="kw">use </span><span class="kw">crate</span>::proof::nova::{CurveCycleEquipped, C2, E1, E2};
+<span class="kw">use </span><span class="kw">crate</span>::proof::nova::{<span class="self">self</span>, NovaCircuitShape, NovaPublicParams, PublicParams};
+<span class="kw">use </span><span class="kw">crate</span>::proof::nova::{CurveCycleEquipped, Dual, E1};
 
 <span class="kw">pub mod </span>disk_cache;
 <span class="kw">mod </span>error;
@@ -224,12 +211,12 @@
 <span class="kw">use </span><span class="kw">crate</span>::public_parameters::error::Error;
 <span class="kw">use </span><span class="kw">crate</span>::public_parameters::instance::Instance;
 
-<span class="kw">pub fn </span>public_params&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;static</span>&gt;(
+<span class="kw">pub fn </span>public_params&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;(
     instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;, Error&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;PublicParams&lt;F&gt;, Error&gt;
 <span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;F <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;Dual&lt;F&gt; <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>default = |instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;| nova::public_params(instance.rc, instance.lang());
 
@@ -242,13 +229,9 @@
         <span class="kw">match </span>disk_cache.read_bytes(instance, <span class="kw-2">&amp;mut </span>bytes) {
             <span class="prelude-val">Ok</span>(()) =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;loading abomonated {}&quot;</span>, instance.key());
-                <span class="kw">let </span>(pp, rest) = <span class="kw">unsafe </span>{
-                    decode::&lt;FlatPublicParams&lt;E1&lt;F&gt;, E2&lt;F&gt;, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span>bytes)
-                        .unwrap()
-                };
+                <span class="kw">let </span>(pp, rest) = <span class="kw">unsafe </span>{ decode::&lt;FlatPublicParams&lt;E1&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span>bytes).unwrap() };
                 <span class="macro">assert!</span>(rest.is_empty());
-                <span class="kw">let </span>pp =
-                    PublicParams::from(NovaPublicParams::&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;::from(pp.clone())); <span class="comment">// this clone is VERY expensive
+                <span class="kw">let </span>pp = PublicParams::from(NovaPublicParams::&lt;F&gt;::from(pp.clone())); <span class="comment">// this clone is VERY expensive
                 </span><span class="prelude-val">Ok</span>(pp)
             }
             <span class="prelude-val">Err</span>(Error::IO(e)) =&gt; {
@@ -261,9 +244,7 @@
                     .write_abomonated(instance, <span class="kw-2">&amp;</span>fp)
                     .tap_ok(|<span class="kw">_</span>| <span class="macro">info!</span>(<span class="string">&quot;writing public params to disk-cache: {}&quot;</span>, instance.key()))
                     .map_err(|e| Error::Cache(<span class="macro">format!</span>(<span class="string">&quot;Disk write error: {e}&quot;</span>)))<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(PublicParams::from(
-                    NovaPublicParams::&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;::from(fp),
-                ))
+                <span class="prelude-val">Ok</span>(PublicParams::from(NovaPublicParams::&lt;F&gt;::from(fp)))
             }
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
         }
@@ -287,8 +268,8 @@
     instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NovaCircuitShape&lt;F&gt;, Error&gt;
 <span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;F <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;Dual&lt;F&gt; <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>disk_cache = DiskCache::&lt;F, C&gt;::new(public_params_dir()).unwrap();
 
@@ -308,15 +289,15 @@
     instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SuperNovaAuxParams&lt;F&gt;, Error&gt;
 <span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;F <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;Dual&lt;F&gt; <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>disk_cache = DiskCache::&lt;F, C&gt;::new(public_params_dir()).unwrap();
 
     <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
     disk_cache.read_bytes(instance, <span class="kw-2">&amp;mut </span>bytes).and_then(|()| {
         <span class="kw">if let </span><span class="prelude-val">Some</span>((flat_aux_params, remaining)) =
-            <span class="kw">unsafe </span>{ decode::&lt;FlatAuxParams&lt;E1&lt;F&gt;, E2&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span>bytes) }
+            <span class="kw">unsafe </span>{ decode::&lt;FlatAuxParams&lt;E1&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span>bytes) }
         {
             <span class="macro">assert!</span>(remaining.is_empty());
             <span class="prelude-val">Ok</span>(SuperNovaAuxParams::&lt;F&gt;::from(flat_aux_params.clone()))
@@ -329,14 +310,13 @@
 <span class="doccomment">/// Attempts to extract abomonated public parameters.
 </span><span class="kw">pub fn </span>supernova_public_params&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt;(
     instance_primary: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;supernova::PublicParams&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;, Error&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;supernova::PublicParams&lt;F&gt;, Error&gt;
 <span class="kw">where
-    </span>&lt;&lt;E1&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;E2&lt;F&gt; <span class="kw">as </span>Engine&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;F <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;Dual&lt;F&gt; <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">let </span>default = |instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;| {
-        supernova::public_params::&lt;<span class="lifetime">&#39;a</span>, F, C&gt;(instance.rc, instance.lang())
-    };
+    <span class="kw">let </span>default =
+        |instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;| supernova::public_params::&lt;F, C&gt;(instance.rc, instance.lang());
     <span class="kw">let </span>disk_cache = DiskCache::&lt;F, C&gt;::new(public_params_dir()).unwrap();
 
     <span class="kw">let </span>maybe_circuit_params_vec = instance_primary
@@ -352,10 +332,7 @@
     {
         <span class="macro">println!</span>(<span class="string">&quot;generating public params&quot;</span>);
 
-        <span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;::from_parts_unchecked(
-            circuit_params_vec,
-            aux_params,
-        );
+        <span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F&gt;::from_parts_unchecked(circuit_params_vec, aux_params);
 
         supernova::PublicParams {
             pp,
@@ -367,7 +344,7 @@
 
         <span class="kw">let </span>(circuit_params_vec, aux_params) = pp.pp.into_parts();
 
-        <span class="kw">let </span>flat_aux_params = FlatAuxParams::&lt;E1&lt;F&gt;, E2&lt;F&gt;&gt;::try_from(aux_params).unwrap();
+        <span class="kw">let </span>flat_aux_params = FlatAuxParams::&lt;E1&lt;F&gt;&gt;::try_from(aux_params).unwrap();
         disk_cache.write_abomonated(instance_primary, <span class="kw-2">&amp;</span>flat_aux_params)<span class="question-mark">?</span>;
         <span class="kw">let </span>aux_params = SuperNovaAuxParams::&lt;F&gt;::from(flat_aux_params);
 
@@ -376,10 +353,7 @@
             disk_cache.write_abomonated(<span class="kw-2">&amp;</span>instance, circuit_params)<span class="question-mark">?</span>;
         }
 
-        <span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;::from_parts_unchecked(
-            circuit_params_vec,
-            aux_params,
-        );
+        <span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F&gt;::from_parts_unchecked(circuit_params_vec, aux_params);
 
         supernova::PublicParams {
             pp,
@@ -404,7 +378,7 @@
         <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
         std::env::set_var(<span class="string">&quot;LURK_PUBLIC_PARAMS&quot;</span>, tmp_dir.path());
 
-        <span class="kw">let </span>lang: Arc&lt;Lang&lt;S1, Coproc&lt;S1&gt;&gt;&gt; = Arc::new(Lang::new());
+        <span class="kw">let </span>lang: Arc&lt;Lang&lt;S1&gt;&gt; = Arc::new(Lang::new());
         <span class="kw">let </span>instance = Instance::new(<span class="number">10</span>, lang, <span class="bool-val">true</span>, Kind::NovaPublicParams);
         <span class="comment">// Without disk cache, writes to tmpfile
         </span><span class="kw">let </span>_public_params = public_params::&lt;S1, Coproc&lt;S1&gt;&gt;(<span class="kw-2">&amp;</span>instance).unwrap();
