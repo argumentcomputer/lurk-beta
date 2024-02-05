@@ -1,4 +1,4 @@
-use ::nova::traits::Engine;
+use ::nova::traits::{Engine, SecEng};
 use abomonation::Abomonation;
 use anyhow::{bail, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -10,7 +10,7 @@ use crate::{
     field::LurkField,
     lem::{pointers::ZPtr, store::Store},
     proof::{
-        nova::{self, CurveCycleEquipped, C1LEM, E1, E2},
+        nova::{self, CurveCycleEquipped, C1LEM, E1},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -122,13 +122,9 @@ impl<F: LurkField + DeserializeOwned> LurkProofMeta<F> {
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-pub(crate) enum LurkProof<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + Serialize + DeserializeOwned,
-> {
+pub(crate) enum LurkProof<F: CurveCycleEquipped, C: Coprocessor<F> + Serialize + DeserializeOwned> {
     Nova {
-        proof: nova::Proof<F, C1LEM<'a, F, C>>,
+        proof: nova::Proof<F>,
         public_inputs: Vec<F>,
         public_outputs: Vec<F>,
         rc: usize,
@@ -137,15 +133,15 @@ pub(crate) enum LurkProof<
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a + Serialize + DeserializeOwned>
-    HasFieldModulus for LurkProof<'a, F, C>
+    HasFieldModulus for LurkProof<F, C>
 {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
     }
 }
 
-impl<'a, F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + DeserializeOwned>
-    LurkProof<'a, F, C>
+impl<F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + DeserializeOwned>
+    LurkProof<F, C>
 {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
@@ -155,8 +151,8 @@ impl<'a, F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + Dese
 
 impl<
         F: CurveCycleEquipped + DeserializeOwned,
-        C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
-    > LurkProof<'static, F, C>
+        C: Coprocessor<F> + Serialize + DeserializeOwned,
+    > LurkProof<F, C>
 {
     #[inline]
     pub(crate) fn is_cached(proof_key: &str) -> bool {
@@ -166,11 +162,11 @@ impl<
 
 impl<
         F: CurveCycleEquipped + DeserializeOwned,
-        C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
-    > LurkProof<'static, F, C>
+        C: Coprocessor<F> + Serialize + DeserializeOwned,
+    > LurkProof<F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
         let lurk_proof = load::<Self>(&proof_path(proof_key))?;
@@ -195,7 +191,12 @@ where
                 let instance =
                     Instance::new(*rc, Arc::new(lang.clone()), true, Kind::NovaPublicParams);
                 let pp = public_params(&instance)?;
-                Ok(proof.verify(&pp, public_inputs, public_outputs)?)
+                Ok(RecursiveSNARKTrait::<_, C1LEM<'_, F, C>>::verify(
+                    proof,
+                    &pp,
+                    public_inputs,
+                    public_outputs,
+                )?)
             }
         }
     }

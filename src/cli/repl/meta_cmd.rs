@@ -1,4 +1,4 @@
-use ::nova::traits::Engine;
+use ::nova::traits::{Engine, SecEng};
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -22,7 +22,7 @@ use crate::{
     },
     package::{Package, SymbolRef},
     proof::{
-        nova::{self, CurveCycleEquipped, C1LEM, E1, E2},
+        nova::{self, CurveCycleEquipped, C1LEM, E1},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -49,7 +49,7 @@ impl<
     > MetaCmd<F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     const LOAD: MetaCmd<F, C> = MetaCmd {
         name: "load",
@@ -962,7 +962,7 @@ where
             let mut z_dag = ZDag::default();
             let z_ptr = z_dag.populate_with(&args, &repl.store, &mut Default::default());
             let args = LurkData { z_ptr, z_dag };
-            match load::<LurkProof<'_, _, C>>(&proof_path(&proof_key))? {
+            match load::<LurkProof<_, C>>(&proof_path(&proof_key))? {
                 LurkProof::Nova { proof, .. } => {
                     dump(ProtocolProof::Nova { args, proof }, &path)?;
                     println!("Protocol proof saved at {path}");
@@ -992,7 +992,7 @@ where
 
             let (fun, proto_rc) = Self::get_fun_and_rc(repl, ptcl)?;
 
-            match load::<ProtocolProof<'_, _, C>>(&path)? {
+            match load::<ProtocolProof<F>>(&path)? {
                 ProtocolProof::Nova {
                     args: LurkData { z_ptr, z_dag },
                     proof,
@@ -1010,7 +1010,8 @@ where
                         Instance::new(proto_rc, repl.lang.clone(), true, Kind::NovaPublicParams);
                     let pp = public_params(&instance)?;
 
-                    if !proof.verify(
+                    if !RecursiveSNARKTrait::<_, C1LEM<'_, F, C>>::verify(
+                        &proof,
                         &pp,
                         &repl.store.to_scalar_vector(&cek_io[..3]),
                         &repl.store.to_scalar_vector(&cek_io[3..]),
@@ -1096,22 +1097,17 @@ fn get_path<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned>(
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-enum ProtocolProof<'a, F: CurveCycleEquipped, C: Coprocessor<F> + Serialize + DeserializeOwned>
-where
-    <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
+enum ProtocolProof<F: CurveCycleEquipped> {
     Nova {
         args: LurkData<F>,
-        proof: nova::Proof<F, C1LEM<'a, F, C>>,
+        proof: nova::Proof<F>,
     },
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a + Serialize + DeserializeOwned>
-    HasFieldModulus for ProtocolProof<'a, F, C>
+impl<F: CurveCycleEquipped> HasFieldModulus for ProtocolProof<F>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()

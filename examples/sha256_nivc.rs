@@ -5,14 +5,14 @@ use tracing_texray::TeXRayLayer;
 
 use lurk::{
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
-    eval::lang::Lang,
+    eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
         pointers::Ptr,
         store::Store,
     },
-    proof::{supernova::SuperNovaProver, RecursiveSNARKTrait},
+    proof::{nova::C1LEM, supernova::SuperNovaProver, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         supernova_public_params,
@@ -106,14 +106,17 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    assert!(proof.verify(&pp, &z0, &zi).unwrap());
+    assert!(
+        RecursiveSNARKTrait::<_, C1LEM<'_, _, Coproc<_>>>::verify(&proof, &pp, &z0, &zi).unwrap()
+    );
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {:?}", verify_end);
 
     println!("Compressing proof..");
     let compress_start = Instant::now();
-    let compressed_proof = proof.compress(&pp).unwrap();
+    let compressed_proof =
+        RecursiveSNARKTrait::<_, C1LEM<'_, _, Coproc<_>>>::compress(proof, &pp).unwrap();
     let compress_end = compress_start.elapsed();
 
     println!("Compression took {:?}", compress_end);
@@ -122,7 +125,9 @@ fn main() {
     println!("proof size : {:}B", buf.len());
 
     let compressed_verify_start = Instant::now();
-    let res = compressed_proof.verify(&pp, &z0, &zi).unwrap();
+    let res =
+        RecursiveSNARKTrait::<_, C1LEM<'_, _, Coproc<_>>>::verify(&compressed_proof, &pp, &z0, &zi)
+            .unwrap();
     let compressed_verify_end = compressed_verify_start.elapsed();
 
     println!("Final verification took {:?}", compressed_verify_end);

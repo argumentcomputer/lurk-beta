@@ -124,14 +124,15 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
         let pp = public_params(reduction_count, lang.clone());
         let (proof, z0, zi, _num_steps) = nova_prover.prove_from_frames(&pp, &frames, s).unwrap();
 
-        let res = proof.verify(&pp, &z0, &zi);
+        let res = RecursiveSNARKTrait::<_, C1LEM<'_, _, C>>::verify(&proof, &pp, &z0, &zi);
         if res.is_err() {
             tracing::debug!("{:?}", &res);
         }
         assert!(res.unwrap());
 
-        let compressed = proof.compress(&pp).unwrap();
-        let res2 = compressed.verify(&pp, &z0, &zi);
+        let compressed: crate::proof::nova::Proof<F> =
+            RecursiveSNARKTrait::<_, C1LEM<'_, _, C>>::compress(proof, &pp).unwrap();
+        let res2 = RecursiveSNARKTrait::<_, C1LEM<'_, _, C>>::verify(&compressed, &pp, &z0, &zi);
 
         assert!(res2.unwrap());
     }

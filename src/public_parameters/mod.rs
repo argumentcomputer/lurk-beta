@@ -1,12 +1,16 @@
-use ::nova::{supernova::FlatAuxParams, traits::Engine, FlatPublicParams};
+use ::nova::{
+    supernova::FlatAuxParams,
+    traits::{Engine, SecEng},
+    FlatPublicParams,
+};
 use abomonation::{decode, Abomonation};
 use once_cell::sync::OnceCell;
 use tap::TapFallible;
 use tracing::{info, warn};
 
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::{self, NovaCircuitShape, NovaPublicParams, PublicParams, C1LEM};
-use crate::proof::nova::{CurveCycleEquipped, C2, E1, E2};
+use crate::proof::nova::{self, NovaCircuitShape, NovaPublicParams, PublicParams};
+use crate::proof::nova::{CurveCycleEquipped, E1};
 
 pub mod disk_cache;
 mod error;
@@ -17,12 +21,12 @@ use crate::public_parameters::disk_cache::{public_params_dir, DiskCache};
 use crate::public_parameters::error::Error;
 use crate::public_parameters::instance::Instance;
 
-pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
+pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
     instance: &Instance<F, C>,
-) -> Result<PublicParams<F, C1LEM<'a, F, C>>, Error>
+) -> Result<PublicParams<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let default = |instance: &Instance<F, C>| nova::public_params(instance.rc, instance.lang());
 
@@ -35,13 +39,9 @@ where
         match disk_cache.read_bytes(instance, &mut bytes) {
             Ok(()) => {
                 info!("loading abomonated {}", instance.key());
-                let (pp, rest) = unsafe {
-                    decode::<FlatPublicParams<E1<F>, E2<F>, C1LEM<'a, F, C>, C2<F>>>(&mut bytes)
-                        .unwrap()
-                };
+                let (pp, rest) = unsafe { decode::<FlatPublicParams<E1<F>>>(&mut bytes).unwrap() };
                 assert!(rest.is_empty());
-                let pp =
-                    PublicParams::from(NovaPublicParams::<F, C1LEM<'a, F, C>>::from(pp.clone())); // this clone is VERY expensive
+                let pp = PublicParams::from(NovaPublicParams::<F>::from(pp.clone())); // this clone is VERY expensive
                 Ok(pp)
             }
             Err(Error::IO(e)) => {
@@ -54,9 +54,7 @@ where
                     .write_abomonated(instance, &fp)
                     .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
                     .map_err(|e| Error::Cache(format!("Disk write error: {e}")))?;
-                Ok(PublicParams::from(
-                    NovaPublicParams::<F, C1LEM<'a, F, C>>::from(fp),
-                ))
+                Ok(PublicParams::from(NovaPublicParams::<F>::from(fp)))
             }
             _ => unreachable!(),
         }
@@ -81,7 +79,7 @@ pub fn supernova_circuit_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + '
 ) -> Result<NovaCircuitShape<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
@@ -102,14 +100,14 @@ pub fn supernova_aux_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 ) -> Result<SuperNovaAuxParams<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
     let mut bytes = vec![];
     disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
         if let Some((flat_aux_params, remaining)) =
-            unsafe { decode::<FlatAuxParams<E1<F>, E2<F>>>(&mut bytes) }
+            unsafe { decode::<FlatAuxParams<E1<F>>>(&mut bytes) }
         {
             assert!(remaining.is_empty());
             Ok(SuperNovaAuxParams::<F>::from(flat_aux_params.clone()))
@@ -122,14 +120,13 @@ where
 /// Attempts to extract abomonated public parameters.
 pub fn supernova_public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     instance_primary: &Instance<F, C>,
-) -> Result<supernova::PublicParams<F, C1LEM<'a, F, C>>, Error>
+) -> Result<supernova::PublicParams<F>, Error>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default = |instance: &Instance<F, C>| {
-        supernova::public_params::<'a, F, C>(instance.rc, instance.lang())
-    };
+    let default =
+        |instance: &Instance<F, C>| supernova::public_params::<F, C>(instance.rc, instance.lang());
     let disk_cache = DiskCache::<F, C>::new(public_params_dir()).unwrap();
 
     let maybe_circuit_params_vec = instance_primary
@@ -145,10 +142,7 @@ where
     {
         println!("generating public params");
 
-        let pp = SuperNovaPublicParams::<F, C1LEM<'a, F, C>>::from_parts_unchecked(
-            circuit_params_vec,
-            aux_params,
-        );
+        let pp = SuperNovaPublicParams::<F>::from_parts_unchecked(circuit_params_vec, aux_params);
 
         supernova::PublicParams {
             pp,
@@ -160,7 +154,7 @@ where
 
         let (circuit_params_vec, aux_params) = pp.pp.into_parts();
 
-        let flat_aux_params = FlatAuxParams::<E1<F>, E2<F>>::try_from(aux_params).unwrap();
+        let flat_aux_params = FlatAuxParams::<E1<F>>::try_from(aux_params).unwrap();
         disk_cache.write_abomonated(instance_primary, &flat_aux_params)?;
         let aux_params = SuperNovaAuxParams::<F>::from(flat_aux_params);
 
@@ -169,10 +163,7 @@ where
             disk_cache.write_abomonated(&instance, circuit_params)?;
         }
 
-        let pp = SuperNovaPublicParams::<F, C1LEM<'a, F, C>>::from_parts_unchecked(
-            circuit_params_vec,
-            aux_params,
-        );
+        let pp = SuperNovaPublicParams::<F>::from_parts_unchecked(circuit_params_vec, aux_params);
 
         supernova::PublicParams {
             pp,

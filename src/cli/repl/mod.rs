@@ -3,7 +3,7 @@ mod meta_cmd;
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
-use nova::traits::Engine;
+use nova::traits::{Engine, SecEng};
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -39,7 +39,7 @@ use crate::{
     },
     parser,
     proof::{
-        nova::{CurveCycleEquipped, NovaProver, E1, E2},
+        nova::{CurveCycleEquipped, NovaProver, C1LEM, E1},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -167,7 +167,7 @@ impl<
     > Repl<F, C>
 where
     <<E1<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<E2<F> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<SecEng<E1<F>> as Engine>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub(crate) fn new(
         store: Store<F>,
@@ -342,9 +342,14 @@ where
                     let (proof, public_inputs, public_outputs, num_steps) =
                         prover.prove_from_frames(&pp, frames, &self.store)?;
                     info!("Compressing proof");
-                    let proof = proof.compress(&pp)?;
+                    let proof = RecursiveSNARKTrait::<_, C1LEM<'_, F, C>>::compress(proof, &pp)?;
                     assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
-                    assert!(proof.verify(&pp, &public_inputs, &public_outputs)?);
+                    assert!(RecursiveSNARKTrait::<_, C1LEM<'_, F, C>>::verify(
+                        &proof,
+                        &pp,
+                        &public_inputs,
+                        &public_outputs
+                    )?);
 
                     let lurk_proof = LurkProof::Nova {
                         proof,

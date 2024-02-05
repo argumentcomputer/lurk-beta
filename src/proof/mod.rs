@@ -15,7 +15,7 @@ pub mod supernova;
 #[cfg(test)]
 mod tests;
 
-use ::nova::traits::Engine;
+use ::nova::traits::{Engine, SecEng};
 use std::sync::Arc;
 
 use crate::{
@@ -24,7 +24,7 @@ use crate::{
     eval::lang::Lang,
     field::LurkField,
     lem::{eval::EvalConfig, pointers::Ptr, store::Store},
-    proof::nova::E2,
+    proof::nova::E1,
 };
 
 use self::{nova::CurveCycleEquipped, supernova::FoldingConfig};
@@ -111,9 +111,9 @@ where
 
     /// Return the `z0_secondary`
     #[inline]
-    fn z0_secondary() -> Vec<<F::E2 as Engine>::Scalar> {
+    fn z0_secondary() -> Vec<<SecEng<E1<F>> as Engine>::Scalar> {
         use ff::Field;
-        vec![<E2<F> as Engine>::Scalar::ZERO]
+        vec![<SecEng<E1<F>> as Engine>::Scalar::ZERO]
     }
 }
 

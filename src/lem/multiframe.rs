@@ -15,7 +15,7 @@ use crate::{
     eval::lang::Lang,
     field::{LanguageField, LurkField},
     proof::{
-        nova::{CurveCycleEquipped, E1, E2},
+        nova::{CurveCycleEquipped, E1},
         supernova::{FoldingConfig, C2},
         CEKState, EvaluationStore, FrameLike, Provable,
     },
@@ -898,11 +898,14 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::supernova::StepCircuit<F> for Mu
     }
 }
 
-impl<'a, F, C> NonUniformCircuit<E1<F>, E2<F>, MultiFrame<'a, F, C>, C2<F>> for MultiFrame<'a, F, C>
+impl<'a, F, C> NonUniformCircuit<E1<F>> for MultiFrame<'a, F, C>
 where
     F: CurveCycleEquipped + LurkField,
     C: Coprocessor<F> + 'a,
 {
+    type C1 = MultiFrame<'a, F, C>;
+    type C2 = C2<F>;
+
     fn num_circuits(&self) -> usize {
         assert_eq!(self.pc, 0);
         self.get_lang().coprocessor_count() + 1

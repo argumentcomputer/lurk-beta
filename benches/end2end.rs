@@ -12,7 +12,10 @@ use lurk::{
         pointers::Ptr,
         store::Store,
     },
-    proof::{nova::NovaProver, RecursiveSNARKTrait},
+    proof::{
+        nova::{NovaProver, C1LEM},
+        RecursiveSNARKTrait,
+    },
     public_parameters::{
         self,
         instance::{Instance, Kind},
@@ -302,7 +305,8 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let (proof, _, _, _) = prover.prove_from_frames(&pp, &frames, &store).unwrap();
 
-            let compressed_result = proof.compress(&pp).unwrap();
+            let compressed_result =
+                RecursiveSNARKTrait::<_, C1LEM<'_, _, Coproc<_>>>::compress(proof, &pp).unwrap();
             black_box(compressed_result);
         })
     });
@@ -350,7 +354,13 @@ fn verify_benchmark(c: &mut Criterion) {
             b.iter_batched(
                 || z0.clone(),
                 |z0| {
-                    let result = proof.verify(&pp, &z0, &zi[..]).unwrap();
+                    let result = RecursiveSNARKTrait::<_, C1LEM<'_, _, Coproc<_>>>::verify(
+                        &proof,
+                        &pp,
+                        &z0,
+                        &zi[..],
+                    )
+                    .unwrap();
                     black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -400,12 +410,19 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
             let (proof, z0, zi, _num_steps) =
                 prover.prove_from_frames(&pp, &frames, &store).unwrap();
 
-            let compressed_proof = proof.compress(&pp).unwrap();
+            let compressed_proof =
+                RecursiveSNARKTrait::<_, C1LEM<'_, _, Coproc<_>>>::compress(proof, &pp).unwrap();
 
             b.iter_batched(
                 || z0.clone(),
                 |z0| {
-                    let result = compressed_proof.verify(&pp, &z0, &zi[..]).unwrap();
+                    let result = RecursiveSNARKTrait::<_, C1LEM<'_, _, Coproc<_>>>::verify(
+                        &compressed_proof,
+                        &pp,
+                        &z0,
+                        &zi[..],
+                    )
+                    .unwrap();
                     black_box(result);
                 },
                 BatchSize::LargeInput,

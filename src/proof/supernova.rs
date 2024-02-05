@@ -3,12 +3,11 @@ use nova::{
         self,
         error::SuperNovaError,
         snark::{CompressedSNARK, ProverKey, VerifierKey},
-        AuxParams, CircuitDigests, NonUniformCircuit, RecursiveSNARK,
-        StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit,
+        AuxParams, CircuitDigests, NonUniformCircuit, RecursiveSNARK, TrivialSecondaryCircuit,
     },
     traits::{
         snark::{BatchedRelaxedR1CSSNARKTrait, RelaxedR1CSSNARKTrait},
-        Engine,
+        Engine, SecEng,
     },
 };
 use once_cell::sync::OnceCell;
@@ -29,7 +28,7 @@ use crate::{
     field::LurkField,
     lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{
-        nova::{CurveCycleEquipped, NovaCircuitShape, E1, E2},
+        nova::{CurveCycleEquipped, NovaCircuitShape, E1},
         Prover, RecursiveSNARKTrait,
     },
 };
@@ -37,48 +36,46 @@ use crate::{
 use super::{nova::C1LEM, FoldingMode};
 
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-pub type C2<F> = TrivialSecondaryCircuit<<E2<F> as Engine>::Scalar>;
+pub type C2<F> = TrivialSecondaryCircuit<<SecEng<E1<F>> as Engine>::Scalar>;
 
 /// Type alias for SuperNova Aux Parameters with the curve cycle types defined above.
-pub type SuperNovaAuxParams<F> = AuxParams<E1<F>, E2<F>>;
+pub type SuperNovaAuxParams<F> = AuxParams<E1<F>>;
 
 /// Type alias for SuperNova Public Parameters with the curve cycle types defined above.
-pub type SuperNovaPublicParams<F, C1> = supernova::PublicParams<E1<F>, E2<F>, C1, C2<F>>;
+pub type SuperNovaPublicParams<F> = supernova::PublicParams<E1<F>>;
 
 /// A struct that contains public parameters for the SuperNova proving system.
-pub struct PublicParams<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> {
+pub struct PublicParams<F: CurveCycleEquipped> {
     /// Public params for SuperNova.
-    pub pp: SuperNovaPublicParams<F, SC>,
+    pub pp: SuperNovaPublicParams<F>,
     /// Prover key and Verifier key for SuperNova
     // TODO: mark as #[serde(skip)] when serializing
     pub pk_and_vk: OnceCell<(
-        ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
-        VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+        ProverKey<E1<F>, SS1<F>, SS2<F>>,
+        VerifierKey<E1<F>, SS1<F>, SS2<F>>,
     )>,
 }
 
-impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> PublicParams<F, SC> {
+impl<F: CurveCycleEquipped> PublicParams<F> {
     /// provides a reference to a ProverKey suitable for producing a CompressedProof
-    pub fn pk(&self) -> &ProverKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>> {
-        let (pk, _vk) = self.pk_and_vk.get_or_init(|| {
-            CompressedSNARK::<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>::setup(&self.pp).unwrap()
-        });
+    pub fn pk(&self) -> &ProverKey<E1<F>, SS1<F>, SS2<F>> {
+        let (pk, _vk) = self
+            .pk_and_vk
+            .get_or_init(|| CompressedSNARK::<E1<F>, SS1<F>, SS2<F>>::setup(&self.pp).unwrap());
         pk
     }
 
     /// provides a reference to a VerifierKey suitable for verifying a CompressedProof
-    pub fn vk(&self) -> &VerifierKey<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>> {
-        let (_pk, vk) = self.pk_and_vk.get_or_init(|| {
-            CompressedSNARK::<E1<F>, E2<F>, SC, C2<F>, SS1<F>, SS2<F>>::setup(&self.pp).unwrap()
-        });
+    pub fn vk(&self) -> &VerifierKey<E1<F>, SS1<F>, SS2<F>> {
+        let (_pk, vk) = self
+            .pk_and_vk
+            .get_or_init(|| CompressedSNARK::<E1<F>, SS1<F>, SS2<F>>::setup(&self.pp).unwrap());
         vk
     }
 }
 
-impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> From<SuperNovaPublicParams<F, SC>>
-    for PublicParams<F, SC>
-{
-    fn from(pp: SuperNovaPublicParams<F, SC>) -> PublicParams<F, SC> {
+impl<F: CurveCycleEquipped> From<SuperNovaPublicParams<F>> for PublicParams<F> {
+    fn from(pp: SuperNovaPublicParams<F>) -> PublicParams<F> {
         PublicParams {
             pp,
             pk_and_vk: OnceCell::new(),
@@ -86,7 +83,7 @@ impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> From<SuperNovaPublicParams<
     }
 }
 
-impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> Index<usize> for PublicParams<F, SC> {
+impl<F: CurveCycleEquipped> Index<usize> for PublicParams<F> {
     type Output = NovaCircuitShape<F>;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -94,7 +91,7 @@ impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> Index<usize> for PublicPara
     }
 }
 
-impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> PublicParams<F, SC> {
+impl<F: CurveCycleEquipped> PublicParams<F> {
     /// return the digest
     pub fn digest(&self) -> F {
         self.pp.digest()
@@ -113,21 +110,21 @@ pub type SS1<F> = nova::spartan::batched::BatchedRelaxedR1CSSNARK<E1<F>, EE1<F>>
 /// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
 // NOTE: this is not a SNARK that uses computational commitments,
 // that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
-pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<E2<F>, EE2<F>>;
+pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<SecEng<E1<F>>, EE2<F>>;
 
 /// Generates the running claim params for the SuperNova proving system.
-pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
+pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<F, C1LEM<'a, F, C>> {
+) -> PublicParams<F> {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
     let non_uniform_circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
 
     // grab hints for the compressed SNARK variants we will use this with
     let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
-    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<E2<F>>>::ck_floor();
+    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<SecEng<E1<F>>>>::ck_floor();
 
-    let pp = SuperNovaPublicParams::<F, C1LEM<'a, F, C>>::setup(
+    let pp = SuperNovaPublicParams::<F>::setup(
         &non_uniform_circuit,
         &*commitment_size_hint1,
         &*commitment_size_hint2,
@@ -141,11 +138,11 @@ pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<F: CurveCycleEquipped, C1: SuperStepCircuit<F>> {
+pub enum Proof<F: CurveCycleEquipped> {
     /// A proof for the intermediate steps of a recursive computation
-    Recursive(Box<RecursiveSNARK<E1<F>, E2<F>>>),
+    Recursive(Box<RecursiveSNARK<E1<F>>>),
     /// A proof for the final step of a recursive computation
-    Compressed(Box<CompressedSNARK<E1<F>, E2<F>, C1, C2<F>, SS1<F>, SS2<F>>>),
+    Compressed(Box<CompressedSNARK<E1<F>, SS1<F>, SS2<F>>>),
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
@@ -174,10 +171,10 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
     /// Generate a proof from a sequence of frames
     pub fn prove_from_frames(
         &self,
-        pp: &PublicParams<F, C1LEM<'a, F, C>>,
+        pp: &PublicParams<F>,
         frames: &[Frame],
         store: &'a Store<F>,
-    ) -> Result<(Proof<F, C1LEM<'a, F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<F>, Vec<F>, Vec<F>, usize), ProofError> {
         let folding_config = self
             .folding_mode()
             .folding_config(self.lang().clone(), self.reduction_count());
@@ -192,23 +189,23 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
-    for Proof<F, C1LEM<'a, F, C>>
+    for Proof<F>
 {
-    type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
+    type PublicParams = PublicParams<F>;
 
     type ErrorType = SuperNovaError;
 
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
     fn prove_recursively(
-        pp: &PublicParams<F, C1LEM<'a, F, C>>,
+        pp: &PublicParams<F>,
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
         store: &Store<F>,
     ) -> Result<Self, ProofError> {
-        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>, E2<F>>> = None;
+        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>>> = None;
 
         let z0_primary = z0;
-        let z0_secondary = Self::z0_secondary();
+        let z0_secondary = <Self as RecursiveSNARKTrait<F, C1LEM<'a, F, C>>>::z0_secondary();
 
         let mut prove_step = |i: usize, step: &C1LEM<'a, F, C>| {
             info!("prove_recursively, step {i}");
@@ -298,14 +295,11 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         )))
     }
 
-    fn compress(self, pp: &PublicParams<F, C1LEM<'a, F, C>>) -> Result<Self, ProofError> {
+    fn compress(self, pp: &PublicParams<F>) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark) => {
-                let snark = CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
-                    &pp.pp,
-                    pp.pk(),
-                    recursive_snark,
-                )?;
+                let snark =
+                    CompressedSNARK::<_, SS1<F>, SS2<F>>::prove(&pp.pp, pp.pk(), recursive_snark)?;
                 Ok(Self::Compressed(Box::new(snark)))
             }
             Self::Compressed(..) => Ok(self),
@@ -314,7 +308,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
 
     fn verify(&self, pp: &Self::PublicParams, z0: &[F], zi: &[F]) -> Result<bool, Self::ErrorType> {
         let (z0_primary, zi_primary) = (z0, zi);
-        let z0_secondary = Self::z0_secondary();
+        let z0_secondary = <Self as RecursiveSNARKTrait<F, C1LEM<'a, F, C>>>::z0_secondary();
         let zi_secondary = &z0_secondary;
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
@@ -329,8 +323,8 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F, C1LEM<'a, F, C>>
     for SuperNovaProver<'a, F, C>
 {
-    type PublicParams = PublicParams<F, C1LEM<'a, F, C>>;
-    type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
+    type PublicParams = PublicParams<F>;
+    type RecursiveSnark = Proof<F>;
 
     #[inline]
     fn reduction_count(&self) -> usize {
@@ -423,7 +417,7 @@ pub fn circuit_cache_key<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     let circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
     let num_circuits = circuit.num_circuits();
     let circuit = circuit.primary_circuit(circuit_index);
-    F::from(rc as u64) * supernova::circuit_digest::<F::E1, F::E2, _>(&circuit, num_circuits)
+    F::from(rc as u64) * supernova::circuit_digest::<F::E1, _>(&circuit, num_circuits)
 }
 
 /// Collects all the cache keys of supernova instance. We need all of them to compute

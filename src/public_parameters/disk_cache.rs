@@ -7,7 +7,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::config::lurk_config;
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::{CurveCycleEquipped, PublicParams, C1LEM};
+use crate::proof::nova::{CurveCycleEquipped, PublicParams};
 use crate::public_parameters::error::Error;
 
 use super::instance::Instance;
@@ -37,10 +37,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> DiskCache<F, C> {
         })
     }
 
-    pub(crate) fn read<'a>(
-        &self,
-        instance: &Instance<F, C>,
-    ) -> Result<PublicParams<F, C1LEM<'a, F, C>>, Error> {
+    pub(crate) fn read(&self, instance: &Instance<F, C>) -> Result<PublicParams<F>, Error> {
         let file = instance.open(&self.dir)?;
         let reader = BufReader::new(file);
         bincode::deserialize_from(reader)
@@ -61,7 +58,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> DiskCache<F, C> {
     pub(crate) fn write(
         &self,
         instance: &Instance<F, C>,
-        data: &PublicParams<F, C1LEM<'_, F, C>>,
+        data: &PublicParams<F>,
     ) -> Result<(), Error> {
         let file = instance.create(&self.dir)?;
         let writer = BufWriter::new(&file);
