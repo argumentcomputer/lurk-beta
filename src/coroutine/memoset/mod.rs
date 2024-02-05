@@ -51,6 +51,7 @@ use multiset::MultiSet;
 pub use query::{CircuitQuery, Query};
 
 mod demo;
+mod env;
 mod multiset;
 mod query;
 
@@ -528,6 +529,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>> {
         }
 
         circuit_scope.finalize(cs, g);
+
         Ok(())
     }
 
@@ -1055,26 +1057,26 @@ mod test {
     fn test_query_with_internal_insertion_transcript() {
         test_query_aux(
             true,
-            expect!["10875"],
-            expect!["10908"],
-            expect!["11457"],
-            expect!["11494"],
+            expect!["9430"],
+            expect!["9463"],
+            expect!["10012"],
+            expect!["10049"],
             1,
         );
         test_query_aux(
             true,
-            expect!["12908"],
-            expect!["12947"],
-            expect!["13490"],
-            expect!["13533"],
+            expect!["11174"],
+            expect!["11213"],
+            expect!["11756"],
+            expect!["11799"],
             3,
         );
         test_query_aux(
             true,
-            expect!["21106"],
-            expect!["21169"],
-            expect!["21688"],
-            expect!["21755"],
+            expect!["18216"],
+            expect!["18279"],
+            expect!["18798"],
+            expect!["18865"],
             10,
         )
     }
@@ -1083,26 +1085,26 @@ mod test {
     fn test_query_without_internal_insertion_transcript() {
         test_query_aux(
             false,
-            expect!["9430"],
-            expect!["9463"],
-            expect!["10012"],
-            expect!["10049"],
+            expect!["7985"],
+            expect!["8018"],
+            expect!["8567"],
+            expect!["8604"],
             1,
         );
         test_query_aux(
             false,
-            expect!["11174"],
-            expect!["11213"],
-            expect!["11756"],
-            expect!["11799"],
+            expect!["9440"],
+            expect!["9479"],
+            expect!["10022"],
+            expect!["10065"],
             3,
         );
         test_query_aux(
             false,
-            expect!["18216"],
-            expect!["18279"],
-            expect!["18798"],
-            expect!["18865"],
+            expect!["15326"],
+            expect!["15389"],
+            expect!["15908"],
+            expect!["15975"],
             10,
         )
     }
@@ -1120,8 +1122,8 @@ mod test {
             Scope::new(transcribe_internal_insertions, circuit_query_rc);
         let state = State::init_lurk_state();
 
-        let fact_4 = s.read_with_default_state("(factorial 4)").unwrap();
-        let fact_3 = s.read_with_default_state("(factorial 3)").unwrap();
+        let fact_4 = s.read_with_default_state("(factorial . 4)").unwrap();
+        let fact_3 = s.read_with_default_state("(factorial . 3)").unwrap();
 
         let expect_eq = |computed: usize, expected: Expect| {
             expected.assert_eq(&computed.to_string());

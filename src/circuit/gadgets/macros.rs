@@ -195,7 +195,7 @@ macro_rules! equal_t {
 // Returns a Boolean which is true if any of its arguments are true.
 macro_rules! or {
     ($cs:expr, $a:expr, $b:expr) => {
-        or(
+        crate::circuit::gadgets::constraints::or(
             $cs.namespace(|| format!("{} or {}", stringify!($a), stringify!($b))),
             $a,
             $b,
@@ -203,7 +203,7 @@ macro_rules! or {
     };
     ($cs:expr, $a:expr, $b:expr, $c:expr, $($x:expr),+) => {{
         let or_tmp_cs_ =  &mut $cs.namespace(|| format!("or({})", stringify!(vec![$a, $b, $c, $($x),*])));
-        or_v(or_tmp_cs_, &[$a, $b, $c, $($x),*])
+        bellpepper::gadgets::boolean_utils::or_v(or_tmp_cs_, &[$a, $b, $c, $($x),*])
     }};
     ($cs:expr, $a:expr, $($x:expr),+) => {{
         let or_tmp_cs_ =  &mut $cs.namespace(|| format!("or {}", stringify!(vec![$a, $($x),*])));
