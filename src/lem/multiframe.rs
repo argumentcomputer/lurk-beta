@@ -1045,7 +1045,7 @@ mod tests {
 
         let mut cs_clone = cs.clone();
 
-        let lang = Lang::<Bn, Coproc<Bn>>::new();
+        let lang = Lang::<Bn>::new();
 
         let output_sequential = synthesize_frames_sequential(
             &mut cs,
@@ -1086,7 +1086,7 @@ mod tests {
         // not self-evaluating
         let expr = store.read_with_default_state("(+ 1 2)").unwrap();
 
-        let lang = Arc::new(Lang::<Bn, Coproc<Bn>>::new());
+        let lang = Arc::new(Lang::<Bn>::new());
         let mut frames = evaluate::<Bn, Coproc<Bn>>(None, expr, &store, 1).unwrap();
         assert_eq!(frames.len(), 1);
 

@@ -40,7 +40,7 @@ fn synthesize<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
 ) {
     let limit = 1_000_000;
-    let lang_rc = Arc::new(Lang::<Fq, Coproc<Fq>>::new());
+    let lang_rc = Arc::new(Lang::<Fq>::new());
     let state = State::init_lurk_state().rccell();
 
     c.bench_with_input(

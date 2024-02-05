@@ -1720,10 +1720,7 @@ fn make_thunk() -> Func {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        eval::lang::{Coproc, Lang},
-        lem::store::Store,
-    };
+    use crate::{eval::lang::Lang, lem::store::Store};
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     use expect_test::{expect, Expect};
     use halo2curves::bn256::Fr;
@@ -1734,7 +1731,7 @@ mod tests {
         let func = eval_step();
         let frame = Frame::blank(func, 0, &store);
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
+        let lang: Lang<Fr> = Lang::new();
         let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);
         let expect_eq = |computed: usize, expected: Expect| {
             expected.assert_eq(&computed.to_string());

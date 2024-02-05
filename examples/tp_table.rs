@@ -157,7 +157,7 @@ fn main() {
 
     let frames = evaluate::<Fr, Coproc<Fr>>(None, program, &store, limit).unwrap();
 
-    let lang = Lang::<Fr, Coproc<Fr>>::new();
+    let lang = Lang::<Fr>::new();
     let lang_arc = Arc::new(lang.clone());
 
     let mut data = Vec::with_capacity(rc_vec.len());

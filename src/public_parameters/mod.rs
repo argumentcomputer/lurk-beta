@@ -184,7 +184,7 @@ mod tests {
         let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
         std::env::set_var("LURK_PUBLIC_PARAMS", tmp_dir.path());
 
-        let lang: Arc<Lang<S1, Coproc<S1>>> = Arc::new(Lang::new());
+        let lang: Arc<Lang<S1>> = Arc::new(Lang::new());
         let instance = Instance::new(10, lang, true, Kind::NovaPublicParams);
         // Without disk cache, writes to tmpfile
         let _public_params = public_params::<S1, Coproc<S1>>(&instance).unwrap();
