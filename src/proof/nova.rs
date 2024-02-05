@@ -7,7 +7,7 @@ use nova::{
         circuit::{StepCircuit, TrivialCircuit},
         evaluation::EvaluationEngineTrait,
         snark::RelaxedR1CSSNARKTrait,
-        CurveCycleEquipped as NovaCurveCycleEquipped, Engine, SecEng,
+        CurveCycleEquipped as NovaCurveCycleEquipped, Dual as DualEng, Engine,
     },
     CompressedSNARK, ProverKey, R1CSWithArity, RecursiveSNARK, VerifierKey,
 };
@@ -48,20 +48,20 @@ pub trait CurveCycleEquipped: LurkField {
     /// a concrete implementation of an [`nova::traits::evaluation::EvaluationEngineTrait<G>`] for G1,
     type EE1: EvaluationEngineTrait<Self::E1>;
     /// a concrete implementation of an [`nova::traits::evaluation::EvaluationEngineTrait<G>`] for G2,
-    type EE2: EvaluationEngineTrait<SecEng<Self::E1>>;
+    type EE2: EvaluationEngineTrait<DualEng<Self::E1>>;
 }
 
 impl CurveCycleEquipped for pallas::Scalar {
     type E1 = PallasEngine;
 
     type EE1 = nova::provider::ipa_pc::EvaluationEngine<Self::E1>;
-    type EE2 = nova::provider::ipa_pc::EvaluationEngine<SecEng<Self::E1>>;
+    type EE2 = nova::provider::ipa_pc::EvaluationEngine<DualEng<Self::E1>>;
 }
 // The impl CurveCycleEquipped for vesta::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 
 impl CurveCycleEquipped for Bn256Scalar {
     type EE1 = nova::provider::ipa_pc::EvaluationEngine<Self::E1>;
-    type EE2 = nova::provider::ipa_pc::EvaluationEngine<SecEng<Self::E1>>;
+    type EE2 = nova::provider::ipa_pc::EvaluationEngine<DualEng<Self::E1>>;
 
     type E1 = Bn256Engine;
 }
@@ -89,7 +89,7 @@ pub type SS1<F> = nova::spartan::snark::RelaxedR1CSSNARK<E1<F>, EE1<F>>;
 /// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
 // NOTE: this is not a SNARK that uses computational commitments,
 // that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
-pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<SecEng<E1<F>>, EE2<F>>;
+pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<DualEng<E1<F>>, EE2<F>>;
 
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
@@ -196,7 +196,7 @@ pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     let (circuit_primary, circuit_secondary) = circuits(reduction_count, lang);
 
     let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
-    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<SecEng<E1<F>>>>::ck_floor();
+    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<DualEng<E1<F>>>>::ck_floor();
 
     let pp = nova::PublicParams::setup(
         &circuit_primary,

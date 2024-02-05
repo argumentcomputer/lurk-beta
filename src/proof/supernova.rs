@@ -7,7 +7,7 @@ use nova::{
     },
     traits::{
         snark::{BatchedRelaxedR1CSSNARKTrait, RelaxedR1CSSNARKTrait},
-        SecEng,
+        Dual as DualEng,
     },
 };
 use once_cell::sync::OnceCell;
@@ -110,7 +110,7 @@ pub type SS1<F> = nova::spartan::batched::BatchedRelaxedR1CSSNARK<E1<F>, EE1<F>>
 /// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
 // NOTE: this is not a SNARK that uses computational commitments,
 // that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
-pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<SecEng<E1<F>>, EE2<F>>;
+pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<DualEng<E1<F>>, EE2<F>>;
 
 /// Generates the running claim params for the SuperNova proving system.
 pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
@@ -122,7 +122,7 @@ pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
 
     // grab hints for the compressed SNARK variants we will use this with
     let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
-    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<SecEng<E1<F>>>>::ck_floor();
+    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<DualEng<E1<F>>>>::ck_floor();
 
     let pp = SuperNovaPublicParams::<F>::setup(
         &non_uniform_circuit,
