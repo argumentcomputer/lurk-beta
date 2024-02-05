@@ -1209,6 +1209,8 @@
 <a href="#1209" id="1209">1209</a>
 <a href="#1210" id="1210">1210</a>
 <a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -1262,6 +1264,7 @@
 <span class="kw">pub use </span>query::{CircuitQuery, Query};
 
 <span class="kw">mod </span>demo;
+<span class="kw">mod </span>env;
 <span class="kw">mod </span>multiset;
 <span class="kw">mod </span>query;
 
@@ -1739,6 +1742,7 @@
         }
 
         circuit_scope.finalize(cs, g);
+
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -2266,26 +2270,26 @@
     </span><span class="kw">fn </span>test_query_with_internal_insertion_transcript() {
         test_query_aux(
             <span class="bool-val">true</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;10875&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;10908&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;11457&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;11494&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;9430&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;9463&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;10012&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;10049&quot;</span>],
             <span class="number">1</span>,
         );
         test_query_aux(
             <span class="bool-val">true</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;12908&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;12947&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;13490&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;13533&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;11174&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;11213&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;11756&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;11799&quot;</span>],
             <span class="number">3</span>,
         );
         test_query_aux(
             <span class="bool-val">true</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;21106&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;21169&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;21688&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;21755&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;18216&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;18279&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;18798&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;18865&quot;</span>],
             <span class="number">10</span>,
         )
     }
@@ -2294,26 +2298,26 @@
     </span><span class="kw">fn </span>test_query_without_internal_insertion_transcript() {
         test_query_aux(
             <span class="bool-val">false</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;9430&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;9463&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;10012&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;10049&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;7985&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;8018&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;8567&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;8604&quot;</span>],
             <span class="number">1</span>,
         );
         test_query_aux(
             <span class="bool-val">false</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;11174&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;11213&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;11756&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;11799&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;9440&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;9479&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;10022&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;10065&quot;</span>],
             <span class="number">3</span>,
         );
         test_query_aux(
             <span class="bool-val">false</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;18216&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;18279&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;18798&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;18865&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;15326&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;15389&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;15908&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">&quot;15975&quot;</span>],
             <span class="number">10</span>,
         )
     }
@@ -2331,8 +2335,8 @@
             Scope::new(transcribe_internal_insertions, circuit_query_rc);
         <span class="kw">let </span>state = State::init_lurk_state();
 
-        <span class="kw">let </span>fact_4 = s.read_with_default_state(<span class="string">&quot;(factorial 4)&quot;</span>).unwrap();
-        <span class="kw">let </span>fact_3 = s.read_with_default_state(<span class="string">&quot;(factorial 3)&quot;</span>).unwrap();
+        <span class="kw">let </span>fact_4 = s.read_with_default_state(<span class="string">&quot;(factorial . 4)&quot;</span>).unwrap();
+        <span class="kw">let </span>fact_3 = s.read_with_default_state(<span class="string">&quot;(factorial . 3)&quot;</span>).unwrap();
 
         <span class="kw">let </span>expect_eq = |computed: usize, expected: Expect| {
             expected.assert_eq(<span class="kw-2">&amp;</span>computed.to_string());

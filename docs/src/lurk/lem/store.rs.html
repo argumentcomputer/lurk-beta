@@ -1600,6 +1600,11 @@
 <a href="#1600" id="1600">1600</a>
 <a href="#1601" id="1601">1601</a>
 <a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -2221,6 +2226,11 @@
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>intern_nil(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
         <span class="self">self</span>.intern_lurk_symbol(<span class="string">&quot;nil&quot;</span>)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>intern_t(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
+        <span class="self">self</span>.intern_lurk_symbol(<span class="string">&quot;t&quot;</span>)
     }
 
     <span class="attr">#[inline]

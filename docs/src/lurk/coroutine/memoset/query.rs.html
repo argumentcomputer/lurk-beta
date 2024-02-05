@@ -60,10 +60,85 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{ConstraintSystem, SynthesisError};
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{boolean::Boolean, ConstraintSystem, SynthesisError};
 
 <span class="kw">use super</span>::{CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope};
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr;
+<span class="kw">use </span><span class="kw">crate</span>::coprocessor::gadgets::construct_cons;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::lem::circuit::GlobalAllocator;
 <span class="kw">use </span><span class="kw">crate</span>::lem::{pointers::Ptr, store::Store};
@@ -81,7 +156,9 @@
         scope: <span class="kw-2">&amp;mut </span>Scope&lt;<span class="self">Self</span>, LogMemo&lt;F&gt;&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         subquery: <span class="self">Self</span>,
-    ) -&gt; Ptr;
+    ) -&gt; Ptr {
+        scope.query_recursively(s, <span class="self">self</span>, subquery)
+    }
     <span class="kw">fn </span>from_ptr(s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
     <span class="kw">fn </span>to_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr;
     <span class="kw">fn </span>to_circuit&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="self">Self</span>::CQ;
@@ -121,5 +198,76 @@
     <span class="kw">fn </span>from_ptr&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
 
     <span class="kw">fn </span>dummy_from_index&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, index: usize) -&gt; <span class="self">Self</span>;
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>RecursiveQuery&lt;F: LurkField&gt;: CircuitQuery&lt;F&gt; {
+    <span class="kw">fn </span>post_recursion&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _cs: <span class="kw-2">&amp;mut </span>CS,
+        subquery_result: AllocatedPtr&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
+        <span class="prelude-val">Ok</span>(subquery_result)
+    }
+
+    <span class="kw">fn </span>recurse&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt;,
+        args: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
+        is_recursive: <span class="kw-2">&amp;</span>Boolean,
+        immediate: (<span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;, <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;, <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;),
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt; {
+        <span class="kw">let </span>is_immediate = is_recursive.not();
+
+        <span class="kw">let </span>subquery = {
+            <span class="kw">let </span>symbol = g.alloc_ptr(
+                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;symbol&quot;</span>),
+                <span class="kw-2">&amp;</span><span class="self">self</span>.symbol_ptr(store),
+                store,
+            );
+            construct_cons(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;subquery&quot;</span>), g, store, <span class="kw-2">&amp;</span>symbol, args)<span class="question-mark">?
+        </span>};
+
+        <span class="kw">let </span>(sub_result, new_acc, new_transcript) = scope.synthesize_internal_query(
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;recursive query&quot;</span>),
+            g,
+            store,
+            <span class="kw-2">&amp;</span>subquery,
+            immediate.<span class="number">1</span>,
+            immediate.<span class="number">2</span>,
+            is_recursive,
+        )<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>(recursive_result, recursive_acc, recursive_transcript) = (
+            <span class="self">self</span>.post_recursion(cs, sub_result)<span class="question-mark">?</span>,
+            new_acc,
+            new_transcript,
+        );
+
+        <span class="kw">let </span>value = AllocatedPtr::pick(
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pick value&quot;</span>),
+            <span class="kw-2">&amp;</span>is_immediate,
+            immediate.<span class="number">0</span>,
+            <span class="kw-2">&amp;</span>recursive_result,
+        )<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>acc = AllocatedPtr::pick(
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pick acc&quot;</span>),
+            <span class="kw-2">&amp;</span>is_immediate,
+            immediate.<span class="number">1</span>,
+            <span class="kw-2">&amp;</span>recursive_acc,
+        )<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>transcript = CircuitTranscript::pick(
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pick recursive_transcript&quot;</span>),
+            <span class="kw-2">&amp;</span>is_immediate,
+            immediate.<span class="number">2</span>,
+            <span class="kw-2">&amp;</span>recursive_transcript,
+        )<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>((value, acc, transcript))
+    }
 }
 </code></pre></div></section></main></body></html>
