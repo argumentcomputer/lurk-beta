@@ -39,7 +39,7 @@ use crate::{
     },
     parser,
     proof::{
-        nova::{CurveCycleEquipped, Dual, NovaProver, C1LEM},
+        nova::{CurveCycleEquipped, Dual, NovaProver},
         RecursiveSNARKTrait,
     },
     public_parameters::{
@@ -342,14 +342,9 @@ where
                     let (proof, public_inputs, public_outputs, num_steps) =
                         prover.prove_from_frames(&pp, frames, &self.store)?;
                     info!("Compressing proof");
-                    let proof = RecursiveSNARKTrait::<_, C1LEM<'_, F, C>>::compress(proof, &pp)?;
+                    let proof = proof.compress(&pp)?;
                     assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
-                    assert!(RecursiveSNARKTrait::<_, C1LEM<'_, F, C>>::verify(
-                        &proof,
-                        &pp,
-                        &public_inputs,
-                        &public_outputs
-                    )?);
+                    assert!(proof.verify(&pp, &public_inputs, &public_outputs)?);
 
                     let lurk_proof = LurkProof::Nova {
                         proof,

@@ -15,18 +15,14 @@ use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use lurk::{
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
-    eval::lang::{Coproc, Lang},
+    eval::lang::Lang,
     field::LurkField,
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
         pointers::Ptr,
         store::Store,
     },
-    proof::{
-        nova::{NovaProver, C1LEM},
-        supernova::SuperNovaProver,
-        RecursiveSNARKTrait,
-    },
+    proof::{nova::NovaProver, supernova::SuperNovaProver, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         public_params, supernova_public_params,
@@ -224,9 +220,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
                 || frames,
                 |frames| {
                     let (proof, _, _, _) = prover.prove_from_frames(&pp, frames, store).unwrap();
-                    let compressed_result =
-                        RecursiveSNARKTrait::<_, C1LEM<'_, _, Coproc<_>>>::compress(proof, &pp)
-                            .unwrap();
+                    let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);
                 },

@@ -160,13 +160,17 @@ impl<F: CurveCycleEquipped> From<NovaPublicParams<F>> for PublicParams<F> {
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<F: CurveCycleEquipped> {
+pub enum Proof<F: CurveCycleEquipped, S> {
     /// A proof for the intermediate steps of a recursive computation along with
     /// the number of steps used for verification
-    Recursive(Box<RecursiveSNARK<E1<F>>>, usize),
+    Recursive(Box<RecursiveSNARK<E1<F>>>, usize, PhantomData<S>),
     /// A proof for the final step of a recursive computation along with the number
     /// of steps used for verification
-    Compressed(Box<CompressedSNARK<E1<F>, SS1<F>, SS2<F>>>, usize),
+    Compressed(
+        Box<CompressedSNARK<E1<F>, SS1<F>, SS2<F>>>,
+        usize,
+        PhantomData<S>,
+    ),
 }
 
 /// Computes a cache key of the primary circuit. The point is that if a circuit
@@ -219,7 +223,7 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
-    for Proof<F>
+    for Proof<F, C1LEM<'a, F, C>>
 {
     type PublicParams = PublicParams<F>;
 
@@ -236,7 +240,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         assert_eq!(steps[0].arity(), z0.len());
         let debug = false;
         let z0_primary = z0;
-        let z0_secondary = <Self as RecursiveSNARKTrait<F, C1LEM<'a, F, C>>>::z0_secondary();
+        let z0_secondary = Self::z0_secondary();
 
         let circuit_secondary = TrivialCircuit::default();
 
@@ -330,18 +334,20 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         Ok(Self::Recursive(
             Box::new(recursive_snark.unwrap()),
             num_steps,
+            PhantomData,
         ))
     }
 
     fn compress(self, pp: &PublicParams<F>) -> Result<Self, ProofError> {
         match self {
-            Self::Recursive(recursive_snark, num_steps) => Ok(Self::Compressed(
+            Self::Recursive(recursive_snark, num_steps, _phantom) => Ok(Self::Compressed(
                 Box::new(CompressedSNARK::<_, SS1<F>, SS2<F>>::prove(
                     &pp.pp,
                     pp.pk(),
                     &recursive_snark,
                 )?),
                 num_steps,
+                PhantomData,
             )),
             Self::Compressed(..) => Ok(self),
         }
@@ -349,14 +355,14 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
 
     fn verify(&self, pp: &Self::PublicParams, z0: &[F], zi: &[F]) -> Result<bool, Self::ErrorType> {
         let (z0_primary, zi_primary) = (z0, zi);
-        let z0_secondary = <Self as RecursiveSNARKTrait<F, C1LEM<'a, F, C>>>::z0_secondary();
+        let z0_secondary = Self::z0_secondary();
         let zi_secondary = &z0_secondary;
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p, num_steps) => {
+            Self::Recursive(p, num_steps, _phantom) => {
                 p.verify(&pp.pp, *num_steps, z0_primary, &z0_secondary)?
             }
-            Self::Compressed(p, num_steps) => {
+            Self::Compressed(p, num_steps, _phantom) => {
                 p.verify(pp.vk(), *num_steps, z0_primary, &z0_secondary)?
             }
         };
@@ -393,7 +399,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C> {
         pp: &PublicParams<F>,
         frames: &[Frame],
         store: &'a Store<F>,
-    ) -> Result<(Proof<F>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<F, C1LEM<'a, F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
         let folding_config = self
             .folding_mode()
             .folding_config(self.lang().clone(), self.reduction_count());
@@ -411,7 +417,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C1LEM<'a, 
     for NovaProver<'a, F, C>
 {
     type PublicParams = PublicParams<F>;
-    type RecursiveSnark = Proof<F>;
+    type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
 
     #[inline]
     fn reduction_count(&self) -> usize {

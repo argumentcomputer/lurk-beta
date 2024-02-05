@@ -38,10 +38,9 @@ use lurk::circuit::gadgets::pointer::AllocatedPtr;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 
-use lurk::eval::lang::{Coproc, Lang};
+use lurk::eval::lang::Lang;
 use lurk::field::LurkField;
 use lurk::lem::{pointers::Ptr, store::Store};
-use lurk::proof::nova::C1LEM;
 use lurk::proof::{nova::NovaProver, Prover, RecursiveSNARKTrait};
 use lurk::public_parameters::{
     instance::{Instance, Kind},
@@ -134,8 +133,7 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    let res =
-        RecursiveSNARKTrait::<_, C1LEM<'_, _, Coproc<_>>>::verify(&proof, &pp, &z0, &zi).unwrap();
+    let res = proof.verify(&pp, &z0, &zi).unwrap();
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {verify_end:?}");

@@ -1,3 +1,4 @@
+use ::nova::supernova::StepCircuit;
 use abomonation::Abomonation;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -44,6 +45,7 @@ pub(super) struct MetaCmd<F: LurkField, C: Coprocessor<F> + Serialize + Deserial
 }
 
 impl<
+        'a,
         F: CurveCycleEquipped + Serialize + DeserializeOwned,
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
     > MetaCmd<F, C>
@@ -992,7 +994,7 @@ where
 
             let (fun, proto_rc) = Self::get_fun_and_rc(repl, ptcl)?;
 
-            match load::<ProtocolProof<F>>(&path)? {
+            match load::<ProtocolProof<F, C1LEM<'a, F, C>>>(&path)? {
                 ProtocolProof::Nova {
                     args: LurkData { z_ptr, z_dag },
                     proof,
@@ -1010,8 +1012,7 @@ where
                         Instance::new(proto_rc, repl.lang.clone(), true, Kind::NovaPublicParams);
                     let pp = public_params(&instance)?;
 
-                    if !RecursiveSNARKTrait::<_, C1LEM<'_, F, C>>::verify(
-                        &proof,
+                    if !proof.verify(
                         &pp,
                         &repl.store.to_scalar_vector(&cek_io[..3]),
                         &repl.store.to_scalar_vector(&cek_io[3..]),
@@ -1097,14 +1098,14 @@ fn get_path<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned>(
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-enum ProtocolProof<F: CurveCycleEquipped> {
+enum ProtocolProof<F: CurveCycleEquipped, S> {
     Nova {
         args: LurkData<F>,
-        proof: nova::Proof<F>,
+        proof: nova::Proof<F, S>,
     },
 }
 
-impl<F: CurveCycleEquipped> HasFieldModulus for ProtocolProof<F> {
+impl<F: CurveCycleEquipped, S: StepCircuit<F>> HasFieldModulus for ProtocolProof<F, S> {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
     }

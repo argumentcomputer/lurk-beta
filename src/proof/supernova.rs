@@ -138,11 +138,11 @@ pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<F: CurveCycleEquipped> {
+pub enum Proof<F: CurveCycleEquipped, S> {
     /// A proof for the intermediate steps of a recursive computation
-    Recursive(Box<RecursiveSNARK<E1<F>>>),
+    Recursive(Box<RecursiveSNARK<E1<F>>>, PhantomData<S>),
     /// A proof for the final step of a recursive computation
-    Compressed(Box<CompressedSNARK<E1<F>, SS1<F>, SS2<F>>>),
+    Compressed(Box<CompressedSNARK<E1<F>, SS1<F>, SS2<F>>>, PhantomData<S>),
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
@@ -174,7 +174,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
         pp: &PublicParams<F>,
         frames: &[Frame],
         store: &'a Store<F>,
-    ) -> Result<(Proof<F>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<F, C1LEM<'a, F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
         let folding_config = self
             .folding_mode()
             .folding_config(self.lang().clone(), self.reduction_count());
@@ -189,7 +189,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
-    for Proof<F>
+    for Proof<F, C1LEM<'a, F, C>>
 {
     type PublicParams = PublicParams<F>;
 
@@ -205,7 +205,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>>> = None;
 
         let z0_primary = z0;
-        let z0_secondary = <Self as RecursiveSNARKTrait<F, C1LEM<'a, F, C>>>::z0_secondary();
+        let z0_secondary = Self::z0_secondary();
 
         let mut prove_step = |i: usize, step: &C1LEM<'a, F, C>| {
             info!("prove_recursively, step {i}");
@@ -290,17 +290,18 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         }
 
         // This probably should be made unnecessary.
-        Ok(Self::Recursive(Box::new(
-            recursive_snark_option.expect("RecursiveSNARK missing"),
-        )))
+        Ok(Self::Recursive(
+            Box::new(recursive_snark_option.expect("RecursiveSNARK missing")),
+            PhantomData,
+        ))
     }
 
     fn compress(self, pp: &PublicParams<F>) -> Result<Self, ProofError> {
         match &self {
-            Self::Recursive(recursive_snark) => {
+            Self::Recursive(recursive_snark, _phantom) => {
                 let snark =
                     CompressedSNARK::<_, SS1<F>, SS2<F>>::prove(&pp.pp, pp.pk(), recursive_snark)?;
-                Ok(Self::Compressed(Box::new(snark)))
+                Ok(Self::Compressed(Box::new(snark), PhantomData))
             }
             Self::Compressed(..) => Ok(self),
         }
@@ -308,12 +309,14 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
 
     fn verify(&self, pp: &Self::PublicParams, z0: &[F], zi: &[F]) -> Result<bool, Self::ErrorType> {
         let (z0_primary, zi_primary) = (z0, zi);
-        let z0_secondary = <Self as RecursiveSNARKTrait<F, C1LEM<'a, F, C>>>::z0_secondary();
+        let z0_secondary = Self::z0_secondary();
         let zi_secondary = &z0_secondary;
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
-            Self::Compressed(p) => p.verify(&pp.pp, pp.vk(), z0_primary, &z0_secondary)?,
+            Self::Recursive(p, _phantom) => p.verify(&pp.pp, z0_primary, &z0_secondary)?,
+            Self::Compressed(p, _phantom) => {
+                p.verify(&pp.pp, pp.vk(), z0_primary, &z0_secondary)?
+            }
         };
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == &zi_secondary_verified)
@@ -324,7 +327,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F, C1LEM<'a, F, C>
     for SuperNovaProver<'a, F, C>
 {
     type PublicParams = PublicParams<F>;
-    type RecursiveSnark = Proof<F>;
+    type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
 
     #[inline]
     fn reduction_count(&self) -> usize {

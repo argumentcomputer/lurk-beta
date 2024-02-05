@@ -122,9 +122,13 @@ impl<F: LurkField + DeserializeOwned> LurkProofMeta<F> {
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-pub(crate) enum LurkProof<F: CurveCycleEquipped, C: Coprocessor<F> + Serialize + DeserializeOwned> {
+pub(crate) enum LurkProof<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + Serialize + DeserializeOwned,
+> {
     Nova {
-        proof: nova::Proof<F>,
+        proof: nova::Proof<F, C1LEM<'a, F, C>>,
         public_inputs: Vec<F>,
         public_outputs: Vec<F>,
         rc: usize,
@@ -133,15 +137,15 @@ pub(crate) enum LurkProof<F: CurveCycleEquipped, C: Coprocessor<F> + Serialize +
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a + Serialize + DeserializeOwned>
-    HasFieldModulus for LurkProof<F, C>
+    HasFieldModulus for LurkProof<'a, F, C>
 {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
     }
 }
 
-impl<F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + DeserializeOwned>
-    LurkProof<F, C>
+impl<'a, F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + DeserializeOwned>
+    LurkProof<'a, F, C>
 {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
@@ -150,9 +154,10 @@ impl<F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + Deserial
 }
 
 impl<
+        'a,
         F: CurveCycleEquipped + DeserializeOwned,
-        C: Coprocessor<F> + Serialize + DeserializeOwned,
-    > LurkProof<F, C>
+        C: Coprocessor<F> + Serialize + DeserializeOwned + 'a,
+    > LurkProof<'a, F, C>
 {
     #[inline]
     pub(crate) fn is_cached(proof_key: &str) -> bool {
@@ -161,9 +166,10 @@ impl<
 }
 
 impl<
+        'a,
         F: CurveCycleEquipped + DeserializeOwned,
-        C: Coprocessor<F> + Serialize + DeserializeOwned,
-    > LurkProof<F, C>
+        C: Coprocessor<F> + Serialize + DeserializeOwned + 'a,
+    > LurkProof<'a, F, C>
 where
     F::Repr: Abomonation,
     <Dual<F> as PrimeField>::Repr: Abomonation,
@@ -191,12 +197,7 @@ where
                 let instance =
                     Instance::new(*rc, Arc::new(lang.clone()), true, Kind::NovaPublicParams);
                 let pp = public_params(&instance)?;
-                Ok(RecursiveSNARKTrait::<_, C1LEM<'_, F, C>>::verify(
-                    proof,
-                    &pp,
-                    public_inputs,
-                    public_outputs,
-                )?)
+                Ok(proof.verify(&pp, public_inputs, public_outputs)?)
             }
         }
     }
