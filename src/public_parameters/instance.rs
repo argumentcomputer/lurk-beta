@@ -177,7 +177,13 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
     pub fn key(&self) -> String {
         let abomonated = if self.abomonated { " abomonated" } else { "" };
         let lang = self.lang();
-        format!("{} (rc={}){}", lang.key(), self.rc, abomonated)
+        format!(
+            "{} (field={})(rc={}){}",
+            lang.key(),
+            F::FIELD,
+            self.rc,
+            abomonated
+        )
     }
 
     pub fn create(&self, disk_cache_path: &Utf8Path) -> io::Result<File> {
