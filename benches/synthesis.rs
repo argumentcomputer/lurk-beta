@@ -6,7 +6,7 @@ use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
 };
-use pasta_curves::Fq;
+use halo2curves::bn256::Fr as Bn;
 
 use lurk::{
     eval::lang::{Coproc, Lang},
@@ -40,7 +40,7 @@ fn synthesize<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
 ) {
     let limit = 1_000_000;
-    let lang_rc = Arc::new(Lang::<Fq>::new());
+    let lang_rc = Arc::new(Lang::<Bn>::new());
     let state = State::init_lurk_state().rccell();
 
     c.bench_with_input(
@@ -49,8 +49,8 @@ fn synthesize<M: measurement::Measurement>(
         |b, reduction_count| {
             let store = Store::default();
             let fib_n = (reduction_count / 3) as u64; // Heuristic, since one fib is 35 iterations.
-            let ptr = fib::<pasta_curves::Fq>(&store, state.clone(), black_box(fib_n));
-            let frames = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+            let ptr = fib::<Bn>(&store, state.clone(), black_box(fib_n));
+            let frames = evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit).unwrap();
 
             let folding_config =
                 Arc::new(FoldingConfig::new_ivc(lang_rc.clone(), *reduction_count));

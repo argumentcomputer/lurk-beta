@@ -2,7 +2,7 @@ use bellpepper_core::{num::AllocatedNum, ConstraintSystem};
 use halo2curves::bn256::Fr as Bn256Scalar;
 use nova::{
     errors::NovaError,
-    provider::{Bn256Engine, PallasEngine},
+    provider::{Bn256EngineKZG, PallasEngine},
     traits::{
         circuit::{StepCircuit, TrivialCircuit},
         evaluation::EvaluationEngineTrait,
@@ -60,10 +60,11 @@ impl CurveCycleEquipped for pallas::Scalar {
 // The impl CurveCycleEquipped for vesta::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 
 impl CurveCycleEquipped for Bn256Scalar {
-    type EE1 = nova::provider::ipa_pc::EvaluationEngine<Self::E1>;
+    type EE1 =
+        nova::provider::hyperkzg::EvaluationEngine<halo2curves::bn256::Bn256, Bn256EngineKZG>;
     type EE2 = nova::provider::ipa_pc::EvaluationEngine<DualEng<Self::E1>>;
 
-    type E1 = Bn256Engine;
+    type E1 = Bn256EngineKZG;
 }
 // The impl CurveCycleEquipped for grumpkin::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 

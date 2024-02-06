@@ -96,12 +96,12 @@ fn compute_coeffs<F: LurkField>(store: &Store<F>) -> (usize, usize) {
 }
 
 pub(crate) fn test_coeffs() {
-    let store = Store::<pasta_curves::Fq>::default();
+    let store = Store::<halo2curves::bn256::Fr>::default();
     assert_eq!(compute_coeffs(&store), (LIN_COEF, ANG_COEF));
 }
 
 pub(crate) fn test_fib_io_matches() {
-    let store = Store::<pasta_curves::Fq>::default();
+    let store = Store::<halo2curves::bn256::Fr>::default();
     let fib_9 = store.num_u64(34);
     let fib_10 = store.num_u64(55);
     let fib_11 = store.num_u64(89);

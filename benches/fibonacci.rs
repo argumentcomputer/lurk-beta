@@ -3,7 +3,7 @@ use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
 };
-use pasta_curves::pallas;
+use halo2curves::bn256::Fr as Bn;
 use std::{sync::Arc, time::Duration};
 
 use lurk::{
@@ -80,8 +80,8 @@ fn fibonacci_prove<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
 ) {
     let limit = fib_limit(prove_params.fib_n, prove_params.reduction_count);
-    let lang_pallas = Lang::<pallas::Scalar>::new();
-    let lang_rc = Arc::new(lang_pallas.clone());
+    let lang = Lang::<Bn>::new();
+    let lang_rc = Arc::new(lang.clone());
 
     // use cached public params
     let instance = Instance::new(
@@ -104,12 +104,10 @@ fn fibonacci_prove<M: measurement::Measurement>(
         BenchmarkId::new(name, params),
         &prove_params,
         |b, prove_params| {
-            let ptr = fib_expr::<pasta_curves::Fq>(&store);
+            let ptr = fib_expr::<Bn>(&store);
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames =
-                &evaluate::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>(None, ptr, &store, limit)
-                    .unwrap();
+            let frames = &evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit).unwrap();
 
             b.iter_batched(
                 || frames,
