@@ -442,11 +442,12 @@
 <a href="#442" id="442">442</a>
 <a href="#443" id="443">443</a>
 <a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem};
 <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Bn256Scalar;
 <span class="kw">use </span>nova::{
     errors::NovaError,
-    provider::{Bn256Engine, PallasEngine},
+    provider::{Bn256EngineKZG, PallasEngine},
     traits::{
         circuit::{StepCircuit, TrivialCircuit},
         evaluation::EvaluationEngineTrait,
@@ -504,10 +505,11 @@
 <span class="comment">// The impl CurveCycleEquipped for vesta::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 
 </span><span class="kw">impl </span>CurveCycleEquipped <span class="kw">for </span>Bn256Scalar {
-    <span class="kw">type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;<span class="self">Self</span>::E1&gt;;
+    <span class="kw">type </span>EE1 =
+        nova::provider::hyperkzg::EvaluationEngine&lt;halo2curves::bn256::Bn256, Bn256EngineKZG&gt;;
     <span class="kw">type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;DualEng&lt;<span class="self">Self</span>::E1&gt;&gt;;
 
-    <span class="kw">type </span>E1 = Bn256Engine;
+    <span class="kw">type </span>E1 = Bn256EngineKZG;
 }
 <span class="comment">// The impl CurveCycleEquipped for grumpkin::Scalar is academically possible, but voluntarily omitted to avoid confusion.
 

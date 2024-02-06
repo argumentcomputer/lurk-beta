@@ -247,6 +247,12 @@
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Instances
 //!
 //! We manage the various kinds of public parameters of Nova and SuperNova with [Instance]s.
@@ -426,7 +432,13 @@
     </span><span class="kw">pub fn </span>key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">let </span>abomonated = <span class="kw">if </span><span class="self">self</span>.abomonated { <span class="string">&quot; abomonated&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;&quot; </span>};
         <span class="kw">let </span>lang = <span class="self">self</span>.lang();
-        <span class="macro">format!</span>(<span class="string">&quot;{} (rc={}){}&quot;</span>, lang.key(), <span class="self">self</span>.rc, abomonated)
+        <span class="macro">format!</span>(
+            <span class="string">&quot;{} (field={})(rc={}){}&quot;</span>,
+            lang.key(),
+            F::FIELD,
+            <span class="self">self</span>.rc,
+            abomonated
+        )
     }
 
     <span class="kw">pub fn </span>create(<span class="kw-2">&amp;</span><span class="self">self</span>, disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; io::Result&lt;File&gt; {
