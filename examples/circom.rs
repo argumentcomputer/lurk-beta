@@ -38,6 +38,7 @@ use lurk::circuit::gadgets::pointer::AllocatedPtr;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 
+use halo2curves::bn256::Fr as Bn;
 use lurk::eval::lang::Lang;
 use lurk::field::LurkField;
 use lurk::lem::{pointers::Ptr, store::Store};
@@ -48,7 +49,6 @@ use lurk::public_parameters::{
 };
 use lurk::Symbol;
 use lurk_macros::Coproc;
-use pasta_curves::pallas::Scalar as Fr;
 
 const REDUCTION_COUNT: usize = 1;
 
@@ -99,17 +99,17 @@ enum Sha256Coproc<F: LurkField> {
 /// `cargo run --release -- circom --name sha256_2 examples/sha256/`
 /// `cargo run --release --example circom`
 fn main() {
-    let store = &Store::<Fr>::default();
+    let store = &Store::default();
     let sym_str = Symbol::new(&[".circom_sha256_2"], false); // two inputs
-    let circom_sha256: CircomSha256<Fr> = CircomSha256::new(0);
-    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    let circom_sha256: CircomSha256<Bn> = CircomSha256::new(0);
+    let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_sha256));
     let lang_rc = Arc::new(lang);
 
     let expr = "(.circom_sha256_2)".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang_rc.clone());
+    let nova_prover = NovaProver::<Bn, Sha256Coproc<Bn>>::new(REDUCTION_COUNT, lang_rc.clone());
 
     println!("Setting up public parameters...");
 

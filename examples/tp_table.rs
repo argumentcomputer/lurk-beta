@@ -1,13 +1,13 @@
 use anyhow::{anyhow, Result};
 use ascii_table::{Align, AsciiTable};
 use criterion::black_box;
+use halo2curves::bn256::Fr as Bn;
 use lurk::{
     eval::lang::{Coproc, Lang},
     lem::{eval::evaluate, store::Store},
     proof::nova::{public_params, NovaProver, PublicParams},
 };
 use num_traits::ToPrimitive;
-use pasta_curves::pallas::Scalar as Fr;
 use statrs::statistics::Statistics;
 use std::{cell::OnceCell, sync::Arc, time::Instant};
 
@@ -142,7 +142,6 @@ fn n_folds_env() -> Result<usize> {
 /// │         16 │ 59.38±0.83 │ 56.42±0.63 │
 /// └────────────┴────────────┴────────────┘
 /// ```
-/// The first table
 fn main() {
     let rc_vec = rc_env().unwrap_or_else(|_| vec![100]);
     let max_n_folds = n_folds_env().unwrap_or(3);
@@ -152,12 +151,12 @@ fn main() {
 
     let limit = n_iters(max_n_folds, *max_rc);
 
-    let store = Store::<Fr>::default();
+    let store = Store::default();
     let program = store.read_with_default_state(PROGRAM).unwrap();
 
-    let frames = evaluate::<Fr, Coproc<Fr>>(None, program, &store, limit).unwrap();
+    let frames = evaluate::<Bn, Coproc<Bn>>(None, program, &store, limit).unwrap();
 
-    let lang = Lang::<Fr>::new();
+    let lang = Lang::<Bn>::new();
     let lang_arc = Arc::new(lang.clone());
 
     let mut data = Vec::with_capacity(rc_vec.len());

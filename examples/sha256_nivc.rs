@@ -1,4 +1,4 @@
-use pasta_curves::pallas::Scalar as Fr;
+use halo2curves::bn256::Fr as Bn;
 use std::{sync::Arc, time::Instant};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
@@ -66,12 +66,12 @@ fn main() {
     let args = std::env::args().collect::<Vec<_>>();
     let n = args.get(1).unwrap_or(&"1".into()).parse().unwrap();
 
-    let store = &Store::<Fr>::default();
+    let store = &Store::default();
     let cproc_sym = user_sym(&format!("sha256_nivc_{n}"));
 
     let call = sha256_nivc(store, n, &(0..n).collect::<Vec<_>>());
 
-    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
+    let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));
     let lang_rc = Arc::new(lang.clone());
 
@@ -80,7 +80,7 @@ fn main() {
     let frames = evaluate(Some((&lurk_step, &cprocs, &lang)), call, store, 1000).unwrap();
 
     let supernova_prover =
-        SuperNovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang_rc.clone());
+        SuperNovaProver::<Bn, Sha256Coproc<Bn>>::new(REDUCTION_COUNT, lang_rc.clone());
 
     println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
     let pp_start = Instant::now();
