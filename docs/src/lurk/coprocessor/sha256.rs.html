@@ -129,6 +129,10 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper::gadgets::{multipack::pack_bits, sha256::sha256};
 <span class="kw">use </span>bellpepper_core::{boolean::Boolean, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>lurk_macros::Coproc;
@@ -161,6 +165,10 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>bits = <span class="macro">vec!</span>[];
 
+    <span class="kw">let </span>pad_to_next_len_multiple_of_8 = |bits: <span class="kw-2">&amp;mut </span>Vec&lt;<span class="kw">_</span>&gt;| {
+        bits.resize((bits.len() + <span class="number">7</span>) / <span class="number">8 </span>* <span class="number">8</span>, zero.clone());
+    };
+
     <span class="kw">for </span>ptr <span class="kw">in </span>ptrs {
         <span class="kw">let </span>tag_bits = ptr
             .tag()
@@ -170,10 +178,10 @@
             .to_bits_le_strict(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;preimage_hash_bits&quot;</span>))<span class="question-mark">?</span>;
 
         bits.extend(tag_bits);
-        bits.push(zero.clone()); <span class="comment">// need 256 bits (or some multiple of 8).
-        </span>bits.extend(hash_bits);
-        bits.push(zero.clone()); <span class="comment">// need 256 bits (or some multiple of 8).
-    </span>}
+        pad_to_next_len_multiple_of_8(<span class="kw-2">&amp;mut </span>bits);
+        bits.extend(hash_bits);
+        pad_to_next_len_multiple_of_8(<span class="kw-2">&amp;mut </span>bits);
+    }
 
     bits.reverse();
 
