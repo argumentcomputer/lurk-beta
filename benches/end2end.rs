@@ -175,38 +175,6 @@ fn eval_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-// todo!(): come back to this later when we know what to do with circuit generation
-// fn circuit_generation_benchmark(c: &mut Criterion) {
-//     let mut group = c.benchmark_group("eval_benchmark");
-//     group.measurement_time(Duration::from_secs(5))
-//          .sample_size(60);
-
-//     let limit = 1_000_000_000;
-//     let _lang = Lang::<Bn, Coproc<Bn>>::new();
-//     let lang = Lang::<Bn, Coproc<Bn>>::new();
-
-//     let reduction_count = DEFAULT_REDUCTION_COUNT;
-
-//     group.bench_function("circuit_generation_go_base_10_16_nova", |b| {
-//         let mut store = Store::default();
-//         let env = empty_sym_env(&store);
-//         let ptr = go_base::<Bn>(&mut store, black_box(10), black_box(16));
-//         let prover = NovaProver::new(reduction_count, lang.clone());
-
-//         let pp = public_parameters::public_params(reduction_count).unwrap();
-//         let frames = prover
-//             .get_evaluation_frames(ptr, env, &mut store, limit, &lang)
-//             .unwrap();
-
-//         b.iter(|| {
-//             let result = prover
-//                 .prove(&pp, frames.clone(), &mut store, &lang)
-//                 .unwrap();
-//             black_box(result);
-//         })
-//     });
-// }
-
 /// To run these benchmarks, do `cargo criterion prove_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion prove_benchmark --features flamegraph -- --profile-time <secs>```
@@ -427,7 +395,6 @@ cfg_if::cfg_if! {
                 store_benchmark,
                 hydration_benchmark,
                 eval_benchmark,
-                // circuit_generation_benchmark,
                 prove_benchmark,
                 prove_compressed_benchmark,
                 verify_benchmark,
@@ -442,7 +409,6 @@ cfg_if::cfg_if! {
                 store_benchmark,
                 hydration_benchmark,
                 eval_benchmark,
-                // circuit_generation_benchmark,
                 prove_benchmark,
                 prove_compressed_benchmark,
                 verify_benchmark,
