@@ -238,7 +238,7 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
     <span class="kw">use </span>ff::Field;
-    <span class="kw">use </span>pasta_curves::Fq;
+    <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Bn;
     <span class="kw">use </span>serde::{Deserialize, Serialize};
 
     <span class="kw">use super</span>::{de, ser, HasFieldModulus};
@@ -274,7 +274,7 @@
         <span class="kw">let </span>s = Struct {
             str: <span class="string">&quot;hi&quot;</span>.into(),
             int: <span class="number">42</span>,
-            ff: Fq::double(<span class="kw-2">&amp;</span>Fq::ONE),
+            ff: Bn::double(<span class="kw-2">&amp;</span>Bn::ONE),
         };
         <span class="macro">assert_eq!</span>(s, de(<span class="kw-2">&amp;</span>ser(s.clone()).unwrap()).unwrap())
     }
@@ -283,7 +283,7 @@
     </span><span class="kw">fn </span>enum1_roundtrips() {
         <span class="kw">let </span>e11 = Enum1::CaseStr(<span class="string">&quot;bye&quot;</span>.into());
         <span class="kw">let </span>e12 = Enum1::CaseInt(<span class="number">11</span>);
-        <span class="kw">let </span>e13 = Enum1::CaseFF(Fq::double(<span class="kw-2">&amp;</span>Fq::double(<span class="kw-2">&amp;</span>Fq::ONE)));
+        <span class="kw">let </span>e13 = Enum1::CaseFF(Bn::double(<span class="kw-2">&amp;</span>Bn::double(<span class="kw-2">&amp;</span>Bn::ONE)));
         <span class="kw">for </span>e <span class="kw">in </span>[e11, e12, e13] {
             <span class="macro">assert_eq!</span>(e, de(<span class="kw-2">&amp;</span>ser(e.clone()).unwrap()).unwrap());
         }
@@ -308,11 +308,11 @@
         }
         <span class="kw">let </span>e11 = Enum1::CaseStr(<span class="string">&quot;bye&quot;</span>.into());
         <span class="kw">let </span>e12 = Enum1::CaseInt(<span class="number">11</span>);
-        <span class="kw">let </span>e13 = Enum1::CaseFF(Fq::double(<span class="kw-2">&amp;</span>Fq::double(<span class="kw-2">&amp;</span>Fq::ONE)));
+        <span class="kw">let </span>e13 = Enum1::CaseFF(Bn::double(<span class="kw-2">&amp;</span>Bn::double(<span class="kw-2">&amp;</span>Bn::ONE)));
 
         <span class="kw">let </span>e21 = Enum2::CaseStr2(<span class="string">&quot;bye&quot;</span>.into());
         <span class="kw">let </span>e22 = Enum2::CaseInt2(<span class="number">11</span>);
-        <span class="kw">let </span>e23 = Enum2::CaseFF2(Fq::double(<span class="kw-2">&amp;</span>Fq::double(<span class="kw-2">&amp;</span>Fq::ONE)));
+        <span class="kw">let </span>e23 = Enum2::CaseFF2(Bn::double(<span class="kw-2">&amp;</span>Bn::double(<span class="kw-2">&amp;</span>Bn::ONE)));
 
         <span class="kw">for </span>(e1, e2) <span class="kw">in </span>[(e11, e21), (e12, e22), (e13, e23)] {
             <span class="macro">assert_eq!</span>(e2.clone(), de(<span class="kw-2">&amp;</span>ser(e1.clone()).unwrap()).unwrap());

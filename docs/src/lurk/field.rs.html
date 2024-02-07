@@ -505,15 +505,15 @@
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test)]
 </span><span class="kw">pub enum </span>LanguageField {
-    <span class="doccomment">/// The Pallas field,
-    </span><span class="attr">#[default]
-    </span>Pallas,
-    <span class="doccomment">/// The Vesta field,
-    </span>Vesta,
     <span class="doccomment">/// The BN256 scalar field,
+    </span><span class="attr">#[default]
     </span>BN256,
     <span class="doccomment">/// THe Grumpkin scalar field,
     </span>Grumpkin,
+    <span class="doccomment">/// The Pallas field,
+    </span>Pallas,
+    <span class="doccomment">/// The Vesta field,
+    </span>Vesta,
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>LanguageField {

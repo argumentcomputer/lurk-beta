@@ -1350,7 +1350,7 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;(let ((n (open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25))) (* (car n) (cdr n)))&quot;</span>,
+            <span class="string">&quot;(let ((n (open 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001))) (* (car n) (cdr n)))&quot;</span>,
         ],
         run: |repl, args, _path| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
@@ -1366,8 +1366,8 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(hide 12345 &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))&quot;</span>,
-            <span class="string">&quot;(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)&quot;</span>,
+            <span class="string">&quot;(secret (comm 0x1884a703eea837ffae6ae99ec9af8e90d3fce7666c7953ffbe5eac7463ed1819))&quot;</span>,
+            <span class="string">&quot;(open 0x1884a703eea837ffae6ae99ec9af8e90d3fce7666c7953ffbe5eac7463ed1819)&quot;</span>,
         ],
         run: |repl, args, _path| {
             <span class="kw">let </span>(first, second) = repl.peek2(args)<span class="question-mark">?</span>;
@@ -1396,7 +1396,7 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
+            <span class="string">&quot;!(fetch 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001)&quot;</span>,
         ],
         run: |repl, args, _path| {
             <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(args)<span class="question-mark">?</span>;
@@ -1411,7 +1411,7 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
-            <span class="string">&quot;!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)&quot;</span>,
+            <span class="string">&quot;!(open 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001)&quot;</span>,
         ],
         run: |repl, args, _path| {
             <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(args)<span class="question-mark">?</span>;
@@ -1461,8 +1461,8 @@
         ],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
-            <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\&quot;)&quot;</span>,
-            <span class="string">&quot;!(open 0x002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf)&quot;</span>,
+            <span class="string">&quot;!(verify \&quot;Nova_BN256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\&quot;)&quot;</span>,
+            <span class="string">&quot;!(open 0x048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47)&quot;</span>,
         ],
         run: |repl, args, _path| {
             <span class="kw">if </span>!args.is_nil() {
@@ -1480,8 +1480,8 @@
         description: <span class="kw-2">&amp;</span>[<span class="string">&quot;Verify proof key &lt;string&gt; and print the result.&quot;</span>],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(prove &#39;(1 2 3))&quot;</span>,
-            <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\&quot;)&quot;</span>,
-            <span class="string">&quot;!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)&quot;</span>,
+            <span class="string">&quot;!(verify \&quot;Nova_BN256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\&quot;)&quot;</span>,
+            <span class="string">&quot;!(open 0x048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47)&quot;</span>,
         ],
         run: |repl, args, _path| {
             <span class="kw">let </span>first = repl.peek1(args)<span class="question-mark">?</span>;
@@ -1660,7 +1660,7 @@
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;(commit (lambda (x) x))&quot;</span>,
-            <span class="string">&quot;!(call 0x2f14c82533e8347d128b07e6610d0fc901f71418c2a6ea3e618cfe654f73f4b1 0)&quot;</span>,
+            <span class="string">&quot;!(call 0x2f31ee658b82c09daebbd2bd976c9d6669ad3bd6065056763797d5aaf4a3001b 0)&quot;</span>,
         ],
         run: <span class="self">Self</span>::call,
     };
@@ -1679,7 +1679,7 @@
                        (let ((counter (+ counter x)))
                          (cons counter (commit (add counter)))))))
                (add 0)))&quot;</span>,
-            <span class="string">&quot;!(chain 0x14cb06e2d3c594af90d5b670e73595791d7462b20442c24cd56ba2919947d769 1)&quot;</span>,
+            <span class="string">&quot;!(chain 0x2b444b40b27bac0dff8416c0f3c708a505a636d86ba66bdbe86497c515afb651 1)&quot;</span>,
         ],
         run: |repl, args, path| {
             <span class="self">Self</span>::call(repl, args, path)<span class="question-mark">?</span>;
@@ -2017,7 +2017,7 @@
             <span class="string">&quot;(commit &#39;(13 . 17))&quot;</span>,
             <span class="string">&quot;!(prove-protocol my-protocol&quot;</span>,
             <span class="string">&quot;  \&quot;protocol-proof\&quot;&quot;</span>,
-            <span class="string">&quot;  0x09910d31a7568d66855bcc83fccc4826063dfdf93fe5e1f736c83ec892ed139e&quot;</span>,
+            <span class="string">&quot;  0x237fe43a25f3830ab6ac86451b93e74e8ef6ef1e8735a3f53478b7fe76b1a466&quot;</span>,
             <span class="string">&quot;  &#39;(13 . 17))&quot;</span>,
         ],
         run: |repl, args, _path| {
