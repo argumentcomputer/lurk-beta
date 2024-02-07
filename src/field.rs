@@ -37,15 +37,15 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 pub enum LanguageField {
-    /// The Pallas field,
-    #[default]
-    Pallas,
-    /// The Vesta field,
-    Vesta,
     /// The BN256 scalar field,
+    #[default]
     BN256,
     /// THe Grumpkin scalar field,
     Grumpkin,
+    /// The Pallas field,
+    Pallas,
+    /// The Vesta field,
+    Vesta,
 }
 
 impl std::fmt::Display for LanguageField {
