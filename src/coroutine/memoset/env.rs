@@ -28,7 +28,7 @@ pub(crate) enum EnvCircuitQuery<F: LurkField> {
 impl<F: LurkField> Query<F> for EnvQuery<F> {
     type CQ = EnvCircuitQuery<F>;
 
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>>) -> Ptr {
+    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         match self {
             Self::Lookup(var, env) => {
                 if let Some([v, val, new_env]) = s.pop_binding(*env) {
@@ -125,7 +125,14 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
+    ) -> Result<
+        (
+            (AllocatedPtr<F>, AllocatedPtr<F>),
+            AllocatedPtr<F>,
+            CircuitTranscript<F>,
+        ),
+        SynthesisError,
+    > {
         match self {
             Self::Lookup(var, env) => {
                 let nil = store.intern_nil();
@@ -180,11 +187,35 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
                     &new_env_alloc,
                 )?;
 
+                let env_alloc = AllocatedPtr::from_parts(env_tag.clone(), env.clone());
+                let these_args = construct_cons(
+                    &mut cs.namespace(|| "these_args"),
+                    g,
+                    store,
+                    &var_alloc,
+                    &env_alloc,
+                )?;
+
+                let symbol = g.alloc_ptr(
+                    &mut cs.namespace(|| "symbol_"),
+                    &self.symbol_ptr(store),
+                    store,
+                );
+
+                let query = construct_cons(
+                    &mut cs.namespace(|| "query"),
+                    g,
+                    store,
+                    &symbol,
+                    &these_args,
+                )?;
+
                 self.recurse(
                     cs,
                     g,
                     store,
                     scope,
+                    &query,
                     &recursive_args,
                     &is_immediate.not(),
                     (&immediate_result, acc, transcript),
@@ -242,7 +273,7 @@ mod test {
     #[test]
     fn test_env_lookup() {
         let s = Store::<F>::default();
-        let mut scope: Scope<EnvQuery<F>, LogMemo<F>> = Scope::default();
+        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::default();
         let a = s.intern_symbol(&sym!("a"));
         let b = s.intern_symbol(&sym!("b"));
         let c = s.intern_symbol(&sym!("c"));
@@ -306,69 +337,24 @@ mod test {
         let a2_env = s.push_binding(a, four, c_env);
 
         {
-            // With internal insertions transcribed.
-
-            let (one_lookup_constraints, one_lookup_aux) =
-                test_lookup_circuit_aux(s, a, empty, true, expect!["3231"], expect!["3242"]);
-
-            test_lookup_circuit_aux(s, a, a_env, true, expect!["3231"], expect!["3242"]);
-
-            let (two_lookup_constraints, two_lookup_aux) =
-                test_lookup_circuit_aux(s, b, a_env, true, expect!["5872"], expect!["5891"]);
-
-            test_lookup_circuit_aux(s, b, b_env, true, expect!["3231"], expect!["3242"]);
-            test_lookup_circuit_aux(s, a, a2_env, true, expect!["3231"], expect!["3242"]);
-
-            let (three_lookup_constraints, three_lookup_aux) =
-                test_lookup_circuit_aux(s, c, b_env, true, expect!["8513"], expect!["8540"]);
-
-            test_lookup_circuit_aux(s, c, c_env, true, expect!["3231"], expect!["3242"]);
-            test_lookup_circuit_aux(s, c, a2_env, true, expect!["5872"], expect!["5891"]);
-
-            let delta1_constraints = two_lookup_constraints - one_lookup_constraints;
-            let delta2_constraints = three_lookup_constraints - two_lookup_constraints;
-            let overhead_constraints = one_lookup_constraints - delta1_constraints;
-
-            assert_eq!(delta1_constraints, delta2_constraints);
-
-            // This is the number of constraints per lookup.
-            expect_eq(delta1_constraints, expect!["2641"]);
-
-            // This is the number of constraints in the constant overhead.
-            expect_eq(overhead_constraints, expect!["590"]);
-
-            let delta1_aux = two_lookup_aux - one_lookup_aux;
-            let delta2_aux = three_lookup_aux - two_lookup_aux;
-            let overhead_aux = one_lookup_aux - delta1_aux;
-
-            assert_eq!(delta1_aux, delta2_aux);
-
-            // This is the number of aux per lookup.
-            expect_eq(delta1_aux, expect!["2649"]);
-
-            // This is the number of aux in the constant overhead.
-            expect_eq(overhead_aux, expect!["593"]);
-        }
-
-        {
             // Without internal insertions transcribed.
 
             let (one_lookup_constraints, one_lookup_aux) =
-                test_lookup_circuit_aux(s, a, empty, false, expect!["2942"], expect!["2953"]);
+                test_lookup_circuit_aux(s, a, empty, expect!["3524"], expect!["3541"]);
 
-            test_lookup_circuit_aux(s, a, a_env, false, expect!["2942"], expect!["2953"]);
+            test_lookup_circuit_aux(s, a, a_env, expect!["3524"], expect!["3541"]);
 
             let (two_lookup_constraints, two_lookup_aux) =
-                test_lookup_circuit_aux(s, b, a_env, false, expect!["5294"], expect!["5313"]);
+                test_lookup_circuit_aux(s, b, a_env, expect!["6457"], expect!["6485"]);
 
-            test_lookup_circuit_aux(s, b, b_env, false, expect!["2942"], expect!["2953"]);
-            test_lookup_circuit_aux(s, a, a2_env, false, expect!["2942"], expect!["2953"]);
+            test_lookup_circuit_aux(s, b, b_env, expect!["3524"], expect!["3541"]);
+            test_lookup_circuit_aux(s, a, a2_env, expect!["3524"], expect!["3541"]);
 
             let (three_lookup_constraints, three_lookup_aux) =
-                test_lookup_circuit_aux(s, c, b_env, false, expect!["7646"], expect!["7673"]);
+                test_lookup_circuit_aux(s, c, b_env, expect!["9390"], expect!["9429"]);
 
-            test_lookup_circuit_aux(s, c, c_env, false, expect!["2942"], expect!["2953"]);
-            test_lookup_circuit_aux(s, c, a2_env, false, expect!["5294"], expect!["5313"]);
+            test_lookup_circuit_aux(s, c, c_env, expect!["3524"], expect!["3541"]);
+            test_lookup_circuit_aux(s, c, a2_env, expect!["6457"], expect!["6485"]);
 
             let delta1_constraints = two_lookup_constraints - one_lookup_constraints;
             let delta2_constraints = three_lookup_constraints - two_lookup_constraints;
@@ -377,10 +363,10 @@ mod test {
             assert_eq!(delta1_constraints, delta2_constraints);
 
             // This is the number of constraints per lookup.
-            expect_eq(delta1_constraints, expect!["2352"]);
+            expect_eq(delta1_constraints, expect!["2933"]);
 
             // This is the number of constraints in the constant overhead.
-            expect_eq(overhead_constraints, expect!["590"]);
+            expect_eq(overhead_constraints, expect!["591"]);
 
             let delta1_aux = two_lookup_aux - one_lookup_aux;
             let delta2_aux = three_lookup_aux - two_lookup_aux;
@@ -389,10 +375,10 @@ mod test {
             assert_eq!(delta1_aux, delta2_aux);
 
             // This is the number of aux per lookup.
-            expect_eq(delta1_aux, expect!["2360"]);
+            expect_eq(delta1_aux, expect!["2944"]);
 
             // This is the number of aux in the constant overhead.
-            expect_eq(overhead_aux, expect!["593"]);
+            expect_eq(overhead_aux, expect!["597"]);
         }
     }
 
@@ -400,7 +386,6 @@ mod test {
         s: &Store<F>,
         sym: Ptr,
         env: Ptr,
-        transcribe_internal_insertions: bool,
         expected_constraints_simple: Expect,
         expected_aux_simple: Expect,
     ) -> (usize, usize) {
@@ -409,8 +394,7 @@ mod test {
             expected.assert_eq(&computed.to_string());
         };
 
-        let mut scope: Scope<EnvQuery<F>, LogMemo<F>> =
-            Scope::new(transcribe_internal_insertions, 1);
+        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1);
 
         let make_query = |sym, env| EnvQuery::Lookup(sym, env).to_ptr(s);
 
