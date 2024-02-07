@@ -13,13 +13,13 @@
   :descr "demo protocol")
 
 ;; This is the prover's pair, whose hash is
-;; 0x09910d31a7568d66855bcc83fccc4826063dfdf93fe5e1f736c83ec892ed139e
+;; 0x237fe43a25f3830ab6ac86451b93e74e8ef6ef1e8735a3f53478b7fe76b1a466
 (commit '(13 . 17))
 
 ;; Let's prove it and write the proof to the file protocol-proof
 !(prove-protocol my-protocol
   "protocol-proof"
-  0x09910d31a7568d66855bcc83fccc4826063dfdf93fe5e1f736c83ec892ed139e
+  0x237fe43a25f3830ab6ac86451b93e74e8ef6ef1e8735a3f53478b7fe76b1a466
   '(13 . 17))
 
 ;; Now it can be verified

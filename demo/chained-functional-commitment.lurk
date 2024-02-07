@@ -9,7 +9,7 @@
 
 ;; We chain a next commitment by applying the committed function to a value of 9.
 
-!(chain 0x3e47de9fb674019306d566345ab360d92f955e29e015432b10ecb58476f42f01 9)
+!(chain 0x2b444b40b27bac0dff8416c0f3c708a505a636d86ba66bdbe86497c515afb651 9)
 
 ;; The new counter value is 9, and the function returns a new functional commitment.
 
@@ -21,7 +21,7 @@
 
 ;; We can verify the proof.
 
-!(verify "Nova_Pallas_10_1b894ae4e13a74970afb9ff982fd0e9c4dc439a8317ac85eeaf97ab6c3d8f35e")
+!(verify "Nova_BN256_10_0f54f9e56fa6c436618597c971daa7b525ad80ac48be11226284fd4f8167e60a")
 
 ;; Now let's chain another call to the new head, adding 12 to the counter.
 
@@ -35,7 +35,7 @@
 
 ;; And verify.
 
-!(verify "Nova_Pallas_10_29a1a6b7ceca05a40f92883dc7d3c11dd8e7cca698665bc7a9faaaa96cdde96a")
+!(verify "Nova_BN256_10_281771b7af2f96cac51cb7579d94f0a6f56e9a9d951b753f8514b2b4ec6ce4db")
 
 ;; One more time, we'll add 14 to the head commitment's internal state.
 
@@ -49,7 +49,7 @@
 
 ;; Verify.
 
-!(verify "Nova_Pallas_10_13f092af20ac415822a0528d41e5c1f5565bfa6d0ec376445e677f411eb3ddd4")
+!(verify "Nova_BN256_10_22ab68c1fa6e75f54d213a3ada71edd21331bf58826263a79e3fdd32f1c4c62d")
 
 ;; Repeat indefinitely.
 

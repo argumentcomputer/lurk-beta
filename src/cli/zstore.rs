@@ -312,7 +312,7 @@ impl<F: LurkField> ZStore<F> {
 
 #[cfg(test)]
 mod tests {
-    use pasta_curves::Fp;
+    use halo2curves::bn256::Fr as Bn;
     use rand::{rngs::StdRng, Rng};
     use rand_core::SeedableRng;
     use rayon::prelude::{IntoParallelIterator, ParallelIterator};
@@ -331,7 +331,7 @@ mod tests {
     use super::{ZDag, ZStore};
 
     /// helper function that interns random data into a store
-    fn rng_interner(rng: &mut StdRng, max_depth: usize, store: &Store<Fp>) -> Ptr {
+    fn rng_interner(rng: &mut StdRng, max_depth: usize, store: &Store<Bn>) -> Ptr {
         let rnd = rng.gen::<u64>();
         let tag = match rnd % 4 {
             0 => Tag::Expr(ExprTag::try_from((rnd % 11) as u16).unwrap()),
@@ -341,10 +341,10 @@ mod tests {
             _ => unreachable!(),
         };
         if max_depth == 0 {
-            store.intern_atom(tag, Fp::from_u64(rnd))
+            store.intern_atom(tag, Bn::from_u64(rnd))
         } else {
             match rnd % 4 {
-                0 => store.intern_atom(tag, Fp::from_u64(rnd)),
+                0 => store.intern_atom(tag, Bn::from_u64(rnd)),
                 1 => intern_ptrs!(
                     store,
                     tag,
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn test_filtered_dag() {
-        let store = Store::<Fp>::default();
+        let store = Store::<Bn>::default();
         let one = store.num_u64(1);
         let two = store.num_u64(2);
         let thr = store.num_u64(3);

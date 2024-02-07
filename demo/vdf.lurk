@@ -8,7 +8,7 @@
 (fastexp 2 5)
 
 ;; (4p - 3) / 5
-!(def r 23158417847463239084714197001737581570690445185553317903743794198714690358477)
+!(def r 17510594297471420177797124596205820070838691520332827474958563349260646796493)
 
 !(def fifth-root (lambda (n) (fastexp n r)))
 
@@ -16,7 +16,7 @@
 
 (fifth-root 42)
 
-(fifth 0x2e6606ca7e8983f71964677e06cd8fd13ee0d46bf3c3e52d3af1b80df06f730b)
+(fifth 0x2a7b0ae43e98616d25287ce004700ac747ed8f5e95761ee4869ac0a851b3d3ee)
 
 !(def round (lambda (state)
                (let ((x (car state))
@@ -47,11 +47,11 @@
 
 (minroot '(123 456 1) 10)
 
-(minroot-inverse '(0x27ec1d892ff1b85d98dd8e61509c0ce63b6954da8a743ee54b1f405cde722eb1 0x0da555f3ff604e853948466204d773c4c34d8cf38cea55351c9c97593613fb3b 11) 10)
+(minroot-inverse '(0x1896bbc5df5819f436df3f86f6c707bdee372c1046bfa70196cf0f358497acc2 0x0ba0c60958b05f0ca1153cab833cbc315f7f10c4e1b9630ec8829cea907cb688 11) 10)
 
 !(prove)
 
-!(verify "Nova_Pallas_10_3d385361e08449cad361ccbe45d4c41685bcee7ece87b33c47b8953309002f64")
+!(verify "Nova_BN256_10_2b96123c7e47229622beeef7080c005e9d18ed0cfd2c0b7f06e1d9f1cfcf83a8")
 
 !(def timelock-encrypt (lambda (secret-key plaintext rounds)
                           (let ((ciphertext (+ secret-key plaintext))

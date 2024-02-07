@@ -55,7 +55,7 @@ fn test_prove_and_verify() {
 
     let mut file = File::create(lurk_file.clone()).unwrap();
     file.write_all(b"!(prove (+ 1 1))\n").unwrap();
-    file.write_all(b"!(verify \"Nova_Pallas_10_090cee5a184bc9b76a965e59b87cd1a1eac30c2b0f243e7ee0232e51d14ebbf6\")\n").unwrap();
+    file.write_all(b"!(verify \"Nova_BN256_10_18748ce7ba3dd0e7560ec64983d6b01d84a6303880b3b0b24878133aa1b4a6bb\")\n").unwrap();
 
     let mut cmd = lurk_cmd();
     cmd.env("LURK_PERF", "max-parallel-simple");

@@ -192,7 +192,7 @@ ledger2
 
 ;; Now we can open the committed ledger transfer function on a transaction.
 
-!(call 0x348a2e97903fff808be52461d19c3192b6868830598be397b361a21bfc8a45f9 '(1 0 2))
+!(call 0x207bca2dcc9fb4d1d3e3939d2c1e6a3adaabf41dc0174dd39b9949d697b55aaa '(1 0 2))
 
 ;; And the record reflects that Church sent one unit to Satoshi.
 
@@ -202,7 +202,7 @@ ledger2
 
 ;; We can verify the proof..
 
-!(verify "Nova_Pallas_10_398a87b5f99157b86abde88a67754791f72fed93ccd8db68d693bc9f7e26738c")
+!(verify "Nova_BN256_10_11882126c5f0dd9a94f76ff58ea5c499cfe2364162585c320c55f53651e16ffd")
 
 ;; Unfortunately, this functional commitment doesn't let us maintain state.
 ;; Let's turn our single-transaction function into a chained function.
@@ -219,24 +219,24 @@ ledger2
 
 ;; Now we can transfer one unit from Church to Satoshi like before.
 
-!(chain 0x0e484bf02f72ad529ebb9ded8fc2f4c2b1519a758e0f0238973bf0cd8dd97f72 '(1 0 2))
+!(chain 0x07ec757321b69b7902c2c5629535c343c1eb335c0ca12275a95ec28918e0af47 '(1 0 2))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_11df37aff14b2fc8c1fea85fcc07ebececa4ef3e974764c73c49a2ce64eeb8f1")
+!(verify "Nova_BN256_10_0b72908859e73ee3014067a5eaa557a995aea262cfb5f3621922024a176b8281")
 
 ;; Then we can transfer 5 more, proceeding from the new head of the chain.
 
-!(chain 0x3cb56c66573d29a478b62ff6d59df557dd2e6a924ff408644e61e31c3847a9cd '(5 0 2))
+!(chain 0x18b99c6b580d518129921ebf70023b5d757861b935f7f537460c99130eb4447d '(5 0 2))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_3541178de43221c6d12f82ff6da37807971079d11ced58e3564ba2f34e77cfc4")
+!(verify "Nova_BN256_10_0d8159faab0d85855d4cf53c7e36a2357a1766a1540afbafb0ef93d7e1537ca8")
 
 ;; And once more, this time we'll transfer 20 from Turing to Church.
 
-!(chain 0x38172b9b6212b557d94b9896ea569e77fa35ac979700bedcc97f711322169905 '(20 1 0))
+!(chain 0x0b2d868fad0e6ec88e9ba6818ae9a0345aab06abc2c226200ff3ed45c60a41db '(20 1 0))
 
 !(prove)
 
-!(verify "Nova_Pallas_10_2dd41df4b593c4f8b4a0a058d94b8dbcded8343f829d1aaf2765f0b8e0eda03b")
+!(verify "Nova_BN256_10_0a253296edb4d6c204edd92e63176efed7c30e9f5928b52ba9be2b3f2e6e8b08")
