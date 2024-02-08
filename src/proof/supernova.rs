@@ -279,7 +279,9 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                 });
 
                 for (i, (_, step)) in cc.iter().enumerate() {
-                    prove_step(i, &step.lock().unwrap());
+                    let mut step = step.lock().unwrap();
+                    prove_step(i, &step);
+                    step.clear_cached_witness();
                 }
             })
             .unwrap()
