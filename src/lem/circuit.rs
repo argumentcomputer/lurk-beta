@@ -597,6 +597,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 if cproc.has_circuit() {
                     // call the coprocessor's synthesize and then make sure that
                     // the output matches the data collected during interpretation
+                    dbg!(&inp);
                     let inp_ptrs = bound_allocations.get_many_ptr(inp)?;
                     let synthesize_output = cproc.synthesize_internal(
                         ns!(cs, format!("Coprocessor {sym}")),
