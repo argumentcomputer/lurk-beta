@@ -1808,7 +1808,7 @@
             <span class="string">&quot;        (mk-open-expr (lambda (hash) (cons &#39;open (cons hash nil)))))&quot;</span>,
             <span class="string">&quot;    (cons&quot;</span>,
             <span class="string">&quot;      (if (= (+ (car pair) (cdr pair)) 30)&quot;</span>,
-            <span class="string">&quot;        (list6 (mk-open-expr hash) nil :outermost pair nil :terminal)&quot;</span>,
+            <span class="string">&quot;        (list6 (mk-open-expr hash) (empty-env) :outermost pair (empty-env) :terminal)&quot;</span>,
             <span class="string">&quot;        nil)&quot;</span>,
             <span class="string">&quot;      (lambda () (&gt; (car pair) 10))))&quot;</span>,
             <span class="string">&quot;  :rc 10&quot;</span>,
