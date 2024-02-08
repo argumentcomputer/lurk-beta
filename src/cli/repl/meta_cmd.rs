@@ -696,7 +696,7 @@ where
             "        (mk-open-expr (lambda (hash) (cons 'open (cons hash nil)))))",
             "    (cons",
             "      (if (= (+ (car pair) (cdr pair)) 30)",
-            "        (list6 (mk-open-expr hash) nil :outermost pair nil :terminal)",
+            "        (list6 (mk-open-expr hash) (empty-env) :outermost pair (empty-env) :terminal)",
             "        nil)",
             "      (lambda () (> (car pair) 10))))",
             "  :rc 10",
