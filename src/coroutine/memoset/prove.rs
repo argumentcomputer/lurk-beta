@@ -5,19 +5,27 @@ use crate::{
     lem::{pointers::Ptr, store::Store},
     proof::{
         nova::{CurveCycleEquipped, E1},
-        supernova::{Proof, PublicParams, C2},
+        supernova::{Proof, PublicParams, SuperNovaPublicParams, C2, SS1, SS2},
         FrameLike, Prover, RecursiveSNARKTrait,
     },
 };
 
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
+use once_cell::sync::OnceCell;
 use tracing::info;
 
 use super::query::Query;
 use super::{CoroutineCircuit, LogMemo, Scope, DEFAULT_RC_FOR_QUERY};
 
-use nova::supernova::{
-    error::SuperNovaError, snark::CompressedSNARK, NonUniformCircuit, RecursiveSNARK, StepCircuit,
+use nova::{
+    supernova::{
+        error::SuperNovaError, snark::CompressedSNARK, NonUniformCircuit, RecursiveSNARK,
+        StepCircuit,
+    },
+    traits::{
+        snark::{BatchedRelaxedR1CSSNARKTrait, RelaxedR1CSSNARKTrait},
+        Dual as DualEng,
+    },
 };
 use std::marker::PhantomData;
 
@@ -26,11 +34,23 @@ const COROUTINE_ARITY: usize = 12;
 type Coroutine<'a, F, Q> = CoroutineCircuit<'a, F, LogMemo<F>, Q>;
 
 #[derive(Debug)]
-struct MemosetProver<'a, F, Q> {
+pub(crate) struct MemosetProver<'a, F, Q> {
     /// The number of small-step reductions performed in each recursive step of
     /// the primary Lurk circuit.
     reduction_count: usize,
     _phantom: PhantomData<&'a (F, Q)>,
+}
+
+impl<'a, F, Q> MemosetProver<'a, F, Q> {
+    pub(crate) fn new(reduction_count: usize) -> Self {
+        Self {
+            reduction_count,
+            _phantom: PhantomData,
+        }
+    }
+    pub(crate) fn default() -> Self {
+        Self::new(DEFAULT_RC_FOR_QUERY)
+    }
 }
 
 impl<'a, F, Q> NonUniformCircuit<E1<F>> for Coroutine<'a, F, Q>
@@ -46,7 +66,7 @@ where
     }
 
     fn primary_circuit(&self, circuit_index: usize) -> Coroutine<'a, F, Q> {
-        Coroutine::blank(circuit_index, self.memoset.clone(), self.store)
+        Coroutine::blank(circuit_index, self.store)
     }
 
     fn secondary_circuit(&self) -> C2<F> {
@@ -198,17 +218,80 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> Prover<'a, F, Corouti
 
     fn evaluate_and_prove(
         &self,
-        pp: &Self::PublicParams,
-        expr: Ptr,
+        _pp: &Self::PublicParams,
+        _expr: Ptr,
         _env: Ptr,
-        store: &'a Store<F>,
+        _store: &'a Store<F>,
         _limit: usize,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
-        let circuit_query_rc = DEFAULT_RC_FOR_QUERY;
-        let mut scope: Scope<Q, LogMemo<F>, F> = Scope::new(circuit_query_rc);
-        scope.query(store, expr);
-        scope.finalize_transcript(store);
-        let steps = Vec::new();
-        self.prove(pp, steps, store)
+        unimplemented!()
+    }
+}
+
+fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
+    prover: &MemosetProver<'a, F, Q>,
+    pp: &PublicParams<F>,
+    scope: &'a Scope<Q, LogMemo<F>, F>,
+    store: &'a Store<F>,
+) -> Result<(Proof<F, Coroutine<'a, F, Q>>, Vec<F>, Vec<F>, usize), ProofError> {
+    let mut steps = Vec::new();
+    for (index, keys) in scope.unique_inserted_keys.iter() {
+        let rc = scope.rc_for_query(*index);
+        for chunk in keys.chunks(rc) {
+            let next_query_index = 0;
+            let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
+                scope,
+                scope.memoset.clone(),
+                chunk.to_vec(),
+                *index,
+                next_query_index,
+                store,
+                rc,
+            );
+            steps.push(circuit)
+        }
+    }
+    prover.prove(pp, steps, store)
+}
+
+fn public_params<
+    F: CurveCycleEquipped,
+    SC: StepCircuit<F> + NonUniformCircuit<<F as CurveCycleEquipped>::E1>,
+>(
+    non_uniform_circuit: &SC,
+) -> PublicParams<F> {
+    let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
+    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<DualEng<E1<F>>>>::ck_floor();
+
+    let pp = SuperNovaPublicParams::<F>::setup(
+        non_uniform_circuit,
+        &*commitment_size_hint1,
+        &*commitment_size_hint2,
+    );
+    PublicParams {
+        pp,
+        pk_and_vk: OnceCell::new(),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::coroutine::memoset::demo::DemoQuery;
+    use halo2curves::bn256::Fr;
+
+    #[test]
+    fn prove_memo() {
+        let s = &Store::<Fr>::default();
+        let query = s.read_with_default_state("(factorial 40)").unwrap();
+        let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::default();
+
+        let mut scope = Scope::new(prover.reduction_count);
+        scope.query(s, query);
+        scope.finalize_transcript(s);
+
+        let sc = CoroutineCircuit::<'_, _, _, DemoQuery<Fr>>::blank(0, s);
+        let pp = public_params(&sc);
+        prove_from_scope(&prover, &pp, &scope, s).unwrap();
     }
 }

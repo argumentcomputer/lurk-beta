@@ -430,13 +430,9 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
         }
     }
 
-    fn blank(
-        query_index: usize,
-        memoset: LogMemo<F>,
-        store: &'a Store<F>,
-    ) -> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
+    fn blank(query_index: usize, store: &'a Store<F>) -> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
         Self {
-            memoset,
+            memoset: Default::default(),
             provenances: Default::default(),
             keys: Default::default(),
             query_index,
