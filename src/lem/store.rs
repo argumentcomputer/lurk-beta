@@ -1189,7 +1189,7 @@ impl Ptr {
                 Comm => match self.raw().get_atom() {
                     Some(idx) => {
                         let f = store.expect_f(idx);
-                        if store.inverse_z_cache.get(&FWrap(*f)).is_some() {
+                        if store.comms.get(&FWrap(*f)).is_some() {
                             format!("(comm 0x{})", f.hex_digits())
                         } else {
                             format!("<Opaque Comm 0x{}>", f.hex_digits())
@@ -1350,6 +1350,7 @@ impl Ptr {
 
 #[cfg(test)]
 mod tests {
+    use expect_test::expect;
     use ff::Field;
     use halo2curves::bn256::Fr;
     use proptest::prelude::*;
@@ -1603,5 +1604,19 @@ mod tests {
             let ptr2 = store.intern_syntax(y);
             assert_eq!(ptr1, ptr2);
         }
+    }
+
+    #[test]
+    fn comm_printing() {
+        let store = Store::<Fr>::default();
+        let ptr = store.num_u64(0);
+
+        let opq_comm = ptr.cast(Tag::Expr(ExprTag::Comm));
+        expect!["<Opaque Comm 0x0000000000000000000000000000000000000000000000000000000000000000>"]
+            .assert_eq(&opq_comm.fmt_to_string_simple(&store));
+
+        let comm = store.commit(ptr);
+        expect!["(comm 0x1d501baeefe83acf0e7137180b091834f542a5059dbaf99ec82c5e19d3bb9201)"]
+            .assert_eq(&comm.fmt_to_string_simple(&store));
     }
 }
