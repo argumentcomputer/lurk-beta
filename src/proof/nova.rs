@@ -273,7 +273,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                 });
 
                 for circuit_primary in cc.iter() {
-                    let circuit_primary = circuit_primary.lock().unwrap();
+                    let mut circuit_primary = circuit_primary.lock().unwrap();
 
                     let mut r_snark = recursive_snark.unwrap_or_else(|| {
                         RecursiveSNARK::new(
@@ -288,6 +288,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                     r_snark
                         .prove_step(&pp.pp, &*circuit_primary, &circuit_secondary)
                         .expect("failure to prove Nova step");
+                    circuit_primary.clear_cached_witness();
                     recursive_snark = Some(r_snark);
                 }
                 recursive_snark

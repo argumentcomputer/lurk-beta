@@ -97,6 +97,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 
     #[inline]
+    pub fn clear_cached_witness(&mut self) {
+        self.cached_witness = OnceCell::new();
+    }
+
+    #[inline]
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
