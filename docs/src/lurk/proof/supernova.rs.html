@@ -435,6 +435,8 @@
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>nova::{
     supernova::{
         <span class="self">self</span>,
@@ -716,7 +718,9 @@
                 });
 
                 <span class="kw">for </span>(i, (<span class="kw">_</span>, step)) <span class="kw">in </span>cc.iter().enumerate() {
-                    prove_step(i, <span class="kw-2">&amp;</span>step.lock().unwrap());
+                    <span class="kw">let </span><span class="kw-2">mut </span>step = step.lock().unwrap();
+                    prove_step(i, <span class="kw-2">&amp;</span>step);
+                    step.clear_cached_witness();
                 }
             })
             .unwrap()

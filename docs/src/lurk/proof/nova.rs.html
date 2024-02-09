@@ -443,6 +443,7 @@
 <a href="#443" id="443">443</a>
 <a href="#444" id="444">444</a>
 <a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem};
 <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Bn256Scalar;
 <span class="kw">use </span>nova::{
@@ -718,7 +719,7 @@
                 });
 
                 <span class="kw">for </span>circuit_primary <span class="kw">in </span>cc.iter() {
-                    <span class="kw">let </span>circuit_primary = circuit_primary.lock().unwrap();
+                    <span class="kw">let </span><span class="kw-2">mut </span>circuit_primary = circuit_primary.lock().unwrap();
 
                     <span class="kw">let </span><span class="kw-2">mut </span>r_snark = recursive_snark.unwrap_or_else(|| {
                         RecursiveSNARK::new(
@@ -733,6 +734,7 @@
                     r_snark
                         .prove_step(<span class="kw-2">&amp;</span>pp.pp, <span class="kw-2">&amp;*</span>circuit_primary, <span class="kw-2">&amp;</span>circuit_secondary)
                         .expect(<span class="string">&quot;failure to prove Nova step&quot;</span>);
+                    circuit_primary.clear_cached_witness();
                     recursive_snark = <span class="prelude-val">Some</span>(r_snark);
                 }
                 recursive_snark

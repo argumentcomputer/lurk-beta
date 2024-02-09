@@ -1108,6 +1108,11 @@
 <a href="#1108" id="1108">1108</a>
 <a href="#1109" id="1109">1109</a>
 <a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
 <span class="kw">use </span>bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
@@ -1204,6 +1209,11 @@
             <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, SynthesisError&gt;((wcs, output))
         })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>clear_cached_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.cached_witness = OnceCell::new();
     }
 
     <span class="attr">#[inline]
