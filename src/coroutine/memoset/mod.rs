@@ -381,6 +381,22 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
         Ok(Provenance::new(query, result, dependencies))
     }
+
+    fn init_memoset(&self, s: &Store<F>) -> Ptr {
+        let mut memoset = s.num(F::ZERO);
+        for kv in self.toplevel_insertions.iter() {
+            memoset = self.memoset.acc_add(&memoset, kv, s);
+        }
+        memoset
+    }
+
+    fn init_transcript(&self, s: &Store<F>) -> Ptr {
+        let mut transcript = Transcript::new(s);
+        for kv in self.toplevel_insertions.iter() {
+            transcript.add(s, *kv);
+        }
+        transcript.acc
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -395,6 +411,7 @@ pub struct CircuitScope<F: LurkField, CM> {
 
 #[derive(Clone)]
 pub struct CoroutineCircuit<'a, F: LurkField, CM, Q> {
+    input: Option<Vec<Ptr>>,
     provenances: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     memoset: CM,
     keys: Vec<Ptr>,
@@ -409,6 +426,7 @@ pub struct CoroutineCircuit<'a, F: LurkField, CM, Q> {
 // That will require a CircuitScopeTrait.
 impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
     fn new(
+        input: Option<Vec<Ptr>>,
         scope: &'a Scope<Q, LogMemo<F>, F>,
         memoset: LogMemo<F>,
         keys: Vec<Ptr>,
@@ -419,6 +437,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
     ) -> Self {
         assert!(keys.len() <= rc);
         Self {
+            input,
             memoset,
             provenances: scope.provenances(store).clone(), // FIXME
             keys,
@@ -430,15 +449,20 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
         }
     }
 
-    fn blank(query_index: usize, store: &'a Store<F>) -> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
+    fn blank(
+        query_index: usize,
+        store: &'a Store<F>,
+        rc: usize,
+    ) -> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
         Self {
+            input: None,
             memoset: Default::default(),
             provenances: Default::default(),
             keys: Default::default(),
             query_index,
             next_query_index: 0,
             store,
-            rc: 0,
+            rc,
             _p: Default::default(),
         }
     }
@@ -770,6 +794,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                         // Not used here
                         let next_query_index = 0;
                         let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
+                            None,
                             self,
                             self.memoset.clone(),
                             chunk.to_vec(),
@@ -1229,6 +1254,13 @@ impl<F: LurkField> LogMemo<F> {
             })
             .clone()
             .unwrap()
+    }
+
+    fn acc_add(&self, acc: &Ptr, kv: &Ptr, store: &Store<F>) -> Ptr {
+        let acc_num = store.expect_f(acc.get_atom().unwrap());
+        let kv_num = store.hash_raw_ptr(kv.raw()).0;
+        let element = self.map_to_element(kv_num).unwrap();
+        store.num(*acc_num + element)
     }
 }
 

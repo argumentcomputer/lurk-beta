@@ -15,7 +15,7 @@ use once_cell::sync::OnceCell;
 use tracing::info;
 
 use super::query::Query;
-use super::{CoroutineCircuit, LogMemo, Scope, DEFAULT_RC_FOR_QUERY};
+use super::{CoroutineCircuit, LogMemo, MemoSet, Scope, DEFAULT_RC_FOR_QUERY};
 
 use nova::{
     supernova::{
@@ -66,7 +66,7 @@ where
     }
 
     fn primary_circuit(&self, circuit_index: usize) -> Coroutine<'a, F, Q> {
-        Coroutine::blank(circuit_index, self.store)
+        Coroutine::blank(circuit_index, self.store, self.rc)
     }
 
     fn secondary_circuit(&self) -> C2<F> {
@@ -226,6 +226,27 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> Prover<'a, F, Corouti
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         unimplemented!()
     }
+
+    fn prove(
+        &self,
+        pp: &Self::PublicParams,
+        steps: Vec<Coroutine<'a, F, Q>>,
+        store: &'a Store<F>,
+    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
+        store.hydrate_z_cache();
+        let input_ptrs = steps[0].input.as_ref().unwrap();
+        let z0 = store.to_scalar_vector(input_ptrs);
+
+        let num_steps = steps.len();
+
+        let prove_output = Self::RecursiveSnark::prove_recursively(pp, &z0, steps, store)?;
+        let zi = match prove_output {
+            Proof::Recursive(ref snark, ..) => snark.zi_primary().clone(),
+            Proof::Compressed(..) => unreachable!(),
+        };
+
+        Ok((prove_output, z0, zi, num_steps))
+    }
 }
 
 fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
@@ -234,12 +255,27 @@ fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
     scope: &'a Scope<Q, LogMemo<F>, F>,
     store: &'a Store<F>,
 ) -> Result<(Proof<F, Coroutine<'a, F, Q>>, Vec<F>, Vec<F>, usize), ProofError> {
+    let mut input_ptrs = Some(vec![
+        store.dummy(),
+        store.dummy(),
+        store.dummy(),
+        scope.init_memoset(store),
+        scope.init_transcript(store),
+        store.num(*scope.memoset.r().unwrap()),
+    ]);
     let mut steps = Vec::new();
-    for (index, keys) in scope.unique_inserted_keys.iter() {
+    let mut iterator = scope.unique_inserted_keys.iter().peekable();
+    while let Some((index, keys)) = iterator.next() {
         let rc = scope.rc_for_query(*index);
-        for chunk in keys.chunks(rc) {
-            let next_query_index = 0;
+        let mut chunks = keys.chunks(rc).peekable();
+        while let Some(chunk) = chunks.next() {
+            let next_query_index = if chunks.peek().is_none() && iterator.peek().is_some() {
+                *iterator.peek().unwrap().0
+            } else {
+                *index
+            };
             let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
+                input_ptrs,
                 scope,
                 scope.memoset.clone(),
                 chunk.to_vec(),
@@ -248,7 +284,8 @@ fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
                 store,
                 rc,
             );
-            steps.push(circuit)
+            steps.push(circuit);
+            input_ptrs = None;
         }
     }
     prover.prove(pp, steps, store)
@@ -283,14 +320,13 @@ mod test {
     #[test]
     fn prove_memo() {
         let s = &Store::<Fr>::default();
-        let query = s.read_with_default_state("(factorial 40)").unwrap();
-        let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::default();
-
+        let query = s.read_with_default_state("(factorial . 40)").unwrap();
+        let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::new(10);
         let mut scope = Scope::new(prover.reduction_count);
         scope.query(s, query);
         scope.finalize_transcript(s);
 
-        let sc = CoroutineCircuit::<'_, _, _, DemoQuery<Fr>>::blank(0, s);
+        let sc = CoroutineCircuit::<'_, _, _, DemoQuery<Fr>>::blank(0, s, prover.reduction_count);
         let pp = public_params(&sc);
         prove_from_scope(&prover, &pp, &scope, s).unwrap();
     }
