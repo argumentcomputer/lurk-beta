@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
     error::ProofError,
@@ -29,14 +30,13 @@ use nova::{
 };
 use std::marker::PhantomData;
 
+/// Number of arguments a coroutine takes: CEK arguments + memoset arguments
 const COROUTINE_ARITY: usize = 12;
 
 type Coroutine<'a, F, Q> = CoroutineCircuit<'a, F, LogMemo<F>, Q>;
 
 #[derive(Debug)]
 pub(crate) struct MemosetProver<'a, F, Q> {
-    /// The number of small-step reductions performed in each recursive step of
-    /// the primary Lurk circuit.
     reduction_count: usize,
     _phantom: PhantomData<&'a (F, Q)>,
 }
@@ -255,14 +255,6 @@ fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
     scope: &'a Scope<Q, LogMemo<F>, F>,
     store: &'a Store<F>,
 ) -> Result<(Proof<F, Coroutine<'a, F, Q>>, Vec<F>, Vec<F>, usize), ProofError> {
-    let mut input_ptrs = Some(vec![
-        store.dummy(),
-        store.dummy(),
-        store.dummy(),
-        scope.init_memoset(store),
-        scope.init_transcript(store),
-        store.num(*scope.memoset.r().unwrap()),
-    ]);
     let mut steps = Vec::new();
     let mut iterator = scope.unique_inserted_keys.iter().peekable();
     while let Some((index, keys)) = iterator.next() {
@@ -275,7 +267,7 @@ fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
                 *index
             };
             let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
-                input_ptrs,
+                None,
                 scope,
                 scope.memoset.clone(),
                 chunk.to_vec(),
@@ -285,9 +277,17 @@ fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
                 rc,
             );
             steps.push(circuit);
-            input_ptrs = None;
         }
     }
+    let input_ptrs = Some(vec![
+        store.dummy(),
+        store.dummy(),
+        store.dummy(),
+        scope.init_memoset(store),
+        scope.init_transcript(store),
+        store.num(*scope.memoset.r().unwrap()),
+    ]);
+    steps[0].input = input_ptrs;
     prover.prove(pp, steps, store)
 }
 
@@ -328,6 +328,8 @@ mod test {
 
         let sc = CoroutineCircuit::<'_, _, _, DemoQuery<Fr>>::blank(0, s, prover.reduction_count);
         let pp = public_params(&sc);
-        prove_from_scope(&prover, &pp, &scope, s).unwrap();
+        let (snark, input, output, _iterations) =
+            prove_from_scope(&prover, &pp, &scope, s).unwrap();
+        assert!(snark.verify(&pp, &input, &output).unwrap());
     }
 }

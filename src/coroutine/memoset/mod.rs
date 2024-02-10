@@ -791,7 +791,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                         // It shouldn't exist, when instead we have only the single NIVC circuit repeated multiple times.
                         let cs = ns!(cs, format!("chunk-{i}"));
 
-                        // Not used here
+                        // `next_query_index` is only relevant for SuperNova
                         let next_query_index = 0;
                         let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
                             None,
