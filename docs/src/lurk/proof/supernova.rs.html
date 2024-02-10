@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/supernova.rs`."><title>supernova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/supernova.rs`."><title>supernova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -557,7 +558,7 @@
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; PublicParams&lt;F&gt; {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    <span class="kw">let </span>non_uniform_circuit = C1LEM::&lt;<span class="lifetime">&#39;_</span>, F, C&gt;::blank(folding_config, <span class="number">0</span>);
+    <span class="kw">let </span>non_uniform_circuit = C1LEM::&lt;<span class="lifetime">'_</span>, F, C&gt;::blank(folding_config, <span class="number">0</span>);
 
     <span class="comment">// grab hints for the compressed SNARK variants we will use this with
     </span><span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>BatchedRelaxedR1CSSNARKTrait&lt;E1&lt;F&gt;&gt;&gt;::ck_floor();
@@ -576,7 +577,7 @@
 
 <span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
-#[serde(bound = <span class="string">&quot;&quot;</span>)]
+#[serde(bound = <span class="string">""</span>)]
 </span><span class="kw">pub enum </span>Proof&lt;F: CurveCycleEquipped, S&gt; {
     <span class="doccomment">/// A proof for the intermediate steps of a recursive computation
     </span>Recursive(Box&lt;RecursiveSNARK&lt;E1&lt;F&gt;&gt;&gt;, PhantomData&lt;S&gt;),
@@ -586,16 +587,16 @@
 
 <span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>SuperNovaProver&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>SuperNovaProver&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt; {
     <span class="doccomment">/// The number of small-step reductions performed in each recursive step of
     /// the primary Lurk circuit.
     </span>reduction_count: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     folding_mode: FoldingMode,
-    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>()&gt;,
+    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>()&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; SuperNovaProver&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt; SuperNovaProver&lt;<span class="lifetime">'a</span>, F, C&gt; {
     <span class="doccomment">/// Create a new SuperNovaProver with a reduction count and a `Lang`
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new(reduction_count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; <span class="self">Self </span>{
@@ -612,12 +613,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pp: <span class="kw-2">&amp;</span>PublicParams&lt;F&gt;,
         frames: <span class="kw-2">&amp;</span>[Frame],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>folding_config = <span class="self">self
             </span>.folding_mode()
             .folding_config(<span class="self">self</span>.lang().clone(), <span class="self">self</span>.reduction_count());
-        <span class="kw">let </span>steps = C1LEM::&lt;<span class="lifetime">&#39;a</span>, F, C&gt;::from_frames(frames, store, <span class="kw-2">&amp;</span>folding_config.into());
+        <span class="kw">let </span>steps = C1LEM::&lt;<span class="lifetime">'a</span>, F, C&gt;::from_frames(frames, store, <span class="kw-2">&amp;</span>folding_config.into());
         <span class="self">self</span>.prove(pp, steps, store)
     }
 
@@ -627,18 +628,18 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; RecursiveSNARKTrait&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
-    <span class="kw">for </span>Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; RecursiveSNARKTrait&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
+    <span class="kw">for </span>Proof&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F&gt;;
 
     <span class="kw">type </span>ErrorType = SuperNovaError;
 
-    <span class="attr">#[tracing::instrument(skip_all, name = <span class="string">&quot;supernova::prove_recursively&quot;</span>)]
+    <span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"supernova::prove_recursively"</span>)]
     </span><span class="kw">fn </span>prove_recursively(
         pp: <span class="kw-2">&amp;</span>PublicParams&lt;F&gt;,
         z0: <span class="kw-2">&amp;</span>[F],
-        steps: Vec&lt;C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
+        steps: Vec&lt;C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark_option: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
@@ -646,13 +647,13 @@
         <span class="kw">let </span>z0_primary = z0;
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>prove_step = |i: usize, step: <span class="kw-2">&amp;</span>C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;| {
-            <span class="macro">info!</span>(<span class="string">&quot;prove_recursively, step {i}&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>prove_step = |i: usize, step: <span class="kw-2">&amp;</span>C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;| {
+            <span class="macro">info!</span>(<span class="string">"prove_recursively, step {i}"</span>);
 
             <span class="kw">let </span>secondary_circuit = step.secondary_circuit();
 
             <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark = recursive_snark_option.clone().unwrap_or_else(|| {
-                <span class="macro">info!</span>(<span class="string">&quot;RecursiveSnark::new {i}&quot;</span>);
+                <span class="macro">info!</span>(<span class="string">"RecursiveSnark::new {i}"</span>);
                 RecursiveSNARK::new(
                     <span class="kw-2">&amp;</span>pp.pp,
                     step,
@@ -664,7 +665,7 @@
                 .unwrap()
             });
 
-            <span class="macro">info!</span>(<span class="string">&quot;prove_step {i}&quot;</span>);
+            <span class="macro">info!</span>(<span class="string">"prove_step {i}"</span>);
 
             recursive_snark
                 .prove_step(<span class="kw-2">&amp;</span>pp.pp, step, <span class="kw-2">&amp;</span>secondary_circuit)
@@ -686,11 +687,11 @@
 
             crossbeam::thread::scope(|s| {
                 s.spawn(|<span class="kw">_</span>| {
-                    <span class="comment">// Skip the very first circuit&#39;s witness, so `prove_step` can begin immediately.
-                    // That circuit&#39;s witness will not be cached and will just be computed on-demand.
+                    <span class="comment">// Skip the very first circuit's witness, so `prove_step` can begin immediately.
+                    // That circuit's witness will not be cached and will just be computed on-demand.
 
                     // There are many MultiFrames with PC = 0, each with several inner frames and heavy internal
-                    // paralellism for witness generation. So we do it like on Nova&#39;s pipeline.
+                    // paralellism for witness generation. So we do it like on Nova's pipeline.
                     </span>cc.iter()
                         .skip(<span class="number">1</span>)
                         .filter(|(is_zero_pc, <span class="kw">_</span>)| <span class="kw-2">*</span>is_zero_pc)
@@ -698,10 +699,10 @@
                             mf.lock()
                                 .unwrap()
                                 .cache_witness(store)
-                                .expect(<span class="string">&quot;witness caching failed&quot;</span>);
+                                .expect(<span class="string">"witness caching failed"</span>);
                         });
 
-                    <span class="comment">// There shouldn&#39;t be as many MultiFrames with PC != 0 and they only have one inner frame, each with
+                    <span class="comment">// There shouldn't be as many MultiFrames with PC != 0 and they only have one inner frame, each with
                     // poor internal parallelism for witness generation, so we can generate their witnesses in parallel.
                     // This is mimicking the behavior we had in the Nova pipeline before #941 so...
                     // TODO: once we have robust benchmarking for NIVC, we should test whether merging this loop with
@@ -713,7 +714,7 @@
                             mf.lock()
                                 .unwrap()
                                 .cache_witness(store)
-                                .expect(<span class="string">&quot;witness caching failed&quot;</span>);
+                                .expect(<span class="string">"witness caching failed"</span>);
                         });
                 });
 
@@ -732,7 +733,7 @@
 
         <span class="comment">// This probably should be made unnecessary.
         </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Recursive(
-            Box::new(recursive_snark_option.expect(<span class="string">&quot;RecursiveSNARK missing&quot;</span>)),
+            Box::new(recursive_snark_option.expect(<span class="string">"RecursiveSNARK missing"</span>)),
             PhantomData,
         ))
     }
@@ -764,11 +765,11 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
-    <span class="kw">for </span>SuperNovaProver&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; Prover&lt;<span class="lifetime">'a</span>, F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
+    <span class="kw">for </span>SuperNovaProver&lt;<span class="lifetime">'a</span>, F, C&gt;
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F&gt;;
-    <span class="kw">type </span>RecursiveSnark = Proof&lt;F, C1LEM&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;;
+    <span class="kw">type </span>RecursiveSnark = Proof&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;;
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
@@ -785,11 +786,11 @@
         pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
         expr: Ptr,
         env: Ptr,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
         limit: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::RecursiveSnark, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>eval_config = <span class="self">self</span>.folding_mode().eval_config(<span class="self">self</span>.lang());
-        <span class="kw">let </span>frames = C1LEM::&lt;<span class="lifetime">&#39;a</span>, F, C&gt;::build_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>eval_config)<span class="question-mark">?</span>;
+        <span class="kw">let </span>frames = C1LEM::&lt;<span class="lifetime">'a</span>, F, C&gt;::build_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>eval_config)<span class="question-mark">?</span>;
         <span class="self">self</span>.prove_from_frames(pp, <span class="kw-2">&amp;</span>frames, store)
     }
 }
@@ -802,11 +803,11 @@
 /// NIVC configuration becomes more flexible.
 </span><span class="kw">pub enum </span>FoldingConfig&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
     <span class="comment">// TODO: maybe (lang, reduction_count) should be a common struct.
-    </span><span class="doccomment">/// IVC: a single circuit implementing the `Lang`&#39;s reduction will be used
+    </span><span class="doccomment">/// IVC: a single circuit implementing the `Lang`'s reduction will be used
     /// for every folding step
     </span>IVC(Arc&lt;Lang&lt;F, C&gt;&gt;, usize),
     <span class="doccomment">/// NIVC: each folding step will use one of a fixed set of circuits which
-    /// together implement the `Lang`&#39;s reduction.
+    /// together implement the `Lang`'s reduction.
     </span>NIVC(Arc&lt;Lang&lt;F, C&gt;&gt;, usize),
 }
 
@@ -852,13 +853,13 @@
 ///
 /// Note: For now, we use ad-hoc circuit cache keys.
 /// See: [crate::public_parameters::instance]
-</span><span class="kw">pub fn </span>circuit_cache_key&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt;(
+</span><span class="kw">pub fn </span>circuit_cache_key&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;(
     rc: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     circuit_index: usize,
 ) -&gt; F {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, <span class="number">2</span>));
-    <span class="kw">let </span>circuit = C1LEM::&lt;<span class="lifetime">&#39;a</span>, F, C&gt;::blank(folding_config, <span class="number">0</span>);
+    <span class="kw">let </span>circuit = C1LEM::&lt;<span class="lifetime">'a</span>, F, C&gt;::blank(folding_config, <span class="number">0</span>);
     <span class="kw">let </span>num_circuits = circuit.num_circuits();
     <span class="kw">let </span>circuit = circuit.primary_circuit(circuit_index);
     F::from(rc <span class="kw">as </span>u64) * supernova::circuit_digest::&lt;F::E1, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>circuit, num_circuits)
@@ -866,7 +867,7 @@
 
 <span class="doccomment">/// Collects all the cache keys of supernova instance. We need all of them to compute
 /// a cache key for the digest of the [PublicParams] of the supernova instance.
-</span><span class="kw">pub fn </span>circuit_cache_keys&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt;(
+</span><span class="kw">pub fn </span>circuit_cache_keys&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;(
     rc: usize,
     lang: <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; CircuitDigests&lt;E1&lt;F&gt;&gt; {

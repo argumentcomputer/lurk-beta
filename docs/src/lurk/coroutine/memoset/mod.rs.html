@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/coroutine/memoset/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/coroutine/memoset/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1229,7 +1230,7 @@
 //! content-addressed data structure representing the transcript as assembled.
 //!
 //! Transcript elements represent deferred proofs that are either added to (when their results are used) or removed from
-//! (when correctness of those results is proved) the &#39;deferred proof&#39; multiset. Insertions are recorded in the
+//! (when correctness of those results is proved) the 'deferred proof' multiset. Insertions are recorded in the
 //! transcript as key-value pairs (Lurk data: `(key . value)`); and removals further include the removal multiplicity
 //! (Lurk data: `((key . value) . multiplicity)`). It is critical that the multiplicity be included in the transcript,
 //! since if free to choose it after the randomness has been derived, the prover can trivially falsify the contents of
@@ -1237,7 +1238,7 @@
 //!
 //! Bookkeeping required to correctly build the transcript after evaluation but before proving is maintained by the
 //! `Scope`. This allows us to accumulate queries and the subqueries on which they depend, along with the memoized query
-//! results computed &#39;naturally&#39; during evaluation. We then separate and sort in an order matching that which the NIVC
+//! results computed 'naturally' during evaluation. We then separate and sort in an order matching that which the NIVC
 //! prover will follow when provably maintaining the multiset accumulator and Fiat-Shamir transcript in the circuit.
 
 </span><span class="kw">use </span>itertools::Itertools;
@@ -1306,7 +1307,7 @@
 
     <span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>dbg(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) {
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;transcript: {}&quot;</span>, <span class="self">self</span>.acc.fmt_to_string_simple(s));
+        <span class="macro">tracing::debug!</span>(<span class="string">"transcript: {}"</span>, <span class="self">self</span>.acc.fmt_to_string_simple(s));
     }
 
     <span class="attr">#[allow(dead_code)]
@@ -1369,9 +1370,9 @@
         count: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedNum&lt;F&gt;), SynthesisError&gt; {
         <span class="kw">let </span>allocated_count =
-            { AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;count&quot;</span>), || <span class="prelude-val">Ok</span>(F::from_u64(count)))<span class="question-mark">? </span>};
+            { AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"count"</span>), || <span class="prelude-val">Ok</span>(F::from_u64(count)))<span class="question-mark">? </span>};
         <span class="kw">let </span>count_ptr = AllocatedPtr::alloc_tag(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;count_ptr&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"count_ptr"</span>),
             ExprTag::Num.to_field(),
             allocated_count.clone(),
         )<span class="question-mark">?</span>;
@@ -1387,7 +1388,7 @@
     </span><span class="kw">fn </span>dbg(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) {
         <span class="kw">let </span>z = <span class="self">self</span>.acc.get_value::&lt;Tag&gt;().unwrap();
         <span class="kw">let </span>transcript = s.to_ptr(<span class="kw-2">&amp;</span>z);
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;transcript: {}&quot;</span>, transcript.fmt_to_string_simple(s));
+        <span class="macro">tracing::debug!</span>(<span class="string">"transcript: {}"</span>, transcript.fmt_to_string_simple(s));
     }
 }
 
@@ -1447,12 +1448,12 @@
     transcribe_internal_insertions: bool,
 }
 
-<span class="kw">pub struct </span>CoroutineCircuit&lt;<span class="lifetime">&#39;a</span>, F: LurkField, CM, Q&gt; {
-    queries: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>HashMap&lt;Ptr, Ptr&gt;,
+<span class="kw">pub struct </span>CoroutineCircuit&lt;<span class="lifetime">'a</span>, F: LurkField, CM, Q&gt; {
+    queries: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>HashMap&lt;Ptr, Ptr&gt;,
     memoset: CM,
     keys: Vec&lt;Ptr&gt;,
     query_index: usize,
-    store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
+    store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
     transcribe_internal_insertions: bool,
     rc: usize,
     _p: PhantomData&lt;Q&gt;,
@@ -1460,13 +1461,13 @@
 
 <span class="comment">// TODO: Make this generic rather than specialized to LogMemo.
 // That will require a CircuitScopeTrait.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, Q: Query&lt;F&gt;&gt; CoroutineCircuit&lt;<span class="lifetime">&#39;a</span>, F, LogMemoCircuit&lt;F&gt;, Q&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, Q: Query&lt;F&gt;&gt; CoroutineCircuit&lt;<span class="lifetime">'a</span>, F, LogMemoCircuit&lt;F&gt;, Q&gt; {
     <span class="kw">fn </span>new(
-        scope: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Scope&lt;Q, LogMemo&lt;F&gt;&gt;,
+        scope: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Scope&lt;Q, LogMemo&lt;F&gt;&gt;,
         memoset: LogMemoCircuit&lt;F&gt;,
         keys: Vec&lt;Ptr&gt;,
         query_index: usize,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
         rc: usize,
     ) -&gt; <span class="self">Self </span>{
         <span class="macro">assert!</span>(keys.len() &lt;= rc);
@@ -1513,7 +1514,7 @@
             .pad_using(<span class="self">self</span>.rc, |<span class="kw">_</span>| <span class="prelude-val">None</span>)
             .enumerate()
         {
-            <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;internal-{i}&quot;</span>));
+            <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"internal-{i}"</span>));
             circuit_scope.synthesize_prove_key_query::&lt;<span class="kw">_</span>, Q&gt;(
                 cs,
                 g,
@@ -1524,7 +1525,7 @@
         }
 
         <span class="kw">let </span>(memoset_acc, transcript, r_num) = circuit_scope.io();
-        <span class="kw">let </span>r = AllocatedPtr::alloc_tag(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;r&quot;</span>), ExprTag::Num.to_field(), r_num)<span class="question-mark">?</span>;
+        <span class="kw">let </span>r = AllocatedPtr::alloc_tag(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"r"</span>), ExprTag::Num.to_field(), r_num)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>z_out = <span class="macro">vec!</span>[c.clone(), e.clone(), k.clone(), memoset_acc, transcript, r];
 
@@ -1558,7 +1559,7 @@
 
     <span class="kw">fn </span>query_aux(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, form: Ptr) -&gt; (Ptr, Ptr) {
         <span class="kw">let </span>response = <span class="self">self</span>.queries.get(<span class="kw-2">&amp;</span>form).cloned().unwrap_or_else(|| {
-            <span class="kw">let </span>query = Q::from_ptr(s, <span class="kw-2">&amp;</span>form).expect(<span class="string">&quot;invalid query&quot;</span>);
+            <span class="kw">let </span>query = Q::from_ptr(s, <span class="kw-2">&amp;</span>form).expect(<span class="string">"invalid query"</span>);
 
             <span class="kw">let </span>evaluated = query.eval(s, <span class="self">self</span>);
 
@@ -1598,7 +1599,7 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(kvs) = insertions.get_mut(<span class="kw-2">&amp;</span>key) {
                 kvs.insert(kv);
             } <span class="kw">else </span>{
-                <span class="kw">let </span>index = Q::from_ptr(s, <span class="kw-2">&amp;</span>key).expect(<span class="string">&quot;bad query&quot;</span>).index();
+                <span class="kw">let </span>index = Q::from_ptr(s, <span class="kw-2">&amp;</span>key).expect(<span class="string">"bad query"</span>).index();
                 unique_keys
                     .entry(index)
                     .and_modify(|keys| keys.push(key))
@@ -1611,7 +1612,7 @@
         };
 
         <span class="kw">let </span>internal_insertions_kv = <span class="self">self</span>.internal_insertions.iter().map(|key| {
-            <span class="kw">let </span>value = <span class="self">self</span>.queries.get(key).expect(<span class="string">&quot;value missing for key&quot;</span>);
+            <span class="kw">let </span>value = <span class="self">self</span>.queries.get(key).expect(<span class="string">"value missing for key"</span>);
             Transcript::make_kv(s, <span class="kw-2">*</span>key, <span class="kw-2">*</span>value)
         });
 
@@ -1626,11 +1627,11 @@
         }
 
         <span class="comment">// Then add insertions and removals interleaved, sorted by query type. We interleave insertions and removals
-        // because when proving later, each query&#39;s proof must record that its subquery proofs are being deferred
+        // because when proving later, each query's proof must record that its subquery proofs are being deferred
         // (insertions) before then proving itself (making use of any subquery results) and removing the now-proved
         // deferral from the MemoSet.
         </span><span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..Q::count() {
-            <span class="kw">for </span>key <span class="kw">in </span>unique_keys.get(<span class="kw-2">&amp;</span>index).expect(<span class="string">&quot;unreachable&quot;</span>) {
+            <span class="kw">for </span>key <span class="kw">in </span>unique_keys.get(<span class="kw-2">&amp;</span>index).expect(<span class="string">"unreachable"</span>) {
                 <span class="kw">for </span>kv <span class="kw">in </span>insertions.get(key).unwrap().iter() {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(dependencies) = <span class="self">self</span>.dependencies.get(key) {
                         dependencies.iter().for_each(|dependency| {
@@ -1638,7 +1639,7 @@
                             <span class="kw">let </span>v = <span class="self">self
                                 </span>.queries
                                 .get(<span class="kw-2">&amp;</span>k)
-                                .expect(<span class="string">&quot;value missing for dependency key&quot;</span>);
+                                .expect(<span class="string">"value missing for dependency key"</span>);
                             <span class="comment">// Add an insertion for each dependency (subquery) of the query identified by `key`. Notice
                             // that these keys might already have been inserted before, but we need to repeat if so
                             // because the proof must do so each time a query is used.
@@ -1672,10 +1673,10 @@
         // Is it okay for this memoset circuit to be shared between all CoroutineCircuits?
         </span><span class="kw">let </span>memoset_circuit = <span class="self">self
             </span>.memoset
-            .to_circuit(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;memoset_circuit&quot;</span>));
+            .to_circuit(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"memoset_circuit"</span>));
 
         <span class="kw">let </span><span class="kw-2">mut </span>circuit_scope = CircuitScope::from_queries(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;transcript&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"transcript"</span>),
             g,
             s,
             memoset_circuit.clone(),
@@ -1689,7 +1690,7 @@
             {
                 <span class="kw">let </span>(memoset_acc, transcript, r_num) = circuit_scope.io();
                 <span class="kw">let </span>r = AllocatedPtr::alloc_tag(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;r&quot;</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"r"</span>),
                     ExprTag::Num.to_field(),
                     r_num,
                 )<span class="question-mark">?</span>;
@@ -1703,16 +1704,16 @@
                     r,
                 ];
                 <span class="kw">for </span>(index, keys) <span class="kw">in </span><span class="self">self</span>.unique_inserted_keys.iter() {
-                    <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;query-index-{index}&quot;</span>));
+                    <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"query-index-{index}"</span>));
 
                     <span class="kw">let </span>rc = <span class="self">self</span>.rc_for_query(<span class="kw-2">*</span>index);
 
                     <span class="kw">for </span>(i, chunk) <span class="kw">in </span>keys.chunks(rc).enumerate() {
-                        <span class="comment">// This namespace exists only because we are putting multiple &#39;chunks&#39; into a single, larger circuit (as a stage in development).
-                        // It shouldn&#39;t exist, when instead we have only the single NIVC circuit repeated multiple times.
-                        </span><span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;chunk-{i}&quot;</span>));
+                        <span class="comment">// This namespace exists only because we are putting multiple 'chunks' into a single, larger circuit (as a stage in development).
+                        // It shouldn't exist, when instead we have only the single NIVC circuit repeated multiple times.
+                        </span><span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"chunk-{i}"</span>));
 
-                        <span class="kw">let </span><span class="kw-2">mut </span>circuit: CoroutineCircuit&lt;<span class="lifetime">&#39;_</span>, F, LogMemoCircuit&lt;F&gt;, Q&gt; =
+                        <span class="kw">let </span><span class="kw-2">mut </span>circuit: CoroutineCircuit&lt;<span class="lifetime">'_</span>, F, LogMemoCircuit&lt;F&gt;, Q&gt; =
                             CoroutineCircuit::new(
                                 <span class="self">self</span>,
                                 memoset_circuit.clone(),
@@ -1781,7 +1782,7 @@
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) {
         <span class="self">self</span>.acc = <span class="prelude-val">Some</span>(
-            AllocatedPtr::alloc_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;acc&quot;</span>), s.hash_ptr(<span class="kw-2">&amp;</span>s.num_u64(<span class="number">0</span>)))
+            AllocatedPtr::alloc_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"acc"</span>), s.hash_ptr(<span class="kw-2">&amp;</span>s.num_u64(<span class="number">0</span>)))
                 .unwrap(),
         );
 
@@ -1818,9 +1819,9 @@
         value: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         is_toplevel: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt; {
-        <span class="kw">let </span>kv = CircuitTranscript::make_kv(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;kv&quot;</span>), g, s, key, value)<span class="question-mark">?</span>;
+        <span class="kw">let </span>kv = CircuitTranscript::make_kv(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"kv"</span>), g, s, key, value)<span class="question-mark">?</span>;
         <span class="kw">let </span>new_transcript = <span class="kw">if </span>is_toplevel || <span class="self">self</span>.transcribe_internal_insertions {
-            transcript.add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;new_transcript&quot;</span>), g, s, <span class="kw-2">&amp;</span>kv)<span class="question-mark">?
+            transcript.add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_transcript"</span>), g, s, <span class="kw-2">&amp;</span>kv)<span class="question-mark">?
         </span>} <span class="kw">else </span>{
             transcript.clone()
         };
@@ -1829,10 +1830,10 @@
 
         <span class="kw">let </span>new_acc_v =
             <span class="self">self</span>.memoset
-                .synthesize_add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;new_acc_v&quot;</span>), acc_v, <span class="kw-2">&amp;</span>kv)<span class="question-mark">?</span>;
+                .synthesize_add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_acc_v"</span>), acc_v, <span class="kw-2">&amp;</span>kv)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>new_acc = AllocatedPtr::alloc_tag(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;new_acc&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_acc"</span>),
             ExprTag::Num.to_field(),
             new_acc_v,
         )<span class="question-mark">?</span>;
@@ -1850,33 +1851,33 @@
         key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         value: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt; {
-        <span class="kw">let </span>kv = CircuitTranscript::make_kv(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;kv&quot;</span>), g, s, key, value)<span class="question-mark">?</span>;
+        <span class="kw">let </span>kv = CircuitTranscript::make_kv(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"kv"</span>), g, s, key, value)<span class="question-mark">?</span>;
         <span class="kw">let </span>zptr = kv.get_value().unwrap_or(s.hash_ptr(<span class="kw-2">&amp;</span>s.intern_nil())); <span class="comment">// dummy case: use nil
         </span><span class="kw">let </span>raw_count = <span class="self">self</span>.memoset.count(<span class="kw-2">&amp;</span>s.to_ptr(<span class="kw-2">&amp;</span>zptr)) <span class="kw">as </span>u64; <span class="comment">// dummy case: count is meaningless
 
         </span><span class="kw">let </span>(kv_count, count) = CircuitTranscript::make_kv_count(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;kv_count&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"kv_count"</span>),
             g,
             s,
             <span class="kw-2">&amp;</span>kv,
             raw_count,
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>new_transcript = transcript.add(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;new_removal_transcript&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_removal_transcript"</span>),
             g,
             s,
             <span class="kw-2">&amp;</span>kv_count,
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>new_acc_v = <span class="self">self</span>.memoset.synthesize_remove_n(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;new_acc_v&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_acc_v"</span>),
             acc.hash(),
             <span class="kw-2">&amp;</span>kv,
             <span class="kw-2">&amp;</span>count,
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>new_acc = AllocatedPtr::alloc_tag(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;new_acc&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_acc"</span>),
             ExprTag::Num.to_field(),
             new_acc_v,
         )<span class="question-mark">?</span>;
@@ -1885,8 +1886,8 @@
 
     <span class="kw">fn </span>finalize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, _g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;) {
         <span class="kw">let </span>r = <span class="self">self</span>.memoset.allocated_r();
-        enforce_equal(cs, || <span class="string">&quot;r_matches_transcript&quot;</span>, <span class="self">self</span>.transcript.r(), <span class="kw-2">&amp;</span>r);
-        enforce_equal_zero(cs, || <span class="string">&quot;acc_is_zero&quot;</span>, <span class="self">self</span>.acc.clone().unwrap().hash());
+        enforce_equal(cs, || <span class="string">"r_matches_transcript"</span>, <span class="self">self</span>.transcript.r(), <span class="kw-2">&amp;</span>r);
+        enforce_equal_zero(cs, || <span class="string">"acc_is_zero"</span>, <span class="self">self</span>.acc.clone().unwrap().hash());
     }
 
     <span class="kw">fn </span>synthesize_query&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -1926,7 +1927,7 @@
         not_dummy: <span class="kw-2">&amp;</span>Boolean, <span class="comment">// TODO: use this more deeply?
         </span>is_toplevel: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt; {
-        <span class="kw">let </span>value = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;value&quot;</span>), || {
+        <span class="kw">let </span>value = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"value"</span>), || {
             <span class="prelude-val">Ok</span>(<span class="kw">if </span>not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
                 <span class="kw-2">*</span>key.get_value()
                     .and_then(|k| <span class="self">self</span>.queries.get(<span class="kw-2">&amp;</span>k))
@@ -1965,8 +1966,8 @@
         kv: <span class="kw-2">&amp;</span>Ptr,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
         <span class="kw">let </span>(key, value) = s.car_cdr(kv).unwrap();
-        <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;toplevel-{i}&quot;</span>));
-        <span class="kw">let </span>allocated_key = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;allocated_key&quot;</span>), || {
+        <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"toplevel-{i}"</span>));
+        <span class="kw">let </span>allocated_key = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"allocated_key"</span>), || {
             <span class="prelude-val">Ok</span>(s.hash_ptr(<span class="kw-2">&amp;</span>key))
         })
         .unwrap();
@@ -2001,7 +2002,7 @@
         key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Ptr&gt;,
         index: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
-        <span class="kw">let </span>allocated_key = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;allocated_key&quot;</span>), || {
+        <span class="kw">let </span>allocated_key = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"allocated_key"</span>), || {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = key {
                 <span class="prelude-val">Ok</span>(s.hash_ptr(key))
             } <span class="kw">else </span>{
@@ -2011,9 +2012,9 @@
         .unwrap();
 
         <span class="kw">let </span>circuit_query = <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = key {
-            Q::CQ::from_ptr(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;circuit_query&quot;</span>), s, key).unwrap()
+            Q::CQ::from_ptr(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"circuit_query"</span>), s, key).unwrap()
         } <span class="kw">else </span>{
-            Q::CQ::dummy_from_index(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;circuit_query&quot;</span>), s, index)
+            Q::CQ::dummy_from_index(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"circuit_query"</span>), s, index)
         };
 
         <span class="kw">let </span>not_dummy = key.is_some();
@@ -2042,7 +2043,7 @@
         <span class="kw">let </span>transcript = <span class="self">self</span>.transcript.clone();
 
         <span class="kw">let </span>(val, new_acc, new_transcript) = circuit_query
-            .synthesize_eval(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;eval&quot;</span>), g, s, <span class="self">self</span>, <span class="kw-2">&amp;</span>acc, <span class="kw-2">&amp;</span>transcript)
+            .synthesize_eval(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"eval"</span>), g, s, <span class="self">self</span>, <span class="kw-2">&amp;</span>acc, <span class="kw-2">&amp;</span>transcript)
             .unwrap();
 
         <span class="kw">let </span>(new_acc, new_transcript) =
@@ -2050,13 +2051,13 @@
 
         <span class="comment">// Prover can choose non-deterministically whether or not a given query is a dummy, to allow for padding.
         </span><span class="kw">let </span>final_acc = AllocatedPtr::pick(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;final_acc&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"final_acc"</span>),
             <span class="kw-2">&amp;</span>Boolean::Constant(not_dummy),
             <span class="kw-2">&amp;</span>new_acc,
-            <span class="self">self</span>.acc.as_ref().expect(<span class="string">&quot;acc missing&quot;</span>),
+            <span class="self">self</span>.acc.as_ref().expect(<span class="string">"acc missing"</span>),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>final_transcript = CircuitTranscript::pick(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;final_transcripot&quot;</span>),
+            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"final_transcripot"</span>),
             <span class="kw-2">&amp;</span>Boolean::Constant(not_dummy),
             <span class="kw-2">&amp;</span>new_transcript,
             <span class="kw-2">&amp;</span><span class="self">self</span>.transcript,
@@ -2148,7 +2149,7 @@
         <span class="self">self</span>.allocated_r
             .get_or_init(|| {
                 <span class="self">self</span>.r()
-                    .map(|r| AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;r&quot;</span>), || <span class="kw-2">*</span>r))
+                    .map(|r| AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"r"</span>), || <span class="kw-2">*</span>r))
             })
             .clone()
             .unwrap()
@@ -2184,11 +2185,11 @@
     <span class="kw">fn </span>finalize_transcript(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, transcript: Transcript&lt;F&gt;) {
         <span class="kw">let </span>r = transcript.r(s);
 
-        <span class="self">self</span>.r.set(r).expect(<span class="string">&quot;r has already been set&quot;</span>);
+        <span class="self">self</span>.r.set(r).expect(<span class="string">"r has already been set"</span>);
 
         <span class="self">self</span>.transcript
             .set(transcript)
-            .expect(<span class="string">&quot;transcript already finalized&quot;</span>);
+            .expect(<span class="string">"transcript already finalized"</span>);
     }
 
     <span class="kw">fn </span>r(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
@@ -2220,8 +2221,8 @@
         kv: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>kv_num = kv.hash().clone();
-        <span class="kw">let </span>element = <span class="self">self</span>.synthesize_map_to_element(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;element&quot;</span>), kv_num)<span class="question-mark">?</span>;
-        acc.add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;add to acc&quot;</span>), <span class="kw-2">&amp;</span>element)
+        <span class="kw">let </span>element = <span class="self">self</span>.synthesize_map_to_element(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"element"</span>), kv_num)<span class="question-mark">?</span>;
+        acc.add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"add to acc"</span>), <span class="kw-2">&amp;</span>element)
     }
 
     <span class="kw">fn </span>synthesize_remove_n&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -2232,9 +2233,9 @@
         count: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>kv_num = kv.hash().clone();
-        <span class="kw">let </span>element = <span class="self">self</span>.synthesize_map_to_element(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;element&quot;</span>), kv_num)<span class="question-mark">?</span>;
-        <span class="kw">let </span>scaled = element.mul(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;scaled&quot;</span>), count)<span class="question-mark">?</span>;
-        sub(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;add to acc&quot;</span>), acc, <span class="kw-2">&amp;</span>scaled)
+        <span class="kw">let </span>element = <span class="self">self</span>.synthesize_map_to_element(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"element"</span>), kv_num)<span class="question-mark">?</span>;
+        <span class="kw">let </span>scaled = element.mul(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"scaled"</span>), count)<span class="question-mark">?</span>;
+        sub(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"add to acc"</span>), acc, <span class="kw-2">&amp;</span>scaled)
     }
 
     <span class="comment">// x is H(k,v) = hash part of (cons k v)
@@ -2245,9 +2246,9 @@
         x: AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>r = <span class="self">self</span>.r.clone();
-        <span class="kw">let </span>r_plus_x = r.add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;r+x&quot;</span>), <span class="kw-2">&amp;</span>x)<span class="question-mark">?</span>;
+        <span class="kw">let </span>r_plus_x = r.add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"r+x"</span>), <span class="kw-2">&amp;</span>x)<span class="question-mark">?</span>;
 
-        invert(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;invert(r+x)&quot;</span>), <span class="kw-2">&amp;</span>r_plus_x)
+        invert(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"invert(r+x)"</span>), <span class="kw-2">&amp;</span>r_plus_x)
     }
 
     <span class="kw">fn </span>count(<span class="kw-2">&amp;</span><span class="self">self</span>, form: <span class="kw-2">&amp;</span>Ptr) -&gt; usize {
@@ -2270,26 +2271,26 @@
     </span><span class="kw">fn </span>test_query_with_internal_insertion_transcript() {
         test_query_aux(
             <span class="bool-val">true</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;9430&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;9463&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;10012&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;10049&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">"9430"</span>],
+            <span class="macro">expect!</span>[<span class="string">"9463"</span>],
+            <span class="macro">expect!</span>[<span class="string">"10012"</span>],
+            <span class="macro">expect!</span>[<span class="string">"10049"</span>],
             <span class="number">1</span>,
         );
         test_query_aux(
             <span class="bool-val">true</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;11174&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;11213&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;11756&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;11799&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">"11174"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11213"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11756"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11799"</span>],
             <span class="number">3</span>,
         );
         test_query_aux(
             <span class="bool-val">true</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;18216&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;18279&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;18798&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;18865&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">"18216"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18279"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18798"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18865"</span>],
             <span class="number">10</span>,
         )
     }
@@ -2298,26 +2299,26 @@
     </span><span class="kw">fn </span>test_query_without_internal_insertion_transcript() {
         test_query_aux(
             <span class="bool-val">false</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;7985&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;8018&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;8567&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;8604&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">"7985"</span>],
+            <span class="macro">expect!</span>[<span class="string">"8018"</span>],
+            <span class="macro">expect!</span>[<span class="string">"8567"</span>],
+            <span class="macro">expect!</span>[<span class="string">"8604"</span>],
             <span class="number">1</span>,
         );
         test_query_aux(
             <span class="bool-val">false</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;9440&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;9479&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;10022&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;10065&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">"9440"</span>],
+            <span class="macro">expect!</span>[<span class="string">"9479"</span>],
+            <span class="macro">expect!</span>[<span class="string">"10022"</span>],
+            <span class="macro">expect!</span>[<span class="string">"10065"</span>],
             <span class="number">3</span>,
         );
         test_query_aux(
             <span class="bool-val">false</span>,
-            <span class="macro">expect!</span>[<span class="string">&quot;15326&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;15389&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;15908&quot;</span>],
-            <span class="macro">expect!</span>[<span class="string">&quot;15975&quot;</span>],
+            <span class="macro">expect!</span>[<span class="string">"15326"</span>],
+            <span class="macro">expect!</span>[<span class="string">"15389"</span>],
+            <span class="macro">expect!</span>[<span class="string">"15908"</span>],
+            <span class="macro">expect!</span>[<span class="string">"15975"</span>],
             <span class="number">10</span>,
         )
     }
@@ -2335,8 +2336,8 @@
             Scope::new(transcribe_internal_insertions, circuit_query_rc);
         <span class="kw">let </span>state = State::init_lurk_state();
 
-        <span class="kw">let </span>fact_4 = s.read_with_default_state(<span class="string">&quot;(factorial . 4)&quot;</span>).unwrap();
-        <span class="kw">let </span>fact_3 = s.read_with_default_state(<span class="string">&quot;(factorial . 3)&quot;</span>).unwrap();
+        <span class="kw">let </span>fact_4 = s.read_with_default_state(<span class="string">"(factorial . 4)"</span>).unwrap();
+        <span class="kw">let </span>fact_3 = s.read_with_default_state(<span class="string">"(factorial . 3)"</span>).unwrap();
 
         <span class="kw">let </span>expect_eq = |computed: usize, expected: Expect| {
             expected.assert_eq(<span class="kw-2">&amp;</span>computed.to_string());
@@ -2346,8 +2347,8 @@
             scope.query(s, fact_4);
 
             <span class="kw">for </span>(k, v) <span class="kw">in </span>scope.queries.iter() {
-                <span class="macro">println!</span>(<span class="string">&quot;k: {}&quot;</span>, k.fmt_to_string(s, <span class="kw-2">&amp;</span>state));
-                <span class="macro">println!</span>(<span class="string">&quot;v: {}&quot;</span>, v.fmt_to_string(s, <span class="kw-2">&amp;</span>state));
+                <span class="macro">println!</span>(<span class="string">"k: {}"</span>, k.fmt_to_string(s, <span class="kw-2">&amp;</span>state));
+                <span class="macro">println!</span>(<span class="string">"v: {}"</span>, v.fmt_to_string(s, <span class="kw-2">&amp;</span>state));
             }
             <span class="comment">// Factorial 4 will memoize calls to:
             // fact(4), fact(3), fact(2), fact(1), and fact(0)
@@ -2363,7 +2364,7 @@
             scope.synthesize(cs, g, s).unwrap();
 
             <span class="macro">println!</span>(
-                <span class="string">&quot;transcript: {}&quot;</span>,
+                <span class="string">"transcript: {}"</span>,
                 scope
                     .memoset
                     .transcript
@@ -2404,7 +2405,7 @@
             scope.synthesize(cs, g, s).unwrap();
 
             <span class="macro">println!</span>(
-                <span class="string">&quot;transcript: {}&quot;</span>,
+                <span class="string">"transcript: {}"</span>,
                 scope
                     .memoset
                     .transcript

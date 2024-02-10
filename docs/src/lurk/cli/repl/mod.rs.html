@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -732,7 +733,7 @@
 }
 
 <span class="kw">impl </span>Validator <span class="kw">for </span>InputValidator {
-    <span class="kw">fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;mut </span>ValidationContext&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; rustyline::Result&lt;ValidationResult&gt; {
+    <span class="kw">fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;mut </span>ValidationContext&lt;<span class="lifetime">'_</span>&gt;) -&gt; rustyline::Result&lt;ValidationResult&gt; {
         <span class="self">self</span>.brackets.validate(ctx)
     }
 }
@@ -763,18 +764,18 @@
     backend: Backend,
     evaluation: <span class="prelude-ty">Option</span>&lt;Evaluation&gt;,
     pwd_path: Utf8PathBuf,
-    meta: HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, MetaCmd&lt;F, C&gt;&gt;,
+    meta: HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, MetaCmd&lt;F, C&gt;&gt;,
     apply_fn: OnceCell&lt;Ptr&gt;,
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>validate_non_zero(name: <span class="kw-2">&amp;</span>str, x: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">if </span>x == <span class="number">0 </span>{
-        <span class="macro">bail!</span>(<span class="string">&quot;`{name}` can&#39;t be zero&quot;</span>)
+        <span class="macro">bail!</span>(<span class="string">"`{name}` can't be zero"</span>)
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// `pad(a, m)` returns the first multiple of `m` that&#39;s equal or greater than `a`
+<span class="doccomment">/// `pad(a, m)` returns the first multiple of `m` that's equal or greater than `a`
 ///
 /// Panics if `m` is zero
 </span><span class="attr">#[inline]
@@ -790,7 +791,7 @@
     <span class="kw">fn </span>peek1(<span class="kw-2">&amp;</span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&gt; {
         <span class="kw">let </span>(first, rest) = <span class="self">self</span>.store.car_cdr(args)<span class="question-mark">?</span>;
         <span class="kw">if </span>!rest.is_nil() {
-            <span class="macro">bail!</span>(<span class="string">&quot;At most one argument is accepted&quot;</span>)
+            <span class="macro">bail!</span>(<span class="string">"At most one argument is accepted"</span>)
         }
         <span class="prelude-val">Ok</span>(first)
     }
@@ -799,7 +800,7 @@
         <span class="kw">let </span>(first, rest) = <span class="self">self</span>.store.car_cdr(args)<span class="question-mark">?</span>;
         <span class="kw">let </span>(second, rest) = <span class="self">self</span>.store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
         <span class="kw">if </span>!rest.is_nil() {
-            <span class="macro">bail!</span>(<span class="string">&quot;At most two arguments are accepted&quot;</span>)
+            <span class="macro">bail!</span>(<span class="string">"At most two arguments are accepted"</span>)
         }
         <span class="prelude-val">Ok</span>((first, second))
     }
@@ -808,7 +809,7 @@
     </span><span class="kw">fn </span>get_string(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
         <span class="self">self</span>.store.fetch_string(ptr).ok_or_else(|| {
             <span class="macro">anyhow!</span>(
-                <span class="string">&quot;Expected string. Got {}&quot;</span>,
+                <span class="string">"Expected string. Got {}"</span>,
                 ptr.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
             )
         })
@@ -818,7 +819,7 @@
     </span><span class="kw">fn </span>get_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;Symbol&gt; {
         <span class="self">self</span>.store.fetch_symbol(ptr).ok_or_else(|| {
             <span class="macro">anyhow!</span>(
-                <span class="string">&quot;Expected symbol. Got {}&quot;</span>,
+                <span class="string">"Expected symbol. Got {}"</span>,
                 ptr.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
             )
         })
@@ -827,7 +828,7 @@
 
 <span class="kw">impl</span>&lt;
         F: CurveCycleEquipped + Serialize + DeserializeOwned,
-        C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">&#39;static</span>,
+        C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned + <span class="lifetime">'static</span>,
     &gt; Repl&lt;F, C&gt;
 <span class="kw">where
     </span>F::Repr: Abomonation,
@@ -842,12 +843,12 @@
     ) -&gt; Repl&lt;F, C&gt; {
         <span class="kw">let </span>limit = pad(limit, rc);
         <span class="macro">info!</span>(
-            <span class="string">&quot;Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}&quot;</span>,
+            <span class="string">"Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}"</span>,
             F::FIELD
         );
-        <span class="kw">let </span>current_dir = std::env::current_dir().expect(<span class="string">&quot;couldn&#39;t capture current directory&quot;</span>);
+        <span class="kw">let </span>current_dir = std::env::current_dir().expect(<span class="string">"couldn't capture current directory"</span>);
         <span class="kw">let </span>pwd_path =
-            Utf8PathBuf::from_path_buf(current_dir).expect(<span class="string">&quot;path contains invalid Unicode&quot;</span>);
+            Utf8PathBuf::from_path_buf(current_dir).expect(<span class="string">"path contains invalid Unicode"</span>);
         <span class="kw">let </span>env = store.intern_empty_env();
         <span class="kw">let </span>lurk_step = make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(<span class="kw-2">&amp;</span>lang));
         <span class="kw">let </span>cprocs = make_cprocs_funcs_from_lang(<span class="kw-2">&amp;</span>lang);
@@ -877,13 +878,13 @@
             <span class="kw">let </span>ptr = <span class="self">self
                 </span>.store
                 .read_with_default_state(
-                    <span class="string">&quot;(letrec ((apply (lambda (fn args)
+                    <span class="string">"(letrec ((apply (lambda (fn args)
                          (if args
                            (if (cdr args)
                              (apply (fn (car args)) (cdr args))
                              (fn (car args)))
                            (fn)))))
-                       apply)&quot;</span>,
+                       apply)"</span>,
                 )
                 .unwrap();
             <span class="kw">let </span>(io, ..) = <span class="self">self
@@ -899,9 +900,9 @@
         <span class="kw">let </span>(list, <span class="prelude-val">None</span>) = <span class="self">self
             </span>.store
             .fetch_list(list)
-            .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;list not interned&quot;</span>))<span class="question-mark">?
+            .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">"list not interned"</span>))<span class="question-mark">?
         </span><span class="kw">else </span>{
-            <span class="macro">bail!</span>(<span class="string">&quot;property lists must be proper&quot;</span>)
+            <span class="macro">bail!</span>(<span class="string">"property lists must be proper"</span>)
         };
         <span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::default();
         <span class="kw">for </span><span class="kw-2">&amp;</span>property <span class="kw">in </span>properties {
@@ -920,12 +921,12 @@
         envs: (Ptr, Ptr),
         conts: ((F, F), (F, F)),
     ) -&gt; Ptr {
-        <span class="kw">let </span>expr_key = store.key(<span class="string">&quot;expr&quot;</span>);
-        <span class="kw">let </span>env_key = store.key(<span class="string">&quot;env&quot;</span>);
-        <span class="kw">let </span>cont_key = store.key(<span class="string">&quot;cont&quot;</span>);
-        <span class="kw">let </span>expr_out_key = store.key(<span class="string">&quot;expr-out&quot;</span>);
-        <span class="kw">let </span>env_out_key = store.key(<span class="string">&quot;env-out&quot;</span>);
-        <span class="kw">let </span>cont_out_key = store.key(<span class="string">&quot;cont-out&quot;</span>);
+        <span class="kw">let </span>expr_key = store.key(<span class="string">"expr"</span>);
+        <span class="kw">let </span>env_key = store.key(<span class="string">"env"</span>);
+        <span class="kw">let </span>cont_key = store.key(<span class="string">"cont"</span>);
+        <span class="kw">let </span>expr_out_key = store.key(<span class="string">"expr-out"</span>);
+        <span class="kw">let </span>env_out_key = store.key(<span class="string">"env-out"</span>);
+        <span class="kw">let </span>cont_out_key = store.key(<span class="string">"cont-out"</span>);
         <span class="kw">let </span>(expr, expr_out) = exprs;
         <span class="kw">let </span>(env, env_out) = envs;
         <span class="kw">let </span>((cont_tag, cont_val), (cont_out_tag, cont_out_val)) = conts;
@@ -950,14 +951,14 @@
     <span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>proof_key(backend: <span class="kw-2">&amp;</span>Backend, rc: <span class="kw-2">&amp;</span>usize, claim_hash: <span class="kw-2">&amp;</span>str) -&gt; String {
         <span class="kw">let </span>field = F::FIELD;
-        <span class="macro">format!</span>(<span class="string">&quot;{backend}_{field}_{rc}_{claim_hash}&quot;</span>)
+        <span class="macro">format!</span>(<span class="string">"{backend}_{field}_{rc}_{claim_hash}"</span>)
     }
 
     <span class="doccomment">/// Proves a computation and returns the proof key
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prove_frames(<span class="kw-2">&amp;</span><span class="self">self</span>, frames: <span class="kw-2">&amp;</span>[Frame], iterations: usize) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
         <span class="kw">match </span><span class="self">self</span>.backend {
             Backend::Nova =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;Hydrating the store&quot;</span>);
+                <span class="macro">info!</span>(<span class="string">"Hydrating the store"</span>);
                 <span class="self">self</span>.store.hydrate_z_cache();
 
                 <span class="kw">let </span>n_frames = frames.len();
@@ -994,18 +995,18 @@
                 };
 
                 <span class="kw">if </span>LurkProof::&lt;<span class="kw">_</span>, C&gt;::is_cached(<span class="kw-2">&amp;</span>proof_key) {
-                    <span class="macro">info!</span>(<span class="string">&quot;Proof already cached&quot;</span>);
+                    <span class="macro">info!</span>(<span class="string">"Proof already cached"</span>);
                 } <span class="kw">else </span>{
-                    <span class="macro">info!</span>(<span class="string">&quot;Proof not cached. Loading public parameters&quot;</span>);
+                    <span class="macro">info!</span>(<span class="string">"Proof not cached. Loading public parameters"</span>);
                     <span class="kw">let </span>instance =
                         Instance::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone(), <span class="bool-val">true</span>, Kind::NovaPublicParams);
                     <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
                     <span class="kw">let </span>prover = NovaProver::&lt;<span class="kw">_</span>, C&gt;::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone());
 
-                    <span class="macro">info!</span>(<span class="string">&quot;Proving&quot;</span>);
+                    <span class="macro">info!</span>(<span class="string">"Proving"</span>);
                     <span class="kw">let </span>(proof, public_inputs, public_outputs, num_steps) =
                         prover.prove_from_frames(<span class="kw-2">&amp;</span>pp, frames, <span class="kw-2">&amp;</span><span class="self">self</span>.store)<span class="question-mark">?</span>;
-                    <span class="macro">info!</span>(<span class="string">&quot;Compressing proof&quot;</span>);
+                    <span class="macro">info!</span>(<span class="string">"Compressing proof"</span>);
                     <span class="kw">let </span>proof = proof.compress(<span class="kw-2">&amp;</span>pp)<span class="question-mark">?</span>;
                     <span class="macro">assert_eq!</span>(<span class="self">self</span>.rc * num_steps, pad(n_frames, <span class="self">self</span>.rc));
                     <span class="macro">assert!</span>(proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs)<span class="question-mark">?</span>);
@@ -1022,8 +1023,8 @@
                 }
                 lurk_proof_meta.persist(<span class="kw-2">&amp;</span>proof_key)<span class="question-mark">?</span>;
                 claim_comm.persist()<span class="question-mark">?</span>;
-                <span class="macro">println!</span>(<span class="string">&quot;Claim hash: 0x{claim_hash}&quot;</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;Proof key: \&quot;{proof_key}\&quot;&quot;</span>);
+                <span class="macro">println!</span>(<span class="string">"Claim hash: 0x{claim_hash}"</span>);
+                <span class="macro">println!</span>(<span class="string">"Proof key: \"{proof_key}\""</span>);
                 <span class="prelude-val">Ok</span>(proof_key)
             }
         }
@@ -1032,7 +1033,7 @@
     <span class="doccomment">/// Proves the last cached computation and returns the proof key
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prove_last_frames(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
         <span class="kw">match </span><span class="self">self</span>.evaluation.as_ref() {
-            <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;No evaluation to prove&quot;</span>),
+            <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(<span class="string">"No evaluation to prove"</span>),
             <span class="prelude-val">Some</span>(Evaluation { frames, iterations }) =&gt; <span class="self">self</span>.prove_frames(frames, <span class="kw-2">*</span>iterations),
         }
     }
@@ -1041,14 +1042,14 @@
         <span class="kw">let </span>commitment = Commitment::new(<span class="prelude-val">Some</span>(secret), payload, <span class="kw-2">&amp;</span><span class="self">self</span>.store);
         <span class="kw">let </span>hash_str = <span class="kw-2">&amp;</span>commitment.hash.hex_digits();
         commitment.persist()<span class="question-mark">?</span>;
-        <span class="macro">println!</span>(<span class="string">&quot;Hash: 0x{hash_str}&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">"Hash: 0x{hash_str}"</span>);
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>fetch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>F, print_data: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>commitment: Commitment&lt;F&gt; = load(<span class="kw-2">&amp;</span>commitment_path(<span class="kw-2">&amp;</span>hash.hex_digits()))<span class="question-mark">?</span>;
         <span class="kw">if </span><span class="kw-2">&amp;</span>commitment.hash != hash {
-            <span class="macro">bail!</span>(<span class="string">&quot;Hash mismatch. Corrupted commitment file.&quot;</span>)
+            <span class="macro">bail!</span>(<span class="string">"Hash mismatch. Corrupted commitment file."</span>)
         } <span class="kw">else </span>{
             <span class="kw">let </span>(secret, z_payload) = commitment.open()<span class="question-mark">?</span>;
             <span class="kw">let </span>payload = commitment.z_store.populate_store(
@@ -1059,11 +1060,11 @@
             <span class="self">self</span>.store.hide(<span class="kw-2">*</span>secret, payload);
             <span class="kw">if </span>print_data {
                 <span class="macro">println!</span>(
-                    <span class="string">&quot;{}&quot;</span>,
+                    <span class="string">"{}"</span>,
                     payload.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
                 );
             } <span class="kw">else </span>{
-                <span class="macro">println!</span>(<span class="string">&quot;Data is now available&quot;</span>);
+                <span class="macro">println!</span>(<span class="string">"Data is now available"</span>);
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -1071,9 +1072,9 @@
 
     <span class="kw">fn </span>pretty_iterations_display(iterations: usize) -&gt; String {
         <span class="kw">if </span>iterations != <span class="number">1 </span>{
-            <span class="macro">format!</span>(<span class="string">&quot;{iterations} iterations&quot;</span>)
+            <span class="macro">format!</span>(<span class="string">"{iterations} iterations"</span>)
         } <span class="kw">else </span>{
-            <span class="string">&quot;1 iteration&quot;</span>.into()
+            <span class="string">"1 iteration"</span>.into()
         }
     }
 
@@ -1090,9 +1091,9 @@
             t =&gt; {
                 <span class="kw">let </span>iterations_display = <span class="self">Self</span>::pretty_iterations_display(iterations);
                 <span class="kw">if </span>t == <span class="kw-2">&amp;</span>Tag::Cont(ContTag::Error) {
-                    <span class="macro">bail!</span>(<span class="string">&quot;Evaluation encountered an error after {iterations_display}&quot;</span>)
+                    <span class="macro">bail!</span>(<span class="string">"Evaluation encountered an error after {iterations_display}"</span>)
                 } <span class="kw">else </span>{
-                    <span class="macro">bail!</span>(<span class="string">&quot;Limit reached after {iterations_display}&quot;</span>)
+                    <span class="macro">bail!</span>(<span class="string">"Limit reached after {iterations_display}"</span>)
                 }
             }
         }
@@ -1118,7 +1119,7 @@
             <span class="prelude-val">Ok</span>((ptrs, iterations, emitted))
         } <span class="kw">else </span>{
             <span class="macro">bail!</span>(
-                <span class="string">&quot;Limit reached after {}&quot;</span>,
+                <span class="string">"Limit reached after {}"</span>,
                 <span class="self">Self</span>::pretty_iterations_display(iterations)
             )
         }
@@ -1135,7 +1136,7 @@
         <span class="kw">let </span>iterations = frames.len();
         <span class="kw">let </span>output = frames
             .last()
-            .expect(<span class="string">&quot;evaluation should return at least one frame&quot;</span>)
+            .expect(<span class="string">"evaluation should return at least one frame"</span>)
             .output
             .clone();
         <span class="self">self</span>.evaluation = <span class="prelude-val">Some</span>(Evaluation { frames, iterations });
@@ -1144,13 +1145,13 @@
 
     <span class="kw">fn </span>get_comm_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
         <span class="kw">let </span>first = <span class="self">self</span>.peek1(args)<span class="question-mark">?</span>;
-        <span class="kw">let </span>num = <span class="self">self</span>.store.intern_lurk_symbol(<span class="string">&quot;num&quot;</span>);
+        <span class="kw">let </span>num = <span class="self">self</span>.store.intern_lurk_symbol(<span class="string">"num"</span>);
         <span class="kw">let </span>expr = <span class="self">self</span>.store.list(<span class="macro">vec!</span>[num, first]);
         <span class="kw">let </span>(expr_io, ..) = <span class="self">self
             </span>.eval_expr(expr)
-            .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)<span class="question-mark">?</span>;
+            .with_context(|| <span class="string">"evaluating first arg"</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>(Tag::Expr(ExprTag::Num), RawPtr::Atom(hash_idx)) = <span class="kw-2">&amp;</span>expr_io[<span class="number">0</span>].parts() <span class="kw">else </span>{
-            <span class="macro">bail!</span>(<span class="string">&quot;hash must be a number&quot;</span>)
+            <span class="macro">bail!</span>(<span class="string">"hash must be a number"</span>)
         };
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.store.expect_f(<span class="kw-2">*</span>hash_idx))
     }
@@ -1161,15 +1162,15 @@
         <span class="kw">match </span>output[<span class="number">2</span>].tag() {
             Tag::Cont(ContTag::Terminal) =&gt; {
                 <span class="macro">println!</span>(
-                    <span class="string">&quot;[{iterations_display}] =&gt; {}&quot;</span>,
+                    <span class="string">"[{iterations_display}] =&gt; {}"</span>,
                     output[<span class="number">0</span>].fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
                 );
                 <span class="prelude-val">Ok</span>(())
             }
             Tag::Cont(ContTag::Error) =&gt; {
-                <span class="macro">bail!</span>(<span class="string">&quot;Evaluation encountered an error after {iterations_display}&quot;</span>)
+                <span class="macro">bail!</span>(<span class="string">"Evaluation encountered an error after {iterations_display}"</span>)
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Limit reached after {iterations_display}&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"Limit reached after {iterations_display}"</span>),
         }
     }
 
@@ -1181,13 +1182,13 @@
                 <span class="kw">match </span><span class="self">self</span>.meta.get(cmdstr) {
                     <span class="prelude-val">Some</span>(cmd) =&gt; <span class="kw">match </span>(cmd.run)(<span class="self">self</span>, <span class="kw-2">&amp;</span>cdr, file_path) {
                         <span class="prelude-val">Ok</span>(()) =&gt; (),
-                        <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;Meta command failed with: {}&quot;</span>, e),
+                        <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">bail!</span>(<span class="string">"Meta command failed with: {}"</span>, e),
                     },
-                    <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Unsupported meta command: {cmdstr}&quot;</span>),
+                    <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(<span class="string">"Unsupported meta command: {cmdstr}"</span>),
                 }
             }
             <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(
-                <span class="string">&quot;Meta command must be a symbol. Found {}&quot;</span>,
+                <span class="string">"Meta command must be a symbol. Found {}"</span>,
                 car.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
             ),
         }
@@ -1197,19 +1198,19 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>input_marker(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="macro">format!</span>(
-            <span class="string">&quot;{}&gt; &quot;</span>,
+            <span class="string">"{}&gt; "</span>,
             <span class="self">self</span>.state
                 .borrow()
                 .fmt_to_string(<span class="self">self</span>.state.borrow().get_current_package_name())
         )
     }
 
-    <span class="kw">fn </span>handle_form&lt;<span class="lifetime">&#39;a</span>&gt;(
+    <span class="kw">fn </span>handle_form&lt;<span class="lifetime">'a</span>&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        input: parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;,
+        input: parser::Span&lt;<span class="lifetime">'a</span>&gt;,
         file_path: <span class="kw-2">&amp;</span>Utf8Path,
         demo: bool,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;parser::Span&lt;<span class="lifetime">'a</span>&gt;&gt; {
         <span class="kw">let </span>(syntax_start, <span class="kw-2">mut </span>new_input, ptr, is_meta) =
             <span class="self">self</span>.store.read_maybe_meta(<span class="self">self</span>.state.clone(), <span class="kw-2">&amp;</span>input)<span class="question-mark">?</span>;
         <span class="kw">if </span>demo {
@@ -1218,17 +1219,17 @@
             <span class="kw">let </span>potential_commentaries = <span class="kw-2">&amp;</span>input[..syntax_start];
             <span class="kw">let </span>actual_syntax = <span class="kw-2">&amp;</span>input[syntax_start..new_input.location_offset()];
             <span class="kw">let </span>input_marker = <span class="kw-2">&amp;</span><span class="self">self</span>.input_marker();
-            <span class="kw">if </span>actual_syntax.contains(<span class="string">&#39;\n&#39;</span>) {
-                <span class="comment">// print the expression on a new line to avoid messing with the user&#39;s formatting
-                </span><span class="macro">print!</span>(<span class="string">&quot;{potential_commentaries}{input_marker}\n{actual_syntax}&quot;</span>);
+            <span class="kw">if </span>actual_syntax.contains(<span class="string">'\n'</span>) {
+                <span class="comment">// print the expression on a new line to avoid messing with the user's formatting
+                </span><span class="macro">print!</span>(<span class="string">"{potential_commentaries}{input_marker}\n{actual_syntax}"</span>);
             } <span class="kw">else </span>{
-                <span class="macro">print!</span>(<span class="string">&quot;{potential_commentaries}{input_marker}{actual_syntax}&quot;</span>);
+                <span class="macro">print!</span>(<span class="string">"{potential_commentaries}{input_marker}{actual_syntax}"</span>);
             }
             std::io::stdout().flush()<span class="question-mark">?</span>;
             <span class="comment">// wait for ENTER to be pressed
             </span>std::io::stdin().read_line(<span class="kw-2">&amp;mut </span>String::new())<span class="question-mark">?</span>;
             <span class="comment">// ENTER already prints a new line so we can remove it from the start of incoming input
-            </span>new_input = parser::Span::new(new_input.trim_start_matches(<span class="string">&#39;\n&#39;</span>));
+            </span>new_input = parser::Span::new(new_input.trim_start_matches(<span class="string">'\n'</span>));
         }
         <span class="kw">if </span>is_meta {
             <span class="self">self</span>.handle_meta(ptr, file_path)<span class="question-mark">?</span>;
@@ -1241,9 +1242,9 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file_path: <span class="kw-2">&amp;</span>Utf8Path, demo: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>input = read_to_string(file_path)<span class="question-mark">?</span>;
         <span class="kw">if </span>demo {
-            <span class="macro">println!</span>(<span class="string">&quot;Loading {file_path} in demo mode&quot;</span>);
+            <span class="macro">println!</span>(<span class="string">"Loading {file_path} in demo mode"</span>);
         } <span class="kw">else </span>{
-            <span class="macro">println!</span>(<span class="string">&quot;Loading {file_path}&quot;</span>);
+            <span class="macro">println!</span>(<span class="string">"Loading {file_path}"</span>);
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>input = parser::Span::new(<span class="kw-2">&amp;</span>input);
@@ -1253,7 +1254,7 @@
                 <span class="prelude-val">Ok</span>(new_input) =&gt; input = new_input,
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(parser::Error::NoInput) = e.downcast_ref::&lt;parser::Error&gt;() {
-                        <span class="comment">// It&#39;s ok, it just means we&#39;ve hit the EOF
+                        <span class="comment">// It's ok, it just means we've hit the EOF
                         </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
                     } <span class="kw">else </span>{
                         <span class="kw">return </span><span class="prelude-val">Err</span>(e);
@@ -1264,7 +1265,7 @@
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>start(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">println!</span>(<span class="string">&quot;Lurk REPL welcomes you.&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">"Lurk REPL welcomes you."</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>editor: Editor&lt;InputValidator, DefaultHistory&gt; = Editor::with_config(
             Config::builder()
@@ -1291,22 +1292,22 @@
                         <span class="prelude-val">Ok</span>((.., expr_ptr, is_meta)) =&gt; {
                             <span class="kw">if </span>is_meta {
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_meta(expr_ptr, <span class="kw-2">&amp;</span><span class="self">self</span>.pwd_path.clone()) {
-                                    <span class="macro">eprintln!</span>(<span class="string">&quot;!Error: {e}&quot;</span>)
+                                    <span class="macro">eprintln!</span>(<span class="string">"!Error: {e}"</span>)
                                 }
                             } <span class="kw">else if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_non_meta(expr_ptr) {
-                                <span class="macro">eprintln!</span>(<span class="string">&quot;Error: {e}&quot;</span>)
+                                <span class="macro">eprintln!</span>(<span class="string">"Error: {e}"</span>)
                             }
                         }
                         <span class="prelude-val">Err</span>(parser::Error::NoInput) =&gt; (),
-                        <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">eprintln!</span>(<span class="string">&quot;Read error: {e}&quot;</span>),
+                        <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">eprintln!</span>(<span class="string">"Read error: {e}"</span>),
                     }
                 }
                 <span class="prelude-val">Err</span>(ReadlineError::Interrupted | ReadlineError::Eof) =&gt; {
-                    <span class="macro">println!</span>(<span class="string">&quot;Exiting...&quot;</span>);
+                    <span class="macro">println!</span>(<span class="string">"Exiting..."</span>);
                     <span class="kw">break</span>;
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Read line error: {e}&quot;</span>);
+                    <span class="macro">eprintln!</span>(<span class="string">"Read line error: {e}"</span>);
                     <span class="kw">break</span>;
                 }
             }

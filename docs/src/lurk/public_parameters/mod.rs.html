@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/public_parameters/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/public_parameters/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -228,22 +229,22 @@
         <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
         <span class="kw">match </span>disk_cache.read_bytes(instance, <span class="kw-2">&amp;mut </span>bytes) {
             <span class="prelude-val">Ok</span>(()) =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;loading abomonated {}&quot;</span>, instance.key());
+                <span class="macro">info!</span>(<span class="string">"loading abomonated {}"</span>, instance.key());
                 <span class="kw">let </span>(pp, rest) = <span class="kw">unsafe </span>{ decode::&lt;FlatPublicParams&lt;E1&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span>bytes).unwrap() };
                 <span class="macro">assert!</span>(rest.is_empty());
                 <span class="kw">let </span>pp = PublicParams::from(NovaPublicParams::&lt;F&gt;::from(pp.clone())); <span class="comment">// this clone is VERY expensive
                 </span><span class="prelude-val">Ok</span>(pp)
             }
             <span class="prelude-val">Err</span>(Error::IO(e)) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">&quot;{e}&quot;</span>);
-                <span class="macro">info!</span>(<span class="string">&quot;Generating fresh public parameters&quot;</span>);
+                <span class="macro">warn!</span>(<span class="string">"{e}"</span>);
+                <span class="macro">info!</span>(<span class="string">"Generating fresh public parameters"</span>);
                 <span class="kw">let </span>pp = default(instance);
                 <span class="kw">let </span>fp = FlatPublicParams::try_from(pp.pp).unwrap();
                 <span class="comment">// maybe just directly write
                 </span>disk_cache
                     .write_abomonated(instance, <span class="kw-2">&amp;</span>fp)
-                    .tap_ok(|<span class="kw">_</span>| <span class="macro">info!</span>(<span class="string">&quot;writing public params to disk-cache: {}&quot;</span>, instance.key()))
-                    .map_err(|e| Error::Cache(<span class="macro">format!</span>(<span class="string">&quot;Disk write error: {e}&quot;</span>)))<span class="question-mark">?</span>;
+                    .tap_ok(|<span class="kw">_</span>| <span class="macro">info!</span>(<span class="string">"writing public params to disk-cache: {}"</span>, instance.key()))
+                    .map_err(|e| Error::Cache(<span class="macro">format!</span>(<span class="string">"Disk write error: {e}"</span>)))<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(PublicParams::from(NovaPublicParams::&lt;F&gt;::from(fp)))
             }
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
@@ -251,20 +252,20 @@
     } <span class="kw">else </span>{
         <span class="comment">// read the file if it exists, otherwise initialize
         </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(pp) = disk_cache.read(instance) {
-            <span class="macro">info!</span>(<span class="string">&quot;loading abomonated {}&quot;</span>, instance.key());
+            <span class="macro">info!</span>(<span class="string">"loading abomonated {}"</span>, instance.key());
             <span class="prelude-val">Ok</span>(pp)
         } <span class="kw">else </span>{
             <span class="kw">let </span>pp = default(instance);
             disk_cache
                 .write(instance, <span class="kw-2">&amp;</span>pp)
-                .tap_ok(|<span class="kw">_</span>| <span class="macro">info!</span>(<span class="string">&quot;writing public params to disk-cache: {}&quot;</span>, instance.key()))
-                .map_err(|e| Error::Cache(<span class="macro">format!</span>(<span class="string">&quot;Disk write error: {e}&quot;</span>)))<span class="question-mark">?</span>;
+                .tap_ok(|<span class="kw">_</span>| <span class="macro">info!</span>(<span class="string">"writing public params to disk-cache: {}"</span>, instance.key()))
+                .map_err(|e| Error::Cache(<span class="macro">format!</span>(<span class="string">"Disk write error: {e}"</span>)))<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(pp)
         }
     }
 }
 
-<span class="kw">pub fn </span>supernova_circuit_params&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt;(
+<span class="kw">pub fn </span>supernova_circuit_params&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;(
     instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NovaCircuitShape&lt;F&gt;, Error&gt;
 <span class="kw">where
@@ -277,15 +278,15 @@
     disk_cache.read_bytes(instance, <span class="kw-2">&amp;mut </span>bytes).and_then(|()| {
         <span class="kw">if let </span><span class="prelude-val">Some</span>((pp, remaining)) = <span class="kw">unsafe </span>{ decode::&lt;NovaCircuitShape&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span>bytes) } {
             <span class="macro">assert!</span>(remaining.is_empty());
-            <span class="macro">eprintln!</span>(<span class="string">&quot;Using disk-cached public params for {}&quot;</span>, instance.key());
+            <span class="macro">eprintln!</span>(<span class="string">"Using disk-cached public params for {}"</span>, instance.key());
             <span class="prelude-val">Ok</span>(pp.clone())
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
+            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">"failed to decode bytes"</span>.into()))
         }
     })
 }
 
-<span class="kw">pub fn </span>supernova_aux_params&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt;(
+<span class="kw">pub fn </span>supernova_aux_params&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;(
     instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SuperNovaAuxParams&lt;F&gt;, Error&gt;
 <span class="kw">where
@@ -302,13 +303,13 @@
             <span class="macro">assert!</span>(remaining.is_empty());
             <span class="prelude-val">Ok</span>(SuperNovaAuxParams::&lt;F&gt;::from(flat_aux_params.clone()))
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">&quot;failed to decode bytes&quot;</span>.into()))
+            <span class="prelude-val">Err</span>(Error::Cache(<span class="string">"failed to decode bytes"</span>.into()))
         }
     })
 }
 
 <span class="doccomment">/// Attempts to extract abomonated public parameters.
-</span><span class="kw">pub fn </span>supernova_public_params&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt;(
+</span><span class="kw">pub fn </span>supernova_public_params&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt;(
     instance_primary: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;supernova::PublicParams&lt;F&gt;, Error&gt;
 <span class="kw">where
@@ -330,7 +331,7 @@
     <span class="kw">let </span>pp = <span class="kw">if let </span>(<span class="prelude-val">Ok</span>(circuit_params_vec), <span class="prelude-val">Ok</span>(aux_params)) =
         (maybe_circuit_params_vec, maybe_aux_params)
     {
-        <span class="macro">println!</span>(<span class="string">&quot;generating public params&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">"generating public params"</span>);
 
         <span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F&gt;::from_parts_unchecked(circuit_params_vec, aux_params);
 
@@ -339,7 +340,7 @@
             pk_and_vk: OnceCell::new(),
         }
     } <span class="kw">else </span>{
-        <span class="macro">println!</span>(<span class="string">&quot;generating running claim params&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">"generating running claim params"</span>);
         <span class="kw">let </span>pp = default(instance_primary);
 
         <span class="kw">let </span>(circuit_params_vec, aux_params) = pp.pp.into_parts();
@@ -375,8 +376,8 @@
     <span class="attr">#[test]
     </span><span class="comment">// Note: No Eq instance for PublicParams currently, just testing disk read/write
     </span><span class="kw">fn </span>serde_public_params_roundtrip() {
-        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap();
-        std::env::set_var(<span class="string">&quot;LURK_PUBLIC_PARAMS&quot;</span>, tmp_dir.path());
+        <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">"tmp"</span>).tempdir().unwrap();
+        std::env::set_var(<span class="string">"LURK_PUBLIC_PARAMS"</span>, tmp_dir.path());
 
         <span class="kw">let </span>lang: Arc&lt;Lang&lt;S1&gt;&gt; = Arc::new(Lang::new());
         <span class="kw">let </span>instance = Instance::new(<span class="number">10</span>, lang, <span class="bool-val">true</span>, Kind::NovaPublicParams);
