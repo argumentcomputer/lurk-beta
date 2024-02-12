@@ -869,7 +869,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                     return (expr, env, cont, apply)
                 }
                 let not_found = Symbol("not_found");
-                // `expr` is the symbol. If the lookup was succesful, it will
+                // `expr` is the symbol. If the lookup was successful, it will
                 // return the result as `res` and a "found" state. If the lookup
                 // is incomplete, it will return the original symbol as `res`
                 // and a "not_found" state

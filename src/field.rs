@@ -2,7 +2,7 @@
 //! The finite field used in the language.
 //!
 //! This defines the LurkField trait used pervasively in the code base
-//! as an extension of the ff::PrimeField trait, with conveniance methods
+//! as an extension of the ff::PrimeField trait, with convenience methods
 //! relating this field to the expresions of the language.
 use clap::ValueEnum;
 use ff::{PrimeField, PrimeFieldBits};

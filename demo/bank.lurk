@@ -87,7 +87,7 @@
 
 (set :balance 666 (car people))
 
-;; More useful is an update function that modifes a field based on its current value.
+;; More useful is an update function that modifies a field based on its current value.
 
 !(def update (lambda (key update-fn plist)
                 (letrec ((aux (lambda (acc plist)

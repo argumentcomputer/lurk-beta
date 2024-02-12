@@ -42,7 +42,7 @@ pub trait CurveCycleEquipped: LurkField {
     /// *and* that implementation requires an additional trait bound `CommitmentKeyExtTrait` for this type.
     ///
     /// The following abstracts over curve cycle groups for which there exists an implementation of [`nova::traits::evaluation::EvaluationEngineTrait<G>`],
-    /// encapsulating these idiosyncracies within Nova.
+    /// encapsulating these idiosyncrasies within Nova.
     type E1: NovaCurveCycleEquipped<Scalar = Self>;
 
     /// a concrete implementation of an [`nova::traits::evaluation::EvaluationEngineTrait<G>`] for G1,
