@@ -3,15 +3,19 @@ use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
     error::ProofError,
     field::LurkField,
-    lem::{pointers::Ptr, store::Store},
+    lem::{pointers::Ptr, store::Store, tag::Tag},
     proof::{
         nova::{CurveCycleEquipped, E1},
         supernova::{Proof, PublicParams, SuperNovaPublicParams, C2, SS1, SS2},
         FrameLike, Prover, RecursiveSNARKTrait,
     },
+    tag::ExprTag::Cons,
 };
 
-use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
+use bellpepper::util_cs::Comparable;
+use bellpepper_core::{
+    num::AllocatedNum, test_cs::TestConstraintSystem, ConstraintSystem, Delta, SynthesisError,
+};
 use once_cell::sync::OnceCell;
 use tracing::info;
 
@@ -95,7 +99,7 @@ impl<'a, F: LurkField, Q: Query<F> + Send + Sync> StepCircuit<F> for Coroutine<'
                 z[2 * i + 1].clone(),
             ));
         }
-        let (next_pc, output_ptrs) = CoroutineCircuit::synthesize(self, cs, &input)?;
+        let (next_pc, output_ptrs) = self.supernova_synthesize(cs, &input)?;
         assert_eq!(output_ptrs.len(), size);
         let mut output = Vec::with_capacity(COROUTINE_ARITY);
         for ptr in output_ptrs {
@@ -200,9 +204,10 @@ impl<'a, F: LurkField, Q: Query<F> + Send + Sync> FrameLike<Ptr> for Coroutine<'
     }
 }
 
-impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> Prover<'a, F, Coroutine<'a, F, Q>>
+impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> Prover<'a, F>
     for MemosetProver<'a, F, Q>
 {
+    type Frame = Coroutine<'a, F, Q>;
     type PublicParams = PublicParams<F>;
     type RecursiveSnark = Proof<F, Coroutine<'a, F, Q>>;
 
@@ -291,6 +296,63 @@ fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
     prover.prove(pp, steps, store)
 }
 
+fn check_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
+    scope: &'a Scope<Q, LogMemo<F>, F>,
+    store: &'a Store<F>,
+) {
+    let mut input_ptrs = [
+        store.dummy(),
+        store.dummy(),
+        store.dummy(),
+        scope.init_memoset(store),
+        scope.init_transcript(store),
+        store.intern_atom(Tag::Expr(Cons), *scope.memoset.r().unwrap()),
+    ]
+    .iter()
+    .map(|ptr| store.hash_ptr(ptr))
+    .collect::<Vec<_>>();
+    let mut cs_prev = None;
+    for (index, keys) in scope.unique_inserted_keys.iter() {
+        let rc = scope.rc_for_query(*index);
+        for chunk in keys.chunks(rc) {
+            let mut cs = TestConstraintSystem::<F>::new();
+            let alloc_ptr = input_ptrs
+                .iter()
+                .enumerate()
+                .map(|(i, zptr)| {
+                    AllocatedPtr::alloc_infallible(
+                        &mut cs.namespace(|| format!("input {i}")),
+                        || *zptr,
+                    )
+                })
+                .collect::<Vec<_>>();
+            let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
+                None,
+                scope,
+                scope.memoset.clone(),
+                chunk.to_vec(),
+                *index,
+                *index,
+                store,
+                rc,
+            );
+            let (_next, out) = circuit.supernova_synthesize(&mut cs, &alloc_ptr).unwrap();
+            let unsat = cs.which_is_unsatisfied();
+
+            if unsat.is_some() {
+                eprintln!("{:?}", unsat);
+            }
+            assert!(cs.is_satisfied());
+            input_ptrs = out.into_iter().map(|x| x.get_value().unwrap()).collect();
+            if let Some(cs_prev) = cs_prev {
+                // Check for all input expresssions that all frames are uniform.
+                assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
+            }
+            cs_prev = Some(cs);
+        }
+    }
+}
+
 fn public_params<
     F: CurveCycleEquipped,
     SC: StepCircuit<F> + NonUniformCircuit<<F as CurveCycleEquipped>::E1>,
@@ -318,7 +380,18 @@ mod test {
     use halo2curves::bn256::Fr;
 
     #[test]
-    fn prove_memo() {
+    fn coroutine_uniformity_test() {
+        let s = &Store::<Fr>::default();
+        let query = s.read_with_default_state("(factorial . 40)").unwrap();
+        let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::new(10);
+        let mut scope = Scope::<DemoQuery<_>, _, _>::new(prover.reduction_count);
+        scope.query(s, query);
+        scope.finalize_transcript(s);
+        check_from_scope(&scope, s);
+    }
+
+    #[test]
+    fn coroutine_prove_test() {
         let s = &Store::<Fr>::default();
         let query = s.read_with_default_state("(factorial . 40)").unwrap();
         let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::new(10);

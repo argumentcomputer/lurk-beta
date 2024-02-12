@@ -32,7 +32,11 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
-use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+use bellpepper_core::{
+    boolean::{AllocatedBit, Boolean},
+    num::AllocatedNum,
+    ConstraintSystem, SynthesisError,
+};
 use once_cell::sync::OnceCell;
 
 use crate::circuit::gadgets::{
@@ -469,7 +473,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
 
     // This is a supernova::StepCircuit method.
     // // TODO: we need to create a supernova::StepCircuit that will prove up to a fixed number of queries of a given type.
-    fn synthesize<CS: ConstraintSystem<F>>(
+    fn supernova_synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         z: &[AllocatedPtr<F>],
@@ -507,7 +511,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
         }
 
         let (memoset_acc, transcript, r_num) = circuit_scope.io();
-        let r = AllocatedPtr::alloc_tag(ns!(cs, "r"), ExprTag::Num.to_field(), r_num)?;
+        let r = AllocatedPtr::alloc_tag(ns!(cs, "r"), ExprTag::Cons.to_field(), r_num)?;
 
         let z_out = vec![c.clone(), e.clone(), k.clone(), memoset_acc, transcript, r];
 
@@ -804,7 +808,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                             rc,
                         );
 
-                        let (_next_pc, z_out) = circuit.synthesize(cs, &z)?;
+                        let (_next_pc, z_out) = circuit.supernova_synthesize(cs, &z)?;
                         {
                             let memoset_acc = &z_out[3];
                             let transcript = &z_out[4];
@@ -1110,7 +1114,10 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             Q::CQ::dummy_from_index(ns!(cs, "circuit_query"), s, index)
         };
 
-        let not_dummy = key.is_some();
+        let not_dummy = Boolean::Is(AllocatedBit::alloc(
+            cs.namespace(|| "not_dummy"),
+            Some(key.is_some()),
+        )?);
 
         self.synthesize_prove_query::<_, Q::CQ>(
             cs,
@@ -1118,7 +1125,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             s,
             &allocated_key,
             &circuit_query,
-            not_dummy,
+            &not_dummy,
         )?;
         Ok(())
     }
@@ -1130,7 +1137,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         s: &Store<F>,
         allocated_key: &AllocatedPtr<F>,
         circuit_query: &CQ,
-        not_dummy: bool,
+        not_dummy: &Boolean,
     ) -> Result<(), SynthesisError> {
         let acc = self.acc.clone().unwrap();
         let transcript = self.transcript.clone();
@@ -1153,13 +1160,13 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         // Prover can choose non-deterministically whether or not a given query is a dummy, to allow for padding.
         let final_acc = AllocatedPtr::pick(
             ns!(cs, "final_acc"),
-            &Boolean::Constant(not_dummy),
+            not_dummy,
             &new_acc,
             self.acc.as_ref().expect("acc missing"),
         )?;
         let final_transcript = CircuitTranscript::pick(
             ns!(cs, "final_transcript"),
-            &Boolean::Constant(not_dummy),
+            not_dummy,
             &new_transcript,
             &self.transcript,
         )?;
