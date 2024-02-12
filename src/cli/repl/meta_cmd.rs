@@ -100,7 +100,7 @@ where
         format: "!(defrec <binding> <body>)",
         description: &[
             "Gets macroexpanded to this: (letrec ((foo (lambda () 123))) (current-env))",
-            "The state's env is set ot the result.",
+            "The state's env is set to the result.",
         ],
         example: &[
             "!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))",
