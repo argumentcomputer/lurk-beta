@@ -10,7 +10,7 @@ onto the file system. For each instance, we also have a <a href="struct.Metadata
 information about it.</p>
 <p>An <a href="struct.Instance.html" title="struct lurk::public_parameters::instance::Instance">Instance</a> represents exactly one distinct <a href="../../proof/nova/type.NovaPublicParams.html" title="type lurk::proof::nova::NovaPublicParams">nova::NovaPublicParams</a>, <a href="../../proof/supernova/type.SuperNovaAuxParams.html" title="type lurk::proof::supernova::SuperNovaAuxParams">supernova::SuperNovaAuxParams</a>,
 or [supernova::SuperNovaCircuitParams], tagged by the <a href="enum.Kind.html" title="enum lurk::public_parameters::instance::Kind">Kind</a> field.</p>
-<p>When fetching a set of SuperNova public parameters, the “core” instance is the auxilliary parameters,
+<p>When fetching a set of SuperNova public parameters, the “core” instance is the auxiliary parameters,
 because it contains the digest of the entire set of public parameters. Then, from this core instance,
 we derive the <code>num_circuits + 1</code> circuit param instances. This makes sure that we keep the SuperNova
 instances as modular as possible, and reuse as much overlapping circuit params as possible.</p>

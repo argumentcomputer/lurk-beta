@@ -691,7 +691,7 @@
                     // That circuit's witness will not be cached and will just be computed on-demand.
 
                     // There are many MultiFrames with PC = 0, each with several inner frames and heavy internal
-                    // paralellism for witness generation. So we do it like on Nova's pipeline.
+                    // parallelism for witness generation. So we do it like on Nova's pipeline.
                     </span>cc.iter()
                         .skip(<span class="number">1</span>)
                         .filter(|(is_zero_pc, <span class="kw">_</span>)| <span class="kw-2">*</span>is_zero_pc)

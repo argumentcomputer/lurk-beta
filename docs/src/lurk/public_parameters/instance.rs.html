@@ -318,7 +318,7 @@
 /// An [Instance] represents exactly one distinct [nova::NovaPublicParams], [supernova::SuperNovaAuxParams],
 /// or [supernova::SuperNovaCircuitParams], tagged by the [Kind] field.
 ///
-/// When fetching a set of SuperNova public parameters, the "core" instance is the auxilliary parameters,
+/// When fetching a set of SuperNova public parameters, the "core" instance is the auxiliary parameters,
 /// because it contains the digest of the entire set of public parameters. Then, from this core instance,
 /// we derive the `num_circuits + 1` circuit param instances. This makes sure that we keep the SuperNova
 /// instances as modular as possible, and reuse as much overlapping circuit params as possible.
@@ -474,7 +474,7 @@
         <span class="kw">if </span>metadata != expected_metadata {
             <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::Other,
-                <span class="string">"public params: mistmatched instances"</span>,
+                <span class="string">"public params: mismatched instances"</span>,
             ));
         }
 

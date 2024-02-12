@@ -239,7 +239,7 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; ZExpr&lt;F&gt; {
     <span class="doccomment">/// Constructs a `ZExprPtr` from a `ZExpr`, creating a Poseidon hash
-    /// from the consituent elements if needed
+    /// from the constituent elements if needed
     </span><span class="kw">pub fn </span>z_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, cache: <span class="kw-2">&amp;</span>PoseidonCache&lt;F&gt;) -&gt; ZExprPtr&lt;F&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             ZExpr::Nil =&gt; ZPtr(ExprTag::Nil, ZStore::new().nil_z_ptr(cache).<span class="number">1</span>),

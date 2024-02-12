@@ -3346,7 +3346,7 @@
                         num_constraints += recurse(block, globals, store, <span class="bool-val">true</span>);
                     }
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = def {
-                        <span class="comment">// constraints for the boolean, the unequalities and the default case
+                        <span class="comment">// constraints for the boolean, the inequalities and the default case
                         </span>num_constraints += <span class="number">1 </span>+ cases.len();
                         num_constraints += recurse(def, globals, store, <span class="bool-val">true</span>);
                     }
@@ -3366,7 +3366,7 @@
                         num_constraints += recurse(block, globals, store, <span class="bool-val">true</span>);
                     }
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = def {
-                        <span class="comment">// constraints for the boolean, the unequalities and the default case
+                        <span class="comment">// constraints for the boolean, the inequalities and the default case
                         </span>num_constraints += <span class="number">1 </span>+ cases.len();
                         num_constraints += recurse(def, globals, store, <span class="bool-val">true</span>);
                     }

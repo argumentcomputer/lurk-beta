@@ -1213,7 +1213,7 @@
         format: <span class="string">"!(defrec &lt;binding&gt; &lt;body&gt;)"</span>,
         description: <span class="kw-2">&amp;</span>[
             <span class="string">"Gets macroexpanded to this: (letrec ((foo (lambda () 123))) (current-env))"</span>,
-            <span class="string">"The state's env is set ot the result."</span>,
+            <span class="string">"The state's env is set to the result."</span>,
         ],
         example: <span class="kw-2">&amp;</span>[
             <span class="string">"!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))"</span>,

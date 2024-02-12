@@ -376,7 +376,7 @@
 }
 
 <span class="doccomment">/// Contains the Lurk config settings
-/// The `public_params_dir` setting can also be overriden by a CLI arg if in use
+/// The `public_params_dir` setting can also be overridden by a CLI arg if in use
 </span><span class="attr">#[derive(Debug, Deserialize, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Settings {
     <span class="doccomment">/// Public parameter disk cache location
@@ -388,14 +388,14 @@
 
 <span class="kw">impl </span>Settings {
     <span class="doccomment">/// Loads config settings from a file or env vars
-    /// The public parameter disk cache can also be overriden by a CLI arg if applicable
+    /// The public parameter disk cache can also be overridden by a CLI arg if applicable
     </span><span class="kw">pub fn </span>from_config(
         config_file: <span class="kw-2">&amp;</span>Utf8PathBuf,
         settings: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span>str, String&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ConfigError&gt; {
         <span class="kw">let </span>public_params = <span class="string">"public_params_dir"</span>;
         <span class="comment">// Settings are read first to last, in order of increasing precedence.
-        // Hence, default values must come first so they are overriden by all other methods.
+        // Hence, default values must come first so they are overridden by all other methods.
         </span>Config::builder()
             <span class="comment">// Default settings if unspecified in the config file
             </span>.set_default(public_params, public_params_default_dir().to_string())<span class="question-mark">?

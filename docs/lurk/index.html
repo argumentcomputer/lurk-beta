@@ -18,7 +18,7 @@
 <h2 id="backends"><a href="#backends">Backends</a></h2>
 <ul>
 <li>Nova is Lurk’s officially-supported IVC backend. It uses Lurk Lab’s Arecibo fork of the <a href="https://github.com/lurk-lab/arecibo">Nova proving system</a> and the Pasta Curves.</li>
-<li>SuperNova is Lurk’s in-development NIVC backend. It uses Arecibo’s <a href="https://github.com/lurk-lab/arecibo/tree/dev/src/supernova">SuperNova extension ot the Nova proving system</a> and the Pasta Curves.</li>
+<li>SuperNova is Lurk’s in-development NIVC backend. It uses Arecibo’s <a href="https://github.com/lurk-lab/arecibo/tree/dev/src/supernova">SuperNova extension to the Nova proving system</a> and the Pasta Curves.</li>
 <li>Future work may target Halo2 or other proving systems.</li>
 </ul>
 <p>It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves parameterized on scalar field and hash function. When backends use the same scalar field and hash function, they can be used to generate equivalent proofs. This is because the concrete representation of content-addressed data is fixed.</p>
