@@ -1376,24 +1376,24 @@ mod test {
     #[test]
     fn test_query() {
         test_query_aux(
-            expect!["9451"],
-            expect!["9502"],
-            expect!["10034"],
-            expect!["10092"],
+            expect!["9456"],
+            expect!["9512"],
+            expect!["10039"],
+            expect!["10102"],
             1,
         );
         test_query_aux(
-            expect!["11195"],
-            expect!["11255"],
-            expect!["11778"],
-            expect!["11845"],
+            expect!["11201"],
+            expect!["11263"],
+            expect!["11784"],
+            expect!["11853"],
             3,
         );
         test_query_aux(
-            expect!["18248"],
-            expect!["18344"],
-            expect!["18831"],
-            expect!["18934"],
+            expect!["18258"],
+            expect!["18355"],
+            expect!["18841"],
+            expect!["18945"],
             10,
         )
     }
