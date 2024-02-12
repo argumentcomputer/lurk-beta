@@ -15,7 +15,7 @@
 
 ;; This new commitment is now the head of the chain.
 
-;; Next, we ccreate a proof of this transtion.
+;; Next, we ccreate a proof of this transition.
 
 !(prove)
 

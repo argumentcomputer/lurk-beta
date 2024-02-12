@@ -2,8 +2,8 @@
 //! The finite field used in the language.
 //!
 //! This defines the LurkField trait used pervasively in the code base
-//! as an extension of the ff::PrimeField trait, with conveniance methods
-//! relating this field to the expresions of the language.
+//! as an extension of the ff::PrimeField trait, with convenience methods
+//! relating this field to the expressions of the language.
 use clap::ValueEnum;
 use ff::{PrimeField, PrimeFieldBits};
 use halo2curves::bn256::Fr as Bn256Scalar;

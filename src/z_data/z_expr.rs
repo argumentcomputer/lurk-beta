@@ -77,7 +77,7 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
 
 impl<F: LurkField> ZExpr<F> {
     /// Constructs a `ZExprPtr` from a `ZExpr`, creating a Poseidon hash
-    /// from the consituent elements if needed
+    /// from the constituent elements if needed
     pub fn z_ptr(&self, cache: &PoseidonCache<F>) -> ZExprPtr<F> {
         match self {
             ZExpr::Nil => ZPtr(ExprTag::Nil, ZStore::new().nil_z_ptr(cache).1),

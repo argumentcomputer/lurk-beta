@@ -153,7 +153,7 @@ pub trait Prover<'a, F: CurveCycleEquipped, M: FrameLike<Ptr, FrameIO = Vec<Ptr>
     /// Associated type for public parameters
     type PublicParams;
 
-    /// Assiciated proof type, which must implement `RecursiveSNARKTrait`
+    /// Associated proof type, which must implement `RecursiveSNARKTrait`
     type RecursiveSnark: RecursiveSNARKTrait<F, M, PublicParams = Self::PublicParams>;
 
     /// Returns a reference to the prover's FoldingMode

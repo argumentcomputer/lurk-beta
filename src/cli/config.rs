@@ -12,7 +12,7 @@ use serde::Deserialize;
 use super::backend::Backend;
 use super::paths::{circom_default_dir, commits_default_dir, proofs_default_dir};
 
-/// Global config varable for `CliSettings`
+/// Global config variable for `CliSettings`
 pub(crate) static CLI_CONFIG: OnceCell<CliSettings> = OnceCell::new();
 
 /// Gets the `CLI_CONFIG` settings. If uninitialized, sets the global variable

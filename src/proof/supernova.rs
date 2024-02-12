@@ -251,7 +251,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                     // That circuit's witness will not be cached and will just be computed on-demand.
 
                     // There are many MultiFrames with PC = 0, each with several inner frames and heavy internal
-                    // paralellism for witness generation. So we do it like on Nova's pipeline.
+                    // parallelism for witness generation. So we do it like on Nova's pipeline.
                     cc.iter()
                         .skip(1)
                         .filter(|(is_zero_pc, _)| *is_zero_pc)
