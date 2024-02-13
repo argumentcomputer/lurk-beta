@@ -1,4 +1,8 @@
 [default]
 extend-ignore-identifiers-re = [
     "[Aa]bomonation",
+    "[Ff]o",
+    "noo",
+    # Ignores e.g. \"Nova_BN256_10_18748ce7ba3dd0e7560ec64983d6b01d84a6303880b3b0b24878133aa1b4a6bb\"
+    "[\".*_.*_.*_.*\\\\\"]"
 ]

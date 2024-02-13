@@ -94,7 +94,7 @@ struct LoadArgs {
     #[clap(long, value_enum)]
     backend: Option<Backend>,
 
-    /// Arithmetic field (defaults to "Pallas")
+    /// Arithmetic field (defaults to "BN256")
     #[clap(long, value_enum)]
     field: Option<LanguageField>,
 
@@ -207,7 +207,7 @@ struct ReplArgs {
     #[clap(long, value_enum)]
     backend: Option<Backend>,
 
-    /// Arithmetic field (defaults to "Pallas")
+    /// Arithmetic field (defaults to "BN256")
     #[clap(long, value_enum)]
     field: Option<LanguageField>,
 
@@ -422,7 +422,7 @@ struct VerifyArgs {
     #[clap(value_parser)]
     proof_key: String,
 
-    /// Arithmetic field (defaults to "Pallas")
+    /// Arithmetic field (defaults to "BN256")
     #[clap(long, value_enum)]
     field: Option<LanguageField>,
 
@@ -445,7 +445,7 @@ struct InspectArgs {
     #[clap(value_parser)]
     proof_key: String,
 
-    /// Arithmetic field (defaults to "Pallas")
+    /// Arithmetic field (defaults to "BN256")
     #[clap(long, value_enum)]
     field: Option<LanguageField>,
 

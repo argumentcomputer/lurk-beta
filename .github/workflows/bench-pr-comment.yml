@@ -9,89 +9,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  cpu-benchmark:
-    name: run fibonacci benchmark
-    runs-on: buildjet-32vcpu-ubuntu-2204
+  benchmark:
+    name: Comparative PR benchmark comment
     if:
       github.event.issue.pull_request
       && github.event.issue.state == 'open'
       && contains(github.event.comment.body, '!benchmark')
       && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: lurk-lab/ci-workflows
-      - uses: ./.github/actions/ci-env
-      # Get base branch of the PR
-      - uses: xt0rted/pull-request-comment-branch@v2
-        id: comment-branch
-      - uses: actions/checkout@v4
-      - name: Checkout PR branch
-        run: gh pr checkout $PR_NUMBER
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-      # Install dependencies
-      - name: Install dependencies
-        run: sudo apt-get install -y pkg-config libssl-dev
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Set output type
-        run: |
-          echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
-      - uses: cardinalby/export-env-action@v2
-        with:
-          envFile:
-            'benches/bench.env'
-      # Run the comparative benchmark and comment output on the PR
-      - uses: boa-dev/criterion-compare-action@v3
-        with:
-          # Optional. Compare only this benchmark target
-          benchName: "fibonacci"
-          # Needed. The name of the branch to compare with
-          branchName: ${{ steps.comment-branch.outputs.base_ref }}
-
-  gpu-benchmark:
-    name: run fibonacci benchmark on GPU
-    runs-on: [self-hosted, gpu-bench]
-    if:
-      github.event.issue.pull_request
-      && github.event.issue.state == 'open'
-      && contains(github.event.comment.body, '!gpu-benchmark')
-      && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-    steps:
-      # Set up GPU env
-      - uses: actions/checkout@v4
-        with:
-          repository: lurk-lab/ci-workflows
-      - uses: ./.github/actions/gpu-setup
-        with:
-          gpu-framework: 'cuda'
-      - uses: ./.github/actions/ci-env
-      # Get base branch of the PR
-      - uses: xt0rted/pull-request-comment-branch@v2
-        id: comment-branch
-      - uses: actions/checkout@v4
-      - name: Checkout PR branch
-        run: gh pr checkout $PR_NUMBER
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-      # Install dependencies
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Set output type
-        run: echo "LURK_BENCH_OUTPUT=pr-comment" >> $GITHUB_ENV
-      - uses: cardinalby/export-env-action@v2
-        with:
-          envFile: 'benches/bench.env'
-      # Run the comparative benchmark and comment output on the PR
-      - uses: boa-dev/criterion-compare-action@v3
-        with:
-          # Note: Removing `benchName` causes `criterion` errors: https://github.com/boa-dev/criterion-compare-action#troubleshooting
-          # Optional. Compare only this benchmark target
-          benchName: "fibonacci"
-          # Optional. Features activated in the benchmark
-          features: "cuda"
-          # Needed. The name of the branch to compare with
-          branchName: ${{ steps.comment-branch.outputs.base_ref }}
+    uses: lurk-lab/ci-workflows/.github/workflows/bench-pr-comment.yml@main
+    with:
+      default-runner: "self-hosted,gpu-bench"
+      default-benches: "fibonacci"
+      default-env: "LURK_BENCH_OUTPUT=pr-comment LURK_RC=100,600"

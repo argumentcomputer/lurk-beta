@@ -2,8 +2,8 @@
 //! The finite field used in the language.
 //!
 //! This defines the LurkField trait used pervasively in the code base
-//! as an extension of the ff::PrimeField trait, with conveniance methods
-//! relating this field to the expresions of the language.
+//! as an extension of the ff::PrimeField trait, with convenience methods
+//! relating this field to the expressions of the language.
 use clap::ValueEnum;
 use ff::{PrimeField, PrimeFieldBits};
 use halo2curves::bn256::Fr as Bn256Scalar;
@@ -37,15 +37,15 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 pub enum LanguageField {
-    /// The Pallas field,
-    #[default]
-    Pallas,
-    /// The Vesta field,
-    Vesta,
     /// The BN256 scalar field,
+    #[default]
     BN256,
     /// THe Grumpkin scalar field,
     Grumpkin,
+    /// The Pallas field,
+    Pallas,
+    /// The Vesta field,
+    Vesta,
 }
 
 impl std::fmt::Display for LanguageField {

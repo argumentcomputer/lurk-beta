@@ -44,7 +44,7 @@ fn synthesize_test_helper(
         assert!(cs.is_satisfied());
         assert_eq!(computed_num_constraints, cs.num_constraints());
         if let Some(cs_prev) = cs_prev {
-            // Check for all input expresssions that all frames are uniform.
+            // Check for all input expressions that all frames are uniform.
             assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
         }
         cs_prev = Some(cs);
@@ -61,7 +61,7 @@ fn accepts_virtual_nested_match_tag() {
             }
             Expr::Char => {
                 match expr_in.tag {
-                    // This nested match excercises the need to pass on the
+                    // This nested match exercises the need to pass on the
                     // information that we are on a virtual branch, because a
                     // constraint will be created for `cont_out_error` and it
                     // will need to be relaxed by an implication with a false

@@ -62,7 +62,7 @@ use crate::{
 /// An [Instance] represents exactly one distinct [nova::NovaPublicParams], [supernova::SuperNovaAuxParams],
 /// or [supernova::SuperNovaCircuitParams], tagged by the [Kind] field.
 ///
-/// When fetching a set of SuperNova public parameters, the "core" instance is the auxilliary parameters,
+/// When fetching a set of SuperNova public parameters, the "core" instance is the auxiliary parameters,
 /// because it contains the digest of the entire set of public parameters. Then, from this core instance,
 /// we derive the `num_circuits + 1` circuit param instances. This makes sure that we keep the SuperNova
 /// instances as modular as possible, and reuse as much overlapping circuit params as possible.
@@ -218,7 +218,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
         if metadata != expected_metadata {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                "public params: mistmatched instances",
+                "public params: mismatched instances",
             ));
         }
 

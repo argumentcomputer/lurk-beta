@@ -42,7 +42,7 @@ pub trait CurveCycleEquipped: LurkField {
     /// *and* that implementation requires an additional trait bound `CommitmentKeyExtTrait` for this type.
     ///
     /// The following abstracts over curve cycle groups for which there exists an implementation of [`nova::traits::evaluation::EvaluationEngineTrait<G>`],
-    /// encapsulating these idiosyncracies within Nova.
+    /// encapsulating these idiosyncrasies within Nova.
     type E1: NovaCurveCycleEquipped<Scalar = Self>;
 
     /// a concrete implementation of an [`nova::traits::evaluation::EvaluationEngineTrait<G>`] for G1,
@@ -273,7 +273,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                 });
 
                 for circuit_primary in cc.iter() {
-                    let circuit_primary = circuit_primary.lock().unwrap();
+                    let mut circuit_primary = circuit_primary.lock().unwrap();
 
                     let mut r_snark = recursive_snark.unwrap_or_else(|| {
                         RecursiveSNARK::new(
@@ -288,6 +288,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                     r_snark
                         .prove_step(&pp.pp, &*circuit_primary, &circuit_secondary)
                         .expect("failure to prove Nova step");
+                    circuit_primary.clear_cached_witness();
                     recursive_snark = Some(r_snark);
                 }
                 recursive_snark

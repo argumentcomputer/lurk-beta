@@ -100,7 +100,7 @@ where
         format: "!(defrec <binding> <body>)",
         description: &[
             "Gets macroexpanded to this: (letrec ((foo (lambda () 123))) (current-env))",
-            "The state's env is set ot the result.",
+            "The state's env is set to the result.",
         ],
         example: &[
             "!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))",
@@ -238,7 +238,7 @@ where
         description: &[],
         example: &[
             "!(commit '(13 . 21))",
-            "(let ((n (open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25))) (* (car n) (cdr n)))",
+            "(let ((n (open 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001))) (* (car n) (cdr n)))",
         ],
         run: |repl, args, _path| {
             let first = repl.peek1(args)?;
@@ -254,8 +254,8 @@ where
         description: &[],
         example: &[
             "!(hide 12345 '(13 . 21))",
-            "(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))",
-            "(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)",
+            "(secret (comm 0x1884a703eea837ffae6ae99ec9af8e90d3fce7666c7953ffbe5eac7463ed1819))",
+            "(open 0x1884a703eea837ffae6ae99ec9af8e90d3fce7666c7953ffbe5eac7463ed1819)",
         ],
         run: |repl, args, _path| {
             let (first, second) = repl.peek2(args)?;
@@ -284,7 +284,7 @@ where
         description: &[],
         example: &[
             "!(commit '(13 . 21))",
-            "!(fetch 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
+            "!(fetch 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001)",
         ],
         run: |repl, args, _path| {
             let hash = *repl.get_comm_hash(args)?;
@@ -299,7 +299,7 @@ where
         description: &[],
         example: &[
             "!(commit '(13 . 21))",
-            "!(open 0x0071a3fe5e3a0dea9f7257e3210ea719f3464f2aa52a2cd6e6176c8275a75b25)",
+            "!(open 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001)",
         ],
         run: |repl, args, _path| {
             let hash = *repl.get_comm_hash(args)?;
@@ -349,8 +349,8 @@ where
         ],
         example: &[
             "!(prove '(1 2 3))",
-            "!(verify \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
-            "!(open 0x002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf)",
+            "!(verify \"Nova_BN256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\")",
+            "!(open 0x048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47)",
         ],
         run: |repl, args, _path| {
             if !args.is_nil() {
@@ -368,8 +368,8 @@ where
         description: &["Verify proof key <string> and print the result."],
         example: &[
             "!(prove '(1 2 3))",
-            "!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")",
-            "!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)",
+            "!(verify \"Nova_BN256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\")",
+            "!(open 0x048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47)",
         ],
         run: |repl, args, _path| {
             let first = repl.peek1(args)?;
@@ -548,7 +548,7 @@ where
         description: &[],
         example: &[
             "(commit (lambda (x) x))",
-            "!(call 0x2f14c82533e8347d128b07e6610d0fc901f71418c2a6ea3e618cfe654f73f4b1 0)",
+            "!(call 0x2f31ee658b82c09daebbd2bd976c9d6669ad3bd6065056763797d5aaf4a3001b 0)",
         ],
         run: Self::call,
     };
@@ -567,7 +567,7 @@ where
                        (let ((counter (+ counter x)))
                          (cons counter (commit (add counter)))))))
                (add 0)))",
-            "!(chain 0x14cb06e2d3c594af90d5b670e73595791d7462b20442c24cd56ba2919947d769 1)",
+            "!(chain 0x2b444b40b27bac0dff8416c0f3c708a505a636d86ba66bdbe86497c515afb651 1)",
         ],
         run: |repl, args, path| {
             Self::call(repl, args, path)?;
@@ -696,7 +696,7 @@ where
             "        (mk-open-expr (lambda (hash) (cons 'open (cons hash nil)))))",
             "    (cons",
             "      (if (= (+ (car pair) (cdr pair)) 30)",
-            "        (list6 (mk-open-expr hash) nil :outermost pair nil :terminal)",
+            "        (list6 (mk-open-expr hash) (empty-env) :outermost pair (empty-env) :terminal)",
             "        nil)",
             "      (lambda () (> (car pair) 10))))",
             "  :rc 10",
@@ -905,7 +905,7 @@ where
             "(commit '(13 . 17))",
             "!(prove-protocol my-protocol",
             "  \"protocol-proof\"",
-            "  0x09910d31a7568d66855bcc83fccc4826063dfdf93fe5e1f736c83ec892ed139e",
+            "  0x237fe43a25f3830ab6ac86451b93e74e8ef6ef1e8735a3f53478b7fe76b1a466",
             "  '(13 . 17))",
         ],
         run: |repl, args, _path| {

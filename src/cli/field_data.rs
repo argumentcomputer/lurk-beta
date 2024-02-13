@@ -77,7 +77,7 @@ impl<T: Serialize + HasFieldModulus> Serialize for FieldData<T> {
 mod tests {
     use crate::field::LurkField;
     use ff::Field;
-    use pasta_curves::Fq;
+    use halo2curves::bn256::Fr as Bn;
     use serde::{Deserialize, Serialize};
 
     use super::{de, ser, HasFieldModulus};
@@ -113,7 +113,7 @@ mod tests {
         let s = Struct {
             str: "hi".into(),
             int: 42,
-            ff: Fq::double(&Fq::ONE),
+            ff: Bn::double(&Bn::ONE),
         };
         assert_eq!(s, de(&ser(s.clone()).unwrap()).unwrap())
     }
@@ -122,7 +122,7 @@ mod tests {
     fn enum1_roundtrips() {
         let e11 = Enum1::CaseStr("bye".into());
         let e12 = Enum1::CaseInt(11);
-        let e13 = Enum1::CaseFF(Fq::double(&Fq::double(&Fq::ONE)));
+        let e13 = Enum1::CaseFF(Bn::double(&Bn::double(&Bn::ONE)));
         for e in [e11, e12, e13] {
             assert_eq!(e, de(&ser(e.clone()).unwrap()).unwrap());
         }
@@ -147,11 +147,11 @@ mod tests {
         }
         let e11 = Enum1::CaseStr("bye".into());
         let e12 = Enum1::CaseInt(11);
-        let e13 = Enum1::CaseFF(Fq::double(&Fq::double(&Fq::ONE)));
+        let e13 = Enum1::CaseFF(Bn::double(&Bn::double(&Bn::ONE)));
 
         let e21 = Enum2::CaseStr2("bye".into());
         let e22 = Enum2::CaseInt2(11);
-        let e23 = Enum2::CaseFF2(Fq::double(&Fq::double(&Fq::ONE)));
+        let e23 = Enum2::CaseFF2(Bn::double(&Bn::double(&Bn::ONE)));
 
         for (e1, e2) in [(e11, e21), (e12, e22), (e13, e23)] {
             assert_eq!(e2.clone(), de(&ser(e1.clone()).unwrap()).unwrap());

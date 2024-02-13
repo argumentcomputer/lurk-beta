@@ -1648,7 +1648,7 @@ impl Func {
                         num_constraints += recurse(block, globals, store, true);
                     }
                     if let Some(def) = def {
-                        // constraints for the boolean, the unequalities and the default case
+                        // constraints for the boolean, the inequalities and the default case
                         num_constraints += 1 + cases.len();
                         num_constraints += recurse(def, globals, store, true);
                     }
@@ -1668,7 +1668,7 @@ impl Func {
                         num_constraints += recurse(block, globals, store, true);
                     }
                     if let Some(def) = def {
-                        // constraints for the boolean, the unequalities and the default case
+                        // constraints for the boolean, the inequalities and the default case
                         num_constraints += 1 + cases.len();
                         num_constraints += recurse(def, globals, store, true);
                     }

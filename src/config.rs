@@ -52,7 +52,7 @@ pub fn lurk_config_file(config_file: Option<&Utf8PathBuf>) -> &'static Utf8PathB
 }
 
 /// Contains the Lurk config settings
-/// The `public_params_dir` setting can also be overriden by a CLI arg if in use
+/// The `public_params_dir` setting can also be overridden by a CLI arg if in use
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct Settings {
     /// Public parameter disk cache location
@@ -64,14 +64,14 @@ pub struct Settings {
 
 impl Settings {
     /// Loads config settings from a file or env vars
-    /// The public parameter disk cache can also be overriden by a CLI arg if applicable
+    /// The public parameter disk cache can also be overridden by a CLI arg if applicable
     pub fn from_config(
         config_file: &Utf8PathBuf,
         settings: Option<&HashMap<&str, String>>,
     ) -> Result<Self, ConfigError> {
         let public_params = "public_params_dir";
         // Settings are read first to last, in order of increasing precedence.
-        // Hence, default values must come first so they are overriden by all other methods.
+        // Hence, default values must come first so they are overridden by all other methods.
         Config::builder()
             // Default settings if unspecified in the config file
             .set_default(public_params, public_params_default_dir().to_string())?
