@@ -1,4 +1,4 @@
-use bellpepper_core::{num::AllocatedNum, ConstraintSystem};
+use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use halo2curves::bn256::Fr as Bn256Scalar;
 use nova::{
     errors::NovaError,
@@ -18,6 +18,7 @@ use std::{
     marker::PhantomData,
     sync::{Arc, Mutex},
 };
+use tracing::info;
 
 use crate::{
     config::lurk_config,
@@ -25,7 +26,7 @@ use crate::{
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::{interpreter::Frame, pointers::Ptr, store::Store},
+    lem::{interpreter::Frame, multiframe::MultiFrame, pointers::Ptr, store::Store},
     proof::{supernova::FoldingConfig, FrameLike, Prover},
 };
 
@@ -223,6 +224,29 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     )
 }
 
+/// For debugging purposes, synthesize the circuit and check that the constraint
+/// system is satisfied
+#[inline]
+pub(crate) fn debug_step<F: LurkField, C: Coprocessor<F>>(
+    circuit: &MultiFrame<'_, F, C>,
+    store: &Store<F>,
+) -> Result<(), SynthesisError> {
+    use bellpepper_core::test_cs::TestConstraintSystem;
+    let mut cs = TestConstraintSystem::<F>::new();
+
+    let zi = store.to_scalar_vector(circuit.input());
+    let zi_allocated: Vec<_> = zi
+        .iter()
+        .enumerate()
+        .map(|(i, x)| AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x)))
+        .collect::<Result<_, _>>()?;
+
+    circuit.synthesize(&mut cs, zi_allocated.as_slice())?;
+
+    assert!(cs.is_satisfied());
+    Ok(())
+}
+
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
     for Proof<F, C1LEM<'a, F, C>>
 {
@@ -237,22 +261,33 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         steps: Vec<C1LEM<'a, F, C>>,
         store: &Store<F>,
     ) -> Result<Self, ProofError> {
-        assert!(!steps.is_empty());
-        assert_eq!(steps[0].arity(), z0.len());
         let debug = false;
-        let z0_primary = z0;
-        let z0_secondary = Self::z0_secondary();
+        assert_eq!(steps[0].arity(), z0.len());
 
-        let circuit_secondary = TrivialCircuit::default();
+        let secondary_circuit = TrivialCircuit::default();
 
         let num_steps = steps.len();
-        tracing::debug!("steps.len: {num_steps}");
+        info!("proving {num_steps} steps");
 
-        // produce a recursive SNARK
-        let mut recursive_snark: Option<RecursiveSNARK<E1<F>>> = None;
+        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>>> = None;
 
-        // the shadowing here is voluntary
-        let recursive_snark = if lurk_config(None, None)
+        let prove_step =
+            |i: usize, step: &C1LEM<'a, F, C>, rs: &mut Option<RecursiveSNARK<E1<F>>>| {
+                if debug {
+                    debug_step(step, store).unwrap();
+                }
+                let mut recursive_snark = rs.take().unwrap_or_else(|| {
+                    RecursiveSNARK::new(&pp.pp, step, &secondary_circuit, z0, &Self::z0_secondary())
+                        .expect("failed to construct initial recursive SNARK")
+                });
+                info!("prove_step {i}");
+                recursive_snark
+                    .prove_step(&pp.pp, step, &secondary_circuit)
+                    .unwrap();
+                *rs = Some(recursive_snark);
+            };
+
+        recursive_snark_option = if lurk_config(None, None)
             .perf
             .parallelism
             .recursive_steps
@@ -260,8 +295,8 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         {
             let cc = steps.into_iter().map(Mutex::new).collect::<Vec<_>>();
 
-            crossbeam::thread::scope(|s| {
-                s.spawn(|_| {
+            std::thread::scope(|s| {
+                s.spawn(|| {
                     // Skip the very first circuit's witness, so `prove_step` can begin immediately.
                     // That circuit's witness will not be cached and will just be computed on-demand.
                     cc.iter().skip(1).for_each(|mf| {
@@ -272,69 +307,22 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                     });
                 });
 
-                for circuit_primary in cc.iter() {
-                    let mut circuit_primary = circuit_primary.lock().unwrap();
-
-                    let mut r_snark = recursive_snark.unwrap_or_else(|| {
-                        RecursiveSNARK::new(
-                            &pp.pp,
-                            &*circuit_primary,
-                            &circuit_secondary,
-                            z0_primary,
-                            &z0_secondary,
-                        )
-                        .expect("Failed to construct initial recursive snark")
-                    });
-                    r_snark
-                        .prove_step(&pp.pp, &*circuit_primary, &circuit_secondary)
-                        .expect("failure to prove Nova step");
-                    circuit_primary.clear_cached_witness();
-                    recursive_snark = Some(r_snark);
+                for (i, step) in cc.iter().enumerate() {
+                    let mut step = step.lock().unwrap();
+                    prove_step(i, &step, &mut recursive_snark_option);
+                    step.clear_cached_witness();
                 }
-                recursive_snark
+                recursive_snark_option
             })
-            .unwrap()
         } else {
-            for circuit_primary in steps.iter() {
-                if debug {
-                    // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
-                    use bellpepper_core::test_cs::TestConstraintSystem;
-                    let mut cs = TestConstraintSystem::<F>::new();
-
-                    let zi = store.to_scalar_vector(circuit_primary.input());
-                    let zi_allocated: Vec<_> = zi
-                        .iter()
-                        .enumerate()
-                        .map(|(i, x)| {
-                            AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x))
-                        })
-                        .collect::<Result<_, _>>()?;
-
-                    circuit_primary.synthesize(&mut cs, zi_allocated.as_slice())?;
-
-                    assert!(cs.is_satisfied());
-                }
-
-                let mut r_snark = recursive_snark.unwrap_or_else(|| {
-                    RecursiveSNARK::new(
-                        &pp.pp,
-                        circuit_primary,
-                        &circuit_secondary,
-                        z0_primary,
-                        &z0_secondary,
-                    )
-                    .expect("Failed to construct initial recursive snark")
-                });
-                r_snark
-                    .prove_step(&pp.pp, circuit_primary, &circuit_secondary)
-                    .expect("failure to prove Nova step");
-                recursive_snark = Some(r_snark);
+            for (i, step) in steps.iter().enumerate() {
+                prove_step(i, step, &mut recursive_snark_option);
             }
-            recursive_snark
+            recursive_snark_option
         };
 
         Ok(Self::Recursive(
-            Box::new(recursive_snark.unwrap()),
+            Box::new(recursive_snark_option.expect("RecursiveSNARK missing")),
             num_steps,
             PhantomData,
         ))

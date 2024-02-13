@@ -28,7 +28,7 @@ use crate::{
     field::LurkField,
     lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{
-        nova::{CurveCycleEquipped, Dual, NovaCircuitShape, E1},
+        nova::{debug_step, CurveCycleEquipped, Dual, NovaCircuitShape, E1},
         Prover, RecursiveSNARKTrait,
     },
 };
@@ -202,39 +202,37 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         steps: Vec<C1LEM<'a, F, C>>,
         store: &Store<F>,
     ) -> Result<Self, ProofError> {
+        let debug = false;
+
+        info!("proving {} steps", steps.len());
+
         let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>>> = None;
 
-        let z0_primary = z0;
-        let z0_secondary = Self::z0_secondary();
+        let prove_step =
+            |i: usize, step: &C1LEM<'a, F, C>, rs: &mut Option<RecursiveSNARK<E1<F>>>| {
+                if debug {
+                    debug_step(step, store).unwrap();
+                }
+                let secondary_circuit = step.secondary_circuit();
+                let mut recursive_snark = rs.take().unwrap_or_else(|| {
+                    RecursiveSNARK::new(
+                        &pp.pp,
+                        step,
+                        step,
+                        &secondary_circuit,
+                        z0,
+                        &Self::z0_secondary(),
+                    )
+                    .expect("failed to construct initial recursive SNARK")
+                });
+                info!("prove_step {i}");
+                recursive_snark
+                    .prove_step(&pp.pp, step, &secondary_circuit)
+                    .unwrap();
+                *rs = Some(recursive_snark);
+            };
 
-        let mut prove_step = |i: usize, step: &C1LEM<'a, F, C>| {
-            info!("prove_recursively, step {i}");
-
-            let secondary_circuit = step.secondary_circuit();
-
-            let mut recursive_snark = recursive_snark_option.clone().unwrap_or_else(|| {
-                info!("RecursiveSnark::new {i}");
-                RecursiveSNARK::new(
-                    &pp.pp,
-                    step,
-                    step,
-                    &secondary_circuit,
-                    z0_primary,
-                    &z0_secondary,
-                )
-                .unwrap()
-            });
-
-            info!("prove_step {i}");
-
-            recursive_snark
-                .prove_step(&pp.pp, step, &secondary_circuit)
-                .unwrap();
-
-            recursive_snark_option = Some(recursive_snark);
-        };
-
-        if lurk_config(None, None)
+        recursive_snark_option = if lurk_config(None, None)
             .perf
             .parallelism
             .recursive_steps
@@ -245,8 +243,8 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                 .map(|mf| (mf.program_counter() == 0, Mutex::new(mf)))
                 .collect::<Vec<_>>();
 
-            crossbeam::thread::scope(|s| {
-                s.spawn(|_| {
+            std::thread::scope(|s| {
+                s.spawn(|| {
                     // Skip the very first circuit's witness, so `prove_step` can begin immediately.
                     // That circuit's witness will not be cached and will just be computed on-demand.
 
@@ -280,18 +278,18 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
 
                 for (i, (_, step)) in cc.iter().enumerate() {
                     let mut step = step.lock().unwrap();
-                    prove_step(i, &step);
+                    prove_step(i, &step, &mut recursive_snark_option);
                     step.clear_cached_witness();
                 }
+                recursive_snark_option
             })
-            .unwrap()
         } else {
             for (i, step) in steps.iter().enumerate() {
-                prove_step(i, step);
+                prove_step(i, step, &mut recursive_snark_option);
             }
-        }
+            recursive_snark_option
+        };
 
-        // This probably should be made unnecessary.
         Ok(Self::Recursive(
             Box::new(recursive_snark_option.expect("RecursiveSNARK missing")),
             PhantomData,
