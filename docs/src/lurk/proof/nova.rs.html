@@ -433,19 +433,7 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem};
+</pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Bn256Scalar;
 <span class="kw">use </span>nova::{
     errors::NovaError,
@@ -465,6 +453,7 @@
     marker::PhantomData,
     sync::{Arc, Mutex},
 };
+<span class="kw">use </span>tracing::info;
 
 <span class="kw">use crate</span>::{
     config::lurk_config,
@@ -472,7 +461,7 @@
     error::ProofError,
     eval::lang::Lang,
     field::LurkField,
-    lem::{interpreter::Frame, pointers::Ptr, store::Store},
+    lem::{interpreter::Frame, multiframe::MultiFrame, pointers::Ptr, store::Store},
     proof::{supernova::FoldingConfig, FrameLike, Prover},
 };
 
@@ -670,6 +659,29 @@
     )
 }
 
+<span class="doccomment">/// For debugging purposes, synthesize the circuit and check that the constraint
+/// system is satisfied
+</span><span class="attr">#[inline]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>debug_step&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
+    circuit: <span class="kw-2">&amp;</span>MultiFrame&lt;<span class="lifetime">'_</span>, F, C&gt;,
+    store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    <span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
+    <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;F&gt;::new();
+
+    <span class="kw">let </span>zi = store.to_scalar_vector(circuit.input());
+    <span class="kw">let </span>zi_allocated: Vec&lt;<span class="kw">_</span>&gt; = zi
+        .iter()
+        .enumerate()
+        .map(|(i, x)| AllocatedNum::alloc(cs.namespace(|| <span class="macro">format!</span>(<span class="string">"z{i}_1"</span>)), || <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>x)))
+        .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+
+    circuit.synthesize(<span class="kw-2">&amp;mut </span>cs, zi_allocated.as_slice())<span class="question-mark">?</span>;
+
+    <span class="macro">assert!</span>(cs.is_satisfied());
+    <span class="prelude-val">Ok</span>(())
+}
+
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; RecursiveSNARKTrait&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
     <span class="kw">for </span>Proof&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
 {
@@ -684,22 +696,33 @@
         steps: Vec&lt;C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
-        <span class="macro">assert!</span>(!steps.is_empty());
-        <span class="macro">assert_eq!</span>(steps[<span class="number">0</span>].arity(), z0.len());
         <span class="kw">let </span>debug = <span class="bool-val">false</span>;
-        <span class="kw">let </span>z0_primary = z0;
-        <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
+        <span class="macro">assert_eq!</span>(steps[<span class="number">0</span>].arity(), z0.len());
 
-        <span class="kw">let </span>circuit_secondary = TrivialCircuit::default();
+        <span class="kw">let </span>secondary_circuit = TrivialCircuit::default();
 
         <span class="kw">let </span>num_steps = steps.len();
-        <span class="macro">tracing::debug!</span>(<span class="string">"steps.len: {num_steps}"</span>);
+        <span class="macro">info!</span>(<span class="string">"proving {num_steps} steps"</span>);
 
-        <span class="comment">// produce a recursive SNARK
-        </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark_option: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
 
-        <span class="comment">// the shadowing here is voluntary
-        </span><span class="kw">let </span>recursive_snark = <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+        <span class="kw">let </span>prove_step =
+            |i: usize, step: <span class="kw-2">&amp;</span>C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;, rs: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;&gt;&gt;| {
+                <span class="kw">if </span>debug {
+                    debug_step(step, store).unwrap();
+                }
+                <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark = rs.take().unwrap_or_else(|| {
+                    RecursiveSNARK::new(<span class="kw-2">&amp;</span>pp.pp, step, <span class="kw-2">&amp;</span>secondary_circuit, z0, <span class="kw-2">&amp;</span><span class="self">Self</span>::z0_secondary())
+                        .expect(<span class="string">"failed to construct initial recursive SNARK"</span>)
+                });
+                <span class="macro">info!</span>(<span class="string">"prove_step {i}"</span>);
+                recursive_snark
+                    .prove_step(<span class="kw-2">&amp;</span>pp.pp, step, <span class="kw-2">&amp;</span>secondary_circuit)
+                    .unwrap();
+                <span class="kw-2">*</span>rs = <span class="prelude-val">Some</span>(recursive_snark);
+            };
+
+        recursive_snark_option = <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
             .perf
             .parallelism
             .recursive_steps
@@ -707,8 +730,8 @@
         {
             <span class="kw">let </span>cc = steps.into_iter().map(Mutex::new).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-            crossbeam::thread::scope(|s| {
-                s.spawn(|<span class="kw">_</span>| {
+            std::thread::scope(|s| {
+                s.spawn(|| {
                     <span class="comment">// Skip the very first circuit's witness, so `prove_step` can begin immediately.
                     // That circuit's witness will not be cached and will just be computed on-demand.
                     </span>cc.iter().skip(<span class="number">1</span>).for_each(|mf| {
@@ -719,69 +742,22 @@
                     });
                 });
 
-                <span class="kw">for </span>circuit_primary <span class="kw">in </span>cc.iter() {
-                    <span class="kw">let </span><span class="kw-2">mut </span>circuit_primary = circuit_primary.lock().unwrap();
-
-                    <span class="kw">let </span><span class="kw-2">mut </span>r_snark = recursive_snark.unwrap_or_else(|| {
-                        RecursiveSNARK::new(
-                            <span class="kw-2">&amp;</span>pp.pp,
-                            <span class="kw-2">&amp;*</span>circuit_primary,
-                            <span class="kw-2">&amp;</span>circuit_secondary,
-                            z0_primary,
-                            <span class="kw-2">&amp;</span>z0_secondary,
-                        )
-                        .expect(<span class="string">"Failed to construct initial recursive snark"</span>)
-                    });
-                    r_snark
-                        .prove_step(<span class="kw-2">&amp;</span>pp.pp, <span class="kw-2">&amp;*</span>circuit_primary, <span class="kw-2">&amp;</span>circuit_secondary)
-                        .expect(<span class="string">"failure to prove Nova step"</span>);
-                    circuit_primary.clear_cached_witness();
-                    recursive_snark = <span class="prelude-val">Some</span>(r_snark);
+                <span class="kw">for </span>(i, step) <span class="kw">in </span>cc.iter().enumerate() {
+                    <span class="kw">let </span><span class="kw-2">mut </span>step = step.lock().unwrap();
+                    prove_step(i, <span class="kw-2">&amp;</span>step, <span class="kw-2">&amp;mut </span>recursive_snark_option);
+                    step.clear_cached_witness();
                 }
-                recursive_snark
+                recursive_snark_option
             })
-            .unwrap()
         } <span class="kw">else </span>{
-            <span class="kw">for </span>circuit_primary <span class="kw">in </span>steps.iter() {
-                <span class="kw">if </span>debug {
-                    <span class="comment">// For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
-                    </span><span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
-                    <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;F&gt;::new();
-
-                    <span class="kw">let </span>zi = store.to_scalar_vector(circuit_primary.input());
-                    <span class="kw">let </span>zi_allocated: Vec&lt;<span class="kw">_</span>&gt; = zi
-                        .iter()
-                        .enumerate()
-                        .map(|(i, x)| {
-                            AllocatedNum::alloc(cs.namespace(|| <span class="macro">format!</span>(<span class="string">"z{i}_1"</span>)), || <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>x))
-                        })
-                        .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
-
-                    circuit_primary.synthesize(<span class="kw-2">&amp;mut </span>cs, zi_allocated.as_slice())<span class="question-mark">?</span>;
-
-                    <span class="macro">assert!</span>(cs.is_satisfied());
-                }
-
-                <span class="kw">let </span><span class="kw-2">mut </span>r_snark = recursive_snark.unwrap_or_else(|| {
-                    RecursiveSNARK::new(
-                        <span class="kw-2">&amp;</span>pp.pp,
-                        circuit_primary,
-                        <span class="kw-2">&amp;</span>circuit_secondary,
-                        z0_primary,
-                        <span class="kw-2">&amp;</span>z0_secondary,
-                    )
-                    .expect(<span class="string">"Failed to construct initial recursive snark"</span>)
-                });
-                r_snark
-                    .prove_step(<span class="kw-2">&amp;</span>pp.pp, circuit_primary, <span class="kw-2">&amp;</span>circuit_secondary)
-                    .expect(<span class="string">"failure to prove Nova step"</span>);
-                recursive_snark = <span class="prelude-val">Some</span>(r_snark);
+            <span class="kw">for </span>(i, step) <span class="kw">in </span>steps.iter().enumerate() {
+                prove_step(i, step, <span class="kw-2">&amp;mut </span>recursive_snark_option);
             }
-            recursive_snark
+            recursive_snark_option
         };
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Recursive(
-            Box::new(recursive_snark.unwrap()),
+            Box::new(recursive_snark_option.expect(<span class="string">"RecursiveSNARK missing"</span>)),
             num_steps,
             PhantomData,
         ))

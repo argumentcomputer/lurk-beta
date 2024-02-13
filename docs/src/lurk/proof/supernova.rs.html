@@ -436,8 +436,6 @@
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>nova::{
     supernova::{
         <span class="self">self</span>,
@@ -468,7 +466,7 @@
     field::LurkField,
     lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{
-        nova::{CurveCycleEquipped, Dual, NovaCircuitShape, E1},
+        nova::{debug_step, CurveCycleEquipped, Dual, NovaCircuitShape, E1},
         Prover, RecursiveSNARKTrait,
     },
 };
@@ -642,39 +640,37 @@
         steps: Vec&lt;C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
+        <span class="kw">let </span>debug = <span class="bool-val">false</span>;
+
+        <span class="macro">info!</span>(<span class="string">"proving {} steps"</span>, steps.len());
+
         <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark_option: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
 
-        <span class="kw">let </span>z0_primary = z0;
-        <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
+        <span class="kw">let </span>prove_step =
+            |i: usize, step: <span class="kw-2">&amp;</span>C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;, rs: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;&gt;&gt;| {
+                <span class="kw">if </span>debug {
+                    debug_step(step, store).unwrap();
+                }
+                <span class="kw">let </span>secondary_circuit = step.secondary_circuit();
+                <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark = rs.take().unwrap_or_else(|| {
+                    RecursiveSNARK::new(
+                        <span class="kw-2">&amp;</span>pp.pp,
+                        step,
+                        step,
+                        <span class="kw-2">&amp;</span>secondary_circuit,
+                        z0,
+                        <span class="kw-2">&amp;</span><span class="self">Self</span>::z0_secondary(),
+                    )
+                    .expect(<span class="string">"failed to construct initial recursive SNARK"</span>)
+                });
+                <span class="macro">info!</span>(<span class="string">"prove_step {i}"</span>);
+                recursive_snark
+                    .prove_step(<span class="kw-2">&amp;</span>pp.pp, step, <span class="kw-2">&amp;</span>secondary_circuit)
+                    .unwrap();
+                <span class="kw-2">*</span>rs = <span class="prelude-val">Some</span>(recursive_snark);
+            };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>prove_step = |i: usize, step: <span class="kw-2">&amp;</span>C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;| {
-            <span class="macro">info!</span>(<span class="string">"prove_recursively, step {i}"</span>);
-
-            <span class="kw">let </span>secondary_circuit = step.secondary_circuit();
-
-            <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark = recursive_snark_option.clone().unwrap_or_else(|| {
-                <span class="macro">info!</span>(<span class="string">"RecursiveSnark::new {i}"</span>);
-                RecursiveSNARK::new(
-                    <span class="kw-2">&amp;</span>pp.pp,
-                    step,
-                    step,
-                    <span class="kw-2">&amp;</span>secondary_circuit,
-                    z0_primary,
-                    <span class="kw-2">&amp;</span>z0_secondary,
-                )
-                .unwrap()
-            });
-
-            <span class="macro">info!</span>(<span class="string">"prove_step {i}"</span>);
-
-            recursive_snark
-                .prove_step(<span class="kw-2">&amp;</span>pp.pp, step, <span class="kw-2">&amp;</span>secondary_circuit)
-                .unwrap();
-
-            recursive_snark_option = <span class="prelude-val">Some</span>(recursive_snark);
-        };
-
-        <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+        recursive_snark_option = <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
             .perf
             .parallelism
             .recursive_steps
@@ -685,8 +681,8 @@
                 .map(|mf| (mf.program_counter() == <span class="number">0</span>, Mutex::new(mf)))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-            crossbeam::thread::scope(|s| {
-                s.spawn(|<span class="kw">_</span>| {
+            std::thread::scope(|s| {
+                s.spawn(|| {
                     <span class="comment">// Skip the very first circuit's witness, so `prove_step` can begin immediately.
                     // That circuit's witness will not be cached and will just be computed on-demand.
 
@@ -720,19 +716,19 @@
 
                 <span class="kw">for </span>(i, (<span class="kw">_</span>, step)) <span class="kw">in </span>cc.iter().enumerate() {
                     <span class="kw">let </span><span class="kw-2">mut </span>step = step.lock().unwrap();
-                    prove_step(i, <span class="kw-2">&amp;</span>step);
+                    prove_step(i, <span class="kw-2">&amp;</span>step, <span class="kw-2">&amp;mut </span>recursive_snark_option);
                     step.clear_cached_witness();
                 }
+                recursive_snark_option
             })
-            .unwrap()
         } <span class="kw">else </span>{
             <span class="kw">for </span>(i, step) <span class="kw">in </span>steps.iter().enumerate() {
-                prove_step(i, step);
+                prove_step(i, step, <span class="kw-2">&amp;mut </span>recursive_snark_option);
             }
-        }
+            recursive_snark_option
+        };
 
-        <span class="comment">// This probably should be made unnecessary.
-        </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Recursive(
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Recursive(
             Box::new(recursive_snark_option.expect(<span class="string">"RecursiveSNARK missing"</span>)),
             PhantomData,
         ))
