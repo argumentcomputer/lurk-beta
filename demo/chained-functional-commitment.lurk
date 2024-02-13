@@ -25,7 +25,7 @@
 
 ;; Now let's chain another call to the new head, adding 12 to the counter.
 
-!(chain 0x17165f98bc83b64b47c4e030ae621c94edcb10cc3bd68e9dcc5c796283bda34c 12)
+!(chain 0x1d10fb6dea15a5865565d571efbcaf535750ab93ba4d9018bd6b7b803e86d986 12)
 
 ;; Now the counter is 21, and we have a new head commitment.
 
@@ -39,7 +39,7 @@
 
 ;; One more time, we'll add 14 to the head commitment's internal state.
 
-!(chain 0x2c4c9d86f79bb575a1427ead9c14cb5226b79a6339dd1f8f8dc00354da677bfa 14)
+!(chain 0x1a95f14fa34e01ce6cf44b4eb419c59e8b50978618139d9314304979cad1770f 14)
 
 ;; 21 + 14 = 35, as expected.
 
