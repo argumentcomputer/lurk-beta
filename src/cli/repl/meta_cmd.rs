@@ -531,14 +531,14 @@ where
         }
         let open = repl.store.intern_lurk_symbol("open");
         let open_expr = repl.store.list(vec![open, repl.store.num(hash)]);
-        let (args_vec, _) = repl
-            .store
-            .fetch_list(&args)
-            .expect("data must have been interned");
-        let mut expr_vec = Vec::with_capacity(args_vec.len() + 1);
-        expr_vec.push(open_expr);
-        expr_vec.extend(args_vec);
-        repl.handle_non_meta(repl.store.list(expr_vec))
+        if let Some((args_vec, _)) = repl.store.fetch_list(&args) {
+            let mut expr_vec = Vec::with_capacity(args_vec.len() + 1);
+            expr_vec.push(open_expr);
+            expr_vec.extend(args_vec);
+            repl.handle_non_meta(repl.store.list(expr_vec))
+        } else {
+            Err(anyhow!("Data must have been interned"))
+        }
     }
 
     const CALL: MetaCmd<F, C> = MetaCmd {

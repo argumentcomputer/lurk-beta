@@ -469,13 +469,15 @@ where
             self.limit,
         )?;
         let iterations = frames.len();
-        let output = frames
-            .last()
-            .expect("evaluation should return at least one frame")
-            .output
-            .clone();
-        self.evaluation = Some(Evaluation { frames, iterations });
-        Ok((output, iterations))
+
+        if let Some(last_frames) = frames.last() {
+            let output = last_frames.output.clone();
+            self.evaluation = Some(Evaluation { frames, iterations });
+            Ok((output, iterations))
+        } else {
+            // TODO: better error decs
+            Err(anyhow!("Frames is empty"))
+        }
     }
 
     fn get_comm_hash(&mut self, args: &Ptr) -> Result<&F> {
@@ -584,17 +586,19 @@ where
 
         let mut input = parser::Span::new(&input);
         loop {
-            let file_dir = file_path.parent().unwrap();
-            match self.handle_form(input, file_dir, demo) {
-                Ok(new_input) => input = new_input,
-                Err(e) => {
-                    if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
-                        // It's ok, it just means we've hit the EOF
-                        return Ok(());
-                    } else {
+            if let Some(file_dir) = file_path.parent() {
+                match self.handle_form(input, file_dir, demo) {
+                    Ok(new_input) => input = new_input,
+                    Err(e) => {
+                        if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
+                            // It's ok, it just means we've hit the EOF
+                            return Ok(());
+                        }
                         return Err(e);
                     }
                 }
+            } else {
+                return Err(anyhow!("Can't load parent of {}", file_path));
             }
         }
     }
