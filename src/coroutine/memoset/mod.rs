@@ -53,6 +53,7 @@ use crate::lem::{
     pointers::Ptr,
     store::{Store, WithStore},
 };
+use crate::symbol::Symbol;
 use crate::tag::{ExprTag, Tag as XTag};
 use crate::z_ptr::ZPtr;
 
@@ -182,6 +183,7 @@ impl<F: LurkField> CircuitTranscript<F> {
     fn dbg(&self, s: &Store<F>) {
         let z = self.acc.get_value::<Tag>().unwrap();
         let transcript = s.to_ptr(&z);
+
         tracing::debug!("transcript: {}", transcript.fmt_to_string_simple(s));
     }
 }
@@ -208,6 +210,13 @@ impl Provenance {
             result,
             dependencies,
         }
+    }
+
+    fn dummy<F: LurkField>(store: &Store<F>) -> Self {
+        let nil = store.intern_nil();
+        let sym = store.intern_symbol(&Symbol::sym(&["lurk", "query", "dummy"]));
+        let query = store.cons(sym, nil);
+        Self::new(query, nil, vec![])
     }
 
     fn to_ptr<F: LurkField>(&self, store: &Store<F>) -> &Ptr {
@@ -760,21 +769,31 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         // deferral from the MemoSet.
         for index in 0..Q::count() {
             if let Some(keys) = unique_keys.get(&index) {
-                for key in keys {
-                    let kv = kvs_by_key.get(key).expect("kv vanished");
-                    let provenance = self.provenance_from_kv(s, *kv).unwrap();
-                    let prov = provenance.to_ptr(s);
-                    let count = self.memoset.count(kv);
+                let rc = self.rc_for_query(index);
 
-                    let prov_count = Transcript::make_provenance_count(s, *prov, count);
+                for chunk in &keys.iter().chunks(rc) {
+                    for key in chunk.map(Some).pad_using(rc, |_| None) {
+                        let (provenance, count) = if let Some(key) = key {
+                            let kv = kvs_by_key.get(key).expect("xxxxxx");
+                            let count = self.memoset.count(kv);
+                            let provenance = self.provenance_from_kv(s, *kv).unwrap();
+                            (provenance, count)
+                        } else {
+                            (Provenance::dummy(s), 0)
+                        };
+                        let prov = provenance.to_ptr(s);
+                        let prov_count = Transcript::make_provenance_count(s, *prov, count);
 
-                    // Add removal for the query identified by `key`. The queries being removed here were deduplicated
-                    // above, so each is removed only once. However, we freely choose the multiplicity (`count`) of the
-                    // removal to match the total number of insertions actually made (considering dependencies).
-                    transcript.add(s, prov_count);
+                        // Add removal for the query identified by `key`. The queries being removed here were deduplicated
+                        // above, so each is removed only once. However, we freely choose the multiplicity (`count`) of the
+                        // removal to match the total number of insertions actually made (considering dependencies).
+                        transcript.add(s, prov_count);
+                    }
                 }
             }
         }
+
+        transcript.dbg(s);
         (transcript, unique_keys)
     }
 
@@ -854,6 +873,8 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                 }
             }
         }
+
+        circuit_scope.transcript.dbg(s);
 
         circuit_scope.finalize(cs, g);
 
@@ -963,21 +984,36 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         key: &AllocatedPtr<F>,
         value: &AllocatedPtr<F>,
         provenance: &AllocatedPtr<F>,
+        not_dummy: &Boolean,
     ) -> Result<(AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
-        let raw_count = match (key.get_value(), value.get_value()) {
-            (Some(k), Some(v)) => {
-                // FIXME: Memoset should hold the actual provenances, not the kvs.
-                let kv = s.cons(s.to_ptr(&k), s.to_ptr(&v));
-                self.memoset.count(&kv) as u64
-            }
-            _ => 0, // dummy case: count is meaningless
+        let raw_count = match not_dummy.get_value() {
+            // dummy case: count must be zero -- since we will actually constrain a removal
+            Some(false) => 0,
+            _ => match (key.get_value(), value.get_value()) {
+                (Some(k), Some(v)) => {
+                    // FIXME: Memoset should hold the actual provenances, not the kvs.
+                    let kv = s.cons(s.to_ptr(&k), s.to_ptr(&v));
+                    self.memoset.count(&kv) as u64
+                }
+                _ => unreachable!(),
+            },
         };
+
+        let dummy_provenance =
+            g.alloc_ptr(ns!(cs, "dummy_query"), &Provenance::dummy(s).to_ptr(s), s);
+
+        let effective_provenance = AllocatedPtr::pick(
+            ns!(cs, "effective_provenance"),
+            not_dummy,
+            &provenance,
+            &dummy_provenance,
+        )?;
 
         let (provenance_count, count) = CircuitTranscript::make_provenance_count(
             ns!(cs, "kv count"),
             g,
             s,
-            provenance,
+            &effective_provenance,
             raw_count,
         )?;
 
@@ -1210,9 +1246,10 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             s,
             &new_acc,
             &self.transcript,
-            allocated_key,
+            &allocated_key,
             &val,
             &provenance,
+            not_dummy,
         )?;
 
         // Prover can choose non-deterministically whether or not a given query is a dummy, to allow for padding.
@@ -1222,16 +1259,9 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             &new_acc,
             self.acc.as_ref().expect("acc missing"),
         )?;
-        let final_transcript = CircuitTranscript::pick(
-            ns!(cs, "final_transcript"),
-            not_dummy,
-            &new_transcript,
-            &self.transcript,
-        )?;
 
+        self.transcript = new_transcript;
         self.acc = Some(final_acc);
-        self.transcript = final_transcript;
-
         Ok(())
     }
 
@@ -1434,24 +1464,24 @@ mod test {
     #[test]
     fn test_query() {
         test_query_aux(
-            expect!["9446"],
-            expect!["9502"],
-            expect!["10029"],
-            expect!["10092"],
+            expect!["9451"],
+            expect!["9507"],
+            expect!["10034"],
+            expect!["10097"],
             1,
         );
         test_query_aux(
-            expect!["11189"],
-            expect!["11251"],
-            expect!["11772"],
-            expect!["11841"],
+            expect!["11191"],
+            expect!["11253"],
+            expect!["11774"],
+            expect!["11843"],
             3,
         );
         test_query_aux(
-            expect!["18238"],
-            expect!["18335"],
-            expect!["18821"],
-            expect!["18925"],
+            expect!["18239"],
+            expect!["18336"],
+            expect!["18822"],
+            expect!["18926"],
             10,
         )
     }
