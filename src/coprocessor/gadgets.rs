@@ -1,5 +1,7 @@
 //! Helper gadgets for synthesis
 
+use std::borrow::Borrow;
+
 use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use crate::{
@@ -121,18 +123,26 @@ pub(crate) fn construct_cons<F: LurkField, CS: ConstraintSystem<F>>(
 /// Constructs a cons-list with the provided `elts`. The terminating value defaults
 /// to `nil` when `last` is `None`
 #[allow(dead_code)]
-pub(crate) fn construct_list<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn construct_list<
+    F: LurkField,
+    CS: ConstraintSystem<F>,
+    B: Borrow<AllocatedPtr<F>>,
+    I: IntoIterator<Item = B>,
+>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
-    elts: &[AllocatedPtr<F>],
+    elts: I,
     last: Option<AllocatedPtr<F>>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
+) -> Result<AllocatedPtr<F>, SynthesisError>
+where
+    <I as IntoIterator>::IntoIter: DoubleEndedIterator,
+{
     let init = match last {
         Some(last) => last,
         None => g.alloc_ptr(cs, &store.intern_nil(), store),
     };
-    elts.iter()
+    elts.into_iter()
         .rev()
         .enumerate()
         .try_fold(init, |acc, (i, ptr)| {
@@ -140,7 +150,7 @@ pub(crate) fn construct_list<F: LurkField, CS: ConstraintSystem<F>>(
                 &mut cs.namespace(|| format!("cons {i}")),
                 g,
                 store,
-                ptr,
+                ptr.borrow(),
                 &acc,
             )
         })
