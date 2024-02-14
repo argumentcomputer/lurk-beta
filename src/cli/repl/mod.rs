@@ -40,11 +40,12 @@ use crate::{
     parser,
     proof::{
         nova::{CurveCycleEquipped, Dual, NovaProver},
+        supernova::SuperNovaProver,
         RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
-        public_params,
+        public_params, supernova_public_params,
     },
     state::State,
     tag::{ContTag, ExprTag},
@@ -55,7 +56,7 @@ use super::{
     backend::Backend,
     commitment::Commitment,
     field_data::load,
-    lurk_proof::{LurkProof, LurkProofMeta},
+    lurk_proof::{LurkProof, LurkProofMeta, LurkProofWrapper},
     paths::{commitment_path, repl_history},
     zstore::ZDag,
 };
@@ -185,7 +186,11 @@ where
         let pwd_path =
             Utf8PathBuf::from_path_buf(current_dir).expect("path contains invalid Unicode");
         let env = store.intern_empty_env();
-        let lurk_step = make_eval_step_from_config(&EvalConfig::new_ivc(&lang));
+        let eval_config = match backend {
+            Backend::Nova => EvalConfig::new_ivc(&lang),
+            Backend::SuperNova => EvalConfig::new_nivc(&lang),
+        };
+        let lurk_step = make_eval_step_from_config(&eval_config);
         let cprocs = make_cprocs_funcs_from_lang(&lang);
         Repl {
             store,
@@ -291,78 +296,98 @@ where
 
     /// Proves a computation and returns the proof key
     pub(crate) fn prove_frames(&self, frames: &[Frame], iterations: usize) -> Result<String> {
-        match self.backend {
-            Backend::Nova => {
-                info!("Hydrating the store");
-                self.store.hydrate_z_cache();
+        info!("Hydrating the store");
+        self.store.hydrate_z_cache();
 
-                let n_frames = frames.len();
+        let n_frames = frames.len();
 
-                // saving to avoid clones
-                let input = &frames[0].input;
-                let output = &frames[n_frames - 1].output;
-                let mut z_dag = ZDag::<F>::default();
-                let mut cache = HashMap::default();
-                let expr = z_dag.populate_with(&input[0], &self.store, &mut cache);
-                let env = z_dag.populate_with(&input[1], &self.store, &mut cache);
-                let cont = z_dag.populate_with(&input[2], &self.store, &mut cache);
-                let expr_out = z_dag.populate_with(&output[0], &self.store, &mut cache);
-                let env_out = z_dag.populate_with(&output[1], &self.store, &mut cache);
-                let cont_out = z_dag.populate_with(&output[2], &self.store, &mut cache);
+        // saving to avoid clones
+        let input = &frames[0].input;
+        let output = &frames[n_frames - 1].output;
+        let mut z_dag = ZDag::<F>::default();
+        let mut cache = HashMap::default();
+        let expr = z_dag.populate_with(&input[0], &self.store, &mut cache);
+        let env = z_dag.populate_with(&input[1], &self.store, &mut cache);
+        let cont = z_dag.populate_with(&input[2], &self.store, &mut cache);
+        let expr_out = z_dag.populate_with(&output[0], &self.store, &mut cache);
+        let env_out = z_dag.populate_with(&output[1], &self.store, &mut cache);
+        let cont_out = z_dag.populate_with(&output[2], &self.store, &mut cache);
 
-                let claim = Self::proof_claim(
-                    &self.store,
-                    (input[0], output[0]),
-                    (input[1], output[1]),
-                    (cont.parts(), cont_out.parts()),
-                );
+        let claim = Self::proof_claim(
+            &self.store,
+            (input[0], output[0]),
+            (input[1], output[1]),
+            (cont.parts(), cont_out.parts()),
+        );
 
-                let claim_comm = Commitment::new(None, claim, &self.store);
-                let claim_hash = &claim_comm.hash.hex_digits();
-                let proof_key = Self::proof_key(&self.backend, &self.rc, claim_hash);
+        let claim_comm = Commitment::new(None, claim, &self.store);
+        let claim_hash = &claim_comm.hash.hex_digits();
+        let proof_key = Self::proof_key(&self.backend, &self.rc, claim_hash);
 
-                let lurk_proof_meta = LurkProofMeta {
-                    iterations,
-                    expr_io: (expr, expr_out),
-                    env_io: Some((env, env_out)),
-                    cont_io: (cont, cont_out),
-                    z_dag,
-                };
+        let lurk_proof_meta = LurkProofMeta {
+            iterations,
+            expr_io: (expr, expr_out),
+            env_io: Some((env, env_out)),
+            cont_io: (cont, cont_out),
+            z_dag,
+        };
 
-                if LurkProof::<_, C>::is_cached(&proof_key) {
-                    info!("Proof already cached");
-                } else {
-                    info!("Proof not cached. Loading public parameters");
+        if LurkProof::<_, C>::is_cached(&proof_key) {
+            info!("Proof already cached");
+        } else {
+            info!("Proof not cached");
+            let (proof, public_inputs, public_outputs) = match self.backend {
+                Backend::Nova => {
+                    info!("Loading Nova public parameters");
                     let instance =
                         Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
                     let pp = public_params(&instance)?;
-                    let prover = NovaProver::<_, C>::new(self.rc, self.lang.clone());
 
-                    info!("Proving");
+                    let prover = NovaProver::<_, C>::new(self.rc, self.lang.clone());
+                    info!("Proving with NovaProver");
                     let (proof, public_inputs, public_outputs, num_steps) =
                         prover.prove_from_frames(&pp, frames, &self.store)?;
-                    info!("Compressing proof");
+                    info!("Compressing Nova proof");
                     let proof = proof.compress(&pp)?;
                     assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
                     assert!(proof.verify(&pp, &public_inputs, &public_outputs)?);
+                    (LurkProofWrapper::Nova(proof), public_inputs, public_outputs)
+                }
+                Backend::SuperNova => {
+                    info!("Loading SuperNova public parameters");
+                    let instance =
+                        Instance::new(self.rc, self.lang.clone(), true, Kind::SuperNovaAuxParams);
+                    let pp = supernova_public_params(&instance)?;
 
-                    let lurk_proof = LurkProof::Nova {
-                        proof,
+                    let prover = SuperNovaProver::<_, C>::new(self.rc, self.lang.clone());
+                    info!("Proving with SuperNovaProver");
+                    let (proof, public_inputs, public_outputs, _num_steps) =
+                        prover.prove_from_frames(&pp, frames, &self.store)?;
+                    info!("Compressing SuperNova proof");
+                    let proof = proof.compress(&pp)?;
+                    assert!(proof.verify(&pp, &public_inputs, &public_outputs)?);
+                    (
+                        LurkProofWrapper::SuperNova(proof),
                         public_inputs,
                         public_outputs,
-                        rc: self.rc,
-                        lang: (*self.lang).clone(),
-                    };
-
-                    lurk_proof.persist(&proof_key)?;
+                    )
                 }
-                lurk_proof_meta.persist(&proof_key)?;
-                claim_comm.persist()?;
-                println!("Claim hash: 0x{claim_hash}");
-                println!("Proof key: \"{proof_key}\"");
-                Ok(proof_key)
-            }
+            };
+            let lurk_proof = LurkProof {
+                proof,
+                public_inputs,
+                public_outputs,
+                rc: self.rc,
+                lang: (*self.lang).clone(),
+            };
+
+            lurk_proof.persist(&proof_key)?;
         }
+        lurk_proof_meta.persist(&proof_key)?;
+        claim_comm.persist()?;
+        println!("Claim hash: 0x{claim_hash}");
+        println!("Proof key: \"{proof_key}\"");
+        Ok(proof_key)
     }
 
     /// Proves the last cached computation and returns the proof key

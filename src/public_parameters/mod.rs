@@ -83,7 +83,7 @@ where
     disk_cache.read_bytes(instance, &mut bytes).and_then(|()| {
         if let Some((pp, remaining)) = unsafe { decode::<NovaCircuitShape<F>>(&mut bytes) } {
             assert!(remaining.is_empty());
-            eprintln!("Using disk-cached public params for {}", instance.key());
+            info!("Using disk-cached public params for {}", instance.key());
             Ok(pp.clone())
         } else {
             Err(Error::Cache("failed to decode bytes".into()))
@@ -136,7 +136,7 @@ where
     let pp = if let (Ok(circuit_params_vec), Ok(aux_params)) =
         (maybe_circuit_params_vec, maybe_aux_params)
     {
-        println!("generating public params");
+        info!("generating public params");
 
         let pp = SuperNovaPublicParams::<F>::from_parts_unchecked(circuit_params_vec, aux_params);
 
@@ -145,7 +145,7 @@ where
             pk_and_vk: OnceCell::new(),
         }
     } else {
-        println!("generating running claim params");
+        info!("generating running claim params");
         let pp = default(instance_primary);
 
         let (circuit_params_vec, aux_params) = pp.pp.into_parts();
