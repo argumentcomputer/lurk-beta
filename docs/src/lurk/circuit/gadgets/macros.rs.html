@@ -256,9 +256,23 @@
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_macros)]
 
-</span><span class="comment">// Enforces constraint that a implies b.
+</span><span class="doccomment">/// Simplify creating a namespace.
+</span><span class="macro">macro_rules! </span>ns {
+    (<span class="macro-nonterminal">$cs</span>:ident, <span class="macro-nonterminal">$e</span>:expr) =&gt; {
+        <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$cs</span>.namespace(|| <span class="macro-nonterminal">$e</span>)
+    };
+}
+
+<span class="comment">// Enforces constraint that a implies b.
 </span><span class="macro">macro_rules! </span>if_then {
     (<span class="macro-nonterminal">$cs</span>:ident, <span class="macro-nonterminal">$a</span>:expr, <span class="macro-nonterminal">$b</span>:expr) =&gt; {
         enforce_implication(

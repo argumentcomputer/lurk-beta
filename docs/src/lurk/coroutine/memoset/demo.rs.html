@@ -228,6 +228,12 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 <span class="kw">use super</span>::{
@@ -236,6 +242,7 @@
 };
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::constraints::alloc_is_zero;
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr;
+<span class="kw">use </span><span class="kw">crate</span>::coprocessor::gadgets::construct_cons;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::lem::circuit::GlobalAllocator;
 <span class="kw">use </span><span class="kw">crate</span>::lem::{pointers::Ptr, store::Store};
@@ -257,7 +264,7 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; Query&lt;F&gt; <span class="kw">for </span>DemoQuery&lt;F&gt; {
     <span class="kw">type </span>CQ = DemoCircuitQuery&lt;F&gt;;
 
-    <span class="kw">fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, scope: <span class="kw-2">&amp;mut </span>Scope&lt;<span class="self">Self</span>, LogMemo&lt;F&gt;&gt;) -&gt; Ptr {
+    <span class="kw">fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, scope: <span class="kw-2">&amp;mut </span>Scope&lt;<span class="self">Self</span>, LogMemo&lt;F&gt;, F&gt;) -&gt; Ptr {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Factorial(n) =&gt; {
                 <span class="kw">let </span>n_zptr = s.hash_ptr(n);
@@ -347,15 +354,11 @@
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Factorial(n) =&gt; {
                 <span class="kw">let </span>result_f = n.hash().mul(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"incremental multiplication"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"incremental multiplication"</span>),
                     subquery_result.hash(),
                 )<span class="question-mark">?</span>;
 
-                AllocatedPtr::alloc_tag(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"result"</span>),
-                    ExprTag::Num.to_field(),
-                    result_f,
-                )
+                AllocatedPtr::alloc_tag(<span class="macro">ns!</span>(cs, <span class="string">"result"</span>), ExprTag::Num.to_field(), result_f)
             }
         }
     }
@@ -370,20 +373,27 @@
         scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
+        (
+            (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;),
+            AllocatedPtr&lt;F&gt;,
+            CircuitTranscript&lt;F&gt;,
+        ),
+        SynthesisError,
+    &gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Factorial(n) =&gt; {
                 <span class="comment">// FIXME: Check n tag or decide not to.
                 </span><span class="kw">let </span>base_case_f = g.alloc_const(cs, F::ONE);
                 <span class="kw">let </span>base_case = AllocatedPtr::alloc_tag(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"base_case"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"base_case"</span>),
                     ExprTag::Num.to_field(),
                     base_case_f.clone(),
                 )<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>n_is_zero = alloc_is_zero(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"n_is_zero"</span>), n.hash())<span class="question-mark">?</span>;
+                <span class="kw">let </span>n_is_zero = alloc_is_zero(<span class="macro">ns!</span>(cs, <span class="string">"n_is_zero"</span>), n.hash())<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>new_n = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_n"</span>), || {
+                <span class="kw">let </span>new_n = AllocatedNum::alloc(<span class="macro">ns!</span>(cs, <span class="string">"new_n"</span>), || {
                     n.hash()
                         .get_value()
                         .map(|n| n - F::ONE)
@@ -398,17 +408,19 @@
                     |lc| lc + n.hash().get_variable() - CS::one(),
                 );
 
-                <span class="kw">let </span>new_num = AllocatedPtr::alloc_tag(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_num"</span>),
-                    ExprTag::Num.to_field(),
-                    new_n,
-                )<span class="question-mark">?</span>;
+                <span class="kw">let </span>new_num =
+                    AllocatedPtr::alloc_tag(<span class="macro">ns!</span>(cs, <span class="string">"new_num"</span>), ExprTag::Num.to_field(), new_n)<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>symbol = g.alloc_ptr(<span class="macro">ns!</span>(cs, <span class="string">"symbol_"</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.symbol_ptr(store), store);
+
+                <span class="kw">let </span>query = construct_cons(<span class="macro">ns!</span>(cs, <span class="string">"query"</span>), g, store, <span class="kw-2">&amp;</span>symbol, n)<span class="question-mark">?</span>;
 
                 <span class="self">self</span>.recurse(
                     cs,
                     g,
                     store,
                     scope,
+                    <span class="kw-2">&amp;</span>query,
                     <span class="kw-2">&amp;</span>new_num,
                     <span class="kw-2">&amp;</span>n_is_zero.not(),
                     (<span class="kw-2">&amp;</span>base_case, acc, transcript),
@@ -442,7 +454,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_factorial() {
         <span class="kw">let </span>s = Store::default();
-        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;&gt; = Scope::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;, F&gt; = Scope::default();
         <span class="kw">let </span>zero = s.num(F::ZERO);
         <span class="kw">let </span>one = s.num(F::ONE);
         <span class="kw">let </span>two = s.num(F::from_u64(<span class="number">2</span>));
