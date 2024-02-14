@@ -350,7 +350,7 @@ where
         ],
         example: &[
             "!(prove '(1 2 3))",
-            "!(verify \"Nova_BN256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\")",
+            "!(verify \"supernova_bn256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\")",
             "!(open 0x048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47)",
         ],
         run: |repl, args, _path| {
@@ -369,7 +369,7 @@ where
         description: &["Verify proof key <string> and print the result."],
         example: &[
             "!(prove '(1 2 3))",
-            "!(verify \"Nova_BN256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\")",
+            "!(verify \"supernova_bn256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\")",
             "!(open 0x048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47)",
         ],
         run: |repl, args, _path| {
@@ -610,7 +610,7 @@ where
         description: &[],
         example: &[
             "!(prove '(1 2 3))",
-            "!(inspect \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
+            "!(inspect \"supernova_bn256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\")",
         ],
         run: |repl, args, _path| {
             Self::inspect(repl, args, false)
@@ -624,7 +624,7 @@ where
         description: &[],
         example: &[
             "!(prove '(1 2 3))",
-            "!(inspect-full \"Nova_Pallas_10_002cd7baecd8e781d217cd1eb8b67d4f890005fd3763541e37ce49550bd9f4bf\")",
+            "!(inspect-full \"supernova_bn256_10_048476fa5e4804639fe4ccfe73d43bf96da6183f670f0b08e4ac8c82bf8efa47\")",
         ],
         run: |repl, args, _path| {
             Self::inspect(repl, args, true)

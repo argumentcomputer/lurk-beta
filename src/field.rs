@@ -52,10 +52,10 @@ pub enum LanguageField {
 impl std::fmt::Display for LanguageField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Pallas => write!(f, "Pallas"),
-            Self::Vesta => write!(f, "Vesta"),
-            Self::BN256 => write!(f, "BN256"),
-            Self::Grumpkin => write!(f, "Grumpkin"),
+            Self::Pallas => write!(f, "pallas"),
+            Self::Vesta => write!(f, "vesta"),
+            Self::BN256 => write!(f, "bn256"),
+            Self::Grumpkin => write!(f, "grumpkin"),
         }
     }
 }

@@ -18,12 +18,12 @@
 
 ;; We can inspect the input/output expressions of the proof.
 
-!(inspect "Nova_BN256_10_15c837e5040ac70c00030c228b61fde2c164d930ba6ea396353b3cfcaa16609d")
+!(inspect "supernova_bn256_10_15c837e5040ac70c00030c228b61fde2c164d930ba6ea396353b3cfcaa16609d")
 
 ;; Or the full proof claim
 
-!(inspect-full "Nova_BN256_10_15c837e5040ac70c00030c228b61fde2c164d930ba6ea396353b3cfcaa16609d")
+!(inspect-full "supernova_bn256_10_15c837e5040ac70c00030c228b61fde2c164d930ba6ea396353b3cfcaa16609d")
 
 ;; Finally, and most importantly, we can verify the proof.
 
-!(verify "Nova_BN256_10_15c837e5040ac70c00030c228b61fde2c164d930ba6ea396353b3cfcaa16609d")
+!(verify "supernova_bn256_10_15c837e5040ac70c00030c228b61fde2c164d930ba6ea396353b3cfcaa16609d")
