@@ -278,7 +278,7 @@
     disk_cache.read_bytes(instance, <span class="kw-2">&amp;mut </span>bytes).and_then(|()| {
         <span class="kw">if let </span><span class="prelude-val">Some</span>((pp, remaining)) = <span class="kw">unsafe </span>{ decode::&lt;NovaCircuitShape&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span>bytes) } {
             <span class="macro">assert!</span>(remaining.is_empty());
-            <span class="macro">eprintln!</span>(<span class="string">"Using disk-cached public params for {}"</span>, instance.key());
+            <span class="macro">info!</span>(<span class="string">"Using disk-cached public params for {}"</span>, instance.key());
             <span class="prelude-val">Ok</span>(pp.clone())
         } <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(Error::Cache(<span class="string">"failed to decode bytes"</span>.into()))
@@ -331,7 +331,7 @@
     <span class="kw">let </span>pp = <span class="kw">if let </span>(<span class="prelude-val">Ok</span>(circuit_params_vec), <span class="prelude-val">Ok</span>(aux_params)) =
         (maybe_circuit_params_vec, maybe_aux_params)
     {
-        <span class="macro">println!</span>(<span class="string">"generating public params"</span>);
+        <span class="macro">info!</span>(<span class="string">"generating public params"</span>);
 
         <span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F&gt;::from_parts_unchecked(circuit_params_vec, aux_params);
 
@@ -340,7 +340,7 @@
             pk_and_vk: OnceCell::new(),
         }
     } <span class="kw">else </span>{
-        <span class="macro">println!</span>(<span class="string">"generating running claim params"</span>);
+        <span class="macro">info!</span>(<span class="string">"generating running claim params"</span>);
         <span class="kw">let </span>pp = default(instance_primary);
 
         <span class="kw">let </span>(circuit_params_vec, aux_params) = pp.pp.into_parts();

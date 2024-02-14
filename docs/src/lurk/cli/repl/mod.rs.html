@@ -667,6 +667,31 @@
 <a href="#666" id="666">666</a>
 <a href="#667" id="667">667</a>
 <a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>abomonation::Abomonation;
@@ -709,11 +734,12 @@
     parser,
     proof::{
         nova::{CurveCycleEquipped, Dual, NovaProver},
+        supernova::SuperNovaProver,
         RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
-        public_params,
+        public_params, supernova_public_params,
     },
     state::State,
     tag::{ContTag, ExprTag},
@@ -724,7 +750,7 @@
     backend::Backend,
     commitment::Commitment,
     field_data::load,
-    lurk_proof::{LurkProof, LurkProofMeta},
+    lurk_proof::{LurkProof, LurkProofMeta, LurkProofWrapper},
     paths::{commitment_path, repl_history},
     zstore::ZDag,
 };
@@ -854,7 +880,11 @@
         <span class="kw">let </span>pwd_path =
             Utf8PathBuf::from_path_buf(current_dir).expect(<span class="string">"path contains invalid Unicode"</span>);
         <span class="kw">let </span>env = store.intern_empty_env();
-        <span class="kw">let </span>lurk_step = make_eval_step_from_config(<span class="kw-2">&amp;</span>EvalConfig::new_ivc(<span class="kw-2">&amp;</span>lang));
+        <span class="kw">let </span>eval_config = <span class="kw">match </span>backend {
+            Backend::Nova =&gt; EvalConfig::new_ivc(<span class="kw-2">&amp;</span>lang),
+            Backend::SuperNova =&gt; EvalConfig::new_nivc(<span class="kw-2">&amp;</span>lang),
+        };
+        <span class="kw">let </span>lurk_step = make_eval_step_from_config(<span class="kw-2">&amp;</span>eval_config);
         <span class="kw">let </span>cprocs = make_cprocs_funcs_from_lang(<span class="kw-2">&amp;</span>lang);
         Repl {
             store,
@@ -960,78 +990,98 @@
 
     <span class="doccomment">/// Proves a computation and returns the proof key
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prove_frames(<span class="kw-2">&amp;</span><span class="self">self</span>, frames: <span class="kw-2">&amp;</span>[Frame], iterations: usize) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
-        <span class="kw">match </span><span class="self">self</span>.backend {
-            Backend::Nova =&gt; {
-                <span class="macro">info!</span>(<span class="string">"Hydrating the store"</span>);
-                <span class="self">self</span>.store.hydrate_z_cache();
+        <span class="macro">info!</span>(<span class="string">"Hydrating the store"</span>);
+        <span class="self">self</span>.store.hydrate_z_cache();
 
-                <span class="kw">let </span>n_frames = frames.len();
+        <span class="kw">let </span>n_frames = frames.len();
 
-                <span class="comment">// saving to avoid clones
-                </span><span class="kw">let </span>input = <span class="kw-2">&amp;</span>frames[<span class="number">0</span>].input;
-                <span class="kw">let </span>output = <span class="kw-2">&amp;</span>frames[n_frames - <span class="number">1</span>].output;
-                <span class="kw">let </span><span class="kw-2">mut </span>z_dag = ZDag::&lt;F&gt;::default();
-                <span class="kw">let </span><span class="kw-2">mut </span>cache = HashMap::default();
-                <span class="kw">let </span>expr = z_dag.populate_with(<span class="kw-2">&amp;</span>input[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                <span class="kw">let </span>env = z_dag.populate_with(<span class="kw-2">&amp;</span>input[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                <span class="kw">let </span>cont = z_dag.populate_with(<span class="kw-2">&amp;</span>input[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                <span class="kw">let </span>expr_out = z_dag.populate_with(<span class="kw-2">&amp;</span>output[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                <span class="kw">let </span>env_out = z_dag.populate_with(<span class="kw-2">&amp;</span>output[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
-                <span class="kw">let </span>cont_out = z_dag.populate_with(<span class="kw-2">&amp;</span>output[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+        <span class="comment">// saving to avoid clones
+        </span><span class="kw">let </span>input = <span class="kw-2">&amp;</span>frames[<span class="number">0</span>].input;
+        <span class="kw">let </span>output = <span class="kw-2">&amp;</span>frames[n_frames - <span class="number">1</span>].output;
+        <span class="kw">let </span><span class="kw-2">mut </span>z_dag = ZDag::&lt;F&gt;::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = HashMap::default();
+        <span class="kw">let </span>expr = z_dag.populate_with(<span class="kw-2">&amp;</span>input[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+        <span class="kw">let </span>env = z_dag.populate_with(<span class="kw-2">&amp;</span>input[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+        <span class="kw">let </span>cont = z_dag.populate_with(<span class="kw-2">&amp;</span>input[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+        <span class="kw">let </span>expr_out = z_dag.populate_with(<span class="kw-2">&amp;</span>output[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+        <span class="kw">let </span>env_out = z_dag.populate_with(<span class="kw-2">&amp;</span>output[<span class="number">1</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
+        <span class="kw">let </span>cont_out = z_dag.populate_with(<span class="kw-2">&amp;</span>output[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;mut </span>cache);
 
-                <span class="kw">let </span>claim = <span class="self">Self</span>::proof_claim(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.store,
-                    (input[<span class="number">0</span>], output[<span class="number">0</span>]),
-                    (input[<span class="number">1</span>], output[<span class="number">1</span>]),
-                    (cont.parts(), cont_out.parts()),
-                );
+        <span class="kw">let </span>claim = <span class="self">Self</span>::proof_claim(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.store,
+            (input[<span class="number">0</span>], output[<span class="number">0</span>]),
+            (input[<span class="number">1</span>], output[<span class="number">1</span>]),
+            (cont.parts(), cont_out.parts()),
+        );
 
-                <span class="kw">let </span>claim_comm = Commitment::new(<span class="prelude-val">None</span>, claim, <span class="kw-2">&amp;</span><span class="self">self</span>.store);
-                <span class="kw">let </span>claim_hash = <span class="kw-2">&amp;</span>claim_comm.hash.hex_digits();
-                <span class="kw">let </span>proof_key = <span class="self">Self</span>::proof_key(<span class="kw-2">&amp;</span><span class="self">self</span>.backend, <span class="kw-2">&amp;</span><span class="self">self</span>.rc, claim_hash);
+        <span class="kw">let </span>claim_comm = Commitment::new(<span class="prelude-val">None</span>, claim, <span class="kw-2">&amp;</span><span class="self">self</span>.store);
+        <span class="kw">let </span>claim_hash = <span class="kw-2">&amp;</span>claim_comm.hash.hex_digits();
+        <span class="kw">let </span>proof_key = <span class="self">Self</span>::proof_key(<span class="kw-2">&amp;</span><span class="self">self</span>.backend, <span class="kw-2">&amp;</span><span class="self">self</span>.rc, claim_hash);
 
-                <span class="kw">let </span>lurk_proof_meta = LurkProofMeta {
-                    iterations,
-                    expr_io: (expr, expr_out),
-                    env_io: <span class="prelude-val">Some</span>((env, env_out)),
-                    cont_io: (cont, cont_out),
-                    z_dag,
-                };
+        <span class="kw">let </span>lurk_proof_meta = LurkProofMeta {
+            iterations,
+            expr_io: (expr, expr_out),
+            env_io: <span class="prelude-val">Some</span>((env, env_out)),
+            cont_io: (cont, cont_out),
+            z_dag,
+        };
 
-                <span class="kw">if </span>LurkProof::&lt;<span class="kw">_</span>, C&gt;::is_cached(<span class="kw-2">&amp;</span>proof_key) {
-                    <span class="macro">info!</span>(<span class="string">"Proof already cached"</span>);
-                } <span class="kw">else </span>{
-                    <span class="macro">info!</span>(<span class="string">"Proof not cached. Loading public parameters"</span>);
+        <span class="kw">if </span>LurkProof::&lt;<span class="kw">_</span>, C&gt;::is_cached(<span class="kw-2">&amp;</span>proof_key) {
+            <span class="macro">info!</span>(<span class="string">"Proof already cached"</span>);
+        } <span class="kw">else </span>{
+            <span class="macro">info!</span>(<span class="string">"Proof not cached"</span>);
+            <span class="kw">let </span>(proof, public_inputs, public_outputs) = <span class="kw">match </span><span class="self">self</span>.backend {
+                Backend::Nova =&gt; {
+                    <span class="macro">info!</span>(<span class="string">"Loading Nova public parameters"</span>);
                     <span class="kw">let </span>instance =
                         Instance::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone(), <span class="bool-val">true</span>, Kind::NovaPublicParams);
                     <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>prover = NovaProver::&lt;<span class="kw">_</span>, C&gt;::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone());
 
-                    <span class="macro">info!</span>(<span class="string">"Proving"</span>);
+                    <span class="kw">let </span>prover = NovaProver::&lt;<span class="kw">_</span>, C&gt;::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone());
+                    <span class="macro">info!</span>(<span class="string">"Proving with NovaProver"</span>);
                     <span class="kw">let </span>(proof, public_inputs, public_outputs, num_steps) =
                         prover.prove_from_frames(<span class="kw-2">&amp;</span>pp, frames, <span class="kw-2">&amp;</span><span class="self">self</span>.store)<span class="question-mark">?</span>;
-                    <span class="macro">info!</span>(<span class="string">"Compressing proof"</span>);
+                    <span class="macro">info!</span>(<span class="string">"Compressing Nova proof"</span>);
                     <span class="kw">let </span>proof = proof.compress(<span class="kw-2">&amp;</span>pp)<span class="question-mark">?</span>;
                     <span class="macro">assert_eq!</span>(<span class="self">self</span>.rc * num_steps, pad(n_frames, <span class="self">self</span>.rc));
                     <span class="macro">assert!</span>(proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs)<span class="question-mark">?</span>);
+                    (LurkProofWrapper::Nova(proof), public_inputs, public_outputs)
+                }
+                Backend::SuperNova =&gt; {
+                    <span class="macro">info!</span>(<span class="string">"Loading SuperNova public parameters"</span>);
+                    <span class="kw">let </span>instance =
+                        Instance::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone(), <span class="bool-val">true</span>, Kind::SuperNovaAuxParams);
+                    <span class="kw">let </span>pp = supernova_public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
 
-                    <span class="kw">let </span>lurk_proof = LurkProof::Nova {
-                        proof,
+                    <span class="kw">let </span>prover = SuperNovaProver::&lt;<span class="kw">_</span>, C&gt;::new(<span class="self">self</span>.rc, <span class="self">self</span>.lang.clone());
+                    <span class="macro">info!</span>(<span class="string">"Proving with SuperNovaProver"</span>);
+                    <span class="kw">let </span>(proof, public_inputs, public_outputs, _num_steps) =
+                        prover.prove_from_frames(<span class="kw-2">&amp;</span>pp, frames, <span class="kw-2">&amp;</span><span class="self">self</span>.store)<span class="question-mark">?</span>;
+                    <span class="macro">info!</span>(<span class="string">"Compressing SuperNova proof"</span>);
+                    <span class="kw">let </span>proof = proof.compress(<span class="kw-2">&amp;</span>pp)<span class="question-mark">?</span>;
+                    <span class="macro">assert!</span>(proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs)<span class="question-mark">?</span>);
+                    (
+                        LurkProofWrapper::SuperNova(proof),
                         public_inputs,
                         public_outputs,
-                        rc: <span class="self">self</span>.rc,
-                        lang: (<span class="kw-2">*</span><span class="self">self</span>.lang).clone(),
-                    };
-
-                    lurk_proof.persist(<span class="kw-2">&amp;</span>proof_key)<span class="question-mark">?</span>;
+                    )
                 }
-                lurk_proof_meta.persist(<span class="kw-2">&amp;</span>proof_key)<span class="question-mark">?</span>;
-                claim_comm.persist()<span class="question-mark">?</span>;
-                <span class="macro">println!</span>(<span class="string">"Claim hash: 0x{claim_hash}"</span>);
-                <span class="macro">println!</span>(<span class="string">"Proof key: \"{proof_key}\""</span>);
-                <span class="prelude-val">Ok</span>(proof_key)
-            }
+            };
+            <span class="kw">let </span>lurk_proof = LurkProof {
+                proof,
+                public_inputs,
+                public_outputs,
+                rc: <span class="self">self</span>.rc,
+                lang: (<span class="kw-2">*</span><span class="self">self</span>.lang).clone(),
+            };
+
+            lurk_proof.persist(<span class="kw-2">&amp;</span>proof_key)<span class="question-mark">?</span>;
         }
+        lurk_proof_meta.persist(<span class="kw-2">&amp;</span>proof_key)<span class="question-mark">?</span>;
+        claim_comm.persist()<span class="question-mark">?</span>;
+        <span class="macro">println!</span>(<span class="string">"Claim hash: 0x{claim_hash}"</span>);
+        <span class="macro">println!</span>(<span class="string">"Proof key: \"{proof_key}\""</span>);
+        <span class="prelude-val">Ok</span>(proof_key)
     }
 
     <span class="doccomment">/// Proves the last cached computation and returns the proof key

@@ -203,6 +203,25 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>ff::PrimeField;
@@ -216,11 +235,11 @@
     lem::{pointers::ZPtr, store::Store},
     proof::{
         nova::{<span class="self">self</span>, CurveCycleEquipped, Dual, C1LEM},
-        RecursiveSNARKTrait,
+        supernova, RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
-        public_params,
+        public_params, supernova_public_params,
     },
     state::{initial_lurk_state, State},
 };
@@ -323,22 +342,32 @@
     }
 }
 
-<span class="doccomment">/// Minimal data structure containing just enough for proof verification
-</span><span class="attr">#[non_exhaustive]
+<span class="attr">#[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = <span class="string">"F: Serialize"</span>, deserialize = <span class="string">"F: DeserializeOwned"</span>))]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>LurkProof&lt;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>LurkProofWrapper&lt;
     <span class="lifetime">'a</span>,
     F: CurveCycleEquipped,
     C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned,
 &gt; {
-    Nova {
-        proof: nova::Proof&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;,
-        public_inputs: Vec&lt;F&gt;,
-        public_outputs: Vec&lt;F&gt;,
-        rc: usize,
-        lang: Lang&lt;F, C&gt;,
-    },
+    Nova(nova::Proof&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;),
+    SuperNova(supernova::Proof&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;),
+}
+
+<span class="doccomment">/// Minimal data structure containing just enough for proof verification
+</span><span class="attr">#[non_exhaustive]
+#[derive(Serialize, Deserialize)]
+#[serde(bound(serialize = <span class="string">"F: Serialize"</span>, deserialize = <span class="string">"F: DeserializeOwned"</span>))]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>LurkProof&lt;
+    <span class="lifetime">'a</span>,
+    F: CurveCycleEquipped,
+    C: Coprocessor&lt;F&gt; + Serialize + DeserializeOwned,
+&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) proof: LurkProofWrapper&lt;<span class="lifetime">'a</span>, F, C&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) public_inputs: Vec&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) public_outputs: Vec&lt;F&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) rc: usize,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) lang: Lang&lt;F, C&gt;,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a </span>+ Serialize + DeserializeOwned&gt;
@@ -390,19 +419,28 @@
     }
 
     <span class="kw">fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Nova {
-                proof,
-                public_inputs,
-                public_outputs,
-                rc,
-                lang,
-            } =&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.proof {
+            LurkProofWrapper::Nova(proof) =&gt; {
                 <span class="macro">tracing::info!</span>(<span class="string">"Loading public parameters"</span>);
-                <span class="kw">let </span>instance =
-                    Instance::new(<span class="kw-2">*</span>rc, Arc::new(lang.clone()), <span class="bool-val">true</span>, Kind::NovaPublicParams);
+                <span class="kw">let </span>instance = Instance::new(
+                    <span class="self">self</span>.rc,
+                    Arc::new(<span class="self">self</span>.lang.clone()),
+                    <span class="bool-val">true</span>,
+                    Kind::NovaPublicParams,
+                );
                 <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(proof.verify(<span class="kw-2">&amp;</span>pp, public_inputs, public_outputs)<span class="question-mark">?</span>)
+                <span class="prelude-val">Ok</span>(proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span><span class="self">self</span>.public_inputs, <span class="kw-2">&amp;</span><span class="self">self</span>.public_outputs)<span class="question-mark">?</span>)
+            }
+            LurkProofWrapper::SuperNova(proof) =&gt; {
+                <span class="macro">tracing::info!</span>(<span class="string">"Loading public parameters"</span>);
+                <span class="kw">let </span>instance = Instance::new(
+                    <span class="self">self</span>.rc,
+                    Arc::new(<span class="self">self</span>.lang.clone()),
+                    <span class="bool-val">true</span>,
+                    Kind::SuperNovaAuxParams,
+                );
+                <span class="kw">let </span>pp = supernova_public_params(<span class="kw-2">&amp;</span>instance)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span><span class="self">self</span>.public_inputs, <span class="kw-2">&amp;</span><span class="self">self</span>.public_outputs)<span class="question-mark">?</span>)
             }
         }
     }

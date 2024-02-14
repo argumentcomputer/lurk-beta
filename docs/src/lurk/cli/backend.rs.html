@@ -42,6 +42,9 @@
 <a href="#41" id="41">41</a>
 <a href="#42" id="42">42</a>
 <a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::ValueEnum;
 <span class="kw">use </span>serde::Deserialize;
@@ -49,15 +52,18 @@
 <span class="kw">use </span><span class="kw">crate</span>::field::LanguageField;
 
 <span class="attr">#[derive(Clone, Default, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[clap(rename_all = <span class="string">"lowercase"</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Backend {
     <span class="attr">#[default]
     </span>Nova,
+    SuperNova,
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Backend {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Nova =&gt; <span class="macro">write!</span>(f, <span class="string">"Nova"</span>),
+            <span class="self">Self</span>::SuperNova =&gt; <span class="macro">write!</span>(f, <span class="string">"SuperNova"</span>),
         }
     }
 }
@@ -66,7 +72,7 @@
     <span class="kw">fn </span>compatible_fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;LanguageField&gt; {
         <span class="kw">use </span>LanguageField::{Pallas, BN256};
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Nova =&gt; <span class="macro">vec!</span>[BN256, Pallas],
+            <span class="self">Self</span>::Nova | <span class="self">Self</span>::SuperNova =&gt; <span class="macro">vec!</span>[BN256, Pallas],
         }
     }
 

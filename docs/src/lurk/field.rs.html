@@ -467,6 +467,7 @@
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
 <a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 </span><span class="doccomment">//! The finite field used in the language.
 //!
@@ -505,6 +506,7 @@
 </span><span class="attr">#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ValueEnum)]
 #[cfg_attr(not(target_arch = <span class="string">"wasm32"</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">"wasm32"</span>), serde_test)]
+#[clap(rename_all = <span class="string">"lowercase"</span>)]
 </span><span class="kw">pub enum </span>LanguageField {
     <span class="doccomment">/// The BN256 scalar field,
     </span><span class="attr">#[default]
