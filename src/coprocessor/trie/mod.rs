@@ -154,12 +154,10 @@ fn synthesize_lookup_aux<F: LurkField, CS: ConstraintSystem<F>>(
     };
 
     let allocated_root_value =
-        AllocatedNum::alloc(&mut cs.namespace(|| "allocated_root_value"), || {
-            Ok(trie.root)
-        })?;
+        AllocatedNum::alloc(ns!(cs, "allocated_root_value"), || Ok(trie.root))?;
 
     implies_equal(
-        &mut cs.namespace(|| "enforce_root"),
+        ns!(cs, "enforce_root"),
         not_dummy,
         supplied_root_value,
         &allocated_root_value,
@@ -261,12 +259,10 @@ fn synthesize_insert_aux<F: LurkField, CS: ConstraintSystem<F>>(
     };
 
     let allocated_root_value =
-        AllocatedNum::alloc(&mut cs.namespace(|| "allocated_root_value"), || {
-            Ok(trie.root)
-        })?;
+        AllocatedNum::alloc(ns!(cs, "allocated_root_value"), || Ok(trie.root))?;
 
     implies_equal(
-        &mut cs.namespace(|| "enforce_root"),
+        ns!(cs, "enforce_root"),
         not_dummy,
         supplied_root_value,
         &allocated_root_value,
@@ -619,7 +615,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     ) -> Result<Vec<Vec<Boolean>>, SynthesisError> {
         let (arity_bits, bits_needed) = Self::path_bit_dimensions();
 
-        let mut bits = key.to_bits_le_strict(&mut cs.namespace(|| "bits"))?;
+        let mut bits = key.to_bits_le_strict(ns!(cs, "bits"))?;
         for _ in 0..bits_needed - bits.len() {
             bits.push(Boolean::Constant(false));
         }
@@ -661,7 +657,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         allocated_root: &AllocatedNum<F>,
         key: &AllocatedNum<F>,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
-        let path = Self::synthesize_path(&mut cs.namespace(|| "path"), key)?;
+        let path = Self::synthesize_path(ns!(cs, "path"), key)?;
 
         let val = self
             .synthesize_lookup_at_path(cs, hash_constants, allocated_root, &path)?
@@ -690,19 +686,15 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
                         p.iter()
                             .enumerate()
                             .map(|(j, f)| {
-                                AllocatedNum::alloc(
-                                    &mut cs.namespace(|| format!("preimage-{i}-{j}")),
-                                    || Ok(*f),
-                                )
+                                AllocatedNum::alloc(ns!(cs, format!("preimage-{i}-{j}")), || Ok(*f))
                             })
                             .collect::<Result<Vec<_>, SynthesisError>>()?
                     } else {
                         (0..ARITY)
                             .map(|j| {
-                                AllocatedNum::alloc(
-                                    &mut cs.namespace(|| format!("preimage-{i}-{j}")),
-                                    || Err(SynthesisError::AssignmentMissing),
-                                )
+                                AllocatedNum::alloc(ns!(cs, format!("preimage-{i}-{j}")), || {
+                                    Err(SynthesisError::AssignmentMissing)
+                                })
                             })
                             .collect::<Result<Vec<_>, SynthesisError>>()?
                     };
@@ -710,18 +702,14 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
                     preimage_path.push(allocated_preimage.clone());
 
                     let hashed = hash_constants.constants(ARITY.into()).hash(
-                        &mut cs.namespace(|| format!("poseidon_hash_{i}")),
+                        ns!(cs, format!("poseidon_hash_{i}")),
                         allocated_preimage.clone(),
                         None,
                     )?;
 
                     enforce_equal(cs, || format!("hashed equals next {i}"), &hashed, &next);
 
-                    select(
-                        &mut cs.namespace(|| format!("select-{i}")),
-                        &allocated_preimage,
-                        k_bits,
-                    )
+                    select(ns!(cs, format!("select-{i}")), &allocated_preimage, k_bits)
                 })?;
         Ok((found, preimage_path))
     }
@@ -821,9 +809,9 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         key: &AllocatedNum<F>,
         value: AllocatedNum<F>,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
-        let path = Self::synthesize_path(&mut cs.namespace(|| "path"), key)?;
+        let path = Self::synthesize_path(ns!(cs, "path"), key)?;
         self.synthesize_insert_at_path(
-            &mut cs.namespace(|| "insert_aux"),
+            ns!(cs, "insert_aux"),
             hash_constants,
             allocated_root,
             &path,
@@ -841,7 +829,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         let preimage_path = self
             .synthesize_lookup_at_path(
-                &mut cs.namespace(|| "found_value"),
+                ns!(cs, "found_value"),
                 hash_constants,
                 allocated_root,
                 path,
@@ -849,7 +837,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
             .1;
 
         Self::synthesize_modify_value_at_path(
-            &mut cs.namespace(|| "new_root_value"),
+            ns!(cs, "new_root_value"),
             hash_constants,
             path,
             &preimage_path,
@@ -871,7 +859,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
                 .iter()
                 .enumerate()
                 .map(|(j, _x)| {
-                    AllocatedNum::alloc(&mut cs.namespace(|| format!("preimage-{i}-{j}")), || {
+                    AllocatedNum::alloc(ns!(cs, format!("preimage-{i}-{j}")), || {
                         if j == path_index {
                             value.get_value().ok_or(SynthesisError::AssignmentMissing)
                         } else {
@@ -884,7 +872,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
                 .collect::<Result<Vec<_>, SynthesisError>>()?;
 
             value = hash_constants.constants(ARITY.into()).hash(
-                &mut cs.namespace(|| format!("poseidon_hash_{i}")),
+                ns!(cs, format!("poseidon_hash_{i}")),
                 new_preimage,
                 None,
             )?

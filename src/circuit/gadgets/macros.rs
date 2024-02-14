@@ -209,11 +209,11 @@ macro_rules! or {
         )
     };
     ($cs:expr, $a:expr, $b:expr, $c:expr, $($x:expr),+) => {{
-        let or_tmp_cs_ =  &mut $cs.namespace(|| format!("or({})", stringify!(vec![$a, $b, $c, $($x),*])));
+        let or_tmp_cs_ =  ns!($cs, format!("or({})", stringify!(vec![$a, $b, $c, $($x),*])));
         bellpepper::gadgets::boolean_utils::or_v(or_tmp_cs_, &[$a, $b, $c, $($x),*])
     }};
     ($cs:expr, $a:expr, $($x:expr),+) => {{
-        let or_tmp_cs_ =  &mut $cs.namespace(|| format!("or {}", stringify!(vec![$a, $($x),*])));
+        let or_tmp_cs_ =  ns!($cs, format!("or {}", stringify!(vec![$a, $($x),*])));
         let or_tmp_ = or!(or_tmp_cs_, $($x),*)?;
         or!(or_tmp_cs_, $a, &or_tmp_)
     }};

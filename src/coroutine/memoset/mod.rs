@@ -156,10 +156,9 @@ impl<F: LurkField> CircuitTranscript<F> {
         provenance: &AllocatedPtr<F>,
         count: u64,
     ) -> Result<(AllocatedPtr<F>, AllocatedNum<F>), SynthesisError> {
-        let allocated_count =
-            { AllocatedNum::alloc(&mut cs.namespace(|| "count"), || Ok(F::from_u64(count)))? };
+        let allocated_count = { AllocatedNum::alloc(ns!(cs, "count"), || Ok(F::from_u64(count)))? };
         let count_ptr = AllocatedPtr::alloc_tag(
-            &mut cs.namespace(|| "count_ptr"),
+            ns!(cs, "count_ptr"),
             ExprTag::Num.to_field(),
             allocated_count.clone(),
         )?;

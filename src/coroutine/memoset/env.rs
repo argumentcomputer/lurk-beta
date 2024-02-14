@@ -139,37 +139,33 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
                 let t = store.intern_t();
                 let allocated_nil = g.alloc_ptr(cs, &nil, store);
                 let allocated_t = g.alloc_ptr(cs, &t, store);
-                let sym_tag = g.alloc_tag(&mut cs.namespace(|| "sym_tag"), &ExprTag::Sym);
-                let env_tag = g.alloc_tag(&mut cs.namespace(|| "env_tag"), &ExprTag::Env);
+                let sym_tag = g.alloc_tag(ns!(cs, "sym_tag"), &ExprTag::Sym);
+                let env_tag = g.alloc_tag(ns!(cs, "env_tag"), &ExprTag::Env);
 
-                let env_is_empty = alloc_is_zero(&mut cs.namespace(|| "env_is_empty"), env)?;
+                let env_is_empty = alloc_is_zero(ns!(cs, "env_is_empty"), env)?;
 
-                let (next_var, next_val, new_env) = deconstruct_env(
-                    &mut cs.namespace(|| "deconstruct_env"),
-                    store,
-                    &env_is_empty.not(),
-                    env,
-                )?;
+                let (next_var, next_val, new_env) =
+                    deconstruct_env(ns!(cs, "deconstruct_env"), store, &env_is_empty.not(), env)?;
 
-                let var_matches = alloc_equal(&mut cs.namespace(|| "var_matches"), var, &next_var)?;
+                let var_matches = alloc_equal(ns!(cs, "var_matches"), var, &next_var)?;
                 let is_immediate = or!(cs, &var_matches, &env_is_empty)?;
 
                 let immediate_val = AllocatedPtr::pick(
-                    &mut cs.namespace(|| "immediate_val"),
+                    ns!(cs, "immediate_val"),
                     &var_matches,
                     &next_val,
                     &allocated_nil,
                 )?;
 
                 let immediate_bound = AllocatedPtr::pick(
-                    &mut cs.namespace(|| "immediate_bound"),
+                    ns!(cs, "immediate_bound"),
                     &var_matches,
                     &allocated_t,
                     &allocated_nil,
                 )?;
 
                 let immediate_result = construct_cons(
-                    &mut cs.namespace(|| "immediate_result"),
+                    ns!(cs, "immediate_result"),
                     g,
                     store,
                     &immediate_val,
@@ -180,7 +176,7 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
                 let var_alloc = AllocatedPtr::from_parts(sym_tag.clone(), var.clone());
 
                 let recursive_args = construct_cons(
-                    &mut cs.namespace(|| "recursive_args"),
+                    ns!(cs, "recursive_args"),
                     g,
                     store,
                     &var_alloc,
@@ -188,27 +184,12 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
                 )?;
 
                 let env_alloc = AllocatedPtr::from_parts(env_tag.clone(), env.clone());
-                let these_args = construct_cons(
-                    &mut cs.namespace(|| "these_args"),
-                    g,
-                    store,
-                    &var_alloc,
-                    &env_alloc,
-                )?;
+                let these_args =
+                    construct_cons(ns!(cs, "these_args"), g, store, &var_alloc, &env_alloc)?;
 
-                let symbol = g.alloc_ptr(
-                    &mut cs.namespace(|| "symbol_"),
-                    &self.symbol_ptr(store),
-                    store,
-                );
+                let symbol = g.alloc_ptr(ns!(cs, "symbol_"), &self.symbol_ptr(store), store);
 
-                let query = construct_cons(
-                    &mut cs.namespace(|| "query"),
-                    g,
-                    store,
-                    &symbol,
-                    &these_args,
-                )?;
+                let query = construct_cons(ns!(cs, "query"), g, store, &symbol, &these_args)?;
 
                 self.recurse(
                     cs,
@@ -229,14 +210,12 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
         if let Some(q) = query {
             match q {
                 EnvQuery::Lookup(var, env) => {
-                    let allocated_var =
-                        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "var"), || {
-                            *s.hash_ptr(&var).value()
-                        });
-                    let allocated_env =
-                        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "env"), || {
-                            *s.hash_ptr(&env).value()
-                        });
+                    let allocated_var = AllocatedNum::alloc_infallible(ns!(cs, "var"), || {
+                        *s.hash_ptr(&var).value()
+                    });
+                    let allocated_env = AllocatedNum::alloc_infallible(ns!(cs, "env"), || {
+                        *s.hash_ptr(&env).value()
+                    });
                     Some(Self::Lookup(allocated_var, allocated_env))
                 }
                 _ => unreachable!(),

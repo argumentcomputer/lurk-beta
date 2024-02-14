@@ -58,13 +58,13 @@ impl<F: LurkField> AllocatedPtr<F> {
         Fo: FnOnce() -> Result<ZPtr<T, F>, SynthesisError>,
     {
         let mut hash = None;
-        let alloc_tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || {
+        let alloc_tag = AllocatedNum::alloc(ns!(cs, "tag"), || {
             let ptr = value()?;
             hash = Some(*ptr.value());
             Ok(ptr.tag_field())
         })?;
 
-        let alloc_hash = AllocatedNum::alloc(&mut cs.namespace(|| "hash"), || {
+        let alloc_hash = AllocatedNum::alloc(ns!(cs, "hash"), || {
             hash.ok_or(SynthesisError::AssignmentMissing)
         })?;
 
@@ -79,14 +79,13 @@ impl<F: LurkField> AllocatedPtr<F> {
         Fo: FnOnce() -> ZPtr<T, F>,
     {
         let mut hash = None;
-        let alloc_tag = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "tag"), || {
+        let alloc_tag = AllocatedNum::alloc_infallible(ns!(cs, "tag"), || {
             let ptr = value();
             hash = Some(*ptr.value());
             ptr.tag_field()
         });
 
-        let alloc_hash =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "hash"), || hash.unwrap());
+        let alloc_hash = AllocatedNum::alloc_infallible(ns!(cs, "hash"), || hash.unwrap());
 
         AllocatedPtr {
             tag: alloc_tag,
@@ -99,7 +98,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         tag: F,
         alloc_hash: AllocatedNum<F>,
     ) -> Result<Self, SynthesisError> {
-        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), tag);
+        let alloc_tag = allocate_constant(ns!(cs, "tag"), tag);
 
         Ok(AllocatedPtr {
             tag: alloc_tag,
@@ -111,8 +110,8 @@ impl<F: LurkField> AllocatedPtr<F> {
         cs: &mut CS,
         value: ZPtr<T, F>,
     ) -> Result<Self, SynthesisError> {
-        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag_field());
-        let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value());
+        let alloc_tag = allocate_constant(ns!(cs, "tag"), value.tag_field());
+        let alloc_hash = allocate_constant(ns!(cs, "hash"), *value.value());
 
         Ok(AllocatedPtr {
             tag: alloc_tag,
@@ -152,18 +151,10 @@ impl<F: LurkField> AllocatedPtr<F> {
         cs: &mut CS,
         other: &Self,
     ) -> Result<Boolean, SynthesisError> {
-        let tags_equal = alloc_equal(&mut cs.namespace(|| "tags equal"), &self.tag, &other.tag)?;
-        let hashes_equal = alloc_equal(
-            &mut cs.namespace(|| "hashes equal"),
-            &self.hash,
-            &other.hash,
-        )?;
+        let tags_equal = alloc_equal(ns!(cs, "tags equal"), &self.tag, &other.tag)?;
+        let hashes_equal = alloc_equal(ns!(cs, "hashes equal"), &self.hash, &other.hash)?;
 
-        Boolean::and(
-            &mut cs.namespace(|| "tags and hashes equal"),
-            &tags_equal,
-            &hashes_equal,
-        )
+        Boolean::and(ns!(cs, "tags and hashes equal"), &tags_equal, &hashes_equal)
     }
 
     pub fn alloc_tag_equal<CS: ConstraintSystem<F>>(
@@ -171,7 +162,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         cs: &mut CS,
         tag: F,
     ) -> Result<Boolean, SynthesisError> {
-        alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.tag, tag)
+        alloc_equal_const(ns!(cs, "tags equal"), &self.tag, tag)
     }
 
     /// Enforce equality of two allocated pointers given an implication premise
@@ -182,13 +173,13 @@ impl<F: LurkField> AllocatedPtr<F> {
         other: &AllocatedPtr<F>,
     ) {
         implies_equal(
-            &mut cs.namespace(|| "implies tag equal"),
+            ns!(cs, "implies tag equal"),
             premise,
             self.tag(),
             other.tag(),
         );
         implies_equal(
-            &mut cs.namespace(|| "implies hash equal"),
+            ns!(cs, "implies hash equal"),
             premise,
             self.hash(),
             other.hash(),
@@ -196,34 +187,34 @@ impl<F: LurkField> AllocatedPtr<F> {
     }
 
     pub fn is_cons<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_cons"), ExprTag::Cons.to_field())
+        self.alloc_tag_equal(ns!(cs, "is_cons"), ExprTag::Cons.to_field())
     }
     pub fn is_str<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_str"), ExprTag::Str.to_field())
+        self.alloc_tag_equal(ns!(cs, "is_str"), ExprTag::Str.to_field())
     }
     pub fn is_num<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_num"), ExprTag::Num.to_field())
+        self.alloc_tag_equal(ns!(cs, "is_num"), ExprTag::Num.to_field())
     }
     pub fn is_u64<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_u64"), ExprTag::U64.to_field())
+        self.alloc_tag_equal(ns!(cs, "is_u64"), ExprTag::U64.to_field())
     }
     pub fn is_char<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_char"), ExprTag::Char.to_field())
+        self.alloc_tag_equal(ns!(cs, "is_char"), ExprTag::Char.to_field())
     }
     pub fn is_comm<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_comm"), ExprTag::Comm.to_field())
+        self.alloc_tag_equal(ns!(cs, "is_comm"), ExprTag::Comm.to_field())
     }
     pub fn is_sym<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_sym"), ExprTag::Sym.to_field())
+        self.alloc_tag_equal(ns!(cs, "is_sym"), ExprTag::Sym.to_field())
     }
     pub fn is_fun<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_fun"), ExprTag::Fun.to_field())
+        self.alloc_tag_equal(ns!(cs, "is_fun"), ExprTag::Fun.to_field())
     }
     pub fn is_thunk<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
     ) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_thunk"), ExprTag::Thunk.to_field())
+        self.alloc_tag_equal(ns!(cs, "is_thunk"), ExprTag::Thunk.to_field())
     }
 
     /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
@@ -307,13 +298,13 @@ impl<F: LurkField> AllocatedContPtr<F> {
         Fo: FnOnce() -> Result<ZContPtr<F>, SynthesisError>,
     {
         let mut hash = None;
-        let alloc_tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || {
+        let alloc_tag = AllocatedNum::alloc(ns!(cs, "tag"), || {
             let ptr = value()?;
             hash = Some(*ptr.value());
             Ok(ptr.tag_field())
         })?;
 
-        let alloc_hash = AllocatedNum::alloc(&mut cs.namespace(|| "hash"), || {
+        let alloc_hash = AllocatedNum::alloc(ns!(cs, "hash"), || {
             hash.ok_or(SynthesisError::AssignmentMissing)
         })?;
 
@@ -327,8 +318,8 @@ impl<F: LurkField> AllocatedContPtr<F> {
         cs: &mut CS,
         value: ZContPtr<F>,
     ) -> Result<Self, SynthesisError> {
-        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag_field());
-        let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value());
+        let alloc_tag = allocate_constant(ns!(cs, "tag"), value.tag_field());
+        let alloc_hash = allocate_constant(ns!(cs, "hash"), *value.value());
 
         Ok(AllocatedContPtr {
             tag: alloc_tag,
@@ -356,18 +347,10 @@ impl<F: LurkField> AllocatedContPtr<F> {
         cs: &mut CS,
         other: &Self,
     ) -> Result<Boolean, SynthesisError> {
-        let tags_equal = alloc_equal(&mut cs.namespace(|| "tags equal"), &self.tag, &other.tag)?;
-        let hashes_equal = alloc_equal(
-            &mut cs.namespace(|| "hashes equal"),
-            &self.hash,
-            &other.hash,
-        )?;
+        let tags_equal = alloc_equal(ns!(cs, "tags equal"), &self.tag, &other.tag)?;
+        let hashes_equal = alloc_equal(ns!(cs, "hashes equal"), &self.hash, &other.hash)?;
 
-        Boolean::and(
-            &mut cs.namespace(|| "tags and hashes equal"),
-            &tags_equal,
-            &hashes_equal,
-        )
+        Boolean::and(ns!(cs, "tags and hashes equal"), &tags_equal, &hashes_equal)
     }
 
     pub fn alloc_tag_equal<CS: ConstraintSystem<F>>(
@@ -375,7 +358,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
         cs: &mut CS,
         tag: F,
     ) -> Result<Boolean, SynthesisError> {
-        alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.tag, tag)
+        alloc_equal_const(ns!(cs, "tags equal"), &self.tag, tag)
     }
 
     /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.

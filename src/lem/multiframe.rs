@@ -615,7 +615,7 @@ fn synthesize_frames_sequential<F: LurkField, CS: ConstraintSystem<F>, C: Coproc
             func.bind_input(&input, bound_allocations);
             let output = func
                 .synthesize_frame(
-                    &mut cs.namespace(|| format!("frame {i}")),
+                    ns!(cs, format!("frame {i}")),
                     store,
                     frame,
                     g,
@@ -743,18 +743,16 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 let z_ptr = store.hash_ptr(ptr);
 
                 let allocated_tag = AllocatedNum::alloc_infallible(
-                    &mut cs.namespace(|| format!("allocated tag for input {i}")),
+                    ns!(cs, format!("allocated tag for input {i}")),
                     || z_ptr.tag_field(),
                 );
-                allocated_tag
-                    .inputize(&mut cs.namespace(|| format!("inputized tag for input {i}")))?;
+                allocated_tag.inputize(ns!(cs, format!("inputized tag for input {i}")))?;
 
                 let allocated_hash = AllocatedNum::alloc_infallible(
-                    &mut cs.namespace(|| format!("allocated hash for input {i}")),
+                    ns!(cs, format!("allocated hash for input {i}")),
                     || *z_ptr.value(),
                 );
-                allocated_hash
-                    .inputize(&mut cs.namespace(|| format!("inputized hash for input {i}")))?;
+                allocated_hash.inputize(ns!(cs, format!("inputized hash for input {i}")))?;
 
                 allocated_input.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
             }
@@ -764,18 +762,16 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 let z_ptr = store.hash_ptr(ptr);
 
                 let allocated_tag = AllocatedNum::alloc_infallible(
-                    &mut cs.namespace(|| format!("allocated tag for output {i}")),
+                    ns!(cs, format!("allocated tag for output {i}")),
                     || z_ptr.tag_field(),
                 );
-                allocated_tag
-                    .inputize(&mut cs.namespace(|| format!("inputized tag for output {i}")))?;
+                allocated_tag.inputize(ns!(cs, format!("inputized tag for output {i}")))?;
 
                 let allocated_hash = AllocatedNum::alloc_infallible(
-                    &mut cs.namespace(|| format!("allocated hash for output {i}")),
+                    ns!(cs, format!("allocated hash for output {i}")),
                     || *z_ptr.value(),
                 );
-                allocated_hash
-                    .inputize(&mut cs.namespace(|| format!("inputized hash for output {i}")))?;
+                allocated_hash.inputize(ns!(cs, format!("inputized hash for output {i}")))?;
 
                 allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
             }
@@ -792,10 +788,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 .zip(allocated_output)
                 .enumerate()
             {
-                o_res.enforce_equal(
-                    &mut cs.namespace(|| format!("outer output {i} is correct")),
-                    &o,
-                );
+                o_res.enforce_equal(ns!(cs, format!("outer output {i} is correct")), &o);
             }
 
             Ok(())
@@ -935,9 +928,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::supernova::StepCircuit<F> for Mu
         _pc: Option<&AllocatedNum<F>>,
         z: &[AllocatedNum<F>],
     ) -> Result<(Option<AllocatedNum<F>>, Vec<AllocatedNum<F>>), SynthesisError> {
-        let next_pc = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "next_pc"), || {
-            F::from_u64(self.next_pc as u64)
-        });
+        let next_pc =
+            AllocatedNum::alloc_infallible(ns!(cs, "next_pc"), || F::from_u64(self.next_pc as u64));
         let output = <MultiFrame<'_, F, C> as nova::traits::circuit::StepCircuit<F>>::synthesize(
             self, cs, z,
         )?;
