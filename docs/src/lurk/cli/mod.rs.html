@@ -1030,7 +1030,7 @@
         <span class="comment">// Initializes CLI config with CLI arguments as overrides
         </span><span class="kw">let </span>config = cli_config(<span class="self">self</span>.config.as_ref(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cli_settings));
 
-        create_lurk_dirs().unwrap();
+        create_lurk_dirs()<span class="question-mark">?</span>;
 
         <span class="kw">let </span>rc = config.rc;
         <span class="kw">let </span>limit = config.limit;

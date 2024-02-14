@@ -663,6 +663,10 @@
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
 <a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>abomonation::Abomonation;
@@ -1134,11 +1138,13 @@
             <span class="self">self</span>.limit,
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>iterations = frames.len();
-        <span class="kw">let </span>output = frames
-            .last()
-            .expect(<span class="string">"evaluation should return at least one frame"</span>)
-            .output
-            .clone();
+
+        <span class="kw">let </span><span class="prelude-val">Some</span>(last_frames) = frames.last() <span class="kw">else </span>{
+            <span class="comment">// TODO: better error decs
+            </span><span class="macro">bail!</span>(<span class="string">"Frames is empty"</span>);
+        };
+
+        <span class="kw">let </span>output = last_frames.output.clone();
         <span class="self">self</span>.evaluation = <span class="prelude-val">Some</span>(Evaluation { frames, iterations });
         <span class="prelude-val">Ok</span>((output, iterations))
     }
@@ -1249,16 +1255,18 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>input = parser::Span::new(<span class="kw-2">&amp;</span>input);
         <span class="kw">loop </span>{
-            <span class="kw">let </span>file_dir = file_path.parent().unwrap();
+            <span class="kw">let </span><span class="prelude-val">Some</span>(file_dir) = file_path.parent() <span class="kw">else </span>{
+                <span class="macro">bail!</span>(<span class="string">"Can't load parent of {}"</span>, file_path);
+            };
+
             <span class="kw">match </span><span class="self">self</span>.handle_form(input, file_dir, demo) {
                 <span class="prelude-val">Ok</span>(new_input) =&gt; input = new_input,
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(parser::Error::NoInput) = e.downcast_ref::&lt;parser::Error&gt;() {
                         <span class="comment">// It's ok, it just means we've hit the EOF
                         </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
-                    } <span class="kw">else </span>{
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(e);
                     }
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(e);
                 }
             }
         }
