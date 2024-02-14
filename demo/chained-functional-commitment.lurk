@@ -25,7 +25,7 @@
 
 ;; Now let's chain another call to the new head, adding 12 to the counter.
 
-!(chain 0x1d10fb6dea15a5865565d571efbcaf535750ab93ba4d9018bd6b7b803e86d986 12)
+!(chain (comm 0x1d10fb6dea15a5865565d571efbcaf535750ab93ba4d9018bd6b7b803e86d986) 12)
 
 ;; Now the counter is 21, and we have a new head commitment.
 

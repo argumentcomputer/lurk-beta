@@ -288,7 +288,8 @@ where
             "!(fetch 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001)",
         ],
         run: |repl, args, _path| {
-            let hash = *repl.get_comm_hash(args)?;
+            let hash_expr = repl.peek1(args)?;
+            let hash = *repl.get_comm_hash(hash_expr)?;
             repl.fetch(&hash, false)
         },
     };
@@ -303,7 +304,8 @@ where
             "!(open 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001)",
         ],
         run: |repl, args, _path| {
-            let hash = *repl.get_comm_hash(args)?;
+            let hash_expr = repl.peek1(args)?;
+            let hash = *repl.get_comm_hash(hash_expr)?;
             repl.fetch(&hash, true)
         },
     };
@@ -521,12 +523,10 @@ where
     }
 
     fn call(repl: &mut Repl<F, C>, args: &Ptr, _path: &Utf8Path) -> Result<()> {
-        let (hash_ptr, args) = repl.store.car_cdr(args)?;
-        let hash_expr = match hash_ptr.tag() {
-            Tag::Expr(ExprTag::Cons) => hash_ptr,
-            _ => repl.store.list(vec![hash_ptr]),
-        };
-        let hash = *repl.get_comm_hash(&hash_expr)?;
+        let (hash_expr, args) = repl.store.car_cdr(args)?;
+        let hash = *repl.get_comm_hash(hash_expr)?;
+        // check if the data is already available on the store before trying to
+        // fetch it from the file system
         if repl.store.open(hash).is_none() {
             repl.fetch(&hash, false)?;
         }

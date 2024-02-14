@@ -1,7 +1,7 @@
 mod meta_cmd;
 
 use abomonation::Abomonation;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use ff::PrimeField;
 use rustyline::{
@@ -505,15 +505,15 @@ where
         Ok((output, iterations))
     }
 
-    fn get_comm_hash(&mut self, args: &Ptr) -> Result<&F> {
-        let first = self.peek1(args)?;
-        let num = self.store.intern_lurk_symbol("num");
-        let expr = self.store.list(vec![num, first]);
-        let (expr_io, ..) = self
-            .eval_expr(expr)
-            .with_context(|| "evaluating first arg")?;
-        let (Tag::Expr(ExprTag::Num), RawPtr::Atom(hash_idx)) = &expr_io[0].parts() else {
-            bail!("hash must be a number")
+    /// Evaluates `hash_expr` and returns the resulting commitment hash
+    ///
+    /// # Errors
+    /// Errors when `hash_expr` doesn't reduce to a Num or Comm pointer
+    fn get_comm_hash(&mut self, hash_expr: Ptr) -> Result<&F> {
+        let (io, ..) = self.eval_expr(hash_expr)?;
+        let (Tag::Expr(ExprTag::Num | ExprTag::Comm), RawPtr::Atom(hash_idx)) = io[0].parts()
+        else {
+            bail!("Commitment hash expression must reduce to a Num or Comm pointer")
         };
         Ok(self.store.expect_f(*hash_idx))
     }
