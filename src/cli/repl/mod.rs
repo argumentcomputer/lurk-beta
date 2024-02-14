@@ -470,14 +470,14 @@ where
         )?;
         let iterations = frames.len();
 
-        if let Some(last_frames) = frames.last() {
-            let output = last_frames.output.clone();
-            self.evaluation = Some(Evaluation { frames, iterations });
-            Ok((output, iterations))
-        } else {
+        let Some(last_frames) = frames.last() else {
             // TODO: better error decs
-            Err(anyhow!("Frames is empty"))
-        }
+            bail!("Frames is empty");
+        };
+
+        let output = last_frames.output.clone();
+        self.evaluation = Some(Evaluation { frames, iterations });
+        Ok((output, iterations))
     }
 
     fn get_comm_hash(&mut self, args: &Ptr) -> Result<&F> {
@@ -586,19 +586,19 @@ where
 
         let mut input = parser::Span::new(&input);
         loop {
-            if let Some(file_dir) = file_path.parent() {
-                match self.handle_form(input, file_dir, demo) {
-                    Ok(new_input) => input = new_input,
-                    Err(e) => {
-                        if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
-                            // It's ok, it just means we've hit the EOF
-                            return Ok(());
-                        }
-                        return Err(e);
+            let Some(file_dir) = file_path.parent() else {
+                bail!("Can't load parent of {}", file_path);
+            };
+
+            match self.handle_form(input, file_dir, demo) {
+                Ok(new_input) => input = new_input,
+                Err(e) => {
+                    if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
+                        // It's ok, it just means we've hit the EOF
+                        return Ok(());
                     }
+                    return Err(e);
                 }
-            } else {
-                return Err(anyhow!("Can't load parent of {}", file_path));
             }
         }
     }
