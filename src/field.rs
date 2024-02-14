@@ -36,6 +36,7 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 #[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ValueEnum)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test)]
+#[clap(rename_all = "lowercase")]
 pub enum LanguageField {
     /// The BN256 scalar field,
     #[default]

@@ -5,15 +5,18 @@ use serde::Deserialize;
 use crate::field::LanguageField;
 
 #[derive(Clone, Default, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[clap(rename_all = "lowercase")]
 pub(crate) enum Backend {
     #[default]
     Nova,
+    SuperNova,
 }
 
 impl std::fmt::Display for Backend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Nova => write!(f, "Nova"),
+            Self::SuperNova => write!(f, "SuperNova"),
         }
     }
 }
@@ -22,7 +25,7 @@ impl Backend {
     fn compatible_fields(&self) -> Vec<LanguageField> {
         use LanguageField::{Pallas, BN256};
         match self {
-            Self::Nova => vec![BN256, Pallas],
+            Self::Nova | Self::SuperNova => vec![BN256, Pallas],
         }
     }
 

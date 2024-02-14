@@ -11,11 +11,11 @@ use crate::{
     lem::{pointers::ZPtr, store::Store},
     proof::{
         nova::{self, CurveCycleEquipped, Dual, C1LEM},
-        RecursiveSNARKTrait,
+        supernova, RecursiveSNARKTrait,
     },
     public_parameters::{
         instance::{Instance, Kind},
-        public_params,
+        public_params, supernova_public_params,
     },
     state::{initial_lurk_state, State},
 };
@@ -118,22 +118,32 @@ impl<F: LurkField + DeserializeOwned> LurkProofMeta<F> {
     }
 }
 
-/// Minimal data structure containing just enough for proof verification
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-pub(crate) enum LurkProof<
+pub(crate) enum LurkProofWrapper<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + Serialize + DeserializeOwned,
 > {
-    Nova {
-        proof: nova::Proof<F, C1LEM<'a, F, C>>,
-        public_inputs: Vec<F>,
-        public_outputs: Vec<F>,
-        rc: usize,
-        lang: Lang<F, C>,
-    },
+    Nova(nova::Proof<F, C1LEM<'a, F, C>>),
+    SuperNova(supernova::Proof<F, C1LEM<'a, F, C>>),
+}
+
+/// Minimal data structure containing just enough for proof verification
+#[non_exhaustive]
+#[derive(Serialize, Deserialize)]
+#[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
+pub(crate) struct LurkProof<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + Serialize + DeserializeOwned,
+> {
+    pub(crate) proof: LurkProofWrapper<'a, F, C>,
+    pub(crate) public_inputs: Vec<F>,
+    pub(crate) public_outputs: Vec<F>,
+    pub(crate) rc: usize,
+    pub(crate) lang: Lang<F, C>,
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a + Serialize + DeserializeOwned>
@@ -185,19 +195,28 @@ where
     }
 
     fn verify(&self) -> Result<bool> {
-        match self {
-            Self::Nova {
-                proof,
-                public_inputs,
-                public_outputs,
-                rc,
-                lang,
-            } => {
+        match &self.proof {
+            LurkProofWrapper::Nova(proof) => {
                 tracing::info!("Loading public parameters");
-                let instance =
-                    Instance::new(*rc, Arc::new(lang.clone()), true, Kind::NovaPublicParams);
+                let instance = Instance::new(
+                    self.rc,
+                    Arc::new(self.lang.clone()),
+                    true,
+                    Kind::NovaPublicParams,
+                );
                 let pp = public_params(&instance)?;
-                Ok(proof.verify(&pp, public_inputs, public_outputs)?)
+                Ok(proof.verify(&pp, &self.public_inputs, &self.public_outputs)?)
+            }
+            LurkProofWrapper::SuperNova(proof) => {
+                tracing::info!("Loading public parameters");
+                let instance = Instance::new(
+                    self.rc,
+                    Arc::new(self.lang.clone()),
+                    true,
+                    Kind::SuperNovaAuxParams,
+                );
+                let pp = supernova_public_params(&instance)?;
+                Ok(proof.verify(&pp, &self.public_inputs, &self.public_outputs)?)
             }
         }
     }
