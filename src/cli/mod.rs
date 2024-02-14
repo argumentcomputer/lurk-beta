@@ -347,7 +347,7 @@ impl ReplCli {
         // Initializes CLI config with CLI arguments as overrides
         let config = cli_config(self.config.as_ref(), Some(&cli_settings));
 
-        create_lurk_dirs().unwrap();
+        create_lurk_dirs()?;
 
         let rc = config.rc;
         let limit = config.limit;

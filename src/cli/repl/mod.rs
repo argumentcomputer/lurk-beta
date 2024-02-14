@@ -469,11 +469,13 @@ where
             self.limit,
         )?;
         let iterations = frames.len();
-        let output = frames
-            .last()
-            .expect("evaluation should return at least one frame")
-            .output
-            .clone();
+
+        let Some(last_frames) = frames.last() else {
+            // TODO: better error decs
+            bail!("Frames is empty");
+        };
+
+        let output = last_frames.output.clone();
         self.evaluation = Some(Evaluation { frames, iterations });
         Ok((output, iterations))
     }
@@ -584,16 +586,18 @@ where
 
         let mut input = parser::Span::new(&input);
         loop {
-            let file_dir = file_path.parent().unwrap();
+            let Some(file_dir) = file_path.parent() else {
+                bail!("Can't load parent of {}", file_path);
+            };
+
             match self.handle_form(input, file_dir, demo) {
                 Ok(new_input) => input = new_input,
                 Err(e) => {
                     if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
                         // It's ok, it just means we've hit the EOF
                         return Ok(());
-                    } else {
-                        return Err(e);
                     }
+                    return Err(e);
                 }
             }
         }
