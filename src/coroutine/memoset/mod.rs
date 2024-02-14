@@ -920,13 +920,8 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
         provenance: &AllocatedPtr<F>,
-        is_toplevel: bool,
     ) -> Result<(AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
-        let new_transcript = if is_toplevel {
-            transcript.add(ns!(cs, "new_transcript"), g, s, provenance)?
-        } else {
-            transcript.clone()
-        };
+        let new_transcript = transcript.add(ns!(cs, "new_transcript"), g, s, provenance)?;
 
         let acc_v = acc.hash();
 
@@ -937,7 +932,25 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         let new_acc =
             AllocatedPtr::alloc_tag(ns!(cs, "new_acc"), ExprTag::Num.to_field(), new_acc_v)?;
 
-        Ok((new_acc, new_transcript.clone()))
+        Ok((new_acc, new_transcript))
+    }
+
+    fn synthesize_insert_internal_query<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        acc: &AllocatedPtr<F>,
+        provenance: &AllocatedPtr<F>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let acc_v = acc.hash();
+
+        let new_acc_v = self
+            .memoset
+            .synthesize_add(ns!(cs, "new_acc_v"), acc_v, provenance)?;
+
+        let new_acc =
+            AllocatedPtr::alloc_tag(ns!(cs, "new_acc"), ExprTag::Num.to_field(), new_acc_v)?;
+
+        Ok(new_acc)
     }
 
     fn synthesize_remove<CS: ConstraintSystem<F>>(
@@ -1006,7 +1019,14 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         ),
         SynthesisError,
     > {
-        self.synthesize_query_aux(cs, g, store, key, acc, transcript, not_dummy, true)
+        let ((result, provenance), new_acc, new_insertion_transcript) =
+            self.synthesize_query_aux(cs, g, store, key, acc, Some(transcript), not_dummy, true)?;
+
+        Ok((
+            (result, provenance),
+            new_acc,
+            new_insertion_transcript.unwrap(),
+        ))
     }
 
     fn synthesize_internal_query<CS: ConstraintSystem<F>>(
@@ -1016,17 +1036,14 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         store: &Store<F>,
         key: &AllocatedPtr<F>,
         acc: &AllocatedPtr<F>,
-        transcript: &CircuitTranscript<F>,
         not_dummy: &Boolean,
-    ) -> Result<
-        (
-            (AllocatedPtr<F>, AllocatedPtr<F>),
-            AllocatedPtr<F>,
-            CircuitTranscript<F>,
-        ),
-        SynthesisError,
-    > {
-        self.synthesize_query_aux(cs, g, store, key, acc, transcript, not_dummy, false)
+    ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
+        let ((result, provenance), new_acc, new_insertion_transcript) =
+            self.synthesize_query_aux(cs, g, store, key, acc, None, not_dummy, false)?;
+
+        assert!(new_insertion_transcript.is_none());
+
+        Ok(((result, provenance), new_acc))
     }
 
     fn synthesize_query_aux<CS: ConstraintSystem<F>>(
@@ -1036,14 +1053,14 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         store: &Store<F>,
         key: &AllocatedPtr<F>,
         acc: &AllocatedPtr<F>,
-        transcript: &CircuitTranscript<F>,
+        transcript: Option<&CircuitTranscript<F>>,
         not_dummy: &Boolean, // TODO: use this more deeply?
         is_toplevel: bool,
     ) -> Result<
         (
             (AllocatedPtr<F>, AllocatedPtr<F>),
             AllocatedPtr<F>,
-            CircuitTranscript<F>,
+            Option<CircuitTranscript<F>>,
         ),
         SynthesisError,
     > {
@@ -1065,10 +1082,24 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             provenance.hash(),
         )?;
 
-        let (new_acc, new_insertion_transcript) =
-            self.synthesize_insert_query(cs, g, store, acc, transcript, &provenance, is_toplevel)?;
-
-        Ok(((result, provenance), new_acc, new_insertion_transcript))
+        if is_toplevel {
+            let (new_acc, new_insertion_transcript) = self.synthesize_insert_query(
+                cs,
+                g,
+                store,
+                acc,
+                transcript.expect("transcript missing"),
+                &provenance,
+            )?;
+            Ok((
+                (result, provenance),
+                new_acc,
+                Some(new_insertion_transcript),
+            ))
+        } else {
+            let new_acc = self.synthesize_insert_internal_query(cs, acc, &provenance)?;
+            Ok(((result, provenance), new_acc, None))
+        }
     }
 
     fn synthesize_insert_toplevel_queries<CS: ConstraintSystem<F>, Q: Query<F>>(
@@ -1168,10 +1199,9 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         not_dummy: &Boolean,
     ) -> Result<(), SynthesisError> {
         let acc = self.acc.clone().unwrap();
-        let transcript = self.transcript.clone();
 
-        let ((val, provenance), new_acc, new_transcript) = circuit_query
-            .synthesize_eval(ns!(cs, "eval"), g, s, self, &acc, &transcript)
+        let ((val, provenance), new_acc) = circuit_query
+            .synthesize_eval(ns!(cs, "eval"), g, s, self, &acc)
             .unwrap();
 
         let (new_acc, new_transcript) = self.synthesize_remove(
@@ -1179,7 +1209,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             g,
             s,
             &new_acc,
-            &new_transcript,
+            &self.transcript,
             allocated_key,
             &val,
             &provenance,
@@ -1404,24 +1434,24 @@ mod test {
     #[test]
     fn test_query() {
         test_query_aux(
-            expect!["9456"],
-            expect!["9512"],
-            expect!["10039"],
-            expect!["10102"],
+            expect!["9446"],
+            expect!["9502"],
+            expect!["10029"],
+            expect!["10092"],
             1,
         );
         test_query_aux(
-            expect!["11201"],
-            expect!["11263"],
-            expect!["11784"],
-            expect!["11853"],
+            expect!["11189"],
+            expect!["11251"],
+            expect!["11772"],
+            expect!["11841"],
             3,
         );
         test_query_aux(
-            expect!["18258"],
-            expect!["18355"],
-            expect!["18841"],
-            expect!["18945"],
+            expect!["18238"],
+            expect!["18335"],
+            expect!["18821"],
+            expect!["18925"],
             10,
         )
     }
