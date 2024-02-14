@@ -125,7 +125,7 @@ pub(crate) fn construct_list<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
-    elts: &[&AllocatedPtr<F>],
+    elts: &[AllocatedPtr<F>],
     last: Option<AllocatedPtr<F>>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let init = match last {
@@ -173,11 +173,36 @@ pub(crate) fn construct_env<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(AllocatedPtr::from_parts(tag, hash))
 }
 
+#[inline]
+pub(crate) fn construct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    g: &GlobalAllocator<F>,
+    store: &Store<F>,
+    query_hash: &AllocatedNum<F>,
+    result: &AllocatedPtr<F>,
+    deps: &AllocatedNum<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    // TODO: should there be a provenance tag?
+    let tag = g.alloc_tag_cloned(cs, &ExprTag::Env);
+
+    let hash = hash_poseidon(
+        cs,
+        vec![
+            query_hash.clone(),
+            result.tag().clone(),
+            result.hash().clone(),
+            deps.clone(),
+        ],
+        store.poseidon_cache.constants.c4(),
+    )?;
+
+    Ok(AllocatedPtr::from_parts(tag, hash))
+}
+
 /// Deconstructs `env`, assumed to be a composition of a symbol hash, a value `Ptr`, and a next `Env` hash.
 ///
 /// # Panics
 /// Panics if the store can't deconstruct the env hash.
-#[allow(dead_code)]
 pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     s: &Store<F>,
@@ -224,6 +249,65 @@ pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
     implies_equal(&mut cs.namespace(|| "hash equality"), not_dummy, env, &hash);
 
     Ok((key_sym_hash, val, new_env_hash))
+}
+
+#[allow(dead_code)]
+pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    s: &Store<F>,
+    not_dummy: &Boolean,
+    provenance: &AllocatedNum<F>,
+) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedNum<F>), SynthesisError> {
+    let prov_zptr = ZPtr::from_parts(
+        tag::Tag::Expr(ExprTag::Env),
+        provenance.get_value().unwrap(),
+    );
+    let prov_ptr = s.to_ptr(&prov_zptr);
+
+    let (a, b, c, d) = {
+        if let Some([q, res, deps]) = s.pop_provenance(prov_ptr) {
+            let q_zptr = s.hash_ptr(&q);
+            let res_zptr = s.hash_ptr(&res);
+            let deps_zptr = s.hash_ptr(&deps);
+            (
+                *q_zptr.value(),
+                res_zptr.tag().to_field::<F>(),
+                *res_zptr.value(),
+                *deps_zptr.value(),
+            )
+        } else {
+            (F::ZERO, F::ZERO, F::ZERO, F::ZERO)
+        }
+    };
+
+    let query_cons_hash =
+        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "query_cons_hash"), || a);
+    let res_tag = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "res_tag"), || b);
+    let res_hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "res_hash"), || c);
+    let deps_tuple_hash =
+        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "deps_tuple_hash"), || d);
+
+    let hash = hash_poseidon(
+        &mut cs.namespace(|| "hash"),
+        vec![
+            query_cons_hash.clone(),
+            res_tag.clone(),
+            res_hash.clone(),
+            deps_tuple_hash.clone(),
+        ],
+        s.poseidon_cache.constants.c4(),
+    )?;
+
+    let res = AllocatedPtr::from_parts(res_tag, res_hash);
+
+    implies_equal(
+        &mut cs.namespace(|| "hash equality"),
+        not_dummy,
+        provenance,
+        &hash,
+    );
+
+    Ok((query_cons_hash, res, deps_tuple_hash))
 }
 
 /// Retrieves the `Ptr` that corresponds to `a_ptr` by using the `Store` as the
@@ -688,13 +772,20 @@ mod test {
         let a_one = g.alloc_ptr(&mut cs, &one, &store);
 
         // proper list
-        let a_list = construct_list(&mut cs, &g, &store, &[&a_one, &a_one], None).unwrap();
+        let a_list =
+            construct_list(&mut cs, &g, &store, &[a_one.clone(), a_one.clone()], None).unwrap();
         let z_list = store.hash_ptr(&store.list(vec![one, one]));
         assert_eq!(a_ptr_as_z_ptr(&a_list), Some(z_list));
 
         // improper list
-        let a_list =
-            construct_list(&mut cs, &g, &store, &[&a_one, &a_one], Some(a_one.clone())).unwrap();
+        let a_list = construct_list(
+            &mut cs,
+            &g,
+            &store,
+            &[a_one.clone(), a_one.clone()],
+            Some(a_one.clone()),
+        )
+        .unwrap();
         let z_list = store.hash_ptr(&store.improper_list(vec![one, one], one));
         assert_eq!(a_ptr_as_z_ptr(&a_list), Some(z_list));
     }

@@ -1,5 +1,12 @@
 #![allow(unused_macros)]
 
+/// Simplify creating a namespace.
+macro_rules! ns {
+    ($cs:ident, $e:expr) => {
+        &mut $cs.namespace(|| $e)
+    };
+}
+
 // Enforces constraint that a implies b.
 macro_rules! if_then {
     ($cs:ident, $a:expr, $b:expr) => {

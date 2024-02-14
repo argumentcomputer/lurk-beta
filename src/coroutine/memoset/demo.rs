@@ -6,6 +6,7 @@ use super::{
 };
 use crate::circuit::gadgets::constraints::alloc_is_zero;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
+use crate::coprocessor::gadgets::construct_cons;
 use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
 use crate::lem::{pointers::Ptr, store::Store};
@@ -27,7 +28,7 @@ pub(crate) enum DemoCircuitQuery<F: LurkField> {
 impl<F: LurkField> Query<F> for DemoQuery<F> {
     type CQ = DemoCircuitQuery<F>;
 
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>>) -> Ptr {
+    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         match self {
             Self::Factorial(n) => {
                 let n_zptr = s.hash_ptr(n);
@@ -117,15 +118,11 @@ impl<F: LurkField> RecursiveQuery<F> for DemoCircuitQuery<F> {
         match self {
             Self::Factorial(n) => {
                 let result_f = n.hash().mul(
-                    &mut cs.namespace(|| "incremental multiplication"),
+                    ns!(cs, "incremental multiplication"),
                     subquery_result.hash(),
                 )?;
 
-                AllocatedPtr::alloc_tag(
-                    &mut cs.namespace(|| "result"),
-                    ExprTag::Num.to_field(),
-                    result_f,
-                )
+                AllocatedPtr::alloc_tag(ns!(cs, "result"), ExprTag::Num.to_field(), result_f)
             }
         }
     }
@@ -140,20 +137,27 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
+    ) -> Result<
+        (
+            (AllocatedPtr<F>, AllocatedPtr<F>),
+            AllocatedPtr<F>,
+            CircuitTranscript<F>,
+        ),
+        SynthesisError,
+    > {
         match self {
             Self::Factorial(n) => {
                 // FIXME: Check n tag or decide not to.
                 let base_case_f = g.alloc_const(cs, F::ONE);
                 let base_case = AllocatedPtr::alloc_tag(
-                    &mut cs.namespace(|| "base_case"),
+                    ns!(cs, "base_case"),
                     ExprTag::Num.to_field(),
                     base_case_f.clone(),
                 )?;
 
-                let n_is_zero = alloc_is_zero(&mut cs.namespace(|| "n_is_zero"), n.hash())?;
+                let n_is_zero = alloc_is_zero(ns!(cs, "n_is_zero"), n.hash())?;
 
-                let new_n = AllocatedNum::alloc(&mut cs.namespace(|| "new_n"), || {
+                let new_n = AllocatedNum::alloc(ns!(cs, "new_n"), || {
                     n.hash()
                         .get_value()
                         .map(|n| n - F::ONE)
@@ -168,17 +172,19 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
                     |lc| lc + n.hash().get_variable() - CS::one(),
                 );
 
-                let new_num = AllocatedPtr::alloc_tag(
-                    &mut cs.namespace(|| "new_num"),
-                    ExprTag::Num.to_field(),
-                    new_n,
-                )?;
+                let new_num =
+                    AllocatedPtr::alloc_tag(ns!(cs, "new_num"), ExprTag::Num.to_field(), new_n)?;
+
+                let symbol = g.alloc_ptr(ns!(cs, "symbol_"), &self.symbol_ptr(store), store);
+
+                let query = construct_cons(ns!(cs, "query"), g, store, &symbol, n)?;
 
                 self.recurse(
                     cs,
                     g,
                     store,
                     scope,
+                    &query,
                     &new_num,
                     &n_is_zero.not(),
                     (&base_case, acc, transcript),
@@ -212,7 +218,7 @@ mod test {
     #[test]
     fn test_factorial() {
         let s = Store::default();
-        let mut scope: Scope<DemoQuery<F>, LogMemo<F>> = Scope::default();
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::default();
         let zero = s.num(F::ZERO);
         let one = s.num(F::ONE);
         let two = s.num(F::from_u64(2));

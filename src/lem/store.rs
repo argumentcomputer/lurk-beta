@@ -67,6 +67,23 @@ pub struct Store<F: LurkField> {
     pub hash8zeros_idx: usize,
 }
 
+/// `WithStore` provides a distinct type for coupling a store with a value of another type.
+pub struct WithStore<'a, F: LurkField, T>(pub T, pub &'a Store<F>);
+
+impl<'a, F: LurkField, T> WithStore<'a, F, T> {
+    pub fn store(&self) -> &Store<F> {
+        self.1
+    }
+
+    pub fn inner(&self) -> &T {
+        &self.0
+    }
+
+    pub fn to_inner(self) -> T {
+        self.0
+    }
+}
+
 impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
         let poseidon_cache = PoseidonCache::default();
@@ -393,6 +410,27 @@ impl<F: LurkField> Store<F> {
         let val = Ptr::new(val_tag, *val_pay);
         let env = Ptr::new(Tag::Expr(Env), *env_pay);
         Some([sym, val, env])
+    }
+
+    #[inline]
+    pub fn push_provenance(&self, sym: Ptr, val: Ptr, env: Ptr) -> Ptr {
+        assert_eq!(*sym.tag(), Tag::Expr(Cons));
+        //assert_eq!(*env.tag(), Tag::Expr(Env));
+        let raw =
+            self.intern_raw_ptrs::<4>([*sym.raw(), self.tag(*val.tag()), *val.raw(), *env.raw()]);
+        Ptr::new(Tag::Expr(Env), raw)
+    }
+
+    #[inline]
+    pub fn pop_provenance(&self, env: Ptr) -> Option<[Ptr; 3]> {
+        assert_eq!(*env.tag(), Tag::Expr(Env));
+        let idx = env.get_index2()?;
+        let [sym_pay, val_tag, val_pay, env_pay] = self.fetch_raw_ptrs::<4>(idx)?;
+        let val_tag = self.fetch_tag(val_tag)?;
+        let query = Ptr::new(Tag::Expr(Cons), *sym_pay);
+        let val = Ptr::new(val_tag, *val_pay);
+        let env = Ptr::new(Tag::Expr(Env), *env_pay);
+        Some([query, val, env])
     }
 
     #[inline]

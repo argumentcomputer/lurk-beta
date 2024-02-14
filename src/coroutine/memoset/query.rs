@@ -1,6 +1,6 @@
 use bellpepper_core::{boolean::Boolean, ConstraintSystem, SynthesisError};
 
-use super::{CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope};
+use super::{AllocatedProvenance, CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope};
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::coprocessor::gadgets::construct_cons;
 use crate::field::LurkField;
@@ -14,10 +14,10 @@ where
 {
     type CQ: CircuitQuery<F>;
 
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>>) -> Ptr;
+    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr;
     fn recursive_eval(
         &self,
-        scope: &mut Scope<Self, LogMemo<F>>,
+        scope: &mut Scope<Self, LogMemo<F>, F>,
         s: &Store<F>,
         subquery: Self,
     ) -> Ptr {
@@ -51,7 +51,14 @@ where
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
         transcript: &CircuitTranscript<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError>;
+    ) -> Result<
+        (
+            (AllocatedPtr<F>, AllocatedPtr<F>),
+            AllocatedPtr<F>,
+            CircuitTranscript<F>,
+        ),
+        SynthesisError,
+    >;
 
     fn symbol(&self) -> Symbol;
 
@@ -79,30 +86,35 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
         g: &GlobalAllocator<F>,
         store: &Store<F>,
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
+        query: &AllocatedPtr<F>,
         args: &AllocatedPtr<F>,
         is_recursive: &Boolean,
         immediate: (&AllocatedPtr<F>, &AllocatedPtr<F>, &CircuitTranscript<F>),
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, CircuitTranscript<F>), SynthesisError> {
+    ) -> Result<
+        (
+            (AllocatedPtr<F>, AllocatedPtr<F>),
+            AllocatedPtr<F>,
+            CircuitTranscript<F>,
+        ),
+        SynthesisError,
+    > {
         let is_immediate = is_recursive.not();
 
         let subquery = {
-            let symbol = g.alloc_ptr(
-                &mut cs.namespace(|| "symbol"),
-                &self.symbol_ptr(store),
-                store,
-            );
-            construct_cons(&mut cs.namespace(|| "subquery"), g, store, &symbol, args)?
+            let symbol = g.alloc_ptr(ns!(cs, "symbol"), &self.symbol_ptr(store), store);
+            construct_cons(ns!(cs, "subquery"), g, store, &symbol, args)?
         };
 
-        let (sub_result, new_acc, new_transcript) = scope.synthesize_internal_query(
-            &mut cs.namespace(|| "recursive query"),
-            g,
-            store,
-            &subquery,
-            immediate.1,
-            immediate.2,
-            is_recursive,
-        )?;
+        let ((sub_result, sub_provenance), new_acc, new_transcript) = scope
+            .synthesize_internal_query(
+                ns!(cs, "recursive query"),
+                g,
+                store,
+                &subquery,
+                immediate.1,
+                immediate.2,
+                is_recursive,
+            )?;
 
         let (recursive_result, recursive_acc, recursive_transcript) = (
             self.post_recursion(cs, sub_result)?,
@@ -111,26 +123,43 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
         );
 
         let value = AllocatedPtr::pick(
-            &mut cs.namespace(|| "pick value"),
+            ns!(cs, "pick value"),
             &is_immediate,
             immediate.0,
             &recursive_result,
         )?;
 
         let acc = AllocatedPtr::pick(
-            &mut cs.namespace(|| "pick acc"),
+            ns!(cs, "pick acc"),
             &is_immediate,
             immediate.1,
             &recursive_acc,
         )?;
 
         let transcript = CircuitTranscript::pick(
-            &mut cs.namespace(|| "pick recursive_transcript"),
+            ns!(cs, "pick recursive_transcript"),
             &is_immediate,
             immediate.2,
             &recursive_transcript,
         )?;
 
-        Ok((value, acc, transcript))
+        let nil = g.alloc_ptr(ns!(cs, "nil"), &store.intern_nil(), store);
+
+        let dependency_provenance = AllocatedPtr::pick(
+            ns!(cs, "dependency provenance"),
+            &is_immediate,
+            &nil,
+            &sub_provenance,
+        )?;
+
+        let p = AllocatedProvenance::new(
+            query.clone(),
+            value.clone(),
+            vec![dependency_provenance.clone()],
+        );
+
+        let provenance = p.to_ptr(cs, g, store)?;
+
+        Ok(((value, provenance.clone()), acc, transcript))
     }
 }
