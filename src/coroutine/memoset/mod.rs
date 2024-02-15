@@ -614,7 +614,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                 .collect::<Vec<_>>();
 
             let result = self.queries.get(query).expect("result missing");
-            let p = Provenance::new(*query, *result, sub_provenances.clone());
+            let p = Provenance::new(*query, *result, sub_provenances);
             let provenance = p.to_ptr(store);
 
             if let Some(dependents) = self.dependents.get(query) {
