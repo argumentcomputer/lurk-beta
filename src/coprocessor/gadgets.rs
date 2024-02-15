@@ -269,7 +269,7 @@ pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedNum<F>), SynthesisError> {
     let prov_zptr = ZPtr::from_parts(
         tag::Tag::Expr(ExprTag::Prov),
-        provenance.get_value().unwrap(),
+        provenance.get_value().unwrap_or(F::ZERO),
     );
     let prov_ptr = s.to_ptr(&prov_zptr);
 
