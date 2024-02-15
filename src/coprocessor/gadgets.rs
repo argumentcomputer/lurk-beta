@@ -783,7 +783,7 @@ mod test {
 
         // proper list
         let a_list =
-            construct_list(&mut cs, &g, &store, &[a_one.clone(), a_one.clone()], None).unwrap();
+            construct_list(&mut cs, &g, &store, [&a_one, &a_one], None).unwrap();
         let z_list = store.hash_ptr(&store.list(vec![one, one]));
         assert_eq!(a_ptr_as_z_ptr(&a_list), Some(z_list));
 
@@ -792,7 +792,7 @@ mod test {
             &mut cs,
             &g,
             &store,
-            &[a_one.clone(), a_one.clone()],
+            [&a_one, &a_one],
             Some(a_one.clone()),
         )
         .unwrap();
