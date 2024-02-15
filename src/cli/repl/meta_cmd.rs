@@ -532,10 +532,10 @@ where
         }
         let open = repl.store.intern_lurk_symbol("open");
         let open_expr = repl.store.list(vec![open, repl.store.num(hash)]);
-        let Some((args_vec, _)) = repl.store.fetch_list(&args) else {
-            bail!("Data must have been interned");
-        };
-
+        let (args_vec, _) = repl
+            .store
+            .fetch_list(&args)
+            .expect("list of arguments must have been interned");
         let mut expr_vec = Vec::with_capacity(args_vec.len() + 1);
         expr_vec.push(open_expr);
         expr_vec.extend(args_vec);

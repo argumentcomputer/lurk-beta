@@ -35,17 +35,52 @@ use super::{
     Func, Tag,
 };
 
+/// Holds data from interpretation or nothing in case of blank frames
+#[derive(Clone, Debug)]
+enum InterpretationData<'a, F: LurkField> {
+    Filled {
+        store: &'a Store<F>,
+        input: Vec<Ptr>,
+        output: Vec<Ptr>,
+        frames: Vec<Frame>,
+    },
+    Blank,
+}
+
+impl<'a, F: LurkField> InterpretationData<'a, F> {
+    #[inline]
+    fn frames(&self) -> Option<&Vec<Frame>> {
+        match self {
+            Self::Filled { frames, .. } => Some(frames),
+            Self::Blank => None,
+        }
+    }
+
+    #[inline]
+    fn input(&self) -> Option<&Vec<Ptr>> {
+        match self {
+            Self::Filled { input, .. } => Some(input),
+            Self::Blank => None,
+        }
+    }
+
+    #[inline]
+    fn output(&self) -> Option<&Vec<Ptr>> {
+        match self {
+            Self::Filled { output, .. } => Some(output),
+            Self::Blank => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
-    store: Option<&'a Store<F>>,
+    interpretation_data: InterpretationData<'a, F>,
     /// Cached Lurk step function according to the `folding_config`
     lurk_step: Arc<Func>,
     /// Cached coprocessor functions according to the `folding_config`. Holds
     /// `None` in case of IVC
     cprocs: Option<Arc<[Func]>>,
-    input: Option<Vec<Ptr>>,
-    output: Option<Vec<Ptr>>,
-    frames: Option<Vec<Frame>>,
     /// Cached witness and output for this `MultiFrame`
     cached_witness: OnceCell<(WitnessCS<F>, Vec<AllocatedNum<F>>)>,
     num_frames: usize,
@@ -70,7 +105,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
     #[inline]
     pub fn frames(&self) -> Option<&Vec<Frame>> {
-        self.frames.as_ref()
+        self.interpretation_data.frames()
     }
 
     pub fn emitted(_store: &Store<F>, eval_frame: &Frame) -> Vec<Ptr> {
@@ -81,7 +116,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         let _ = self.cached_witness.get_or_try_init(|| {
             let mut wcs = WitnessCS::new();
 
-            let z_scalar = s.to_scalar_vector(self.input.as_ref().unwrap());
+            let z_scalar = s.to_scalar_vector(self.input());
 
             let mut bogus_cs = WitnessCS::<F>::new();
             let z: Vec<AllocatedNum<F>> = z_scalar
@@ -103,7 +138,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
     #[inline]
     pub fn precedes(&self, maybe_next: &Self) -> bool {
-        self.output == maybe_next.input
+        self.interpretation_data.output() == maybe_next.interpretation_data.input()
     }
 
     pub fn synthesize_frames<CS: ConstraintSystem<F>>(
@@ -176,12 +211,9 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         };
         let num_frames = if pc == 0 { rc } else { 1 };
         Self {
-            store: None,
+            interpretation_data: InterpretationData::Blank,
             lurk_step,
             cprocs,
-            input: None,
-            output: None,
-            frames: None,
             cached_witness: OnceCell::new(),
             num_frames,
             folding_config,
@@ -224,12 +256,14 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                     };
 
                     let mf = MultiFrame {
-                        store: Some(store),
+                        interpretation_data: InterpretationData::Filled {
+                            store,
+                            input: chunk[0].input.clone(),
+                            output,
+                            frames: inner_frames,
+                        },
                         lurk_step: lurk_step.clone(),
                         cprocs: None,
-                        input: Some(chunk[0].input.clone()),
-                        output: Some(output),
-                        frames: Some(inner_frames),
                         cached_witness: OnceCell::new(),
                         num_frames: reduction_count,
                         folding_config: folding_config.clone(),
@@ -309,12 +343,14 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                     }
 
                     let mf = MultiFrame {
-                        store: Some(store),
+                        interpretation_data: InterpretationData::Filled {
+                            store,
+                            input,
+                            output,
+                            frames: frames_to_add,
+                        },
                         lurk_step: lurk_step.clone(),
                         cprocs: Some(cprocs.clone()),
-                        input: Some(input),
-                        output: Some(output),
-                        frames: Some(frames_to_add),
                         cached_witness: OnceCell::new(),
                         num_frames,
                         folding_config: folding_config.clone(),
@@ -387,12 +423,16 @@ impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike<Ptr> for MultiFrame<'a, F, C
     type FrameIO = Vec<Ptr>;
     #[inline]
     fn input(&self) -> &Vec<Ptr> {
-        self.input.as_ref().unwrap()
+        self.interpretation_data
+            .input()
+            .expect("no input for a blank MultiFrame")
     }
 
     #[inline]
     fn output(&self) -> &Vec<Ptr> {
-        self.output.as_ref().unwrap()
+        self.interpretation_data
+            .output()
+            .expect("no output for a blank MultiFrame")
     }
 }
 
@@ -761,19 +801,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
             Ok(())
         };
 
-        if let Some(store) = self.store {
-            let input = self
-                .input
-                .as_ref()
-                .ok_or_else(|| SynthesisError::AssignmentMissing)?;
-            let output = self
-                .output
-                .as_ref()
-                .ok_or_else(|| SynthesisError::AssignmentMissing)?;
-            let frames = self.frames.as_ref().unwrap();
+        if let InterpretationData::Filled {
+            store,
+            input,
+            output,
+            frames,
+        } = &self.interpretation_data
+        {
             synth(store, frames, input, output)
         } else {
-            assert!(self.frames.is_none());
             let store = Store::default();
             let dummy_io = [store.dummy(); 3];
             let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
@@ -785,9 +821,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
 
 impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
     fn public_inputs(&self) -> Vec<F> {
-        let input = self.input.as_ref().expect("input missing");
-        let output = self.output.as_ref().expect("input missing");
-        let store = self.store.expect("store missing");
+        let InterpretationData::Filled {
+            store,
+            input,
+            output,
+            frames: _,
+        } = &self.interpretation_data
+        else {
+            panic!("Can't compute public inputs of a blank MultiFrame")
+        };
         let mut res = Vec::with_capacity(self.public_input_size());
         for ptr in input {
             let z_ptr = store.hash_ptr(ptr);
@@ -852,15 +894,19 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
             ));
         }
 
-        let output_ptrs = if let Some(frames) = self.frames.as_ref() {
+        let allocated_output_ptrs = if let InterpretationData::Filled {
+            store,
+            input: _,
+            output: _,
+            frames,
+        } = &self.interpretation_data
+        {
             if self.pc != 0 {
                 assert_eq!(frames.len(), 1);
             }
-            let store = self.store.expect("store missing");
             let g = self.lurk_step.alloc_consts(cs, store);
             self.synthesize_frames(cs, store, input, frames, &g)?
         } else {
-            assert!(self.store.is_none());
             let store = Store::default();
             let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
             let frames = vec![blank_frame; self.num_frames];
@@ -868,13 +914,13 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
             self.synthesize_frames(cs, &store, input, &frames, &g)?
         };
 
-        let mut output = Vec::with_capacity(z.len());
-        for ptr in output_ptrs {
-            output.push(ptr.tag().clone());
-            output.push(ptr.hash().clone());
+        let mut allocated_output = Vec::with_capacity(z.len());
+        for ptr in allocated_output_ptrs {
+            allocated_output.push(ptr.tag().clone());
+            allocated_output.push(ptr.hash().clone());
         }
 
-        Ok(output)
+        Ok(allocated_output)
     }
 }
 
