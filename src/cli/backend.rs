@@ -7,16 +7,16 @@ use crate::field::LanguageField;
 #[derive(Clone, Default, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
 #[clap(rename_all = "lowercase")]
 pub(crate) enum Backend {
-    #[default]
     Nova,
+    #[default]
     SuperNova,
 }
 
 impl std::fmt::Display for Backend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Nova => write!(f, "Nova"),
-            Self::SuperNova => write!(f, "SuperNova"),
+            Self::Nova => write!(f, "nova"),
+            Self::SuperNova => write!(f, "supernova"),
         }
     }
 }

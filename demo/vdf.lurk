@@ -51,7 +51,7 @@
 
 !(prove)
 
-!(verify "Nova_BN256_10_2b96123c7e47229622beeef7080c005e9d18ed0cfd2c0b7f06e1d9f1cfcf83a8")
+!(verify "supernova_bn256_10_2b96123c7e47229622beeef7080c005e9d18ed0cfd2c0b7f06e1d9f1cfcf83a8")
 
 !(def timelock-encrypt (lambda (secret-key plaintext rounds)
                           (let ((ciphertext (+ secret-key plaintext))

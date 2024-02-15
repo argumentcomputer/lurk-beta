@@ -90,7 +90,7 @@ struct LoadArgs {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
-    /// Prover backend (defaults to "nova")
+    /// Prover backend (defaults to "supernova")
     #[clap(long, value_enum)]
     backend: Option<Backend>,
 
@@ -203,7 +203,7 @@ struct ReplArgs {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
-    /// Prover backend (defaults to "nova")
+    /// Prover backend (defaults to "supernova")
     #[clap(long, value_enum)]
     backend: Option<Backend>,
 
