@@ -54,16 +54,16 @@
 <span class="attr">#[derive(Clone, Default, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
 #[clap(rename_all = <span class="string">"lowercase"</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Backend {
+    Nova,
     <span class="attr">#[default]
-    </span>Nova,
-    SuperNova,
+    </span>SuperNova,
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Backend {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Nova =&gt; <span class="macro">write!</span>(f, <span class="string">"Nova"</span>),
-            <span class="self">Self</span>::SuperNova =&gt; <span class="macro">write!</span>(f, <span class="string">"SuperNova"</span>),
+            <span class="self">Self</span>::Nova =&gt; <span class="macro">write!</span>(f, <span class="string">"nova"</span>),
+            <span class="self">Self</span>::SuperNova =&gt; <span class="macro">write!</span>(f, <span class="string">"supernova"</span>),
         }
     }
 }
