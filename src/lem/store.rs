@@ -420,10 +420,7 @@ impl<F: LurkField> Store<F> {
         // TODO: Deps must be a single Prov or a list (later, an N-ary tuple), but we discard the type tag. This is
         // arguably okay, but it means that in order to recover the preimage we will need to know the expected arity
         // based on the query.
-        assert!(matches!(
-            *deps.tag(),
-            Tag::Expr(Prov) | Tag::Expr(Cons) | Tag::Expr(Nil)
-        ));
+        assert!(matches!(*deps.tag(), Tag::Expr(Prov | Cons | Nil)));
         let raw = self.intern_raw_ptrs::<4>([
             *query.raw(),
             self.tag(*val.tag()),
