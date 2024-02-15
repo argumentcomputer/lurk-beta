@@ -567,22 +567,31 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     // }
 
     fn compute_provenances(&self, store: &Store<F>) -> HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
-        let base_cases = self
+        let mut provenances = HashMap::default();
+        let mut ready = HashSet::new();
+
+        let mut missing_dependency_counts: HashMap<&Ptr, usize> = self
             .queries
             .keys()
-            .filter(|key| {
-                if let Some(deps) = self.dependencies.get(key) {
-                    deps.is_empty()
-                } else {
-                    true
-                }
-            })
-            .collect::<HashSet<_>>();
-        let mut todo = base_cases;
-        let mut provenances = HashMap::default();
+            .map(|key| {
+                let dep_count = self.dependencies.get(key).map_or(0, |x| x.len());
 
-        while !todo.is_empty() {
-            todo = self.extend_provenances(store, &mut provenances, todo);
+                if dep_count == 0 {
+                    // Queries are ready if they have no missing dependencies.
+                    // Initially, this will be the base cases -- which have no dependencies.
+                    ready.insert(key);
+                }
+                (key, dep_count)
+            })
+            .collect();
+
+        while !ready.is_empty() {
+            ready = self.extend_provenances(
+                store,
+                &mut provenances,
+                ready,
+                &mut missing_dependency_counts,
+            );
         }
 
         provenances
@@ -591,16 +600,18 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             .collect()
     }
 
-    fn extend_provenances(
-        &self,
+    fn extend_provenances<'a>(
+        &'a self,
         store: &Store<F>,
         provenances: &mut HashMap<Ptr, Ptr>,
-        todo: HashSet<&Ptr>,
+        ready: HashSet<&Ptr>,
+        missing_dependency_counts: &mut HashMap<&'a Ptr, usize>,
     ) -> HashSet<&Ptr> {
         let mut next = HashSet::new();
-
-        for query in todo.into_iter() {
+        for query in ready.into_iter() {
             if provenances.get(query).is_some() {
+                // Skip if already complete. This should not happen if called by `compute_provenances` when computing
+                // all provenances from scratch, but it could happen if we compute more incrementally in the future.
                 continue;
             };
 
@@ -619,9 +630,14 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
             if let Some(dependents) = self.dependents.get(query) {
                 for dependent in dependents {
-                    if provenances.get(dependent).is_none() {
-                        next.insert(dependent);
-                    }
+                    missing_dependency_counts
+                        .entry(dependent)
+                        .and_modify(|missing_count| {
+                            *missing_count -= 1;
+                            if *missing_count == 0 {
+                                next.insert(dependent);
+                            }
+                        });
                 }
             };
 
