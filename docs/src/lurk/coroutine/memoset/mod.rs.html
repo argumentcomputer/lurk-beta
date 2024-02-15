@@ -1653,7 +1653,7 @@
                 store.list(<span class="self">self</span>.dependencies.clone())
             };
 
-            store.push_provenance(<span class="self">self</span>.query, <span class="self">self</span>.result, dependencies_list)
+            store.intern_provenance(<span class="self">self</span>.query, <span class="self">self</span>.result, dependencies_list)
         })
     }
 }
@@ -2052,7 +2052,7 @@
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
             <span class="kw">let </span>result = <span class="self">self</span>.queries.get(query).expect(<span class="string">"result missing"</span>);
-            <span class="kw">let </span>p = Provenance::new(<span class="kw-2">*</span>query, <span class="kw-2">*</span>result, sub_provenances.clone());
+            <span class="kw">let </span>p = Provenance::new(<span class="kw-2">*</span>query, <span class="kw-2">*</span>result, sub_provenances);
             <span class="kw">let </span>provenance = p.to_ptr(store);
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(dependents) = <span class="self">self</span>.dependents.get(query) {

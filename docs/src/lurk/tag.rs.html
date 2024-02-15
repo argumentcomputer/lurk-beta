@@ -524,6 +524,8 @@
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>lurk_macros::TryFromRepr;
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>proptest_derive::Arbitrary;
@@ -578,6 +580,7 @@
     Key,
     Cproc,
     Env,
+    Prov,
     Rec,
 }
 
@@ -609,6 +612,7 @@
             ExprTag::U64 =&gt; <span class="macro">write!</span>(f, <span class="string">"u64#"</span>),
             ExprTag::Cproc =&gt; <span class="macro">write!</span>(f, <span class="string">"cproc#"</span>),
             ExprTag::Env =&gt; <span class="macro">write!</span>(f, <span class="string">"env#"</span>),
+            ExprTag::Prov =&gt; <span class="macro">write!</span>(f, <span class="string">"prov#"</span>),
             ExprTag::Rec =&gt; <span class="macro">write!</span>(f, <span class="string">"rec#"</span>),
         }
     }

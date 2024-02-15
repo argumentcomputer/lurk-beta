@@ -983,7 +983,6 @@
 <a href="#982" id="982">982</a>
 <a href="#983" id="983">983</a>
 <a href="#984" id="984">984</a>
-<a href="#985" id="985">985</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper gadgets for synthesis
 
 </span><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
@@ -1168,8 +1167,7 @@
     result: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     deps: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
-    <span class="comment">// TODO: should there be a provenance tag?
-    </span><span class="kw">let </span>tag = g.alloc_tag_cloned(cs, <span class="kw-2">&amp;</span>ExprTag::Env);
+    <span class="kw">let </span>tag = g.alloc_tag_cloned(cs, <span class="kw-2">&amp;</span>ExprTag::Prov);
 
     <span class="kw">let </span>hash = hash_poseidon(
         cs,
@@ -1245,7 +1243,7 @@
     provenance: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedNum&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedNum&lt;F&gt;), SynthesisError&gt; {
     <span class="kw">let </span>prov_zptr = ZPtr::from_parts(
-        tag::Tag::Expr(ExprTag::Env),
+        tag::Tag::Expr(ExprTag::Prov),
         provenance.get_value().unwrap(),
     );
     <span class="kw">let </span>prov_ptr = s.to_ptr(<span class="kw-2">&amp;</span>prov_zptr);
