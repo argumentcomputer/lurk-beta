@@ -1701,10 +1701,10 @@
         }
         <span class="kw">let </span>open = repl.store.intern_lurk_symbol(<span class="string">"open"</span>);
         <span class="kw">let </span>open_expr = repl.store.list(<span class="macro">vec!</span>[open, repl.store.num(hash)]);
-        <span class="kw">let </span><span class="prelude-val">Some</span>((args_vec, <span class="kw">_</span>)) = repl.store.fetch_list(<span class="kw-2">&amp;</span>args) <span class="kw">else </span>{
-            <span class="macro">bail!</span>(<span class="string">"Data must have been interned"</span>);
-        };
-
+        <span class="kw">let </span>(args_vec, <span class="kw">_</span>) = repl
+            .store
+            .fetch_list(<span class="kw-2">&amp;</span>args)
+            .expect(<span class="string">"list of arguments must have been interned"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>expr_vec = Vec::with_capacity(args_vec.len() + <span class="number">1</span>);
         expr_vec.push(open_expr);
         expr_vec.extend(args_vec);
