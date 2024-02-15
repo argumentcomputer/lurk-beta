@@ -432,7 +432,6 @@
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Bn256Scalar;
 <span class="kw">use </span>nova::{
@@ -838,9 +837,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt; Prover&lt;<span class="lifetime">'a</span>, F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;
-    <span class="kw">for </span>NovaProver&lt;<span class="lifetime">'a</span>, F, C&gt;
-{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">'a</span>&gt; Prover&lt;<span class="lifetime">'a</span>, F&gt; <span class="kw">for </span>NovaProver&lt;<span class="lifetime">'a</span>, F, C&gt; {
+    <span class="kw">type </span>Frame = C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;;
     <span class="kw">type </span>PublicParams = PublicParams&lt;F&gt;;
     <span class="kw">type </span>RecursiveSnark = Proof&lt;F, C1LEM&lt;<span class="lifetime">'a</span>, F, C&gt;&gt;;
 
