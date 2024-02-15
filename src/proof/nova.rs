@@ -404,7 +404,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C> {
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F> for NovaProver<'a, F, C> {
-    type M = C1LEM<'a, F, C>;
+    type Frame = C1LEM<'a, F, C>;
     type PublicParams = PublicParams<F>;
     type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
 

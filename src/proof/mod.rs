@@ -151,13 +151,13 @@ impl FoldingMode {
 /// A trait for a prover that works with a field `F`.
 pub trait Prover<'a, F: CurveCycleEquipped> {
     /// Associated type for a frame-like datatype
-    type M: FrameLike<Ptr, FrameIO = Vec<Ptr>>;
+    type Frame: FrameLike<Ptr, FrameIO = Vec<Ptr>>;
 
     /// Associated type for public parameters
     type PublicParams;
 
     /// Associated proof type, which must implement `RecursiveSNARKTrait`
-    type RecursiveSnark: RecursiveSNARKTrait<F, Self::M, PublicParams = Self::PublicParams>;
+    type RecursiveSnark: RecursiveSNARKTrait<F, Self::Frame, PublicParams = Self::PublicParams>;
 
     /// Returns a reference to the prover's FoldingMode
     fn folding_mode(&self) -> &FoldingMode;
@@ -169,7 +169,7 @@ pub trait Prover<'a, F: CurveCycleEquipped> {
     fn prove(
         &self,
         pp: &Self::PublicParams,
-        steps: Vec<Self::M>,
+        steps: Vec<Self::Frame>,
         store: &'a Store<F>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
