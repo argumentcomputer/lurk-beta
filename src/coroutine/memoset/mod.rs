@@ -215,7 +215,7 @@ impl Provenance {
                 store.list(self.dependencies.clone())
             };
 
-            store.push_provenance(self.query, self.result, dependencies_list)
+            store.intern_provenance(self.query, self.result, dependencies_list)
         })
     }
 }

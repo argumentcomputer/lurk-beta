@@ -23,7 +23,9 @@ use crate::{
         self, Binop, Binop2, Call, Call0, Call2, Dummy, Emit, If, Let, LetRec, Lookup, Outermost,
         Tail, Terminal, Unop,
     },
-    tag::ExprTag::{Char, Comm, Cons, Cproc, Env, Fun, Key, Nil, Num, Rec, Str, Sym, Thunk, U64},
+    tag::ExprTag::{
+        Char, Comm, Cons, Cproc, Env, Fun, Key, Nil, Num, Prov, Rec, Str, Sym, Thunk, U64,
+    },
 };
 
 use super::pointers::{Ptr, RawPtr, ZPtr};
@@ -413,23 +415,34 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn push_provenance(&self, sym: Ptr, val: Ptr, env: Ptr) -> Ptr {
-        assert_eq!(*sym.tag(), Tag::Expr(Cons));
-        //assert_eq!(*env.tag(), Tag::Expr(Env));
-        let raw =
-            self.intern_raw_ptrs::<4>([*sym.raw(), self.tag(*val.tag()), *val.raw(), *env.raw()]);
-        Ptr::new(Tag::Expr(Env), raw)
+    pub fn intern_provenance(&self, query: Ptr, val: Ptr, deps: Ptr) -> Ptr {
+        assert_eq!(*query.tag(), Tag::Expr(Cons));
+        // TODO: Deps must be a single Prov or a list (later, an N-ary tuple), but we discard the type tag. This is
+        // arguably okay, but it means that in order to recover the preimage we will need to know the expected arity
+        // based on the query.
+        assert!(matches!(
+            *deps.tag(),
+            Tag::Expr(Prov) | Tag::Expr(Cons) | Tag::Expr(Nil)
+        ));
+        let raw = self.intern_raw_ptrs::<4>([
+            *query.raw(),
+            self.tag(*val.tag()),
+            *val.raw(),
+            *deps.raw(),
+        ]);
+        Ptr::new(Tag::Expr(Prov), raw)
     }
 
     #[inline]
     pub fn pop_provenance(&self, env: Ptr) -> Option<[Ptr; 3]> {
-        assert_eq!(*env.tag(), Tag::Expr(Env));
+        assert_eq!(*env.tag(), Tag::Expr(Prov));
         let idx = env.get_index2()?;
         let [sym_pay, val_tag, val_pay, env_pay] = self.fetch_raw_ptrs::<4>(idx)?;
         let val_tag = self.fetch_tag(val_tag)?;
         let query = Ptr::new(Tag::Expr(Cons), *sym_pay);
         let val = Ptr::new(val_tag, *val_pay);
-        let env = Ptr::new(Tag::Expr(Env), *env_pay);
+
+        let env = Ptr::new(Tag::Expr(Cons), *env_pay);
         Some([query, val, env])
     }
 
@@ -577,6 +590,7 @@ impl<F: LurkField> Store<F> {
             assert_eq!(*car_tag, self.tag(Tag::Expr(Str)));
             assert_eq!(*cdr_tag, self.tag(Tag::Expr(Sym)));
             let string = self.fetch_string(&Ptr::new(Tag::Expr(Str), *car))?;
+
             path.push(string);
             match cdr {
                 RawPtr::Atom(idx) => {
@@ -845,6 +859,30 @@ impl<F: LurkField> Store<F> {
             idx = env_pay.get_hash4().unwrap();
         }
         Some(list)
+    }
+
+    /// Fetches a provenance
+    pub fn fetch_provenance(&self, ptr: &Ptr) -> Option<(Ptr, Ptr, Ptr)> {
+        if *ptr.tag() != Tag::Expr(Prov) {
+            return None;
+        }
+
+        let idx = ptr.raw().get_hash4()?;
+        if let Some([query_pay, val_tag, val_pay, deps_pay]) = self.fetch_raw_ptrs(idx) {
+            let query = Ptr::new(Tag::Expr(Cons), *query_pay);
+            let val = self.raw_to_ptr(val_tag, val_pay)?;
+
+            let nil = self.intern_nil();
+            let deps = if deps_pay == nil.raw() {
+                nil
+            } else {
+                Ptr::new(Tag::Expr(Prov), *deps_pay)
+            };
+
+            Some((query, val, deps))
+        } else {
+            None
+        }
     }
 
     pub fn intern_syntax(&self, syn: Syntax<F>) -> Ptr {
@@ -1264,6 +1302,27 @@ impl Ptr {
                         format!("<ENV ({})>", list.join(" "))
                     } else {
                         "<Opaque Env>".into()
+                    }
+                }
+                Prov => {
+                    if let Some((query, val, deps)) = store.fetch_provenance(self) {
+                        let nil = store.intern_nil();
+                        if store.ptr_eq(&deps, &nil) {
+                            format!(
+                                "<Prov ({} . {})>",
+                                query.fmt_to_string(store, state),
+                                val.fmt_to_string(store, state),
+                            )
+                        } else {
+                            format!(
+                                "<Prov ({} . {}) . {}>",
+                                query.fmt_to_string(store, state),
+                                val.fmt_to_string(store, state),
+                                deps.fmt_to_string(store, state)
+                            )
+                        }
+                    } else {
+                        "<Opaque Prov>".into()
                     }
                 }
             },
