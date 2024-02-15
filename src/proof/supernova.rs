@@ -323,9 +323,8 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F, C1LEM<'a, F, C>>
-    for SuperNovaProver<'a, F, C>
-{
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F> for SuperNovaProver<'a, F, C> {
+    type M = C1LEM<'a, F, C>;
     type PublicParams = PublicParams<F>;
     type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
 
