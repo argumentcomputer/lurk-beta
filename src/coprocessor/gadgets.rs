@@ -182,8 +182,7 @@ pub(crate) fn construct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
     result: &AllocatedPtr<F>,
     deps: &AllocatedNum<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    // TODO: should there be a provenance tag?
-    let tag = g.alloc_tag_cloned(cs, &ExprTag::Env);
+    let tag = g.alloc_tag_cloned(cs, &ExprTag::Prov);
 
     let hash = hash_poseidon(
         cs,
@@ -259,7 +258,7 @@ pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
     provenance: &AllocatedNum<F>,
 ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedNum<F>), SynthesisError> {
     let prov_zptr = ZPtr::from_parts(
-        tag::Tag::Expr(ExprTag::Env),
+        tag::Tag::Expr(ExprTag::Prov),
         provenance.get_value().unwrap(),
     );
     let prov_ptr = s.to_ptr(&prov_zptr);
