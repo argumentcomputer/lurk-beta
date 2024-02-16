@@ -42,10 +42,7 @@ impl ExprTag {
         &self,
         cs: &mut CS,
     ) -> AllocatedNum<F> {
-        allocate_constant(
-            &mut cs.namespace(|| format!("{self:?} tag")),
-            self.to_field(),
-        )
+        allocate_constant(ns!(cs, format!("{self:?} tag")), self.to_field())
     }
 }
 
@@ -55,7 +52,7 @@ impl ContTag {
         cs: &mut CS,
     ) -> AllocatedNum<F> {
         allocate_constant(
-            &mut cs.namespace(|| format!("{self:?} base continuation tag")),
+            ns!(cs, format!("{self:?} base continuation tag")),
             self.to_field(),
         )
     }
@@ -66,10 +63,7 @@ impl Op1 {
         &self,
         cs: &mut CS,
     ) -> AllocatedNum<F> {
-        allocate_constant(
-            &mut cs.namespace(|| format!("{self:?} tag")),
-            self.to_field(),
-        )
+        allocate_constant(ns!(cs, format!("{self:?} tag")), self.to_field())
     }
 }
 
@@ -78,9 +72,6 @@ impl Op2 {
         &self,
         cs: &mut CS,
     ) -> AllocatedNum<F> {
-        allocate_constant(
-            &mut cs.namespace(|| format!("{self:?} tag")),
-            self.to_field(),
-        )
+        allocate_constant(ns!(cs, format!("{self:?} tag")), self.to_field())
     }
 }

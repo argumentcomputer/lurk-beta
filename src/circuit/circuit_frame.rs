@@ -44,20 +44,16 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
 
         for x in 0..128 {
-            let alloc_a =
-                AllocatedNum::alloc(&mut cs.namespace(|| x.to_string()), || Ok(Fr::from(x)))
-                    .unwrap();
-            let bits = alloc_a
-                .to_bits_le(&mut cs.namespace(|| format!("bits_{x}")))
-                .unwrap();
+            let alloc_a = AllocatedNum::alloc(ns!(cs, x.to_string()), || Ok(Fr::from(x))).unwrap();
+            let bits = alloc_a.to_bits_le(ns!(cs, format!("bits_{x}"))).unwrap();
             let popcount_result =
-                AllocatedNum::alloc(&mut cs.namespace(|| format!("alloc popcount {x}")), || {
+                AllocatedNum::alloc(ns!(cs, format!("alloc popcount {x}")), || {
                     Ok(Fr::from(u64::from(x.count_ones())))
                 })
                 .unwrap();
 
             popcount_equal(
-                &mut cs.namespace(|| format!("popcount {x}")),
+                ns!(cs, format!("popcount {x}")),
                 &bits,
                 popcount_result.get_variable(),
             );
@@ -69,9 +65,8 @@ mod tests {
     #[test]
     fn test_enforce_pack() {
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let a_num =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "a num"), || Fr::from_u64(42));
-        let bits = a_num.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
+        let a_num = AllocatedNum::alloc_infallible(ns!(cs, "a num"), || Fr::from_u64(42));
+        let bits = a_num.to_bits_le(ns!(cs, "bits")).unwrap();
         implies_pack(&mut cs, &Boolean::Constant(true), &bits, &a_num);
         assert!(cs.is_satisfied());
     }

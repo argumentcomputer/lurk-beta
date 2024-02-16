@@ -139,7 +139,7 @@ pub(crate) fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
     for i in 0..64 {
         let b = a_u64 & 1;
         let b_bool = Boolean::Is(AllocatedBit::alloc(
-            &mut cs.namespace(|| format!("b.{i}")),
+            ns!(cs, format!("b.{i}")),
             Some(b == 1),
         )?);
         bits.push(b_bool);
@@ -148,12 +148,7 @@ pub(crate) fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
     }
 
     // premise -> a = sum(bits)
-    implies_pack(
-        &mut cs.namespace(|| "u64 bit decomposition check"),
-        premise,
-        &bits,
-        a,
-    );
+    implies_pack(ns!(cs, "u64 bit decomposition check"), premise, &bits, a);
 
     Ok(())
 }
@@ -881,7 +876,7 @@ mod tests {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let num = AllocatedNum::alloc_infallible(cs.namespace(|| "num"), || Fr::from(n));
                 let pb = Boolean::constant(premise);
-                implies_equal_zero(&mut cs.namespace(|| "implies equal zero"), &pb, &num);
+                implies_equal_zero(ns!(cs, "implies equal zero"), &pb, &num);
                 cs.is_satisfied()
             };
 
@@ -898,7 +893,7 @@ mod tests {
                 let a_num = AllocatedNum::alloc_infallible(cs.namespace(|| "a_num"), || a);
                 let b_num = AllocatedNum::alloc_infallible(cs.namespace(|| "b_num"), || b);
                 let pb = Boolean::constant(premise);
-                implies_equal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
+                implies_equal(ns!(cs, "implies equal"), &pb, &a_num, &b_num);
                 cs.is_satisfied()
             };
 
@@ -915,7 +910,7 @@ mod tests {
                 let a_num = AllocatedNum::alloc_infallible(cs.namespace(|| "a_num"), || a);
                 let b_num = AllocatedNum::alloc_infallible(cs.namespace(|| "b_num"), || b);
                 let pb = Boolean::constant(premise);
-                let _ = implies_unequal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
+                let _ = implies_unequal(ns!(cs, "implies equal"), &pb, &a_num, &b_num);
                 cs.is_satisfied()
             };
 
@@ -933,7 +928,7 @@ mod tests {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let num = AllocatedNum::alloc_infallible(cs.namespace(|| "num"), || n);
                 let pb = Boolean::constant(premise);
-                let _ = implies_unequal_const(&mut cs.namespace(|| "implies equal zero"), &pb, &num, t);
+                let _ = implies_unequal_const(ns!(cs, "implies equal zero"), &pb, &num, t);
                 cs.is_satisfied()
             };
 
@@ -952,7 +947,7 @@ mod tests {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let num = AllocatedNum::alloc_infallible(cs.namespace(|| "num"), || n);
                 let pb = Boolean::constant(premise);
-                implies_equal_const(&mut cs.namespace(|| "implies equal zero"), &pb, &num, t);
+                implies_equal_const(ns!(cs, "implies equal zero"), &pb, &num, t);
                 cs.is_satisfied()
             };
 
@@ -977,7 +972,7 @@ mod tests {
                     v[e] = Boolean::constant(true);
                 };
                 let alloc_sum = AllocatedNum::alloc(cs.namespace(|| "sum"), || Ok(Fr::from(sum)));
-                popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, alloc_sum.unwrap().get_variable());
+                popcount_equal(ns!(cs, "popcount equal"), &v, alloc_sum.unwrap().get_variable());
                 assert_eq!(cs.is_satisfied(), result);
             };
 
@@ -1028,7 +1023,7 @@ mod tests {
                     }
                     let mut cs = TestConstraintSystem::<Fr>::new();
                     let p = Boolean::Constant(premise);
-                    enforce_selector_with_premise(&mut cs.namespace(|| "enforce selector with premise"), &p, &v);
+                    enforce_selector_with_premise(ns!(cs, "enforce selector with premise"), &p, &v);
                     assert_eq!(cs.is_satisfied(), result);
                 };
 
@@ -1083,12 +1078,12 @@ mod tests {
         fn prop_alloc_equal_const((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let a = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "a"), || x.0);
+            let a = AllocatedNum::alloc_infallible(ns!(cs, "a"), || x.0);
 
             let equal =
-                alloc_equal_const(&mut cs.namespace(|| "alloc_equal_const"), &a, x.0).unwrap();
+                alloc_equal_const(ns!(cs, "alloc_equal_const"), &a, x.0).unwrap();
             let equal2 =
-                alloc_equal_const(&mut cs.namespace(|| "alloc_equal_const 2"), &a, y.0).unwrap();
+                alloc_equal_const(ns!(cs, "alloc_equal_const 2"), &a, y.0).unwrap();
             // a must always equal x.
             assert!(equal.get_value().unwrap());
 
@@ -1292,14 +1287,14 @@ mod tests {
     fn test_implies_u64_negative_edge_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
 
-        let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || {
+        let alloc_num = AllocatedNum::alloc(ns!(cs, "num"), || {
             // Edge case: 2ˆ64 = 18446744073709551616
             Ok(Fr::from_str_vartime("18446744073709551616").unwrap())
         })
         .unwrap();
 
         let t = Boolean::Constant(true);
-        implies_u64(&mut cs.namespace(|| "enforce u64"), &t, &alloc_num).unwrap();
+        implies_u64(ns!(cs, "enforce u64"), &t, &alloc_num).unwrap();
         assert!(!cs.is_satisfied());
     }
 
@@ -1311,7 +1306,7 @@ mod tests {
             let num = AllocatedNum::alloc_infallible(cs.namespace(|| "num"), || f.0);
 
             let t = Boolean::Constant(true);
-            implies_u64(&mut cs.namespace(|| "enforce u64"), &t, &num).unwrap();
+            implies_u64(ns!(cs, "enforce u64"), &t, &num).unwrap();
 
             let f_u64_roundtrip: Fr = f.0.to_u64_unchecked().into();
             let was_u64 = f_u64_roundtrip == f.0;

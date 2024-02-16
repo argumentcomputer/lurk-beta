@@ -146,13 +146,7 @@ where
         .rev()
         .enumerate()
         .try_fold(init, |acc, (i, ptr)| {
-            construct_cons(
-                &mut cs.namespace(|| format!("cons {i}")),
-                g,
-                store,
-                ptr.borrow(),
-                &acc,
-            )
+            construct_cons(ns!(cs, format!("cons {i}")), g, store, ptr.borrow(), &acc)
         })
 }
 
@@ -237,13 +231,13 @@ pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
         }
     };
 
-    let key_sym_hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "key_sym_hash"), || a);
-    let val_tag = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "val_tag"), || b);
-    let val_hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "val_hash"), || c);
-    let new_env_hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "new_env_hash"), || d);
+    let key_sym_hash = AllocatedNum::alloc_infallible(ns!(cs, "key_sym_hash"), || a);
+    let val_tag = AllocatedNum::alloc_infallible(ns!(cs, "val_tag"), || b);
+    let val_hash = AllocatedNum::alloc_infallible(ns!(cs, "val_hash"), || c);
+    let new_env_hash = AllocatedNum::alloc_infallible(ns!(cs, "new_env_hash"), || d);
 
     let hash = hash_poseidon(
-        &mut cs.namespace(|| "hash"),
+        ns!(cs, "hash"),
         vec![
             key_sym_hash.clone(),
             val_tag.clone(),
@@ -255,7 +249,7 @@ pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
 
     let val = AllocatedPtr::from_parts(val_tag, val_hash);
 
-    implies_equal(&mut cs.namespace(|| "hash equality"), not_dummy, env, &hash);
+    implies_equal(ns!(cs, "hash equality"), not_dummy, env, &hash);
 
     Ok((key_sym_hash, val, new_env_hash))
 }
@@ -289,15 +283,13 @@ pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
         }
     };
 
-    let query_cons_hash =
-        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "query_cons_hash"), || a);
-    let res_tag = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "res_tag"), || b);
-    let res_hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "res_hash"), || c);
-    let deps_tuple_hash =
-        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "deps_tuple_hash"), || d);
+    let query_cons_hash = AllocatedNum::alloc_infallible(ns!(cs, "query_cons_hash"), || a);
+    let res_tag = AllocatedNum::alloc_infallible(ns!(cs, "res_tag"), || b);
+    let res_hash = AllocatedNum::alloc_infallible(ns!(cs, "res_hash"), || c);
+    let deps_tuple_hash = AllocatedNum::alloc_infallible(ns!(cs, "deps_tuple_hash"), || d);
 
     let hash = hash_poseidon(
-        &mut cs.namespace(|| "hash"),
+        ns!(cs, "hash"),
         vec![
             query_cons_hash.clone(),
             res_tag.clone(),
@@ -309,12 +301,7 @@ pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
 
     let res = AllocatedPtr::from_parts(res_tag, res_hash);
 
-    implies_equal(
-        &mut cs.namespace(|| "hash equality"),
-        not_dummy,
-        provenance,
-        &hash,
-    );
+    implies_equal(ns!(cs, "hash equality"), not_dummy, provenance, &hash);
 
     Ok((query_cons_hash, res, deps_tuple_hash))
 }
@@ -358,11 +345,11 @@ pub(crate) fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
         (ZPtr::dummy(), ZPtr::dummy())
     };
 
-    let a = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "a"), || a);
-    let b = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "b"), || b);
+    let a = AllocatedPtr::alloc_infallible(ns!(cs, "a"), || a);
+    let b = AllocatedPtr::alloc_infallible(ns!(cs, "b"), || b);
 
     let hash = hash_poseidon(
-        &mut cs.namespace(|| "hash"),
+        ns!(cs, "hash"),
         vec![
             a.tag().clone(),
             a.hash().clone(),
@@ -372,12 +359,7 @@ pub(crate) fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
         store.poseidon_cache.constants.c4(),
     )?;
 
-    implies_equal(
-        &mut cs.namespace(|| "hash equality"),
-        not_dummy,
-        tuple.hash(),
-        &hash,
-    );
+    implies_equal(ns!(cs, "hash equality"), not_dummy, tuple.hash(), &hash);
 
     Ok((a, b))
 }
@@ -401,12 +383,12 @@ pub(crate) fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
         (ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy())
     };
 
-    let a = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "a"), || a);
-    let b = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "b"), || b);
-    let c = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "c"), || c);
+    let a = AllocatedPtr::alloc_infallible(ns!(cs, "a"), || a);
+    let b = AllocatedPtr::alloc_infallible(ns!(cs, "b"), || b);
+    let c = AllocatedPtr::alloc_infallible(ns!(cs, "c"), || c);
 
     let hash = hash_poseidon(
-        &mut cs.namespace(|| "hash"),
+        ns!(cs, "hash"),
         vec![
             a.tag().clone(),
             a.hash().clone(),
@@ -418,12 +400,7 @@ pub(crate) fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
         store.poseidon_cache.constants.c6(),
     )?;
 
-    implies_equal(
-        &mut cs.namespace(|| "hash equality"),
-        not_dummy,
-        tuple.hash(),
-        &hash,
-    );
+    implies_equal(ns!(cs, "hash equality"), not_dummy, tuple.hash(), &hash);
 
     Ok((a, b, c))
 }
@@ -460,13 +437,13 @@ pub(crate) fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
         (ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy())
     };
 
-    let a = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "a"), || a);
-    let b = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "b"), || b);
-    let c = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "c"), || c);
-    let d = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "d"), || d);
+    let a = AllocatedPtr::alloc_infallible(ns!(cs, "a"), || a);
+    let b = AllocatedPtr::alloc_infallible(ns!(cs, "b"), || b);
+    let c = AllocatedPtr::alloc_infallible(ns!(cs, "c"), || c);
+    let d = AllocatedPtr::alloc_infallible(ns!(cs, "d"), || d);
 
     let hash = hash_poseidon(
-        &mut cs.namespace(|| "hash"),
+        ns!(cs, "hash"),
         vec![
             a.tag().clone(),
             a.hash().clone(),
@@ -480,12 +457,7 @@ pub(crate) fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
         store.poseidon_cache.constants.c8(),
     )?;
 
-    implies_equal(
-        &mut cs.namespace(|| "hash equality"),
-        not_dummy,
-        tuple.hash(),
-        &hash,
-    );
+    implies_equal(ns!(cs, "hash equality"), not_dummy, tuple.hash(), &hash);
 
     Ok((a, b, c, d))
 }
@@ -512,29 +484,28 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     let nil = g.alloc_ptr(cs, &store.intern_nil(), store);
     let empty_str = g.alloc_ptr(cs, &store.intern_string(""), store);
 
-    let car = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "car"), || car);
-    let cdr = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "cdr"), || cdr);
+    let car = AllocatedPtr::alloc_infallible(ns!(cs, "car"), || car);
+    let cdr = AllocatedPtr::alloc_infallible(ns!(cs, "cdr"), || cdr);
 
-    let data_is_nil = data.alloc_equal(&mut cs.namespace(|| "data is nil"), &nil)?;
+    let data_is_nil = data.alloc_equal(ns!(cs, "data is nil"), &nil)?;
 
-    let data_is_empty_str =
-        data.alloc_equal(&mut cs.namespace(|| "data is empty str"), &empty_str)?;
+    let data_is_empty_str = data.alloc_equal(ns!(cs, "data is empty str"), &empty_str)?;
 
     {
         // when data is nil, we enforce that car and cdr are both nil
         let not_dummy_and_data_is_nil = Boolean::and(
-            &mut cs.namespace(|| "not dummy and data is nil"),
+            ns!(cs, "not dummy and data is nil"),
             not_dummy,
             &data_is_nil,
         )?;
 
         car.implies_ptr_equal(
-            &mut cs.namespace(|| "data is nil implies car is nil"),
+            ns!(cs, "data is nil implies car is nil"),
             &not_dummy_and_data_is_nil,
             &nil,
         );
         cdr.implies_ptr_equal(
-            &mut cs.namespace(|| "data is nil implies cdr is nil"),
+            ns!(cs, "data is nil implies cdr is nil"),
             &not_dummy_and_data_is_nil,
             &nil,
         );
@@ -544,18 +515,18 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
         // when data is the empty string, we enforce that car is nil and cdr is
         // the empty string
         let not_dummy_and_data_is_empty_str = Boolean::and(
-            &mut cs.namespace(|| "not dummy and data is empty str"),
+            ns!(cs, "not dummy and data is empty str"),
             not_dummy,
             &data_is_empty_str,
         )?;
 
         car.implies_ptr_equal(
-            &mut cs.namespace(|| "data is empty str implies car is nil"),
+            ns!(cs, "data is empty str implies car is nil"),
             &not_dummy_and_data_is_empty_str,
             &nil,
         );
         cdr.implies_ptr_equal(
-            &mut cs.namespace(|| "data is empty str implies cdr is empty str"),
+            ns!(cs, "data is empty str implies cdr is empty str"),
             &not_dummy_and_data_is_empty_str,
             &empty_str,
         );
@@ -563,7 +534,7 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 
     // data is not empty: it's not nil and it's not the empty string
     let data_is_not_empty = Boolean::and(
-        &mut cs.namespace(|| "data is not empty"),
+        ns!(cs, "data is not empty"),
         &data_is_nil.not(),
         &data_is_empty_str.not(),
     )?;
@@ -571,13 +542,13 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     {
         // when data is not empty, we enforce hash equality
         let not_dumy_and_data_is_not_empty = Boolean::and(
-            &mut cs.namespace(|| "not dummy and data is not empty"),
+            ns!(cs, "not dummy and data is not empty"),
             not_dummy,
             &data_is_not_empty,
         )?;
 
         let hash = hash_poseidon(
-            &mut cs.namespace(|| "hash"),
+            ns!(cs, "hash"),
             vec![
                 car.tag().clone(),
                 car.hash().clone(),
@@ -588,7 +559,7 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         implies_equal(
-            &mut cs.namespace(|| "data is not empty implies hash equality"),
+            ns!(cs, "data is not empty implies hash equality"),
             &not_dumy_and_data_is_not_empty,
             data.hash(),
             &hash,
@@ -667,20 +638,12 @@ pub fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     let mut cdr = data.clone();
     let mut length = g.alloc_const_cloned(cs, F::ZERO);
     for i in 0..n {
-        let (car, new_cdr, not_empty) = car_cdr(
-            &mut cs.namespace(|| format!("car_cdr {i}")),
-            g,
-            store,
-            not_dummy,
-            &cdr,
-        )?;
+        let (car, new_cdr, not_empty) =
+            car_cdr(ns!(cs, format!("car_cdr {i}")), g, store, not_dummy, &cdr)?;
         cars.push(car);
         cdr = new_cdr;
-        let not_empty_num = boolean_to_num(
-            &mut cs.namespace(|| format!("not_empty_num {i}")),
-            &not_empty,
-        )?;
-        length = length.add(&mut cs.namespace(|| format!("length {i}")), &not_empty_num)?;
+        let not_empty_num = boolean_to_num(ns!(cs, format!("not_empty_num {i}")), &not_empty)?;
+        length = length.add(ns!(cs, format!("length {i}")), &not_empty_num)?;
     }
     Ok((cars, cdr, length))
 }
@@ -729,35 +692,19 @@ mod test {
         let nil_tag = nil.tag();
         let a_nil = g.alloc_ptr(&mut cs, &nil, &store);
 
-        let nil2 = construct_tuple2(
-            &mut cs.namespace(|| "nil2"),
-            &g,
-            &store,
-            nil_tag,
-            &a_nil,
-            &a_nil,
-        )
-        .unwrap();
+        let nil2 = construct_tuple2(ns!(cs, "nil2"), &g, &store, nil_tag, &a_nil, &a_nil).unwrap();
         let nil2_ptr = intern_ptrs!(store, *nil_tag, nil, nil);
         let z_nil2_ptr = store.hash_ptr(&nil2_ptr);
         assert_eq!(a_ptr_as_z_ptr(&nil2), Some(z_nil2_ptr));
 
-        let nil3 = construct_tuple3(
-            &mut cs.namespace(|| "nil3"),
-            &g,
-            &store,
-            nil_tag,
-            &a_nil,
-            &a_nil,
-            &a_nil,
-        )
-        .unwrap();
+        let nil3 =
+            construct_tuple3(ns!(cs, "nil3"), &g, &store, nil_tag, &a_nil, &a_nil, &a_nil).unwrap();
         let nil3_ptr = intern_ptrs!(store, *nil_tag, nil, nil, nil);
         let z_nil3_ptr = store.hash_ptr(&nil3_ptr);
         assert_eq!(a_ptr_as_z_ptr(&nil3), Some(z_nil3_ptr));
 
         let nil4 = construct_tuple4(
-            &mut cs.namespace(|| "nil4"),
+            ns!(cs, "nil4"),
             &g,
             &store,
             nil_tag,
@@ -803,41 +750,29 @@ mod test {
 
         let tuple2 = intern_ptrs!(store, nil_tag, nil, nil);
         let z_tuple2 = store.hash_ptr(&tuple2);
-        let a_tuple2 = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "tuple2"), || z_tuple2);
-        let (a, b) = deconstruct_tuple2(
-            &mut cs.namespace(|| "deconstruct tuple2"),
-            &store,
-            &not_dummy,
-            &a_tuple2,
-        )
-        .unwrap();
+        let a_tuple2 = AllocatedPtr::alloc_infallible(ns!(cs, "tuple2"), || z_tuple2);
+        let (a, b) =
+            deconstruct_tuple2(ns!(cs, "deconstruct tuple2"), &store, &not_dummy, &a_tuple2)
+                .unwrap();
         assert_eq!(a_ptr_as_z_ptr(&a), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&b), Some(z_nil));
 
         let tuple3 = intern_ptrs!(store, nil_tag, nil, nil, nil);
         let z_tuple3 = store.hash_ptr(&tuple3);
-        let a_tuple3 = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "tuple3"), || z_tuple3);
-        let (a, b, c) = deconstruct_tuple3(
-            &mut cs.namespace(|| "deconstruct tuple3"),
-            &store,
-            &not_dummy,
-            &a_tuple3,
-        )
-        .unwrap();
+        let a_tuple3 = AllocatedPtr::alloc_infallible(ns!(cs, "tuple3"), || z_tuple3);
+        let (a, b, c) =
+            deconstruct_tuple3(ns!(cs, "deconstruct tuple3"), &store, &not_dummy, &a_tuple3)
+                .unwrap();
         assert_eq!(a_ptr_as_z_ptr(&a), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&b), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&c), Some(z_nil));
 
         let tuple4 = intern_ptrs!(store, nil_tag, nil, nil, nil, nil);
         let z_tuple4 = store.hash_ptr(&tuple4);
-        let a_tuple4 = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "tuple4"), || z_tuple4);
-        let (a, b, c, d) = deconstruct_tuple4(
-            &mut cs.namespace(|| "deconstruct tuple4"),
-            &store,
-            &not_dummy,
-            &a_tuple4,
-        )
-        .unwrap();
+        let a_tuple4 = AllocatedPtr::alloc_infallible(ns!(cs, "tuple4"), || z_tuple4);
+        let (a, b, c, d) =
+            deconstruct_tuple4(ns!(cs, "deconstruct tuple4"), &store, &not_dummy, &a_tuple4)
+                .unwrap();
         assert_eq!(a_ptr_as_z_ptr(&a), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&b), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&c), Some(z_nil));
@@ -858,15 +793,9 @@ mod test {
         let not_dummy = Boolean::Constant(true);
 
         // nil
-        let a_nil = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "nil"), || z_nil);
-        let (car, cdr, not_empty) = car_cdr(
-            &mut cs.namespace(|| "car_cdr of nil"),
-            &g,
-            &store,
-            &not_dummy,
-            &a_nil,
-        )
-        .unwrap();
+        let a_nil = AllocatedPtr::alloc_infallible(ns!(cs, "nil"), || z_nil);
+        let (car, cdr, not_empty) =
+            car_cdr(ns!(cs, "car_cdr of nil"), &g, &store, &not_dummy, &a_nil).unwrap();
         assert_eq!(a_ptr_as_z_ptr(&car), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&cdr), Some(z_nil));
         assert_eq!(not_empty.get_value(), Some(false));
@@ -876,24 +805,17 @@ mod test {
         let z_one = store.hash_ptr(&one);
         let cons = store.cons(one, one);
         let z_cons = store.hash_ptr(&cons);
-        let a_cons = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "cons"), || z_cons);
-        let (car, cdr, not_empty) = car_cdr(
-            &mut cs.namespace(|| "car_cdr of cons"),
-            &g,
-            &store,
-            &not_dummy,
-            &a_cons,
-        )
-        .unwrap();
+        let a_cons = AllocatedPtr::alloc_infallible(ns!(cs, "cons"), || z_cons);
+        let (car, cdr, not_empty) =
+            car_cdr(ns!(cs, "car_cdr of cons"), &g, &store, &not_dummy, &a_cons).unwrap();
         assert_eq!(a_ptr_as_z_ptr(&car), Some(z_one));
         assert_eq!(a_ptr_as_z_ptr(&cdr), Some(z_one));
         assert_eq!(not_empty.get_value(), Some(true));
 
         // empty string
-        let a_empty_str =
-            AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "empty str"), || z_empty_str);
+        let a_empty_str = AllocatedPtr::alloc_infallible(ns!(cs, "empty str"), || z_empty_str);
         let (car, cdr, not_empty) = car_cdr(
-            &mut cs.namespace(|| "car_cdr of empty str"),
+            ns!(cs, "car_cdr of empty str"),
             &g,
             &store,
             &not_dummy,
@@ -911,15 +833,9 @@ mod test {
         let z_abc = store.hash_ptr(&abc);
         let z_bc = store.hash_ptr(&bc);
         let z_a = store.hash_ptr(&a);
-        let a_abc = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "abc"), || z_abc);
-        let (car, cdr, not_empty) = car_cdr(
-            &mut cs.namespace(|| "car_cdr of abc"),
-            &g,
-            &store,
-            &not_dummy,
-            &a_abc,
-        )
-        .unwrap();
+        let a_abc = AllocatedPtr::alloc_infallible(ns!(cs, "abc"), || z_abc);
+        let (car, cdr, not_empty) =
+            car_cdr(ns!(cs, "car_cdr of abc"), &g, &store, &not_dummy, &a_abc).unwrap();
         assert_eq!(a_ptr_as_z_ptr(&car), Some(z_a));
         assert_eq!(a_ptr_as_z_ptr(&cdr), Some(z_bc));
         assert_eq!(not_empty.get_value(), Some(true));
@@ -945,9 +861,9 @@ mod test {
         let b = store.char('b');
         let z_a = store.hash_ptr(&a);
         let z_b = store.hash_ptr(&b);
-        let a_ab = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "ab"), || z_ab);
+        let a_ab = AllocatedPtr::alloc_infallible(ns!(cs, "ab"), || z_ab);
         let (cars, cdr, length) = chain_car_cdr(
-            &mut cs.namespace(|| "chain_car_cdr on ab"),
+            ns!(cs, "chain_car_cdr on ab"),
             &g,
             &store,
             &not_dummy,
@@ -966,9 +882,9 @@ mod test {
         // list
         let list = store.list(vec![ab, ab]);
         let z_list = store.hash_ptr(&list);
-        let a_list = AllocatedPtr::alloc_infallible(&mut cs.namespace(|| "list"), || z_list);
+        let a_list = AllocatedPtr::alloc_infallible(ns!(cs, "list"), || z_list);
         let (cars, cdr, length) = chain_car_cdr(
-            &mut cs.namespace(|| "chain_car_cdr on list"),
+            ns!(cs, "chain_car_cdr on list"),
             &g,
             &store,
             &not_dummy,

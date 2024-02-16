@@ -93,7 +93,7 @@ impl<F: LurkField> GlobalAllocator<F> {
         if let Some(allocated_const) = self.0.get(&key) {
             allocated_const
         } else {
-            let allocated_const = allocate_constant(&mut cs.namespace(|| f.hex_digits()), f);
+            let allocated_const = allocate_constant(ns!(cs, f.hex_digits()), f);
             self.0.insert(key, allocated_const.into())
         }
     }
@@ -515,13 +515,13 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     let var = &$preimg[i];
                     let ptr_idx = 2 * i;
                     implies_equal(
-                        &mut cs.namespace(|| format!("implies equal {var}.tag pos {i}")),
+                        ns!(cs, format!("implies equal {var}.tag pos {i}")),
                         not_dummy,
                         allocated_ptr.tag(),
                         &preallocated_preimg[ptr_idx], // tag index
                     );
                     implies_equal(
-                        &mut cs.namespace(|| format!("implies equal {var}.hash pos {i}")),
+                        ns!(cs, format!("implies equal {var}.hash pos {i}")),
                         not_dummy,
                         allocated_ptr.hash(),
                         &preallocated_preimg[ptr_idx + 1], // hash index
@@ -557,7 +557,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     bail!("Expected number")
                 };
                 implies_equal(
-                    &mut cs.namespace(|| format!("implies equal {}.hash", $img)),
+                    ns!(cs, format!("implies equal {}.hash", $img)),
                     not_dummy,
                     allocated_img.hash(),
                     img_hash,
@@ -599,7 +599,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     // the output matches the data collected during interpretation
                     let inp_ptrs = bound_allocations.get_many_ptr(inp)?;
                     let synthesize_output = cproc.synthesize_internal(
-                        &mut cs.namespace(|| format!("Coprocessor {sym}")),
+                        ns!(cs, format!("Coprocessor {sym}")),
                         ctx.global_allocator,
                         ctx.store,
                         not_dummy,
@@ -623,11 +623,11 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     // just move on with the data that was collected from interpretation
                     for ((i, var), z_ptr) in out.iter().enumerate().zip(collected_z_ptrs) {
                         let allocated_tag = AllocatedNum::alloc_infallible(
-                            &mut cs.namespace(|| format!("tag for pointer {i} from cproc {sym}")),
+                            ns!(cs, format!("tag for pointer {i} from cproc {sym}")),
                             || z_ptr.tag_field(),
                         );
                         let allocated_hash = AllocatedNum::alloc_infallible(
-                            &mut cs.namespace(|| format!("hash for pointer {i} from cproc {sym}")),
+                            ns!(cs, format!("hash for pointer {i} from cproc {sym}")),
                             || *z_ptr.value(),
                         );
                         bound_allocations.insert(
@@ -661,10 +661,8 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 };
                 let mut output_ptrs = Vec::with_capacity(out.len());
                 for (z_ptr, var) in output_z_ptrs.into_iter().zip(out.iter()) {
-                    let ptr = AllocatedPtr::alloc_infallible(
-                        &mut cs.namespace(|| format!("var: {var}")),
-                        || z_ptr,
-                    );
+                    let ptr =
+                        AllocatedPtr::alloc_infallible(ns!(cs, format!("var: {var}")), || z_ptr);
                     bound_allocations.insert_ptr(var.clone(), ptr.clone());
                     output_ptrs.push(ptr);
                 }
@@ -678,7 +676,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 });
                 // Finally, we synthesize the circuit for the function body
                 synthesize_block(
-                    &mut cs.namespace(|| "call"),
+                    ns!(cs, "call"),
                     &func.body,
                     not_dummy,
                     next_slot,
@@ -720,37 +718,37 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let sym_tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Sym);
                 let env_tag = ctx.global_allocator.alloc_tag_cloned(&mut cs, &Env);
                 implies_equal(
-                    &mut cs.namespace(|| format!("implies equal {}.tag", preimg[0])),
+                    ns!(cs, format!("implies equal {}.tag", preimg[0])),
                     not_dummy,
                     sym.tag(),
                     &sym_tag,
                 );
                 implies_equal(
-                    &mut cs.namespace(|| format!("implies equal {}.hash", preimg[0])),
+                    ns!(cs, format!("implies equal {}.hash", preimg[0])),
                     not_dummy,
                     sym.hash(),
                     &preallocated_preimg[0],
                 );
                 implies_equal(
-                    &mut cs.namespace(|| format!("implies equal {}.tag", preimg[1])),
+                    ns!(cs, format!("implies equal {}.tag", preimg[1])),
                     not_dummy,
                     val.tag(),
                     &preallocated_preimg[1],
                 );
                 implies_equal(
-                    &mut cs.namespace(|| format!("implies equal {}.hash", preimg[1])),
+                    ns!(cs, format!("implies equal {}.hash", preimg[1])),
                     not_dummy,
                     val.hash(),
                     &preallocated_preimg[2],
                 );
                 implies_equal(
-                    &mut cs.namespace(|| format!("implies equal {}.tag", preimg[2])),
+                    ns!(cs, format!("implies equal {}.tag", preimg[2])),
                     not_dummy,
                     env.tag(),
                     &env_tag,
                 );
                 implies_equal(
-                    &mut cs.namespace(|| format!("implies equal {}.hash", preimg[2])),
+                    ns!(cs, format!("implies equal {}.hash", preimg[2])),
                     not_dummy,
                     env.hash(),
                     &preallocated_preimg[3],
@@ -778,7 +776,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     bail!("Expected number")
                 };
                 implies_equal(
-                    &mut cs.namespace(|| format!("implies equal {}.hash", img)),
+                    ns!(cs, format!("implies equal {}.hash", img)),
                     not_dummy,
                     allocated_img.hash(),
                     img_hash,
@@ -884,7 +882,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             Op::And(tgt, a, b) => {
                 let a = bound_allocations.get_bool(a)?;
                 let b = bound_allocations.get_bool(b)?;
-                let c = Boolean::and(&mut cs.namespace(|| "and"), a, b)?;
+                let c = Boolean::and(ns!(cs, "and"), a, b)?;
                 bound_allocations.insert_bool(tgt.clone(), c);
             }
             Op::Or(tgt, a, b) => {
@@ -978,19 +976,19 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 };
                 // Check that the slot allocated preimages are the double of a, b, a-b
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal for a_preimg"),
+                    ns!(cs, "implies equal for a_preimg"),
                     not_dummy,
                     &double_a,
                     &double_a_preimg[0],
                 );
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal for b_preimg"),
+                    ns!(cs, "implies equal for b_preimg"),
                     not_dummy,
                     &double_b,
                     &double_b_preimg[0],
                 );
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal for diff_preimg"),
+                    ns!(cs, "implies equal for diff_preimg"),
                     not_dummy,
                     &double_diff,
                     &double_diff_preimg[0],
@@ -1006,14 +1004,9 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     Boolean::xor(cs.namespace(|| "same_sign"), a_is_negative, b_is_negative)?.not();
 
                 // Finally, a < b iff (same_sign && diff < 0) || (!same_sign && a < 0)
-                let and1 =
-                    Boolean::and(&mut cs.namespace(|| "and1"), &same_sign, diff_is_negative)?;
-                let and2 = Boolean::and(
-                    &mut cs.namespace(|| "and2"),
-                    &same_sign.not(),
-                    a_is_negative,
-                )?;
-                let lt = or(&mut cs.namespace(|| "or"), &and1, &and2)?;
+                let and1 = Boolean::and(ns!(cs, "and1"), &same_sign, diff_is_negative)?;
+                let and2 = Boolean::and(ns!(cs, "and2"), &same_sign.not(), a_is_negative)?;
+                let lt = or(ns!(cs, "or"), &and1, &and2)?;
                 bound_allocations.insert_bool(tgt.clone(), lt.clone());
             }
             Op::Trunc(tgt, a, n) => {
@@ -1022,7 +1015,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let (preallocated_preimg, trunc_bits) =
                     &ctx.bit_decomp_slots[next_slot.consume_bit_decomp()];
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal component trunc"),
+                    ns!(cs, "implies equal component trunc"),
                     not_dummy,
                     a.hash(),
                     &preallocated_preimg[0],
@@ -1090,25 +1083,25 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     panic!("Excepted number")
                 };
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal secret.tag"),
+                    ns!(cs, "implies equal secret.tag"),
                     not_dummy,
                     sec.tag(),
                     sec_tag,
                 );
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal secret.hash"),
+                    ns!(cs, "implies equal secret.hash"),
                     not_dummy,
                     sec.hash(),
                     &preallocated_preimg[0],
                 );
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal payload.tag"),
+                    ns!(cs, "implies equal payload.tag"),
                     not_dummy,
                     pay.tag(),
                     &preallocated_preimg[1],
                 );
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal payload.hash"),
+                    ns!(cs, "implies equal payload.hash"),
                     not_dummy,
                     pay.hash(),
                     &preallocated_preimg[2],
@@ -1126,13 +1119,13 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     panic!("Excepted number")
                 };
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal comm.tag"),
+                    ns!(cs, "implies equal comm.tag"),
                     not_dummy,
                     comm.tag(),
                     comm_tag,
                 );
                 implies_equal(
-                    &mut cs.namespace(|| "implies equal comm.hash "),
+                    ns!(cs, "implies equal comm.hash "),
                     not_dummy,
                     comm.hash(),
                     com_hash,
@@ -1176,7 +1169,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
             // If `not_dummy_and_has_match` is true, then we enforce a match
             implies_equal_const(
-                &mut cs.namespace(|| format!("{i}.implies_equal_const")),
+                ns!(cs, format!("{i}.implies_equal_const")),
                 &not_dummy_and_has_match,
                 matched,
                 *f,
@@ -1186,7 +1179,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
             let mut branch_slot = *next_slot;
             synthesize_block(
-                &mut cs.namespace(|| format!("{i}")),
+                ns!(cs, format!("{i}")),
                 block,
                 &not_dummy_and_has_match,
                 &mut branch_slot,
@@ -1213,7 +1206,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 // if the default path was taken, then there can be no tag in `cases`
                 // that equals the tag of the pointer being matched on
                 implies_unequal_const(
-                    &mut cs.namespace(|| format!("{i}.implies_unequal_const")),
+                    ns!(cs, format!("{i}.implies_unequal_const")),
                     &is_default,
                     matched,
                     *f,
@@ -1221,7 +1214,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             }
 
             synthesize_block(
-                &mut cs.namespace(|| "_"),
+                ns!(cs, "_"),
                 def,
                 &is_default,
                 next_slot,
@@ -1238,7 +1231,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         // that the sum of the previously collected `Boolean`s is one. But, of course, this
         // is irrelevant if we're on a virtual path and thus we use an implication gadget.
         enforce_selector_with_premise(
-            &mut cs.namespace(|| "enforce_selector_with_premise"),
+            ns!(cs, "enforce_selector_with_premise"),
             not_dummy,
             &selector,
         );
@@ -1252,7 +1245,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let allocated_ptr = bound_allocations.get_ptr(return_var)?;
 
                 allocated_ptr.implies_ptr_equal(
-                    &mut cs.namespace(|| format!("implies_ptr_equal {return_var} pos {i}")),
+                    ns!(cs, format!("implies_ptr_equal {return_var} pos {i}")),
                     not_dummy,
                     &preallocated_outputs[i],
                 );
@@ -1261,15 +1254,12 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         }
         Ctrl::If(b, true_block, false_block) => {
             let b = bound_allocations.get_bool(b)?;
-            let b_not_dummy = Boolean::and(&mut cs.namespace(|| "b and not_dummy"), b, not_dummy)?;
-            let not_b_not_dummy = Boolean::and(
-                &mut cs.namespace(|| "not_b and not_dummy"),
-                &b.not(),
-                not_dummy,
-            )?;
+            let b_not_dummy = Boolean::and(ns!(cs, "b and not_dummy"), b, not_dummy)?;
+            let not_b_not_dummy =
+                Boolean::and(ns!(cs, "not_b and not_dummy"), &b.not(), not_dummy)?;
             let mut branch_slot = *next_slot;
             synthesize_block(
-                &mut cs.namespace(|| "if_eq.true"),
+                ns!(cs, "if_eq.true"),
                 true_block,
                 &b_not_dummy,
                 &mut branch_slot,
@@ -1278,7 +1268,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 ctx,
             )?;
             synthesize_block(
-                &mut cs.namespace(|| "if_eq.false"),
+                ns!(cs, "if_eq.false"),
                 false_block,
                 &not_b_not_dummy,
                 next_slot,
@@ -1322,7 +1312,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             // Now we enforce `MatchSymbol`'s tag
             let sym_tag = ctx.global_allocator.alloc_tag(cs, &Sym);
             implies_equal(
-                &mut cs.namespace(|| format!("implies equal {match_var}.tag")),
+                ns!(cs, format!("implies equal {match_var}.tag")),
                 not_dummy,
                 match_var_ptr.tag(),
                 sym_tag,
@@ -1360,7 +1350,7 @@ impl Func {
         for (i, ptr) in frame.output.iter().enumerate() {
             let zptr = store.hash_ptr(ptr);
             output.push(AllocatedPtr::alloc_infallible(
-                &mut cs.namespace(|| format!("var: output[{}]", i)),
+                ns!(cs, format!("var: output[{}]", i)),
                 || zptr,
             ));
         }
@@ -1378,10 +1368,7 @@ impl Func {
         for (i, ptr) in frame.input.iter().enumerate() {
             let param = &self.input_params[i];
             let zptr = store.hash_ptr(ptr);
-            let ptr = AllocatedPtr::alloc_infallible(
-                &mut cs.namespace(|| format!("var: {param}")),
-                || zptr,
-            );
+            let ptr = AllocatedPtr::alloc_infallible(ns!(cs, format!("var: {param}")), || zptr);
             bound_allocations.insert_ptr(param.clone(), ptr);
         }
     }

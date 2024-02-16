@@ -35,12 +35,10 @@ fn synthesize_sha256<F: LurkField, CS: ConstraintSystem<F>>(
     };
 
     for ptr in ptrs {
-        let tag_bits = ptr
-            .tag()
-            .to_bits_le_strict(&mut cs.namespace(|| "preimage_tag_bits"))?;
+        let tag_bits = ptr.tag().to_bits_le_strict(ns!(cs, "preimage_tag_bits"))?;
         let hash_bits = ptr
             .hash()
-            .to_bits_le_strict(&mut cs.namespace(|| "preimage_hash_bits"))?;
+            .to_bits_le_strict(ns!(cs, "preimage_hash_bits"))?;
 
         bits.extend(tag_bits);
         pad_to_next_len_multiple_of_8(&mut bits);
@@ -57,7 +55,7 @@ fn synthesize_sha256<F: LurkField, CS: ConstraintSystem<F>>(
     // Fine to lose the last <1 bit of precision.
     let digest_scalar = pack_bits(cs.namespace(|| "digest_scalar"), &digest_bits)?;
     AllocatedPtr::alloc_tag(
-        &mut cs.namespace(|| "output_expr"),
+        ns!(cs, "output_expr"),
         ExprTag::Num.to_field(),
         digest_scalar,
     )

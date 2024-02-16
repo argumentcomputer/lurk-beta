@@ -136,33 +136,25 @@ pub(crate) mod test {
             let a = &input_exprs[0];
             let b = &input_exprs[1];
 
-            let a_is_num = alloc_equal(&mut cs.namespace(|| "fst is num"), a.tag(), num_tag)?;
-            let b_is_num = alloc_equal(&mut cs.namespace(|| "snd is num"), b.tag(), num_tag)?;
-            let types_are_correct = Boolean::and(
-                &mut cs.namespace(|| "types are correct"),
-                &a_is_num,
-                &b_is_num,
-            )?;
+            let a_is_num = alloc_equal(ns!(cs, "fst is num"), a.tag(), num_tag)?;
+            let b_is_num = alloc_equal(ns!(cs, "snd is num"), b.tag(), num_tag)?;
+            let types_are_correct =
+                Boolean::and(ns!(cs, "types are correct"), &a_is_num, &b_is_num)?;
 
             // a^2 + b = c
-            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
-            let c = a2.add(&mut cs.namespace(|| "add"), b.hash())?;
+            let a2 = mul(ns!(cs, "square"), a.hash(), a.hash())?;
+            let c = a2.add(ns!(cs, "add"), b.hash())?;
             let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
 
-            let result_expr0 =
-                AllocatedPtr::pick(&mut cs.namespace(|| "result_expr0"), &b_is_num, &c_ptr, b)?;
+            let result_expr0 = AllocatedPtr::pick(ns!(cs, "result_expr0"), &b_is_num, &c_ptr, b)?;
 
             // If `a` is not a `Num`, then that error takes precedence, and we return `a`. Otherwise, return either the
             // correct result or `b`, depending on whether `b` is a `Num` or not.
-            let result_expr = AllocatedPtr::pick(
-                &mut cs.namespace(|| "result_expr"),
-                &a_is_num,
-                &result_expr0,
-                a,
-            )?;
+            let result_expr =
+                AllocatedPtr::pick(ns!(cs, "result_expr"), &a_is_num, &result_expr0, a)?;
 
             let result_cont = AllocatedPtr::pick(
-                &mut cs.namespace(|| "result_cont"),
+                ns!(cs, "result_cont"),
                 &types_are_correct,
                 input_cont,
                 cont_error,
