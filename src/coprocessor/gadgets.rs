@@ -782,20 +782,13 @@ mod test {
         let a_one = g.alloc_ptr(&mut cs, &one, &store);
 
         // proper list
-        let a_list =
-            construct_list(&mut cs, &g, &store, [&a_one, &a_one], None).unwrap();
+        let a_list = construct_list(&mut cs, &g, &store, [&a_one, &a_one], None).unwrap();
         let z_list = store.hash_ptr(&store.list(vec![one, one]));
         assert_eq!(a_ptr_as_z_ptr(&a_list), Some(z_list));
 
         // improper list
-        let a_list = construct_list(
-            &mut cs,
-            &g,
-            &store,
-            [&a_one, &a_one],
-            Some(a_one.clone()),
-        )
-        .unwrap();
+        let a_list =
+            construct_list(&mut cs, &g, &store, [&a_one, &a_one], Some(a_one.clone())).unwrap();
         let z_list = store.hash_ptr(&store.improper_list(vec![one, one], one));
         assert_eq!(a_ptr_as_z_ptr(&a_list), Some(z_list));
     }
