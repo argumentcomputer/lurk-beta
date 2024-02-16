@@ -33,7 +33,6 @@ use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
 use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
-use indexmap::IndexSet;
 use once_cell::sync::OnceCell;
 
 use crate::circuit::gadgets::{
@@ -640,39 +639,36 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     fn build_transcript(&self, s: &Store<F>) -> (Transcript<F>, HashMap<usize, Vec<Ptr>>) {
         let mut transcript = Transcript::new(s);
 
-        // k -> [kv]
-        let mut insertions: HashMap<Ptr, IndexSet<Ptr>> = HashMap::new();
+        // k -> kv
+        let mut kvs_by_key: HashMap<Ptr, Ptr> = HashMap::new();
         let mut unique_keys: HashMap<usize, Vec<Ptr>> = Default::default();
 
-        let mut insert = |kv: Ptr| {
-            let key = s.car_cdr(&kv).unwrap().0;
-
-            if let Some(kvs) = insertions.get_mut(&key) {
-                kvs.insert(kv);
-            } else {
+        let mut record_kv = |kv: &Ptr| {
+            let key = s.car_cdr(kv).unwrap().0;
+            let kv1 = kvs_by_key.entry(key).or_insert_with(|| {
                 let index = Q::from_ptr(s, &key).expect("bad query").index();
                 unique_keys
                     .entry(index)
                     .and_modify(|keys| keys.push(key))
                     .or_insert_with(|| vec![key]);
-                let mut x = IndexSet::new();
-                x.insert(kv);
 
-                insertions.insert(key, x);
-            }
+                *kv
+            });
+
+            assert_eq!(*kv, *kv1);
         };
 
-        let internal_insertions_kv = self.internal_insertions.iter().map(|key| {
+        for kv in &self.toplevel_insertions {
+            record_kv(kv);
+        }
+
+        self.internal_insertions.iter().for_each(|key| {
             let value = self.queries.get(key).expect("value missing for key");
-            Transcript::make_kv(s, *key, *value)
+            let kv = Transcript::make_kv(s, *key, *value);
+
+            record_kv(&kv)
         });
 
-        for kv in &self.toplevel_insertions {
-            insert(*kv);
-        }
-        for kv in internal_insertions_kv {
-            insert(kv);
-        }
         for kv in self.toplevel_insertions.iter() {
             let provenance = self.provenance_from_kv(s, *kv).unwrap();
             transcript.add(s, *provenance.to_ptr(s));
@@ -683,8 +679,9 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         // (insertions) before then proving itself (making use of any subquery results) and removing the now-proved
         // deferral from the MemoSet.
         for index in 0..Q::count() {
-            for key in unique_keys.get(&index).expect("unreachable") {
-                for kv in insertions.get(key).unwrap().iter() {
+            if let Some(keys) = unique_keys.get(&index) {
+                for key in keys {
+                    let kv = kvs_by_key.get(key).expect("kv vanished");
                     let provenance = self.provenance_from_kv(s, *kv).unwrap();
                     let prov = provenance.to_ptr(s);
                     let count = self.memoset.count(kv);
