@@ -1167,7 +1167,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedNum&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedNum&lt;F&gt;), SynthesisError&gt; {
     <span class="kw">let </span>prov_zptr = ZPtr::from_parts(
         tag::Tag::Expr(ExprTag::Prov),
-        provenance.get_value().unwrap(),
+        provenance.get_value().unwrap_or(F::ZERO),
     );
     <span class="kw">let </span>prov_ptr = s.to_ptr(<span class="kw-2">&amp;</span>prov_zptr);
 

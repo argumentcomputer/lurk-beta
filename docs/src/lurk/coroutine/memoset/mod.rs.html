@@ -1432,6 +1432,71 @@
 <a href="#1431" id="1431">1431</a>
 <a href="#1432" id="1432">1432</a>
 <a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -1466,7 +1531,11 @@
 <span class="kw">use </span>std::fmt::{Debug, Formatter};
 <span class="kw">use </span>std::marker::PhantomData;
 
-<span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+<span class="kw">use </span>bellpepper_core::{
+    boolean::{AllocatedBit, Boolean},
+    num::AllocatedNum,
+    ConstraintSystem, SynthesisError,
+};
 <span class="kw">use </span>once_cell::sync::OnceCell;
 
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::{
@@ -1492,6 +1561,7 @@
 <span class="kw">mod </span>demo;
 <span class="kw">mod </span>env;
 <span class="kw">mod </span>multiset;
+<span class="kw">mod </span>prove;
 <span class="kw">mod </span>query;
 
 <span class="attr">#[derive(Debug)]
@@ -1813,6 +1883,22 @@
 
         <span class="prelude-val">Ok</span>(Provenance::new(query, result, dependencies))
     }
+
+    <span class="kw">fn </span>init_memoset(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr {
+        <span class="kw">let </span><span class="kw-2">mut </span>memoset = s.num(F::ZERO);
+        <span class="kw">for </span>kv <span class="kw">in </span><span class="self">self</span>.toplevel_insertions.iter() {
+            memoset = <span class="self">self</span>.memoset.acc_add(<span class="kw-2">&amp;</span>memoset, kv, s);
+        }
+        memoset
+    }
+
+    <span class="kw">fn </span>init_transcript(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr {
+        <span class="kw">let </span><span class="kw-2">mut </span>transcript = Transcript::new(s);
+        <span class="kw">for </span>kv <span class="kw">in </span><span class="self">self</span>.toplevel_insertions.iter() {
+            transcript.add(s, <span class="kw-2">*</span>kv);
+        }
+        transcript.acc
+    }
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -1825,11 +1911,14 @@
     acc: <span class="prelude-ty">Option</span>&lt;AllocatedPtr&lt;F&gt;&gt;,
 }
 
-<span class="kw">pub struct </span>CoroutineCircuit&lt;<span class="lifetime">'a</span>, F: LurkField, CM, Q&gt; {
+<span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>CoroutineCircuit&lt;<span class="lifetime">'a</span>, F: LurkField, CM, Q&gt; {
+    input: <span class="prelude-ty">Option</span>&lt;Vec&lt;Ptr&gt;&gt;,
     provenances: HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt;,
     memoset: CM,
     keys: Vec&lt;Ptr&gt;,
     query_index: usize,
+    next_query_index: usize,
     store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
     rc: usize,
     _p: PhantomData&lt;Q&gt;,
@@ -1837,21 +1926,43 @@
 
 <span class="comment">// TODO: Make this generic rather than specialized to LogMemo.
 // That will require a CircuitScopeTrait.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, Q: Query&lt;F&gt;&gt; CoroutineCircuit&lt;<span class="lifetime">'a</span>, F, LogMemoCircuit&lt;F&gt;, Q&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, Q: Query&lt;F&gt;&gt; CoroutineCircuit&lt;<span class="lifetime">'a</span>, F, LogMemo&lt;F&gt;, Q&gt; {
     <span class="kw">fn </span>new(
+        input: <span class="prelude-ty">Option</span>&lt;Vec&lt;Ptr&gt;&gt;,
         scope: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt;,
-        memoset: LogMemoCircuit&lt;F&gt;,
+        memoset: LogMemo&lt;F&gt;,
         keys: Vec&lt;Ptr&gt;,
         query_index: usize,
+        next_query_index: usize,
         store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
         rc: usize,
     ) -&gt; <span class="self">Self </span>{
         <span class="macro">assert!</span>(keys.len() &lt;= rc);
         <span class="self">Self </span>{
+            input,
             memoset,
             provenances: scope.provenances(store).clone(), <span class="comment">// FIXME
             </span>keys,
             query_index,
+            next_query_index,
+            store,
+            rc,
+            _p: Default::default(),
+        }
+    }
+
+    <span class="kw">fn </span>blank(
+        query_index: usize,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
+        rc: usize,
+    ) -&gt; CoroutineCircuit&lt;<span class="lifetime">'a</span>, F, LogMemo&lt;F&gt;, Q&gt; {
+        <span class="self">Self </span>{
+            input: <span class="prelude-val">None</span>,
+            memoset: Default::default(),
+            provenances: Default::default(),
+            keys: Default::default(),
+            query_index,
+            next_query_index: <span class="number">0</span>,
             store,
             rc,
             _p: Default::default(),
@@ -1860,8 +1971,8 @@
 
     <span class="comment">// This is a supernova::StepCircuit method.
     // // TODO: we need to create a supernova::StepCircuit that will prove up to a fixed number of queries of a given type.
-    </span><span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+    </span><span class="kw">fn </span>supernova_synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         z: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="prelude-ty">Option</span>&lt;AllocatedNum&lt;F&gt;&gt;, Vec&lt;AllocatedPtr&lt;F&gt;&gt;), SynthesisError&gt; {
@@ -1872,8 +1983,12 @@
             <span class="macro">unreachable!</span>()
         };
 
+        <span class="kw">let </span>memoset = LogMemoCircuit {
+            multiset: <span class="self">self</span>.memoset.multiset.clone(),
+            r: r.hash().clone(),
+        };
         <span class="kw">let </span><span class="kw-2">mut </span>circuit_scope: CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt; =
-            CircuitScope::new(cs, g, <span class="self">self</span>.store, <span class="self">self</span>.memoset.clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.provenances);
+            CircuitScope::new(cs, g, <span class="self">self</span>.store, memoset, <span class="kw-2">&amp;</span><span class="self">self</span>.provenances);
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
         <span class="kw">for </span>(i, key) <span class="kw">in </span><span class="self">self
@@ -1894,12 +2009,14 @@
         }
 
         <span class="kw">let </span>(memoset_acc, transcript, r_num) = circuit_scope.io();
-        <span class="kw">let </span>r = AllocatedPtr::alloc_tag(<span class="macro">ns!</span>(cs, <span class="string">"r"</span>), ExprTag::Num.to_field(), r_num)<span class="question-mark">?</span>;
+        <span class="kw">let </span>r = AllocatedPtr::alloc_tag(<span class="macro">ns!</span>(cs, <span class="string">"r"</span>), ExprTag::Cons.to_field(), r_num)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>z_out = <span class="macro">vec!</span>[c.clone(), e.clone(), k.clone(), memoset_acc, transcript, r];
 
-        <span class="kw">let </span>next_pc = <span class="prelude-val">None</span>; <span class="comment">// FIXME.
-        </span><span class="prelude-val">Ok</span>((next_pc, z_out))
+        <span class="kw">let </span>next_pc = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"next_pc"</span>), || {
+            F::from_u64(<span class="self">self</span>.next_query_index <span class="kw">as </span>u64)
+        });
+        <span class="prelude-val">Ok</span>((<span class="prelude-val">Some</span>(next_pc), z_out))
     }
 }
 
@@ -2156,7 +2273,7 @@
 
             {
                 <span class="kw">let </span>(memoset_acc, transcript, r_num) = circuit_scope.io();
-                <span class="kw">let </span>r = AllocatedPtr::alloc_tag(<span class="macro">ns!</span>(cs, <span class="string">"r"</span>), ExprTag::Num.to_field(), r_num)<span class="question-mark">?</span>;
+                <span class="kw">let </span>r = AllocatedPtr::from_parts(g.alloc_tag(cs, <span class="kw-2">&amp;</span>ExprTag::Num).clone(), r_num);
                 <span class="kw">let </span>dummy = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.intern_nil(), s);
                 <span class="kw">let </span><span class="kw-2">mut </span>z = <span class="macro">vec!</span>[
                     dummy.clone(),
@@ -2176,17 +2293,20 @@
                         // It shouldn't exist, when instead we have only the single NIVC circuit repeated multiple times.
                         </span><span class="kw">let </span>cs = <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"chunk-{i}"</span>));
 
-                        <span class="kw">let </span><span class="kw-2">mut </span>circuit: CoroutineCircuit&lt;<span class="lifetime">'_</span>, F, LogMemoCircuit&lt;F&gt;, Q&gt; =
-                            CoroutineCircuit::new(
-                                <span class="self">self</span>,
-                                memoset_circuit.clone(),
-                                chunk.to_vec(),
-                                <span class="kw-2">*</span>index,
-                                s,
-                                rc,
-                            );
+                        <span class="comment">// `next_query_index` is only relevant for SuperNova
+                        </span><span class="kw">let </span>next_query_index = <span class="number">0</span>;
+                        <span class="kw">let </span>circuit: CoroutineCircuit&lt;<span class="lifetime">'_</span>, F, LogMemo&lt;F&gt;, Q&gt; = CoroutineCircuit::new(
+                            <span class="prelude-val">None</span>,
+                            <span class="self">self</span>,
+                            <span class="self">self</span>.memoset.clone(),
+                            chunk.to_vec(),
+                            <span class="kw-2">*</span>index,
+                            next_query_index,
+                            s,
+                            rc,
+                        );
 
-                        <span class="kw">let </span>(_next_pc, z_out) = circuit.synthesize(cs, <span class="kw-2">&amp;</span>z)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>(_next_pc, z_out) = circuit.supernova_synthesize(cs, <span class="kw-2">&amp;</span>z)<span class="question-mark">?</span>;
                         {
                             <span class="kw">let </span>memoset_acc = <span class="kw-2">&amp;</span>z_out[<span class="number">3</span>];
                             <span class="kw">let </span>transcript = <span class="kw-2">&amp;</span>z_out[<span class="number">4</span>];
@@ -2492,7 +2612,10 @@
             Q::CQ::dummy_from_index(<span class="macro">ns!</span>(cs, <span class="string">"circuit_query"</span>), s, index)
         };
 
-        <span class="kw">let </span>not_dummy = key.is_some();
+        <span class="kw">let </span>not_dummy = Boolean::Is(AllocatedBit::alloc(
+            cs.namespace(|| <span class="string">"not_dummy"</span>),
+            <span class="prelude-val">Some</span>(key.is_some()),
+        )<span class="question-mark">?</span>);
 
         <span class="self">self</span>.synthesize_prove_query::&lt;<span class="kw">_</span>, Q::CQ&gt;(
             cs,
@@ -2500,7 +2623,7 @@
             s,
             <span class="kw-2">&amp;</span>allocated_key,
             <span class="kw-2">&amp;</span>circuit_query,
-            not_dummy,
+            <span class="kw-2">&amp;</span>not_dummy,
         )<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
@@ -2512,7 +2635,7 @@
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         allocated_key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         circuit_query: <span class="kw-2">&amp;</span>CQ,
-        not_dummy: bool,
+        not_dummy: <span class="kw-2">&amp;</span>Boolean,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
         <span class="kw">let </span>acc = <span class="self">self</span>.acc.clone().unwrap();
         <span class="kw">let </span>transcript = <span class="self">self</span>.transcript.clone();
@@ -2535,13 +2658,13 @@
         <span class="comment">// Prover can choose non-deterministically whether or not a given query is a dummy, to allow for padding.
         </span><span class="kw">let </span>final_acc = AllocatedPtr::pick(
             <span class="macro">ns!</span>(cs, <span class="string">"final_acc"</span>),
-            <span class="kw-2">&amp;</span>Boolean::Constant(not_dummy),
+            not_dummy,
             <span class="kw-2">&amp;</span>new_acc,
             <span class="self">self</span>.acc.as_ref().expect(<span class="string">"acc missing"</span>),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>final_transcript = CircuitTranscript::pick(
             <span class="macro">ns!</span>(cs, <span class="string">"final_transcript"</span>),
-            <span class="kw-2">&amp;</span>Boolean::Constant(not_dummy),
+            not_dummy,
             <span class="kw-2">&amp;</span>new_transcript,
             <span class="kw-2">&amp;</span><span class="self">self</span>.transcript,
         )<span class="question-mark">?</span>;
@@ -2636,6 +2759,13 @@
             })
             .clone()
             .unwrap()
+    }
+
+    <span class="kw">fn </span>acc_add(<span class="kw-2">&amp;</span><span class="self">self</span>, acc: <span class="kw-2">&amp;</span>Ptr, kv: <span class="kw-2">&amp;</span>Ptr, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr {
+        <span class="kw">let </span>acc_num = store.expect_f(acc.get_atom().unwrap());
+        <span class="kw">let </span>kv_num = store.hash_raw_ptr(kv.raw()).<span class="number">0</span>;
+        <span class="kw">let </span>element = <span class="self">self</span>.map_to_element(kv_num).unwrap();
+        store.num(<span class="kw-2">*</span>acc_num + element)
     }
 }
 
@@ -2744,24 +2874,24 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_query() {
         test_query_aux(
-            <span class="macro">expect!</span>[<span class="string">"9451"</span>],
-            <span class="macro">expect!</span>[<span class="string">"9502"</span>],
-            <span class="macro">expect!</span>[<span class="string">"10034"</span>],
-            <span class="macro">expect!</span>[<span class="string">"10092"</span>],
+            <span class="macro">expect!</span>[<span class="string">"9456"</span>],
+            <span class="macro">expect!</span>[<span class="string">"9512"</span>],
+            <span class="macro">expect!</span>[<span class="string">"10039"</span>],
+            <span class="macro">expect!</span>[<span class="string">"10102"</span>],
             <span class="number">1</span>,
         );
         test_query_aux(
-            <span class="macro">expect!</span>[<span class="string">"11195"</span>],
-            <span class="macro">expect!</span>[<span class="string">"11255"</span>],
-            <span class="macro">expect!</span>[<span class="string">"11778"</span>],
-            <span class="macro">expect!</span>[<span class="string">"11845"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11201"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11263"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11784"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11853"</span>],
             <span class="number">3</span>,
         );
         test_query_aux(
-            <span class="macro">expect!</span>[<span class="string">"18248"</span>],
-            <span class="macro">expect!</span>[<span class="string">"18344"</span>],
-            <span class="macro">expect!</span>[<span class="string">"18831"</span>],
-            <span class="macro">expect!</span>[<span class="string">"18934"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18258"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18355"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18841"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18945"</span>],
             <span class="number">10</span>,
         )
     }
