@@ -594,6 +594,12 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             );
         }
 
+        assert_eq!(
+            self.queries.len(),
+            provenances.len(),
+            "incomplete provenance computation (probably a forbidden cyclic query)"
+        );
+
         provenances
             .iter()
             .map(|(k, v)| (store.hash_ptr(k), store.hash_ptr(v)))
