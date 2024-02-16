@@ -701,7 +701,7 @@ where
             "        (list6 (mk-open-expr hash) (empty-env) :outermost pair (empty-env) :terminal)",
             "        nil)",
             "      (lambda () (> (car pair) 10))))",
-            "  :backend \"nova\"",
+            "  :backend \"supernova\"",
             "  :rc 10",
             "  :description \"example protocol\")",
         ],
