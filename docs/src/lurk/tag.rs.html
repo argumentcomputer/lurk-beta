@@ -580,8 +580,8 @@
     Key,
     Cproc,
     Env,
-    Prov,
     Rec,
+    Prov,
 }
 
 <span class="kw">impl </span>From&lt;ExprTag&gt; <span class="kw">for </span>u16 {
@@ -612,8 +612,8 @@
             ExprTag::U64 =&gt; <span class="macro">write!</span>(f, <span class="string">"u64#"</span>),
             ExprTag::Cproc =&gt; <span class="macro">write!</span>(f, <span class="string">"cproc#"</span>),
             ExprTag::Env =&gt; <span class="macro">write!</span>(f, <span class="string">"env#"</span>),
-            ExprTag::Prov =&gt; <span class="macro">write!</span>(f, <span class="string">"prov#"</span>),
             ExprTag::Rec =&gt; <span class="macro">write!</span>(f, <span class="string">"rec#"</span>),
+            ExprTag::Prov =&gt; <span class="macro">write!</span>(f, <span class="string">"prov#"</span>),
         }
     }
 }
