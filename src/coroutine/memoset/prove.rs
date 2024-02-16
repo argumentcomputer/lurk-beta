@@ -3,19 +3,15 @@ use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
     error::ProofError,
     field::LurkField,
-    lem::{pointers::Ptr, store::Store, tag::Tag},
+    lem::{pointers::Ptr, store::Store},
     proof::{
         nova::{CurveCycleEquipped, E1},
         supernova::{Proof, PublicParams, SuperNovaPublicParams, C2, SS1, SS2},
         FrameLike, Prover, RecursiveSNARKTrait,
     },
-    tag::ExprTag::Cons,
 };
 
-use bellpepper::util_cs::Comparable;
-use bellpepper_core::{
-    num::AllocatedNum, test_cs::TestConstraintSystem, ConstraintSystem, Delta, SynthesisError,
-};
+use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use once_cell::sync::OnceCell;
 use tracing::info;
 
@@ -296,63 +292,6 @@ fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
     prover.prove(pp, steps, store)
 }
 
-fn check_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
-    scope: &'a Scope<Q, LogMemo<F>, F>,
-    store: &'a Store<F>,
-) {
-    let mut input_ptrs = [
-        store.dummy(),
-        store.dummy(),
-        store.dummy(),
-        scope.init_memoset(store),
-        scope.init_transcript(store),
-        store.intern_atom(Tag::Expr(Cons), *scope.memoset.r().unwrap()),
-    ]
-    .iter()
-    .map(|ptr| store.hash_ptr(ptr))
-    .collect::<Vec<_>>();
-    let mut cs_prev = None;
-    for (index, keys) in scope.unique_inserted_keys.iter() {
-        let rc = scope.rc_for_query(*index);
-        for chunk in keys.chunks(rc) {
-            let mut cs = TestConstraintSystem::<F>::new();
-            let alloc_ptr = input_ptrs
-                .iter()
-                .enumerate()
-                .map(|(i, zptr)| {
-                    AllocatedPtr::alloc_infallible(
-                        &mut cs.namespace(|| format!("input {i}")),
-                        || *zptr,
-                    )
-                })
-                .collect::<Vec<_>>();
-            let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
-                None,
-                scope,
-                scope.memoset.clone(),
-                chunk.to_vec(),
-                *index,
-                *index,
-                store,
-                rc,
-            );
-            let (_next, out) = circuit.supernova_synthesize(&mut cs, &alloc_ptr).unwrap();
-            let unsat = cs.which_is_unsatisfied();
-
-            if unsat.is_some() {
-                eprintln!("{:?}", unsat);
-            }
-            assert!(cs.is_satisfied());
-            input_ptrs = out.into_iter().map(|x| x.get_value().unwrap()).collect();
-            if let Some(cs_prev) = cs_prev {
-                // Check for all input expresssions that all frames are uniform.
-                assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
-            }
-            cs_prev = Some(cs);
-        }
-    }
-}
-
 fn public_params<
     F: CurveCycleEquipped,
     SC: StepCircuit<F> + NonUniformCircuit<<F as CurveCycleEquipped>::E1>,
@@ -376,8 +315,67 @@ fn public_params<
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::coroutine::memoset::demo::DemoQuery;
+    use crate::{coroutine::memoset::demo::DemoQuery, lem::tag::Tag, tag::ExprTag::Cons};
+    use bellpepper::util_cs::Comparable;
+    use bellpepper_core::{test_cs::TestConstraintSystem, Delta};
     use halo2curves::bn256::Fr;
+
+    fn check_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
+        scope: &'a Scope<Q, LogMemo<F>, F>,
+        store: &'a Store<F>,
+    ) {
+        let mut input_ptrs = [
+            store.dummy(),
+            store.dummy(),
+            store.dummy(),
+            scope.init_memoset(store),
+            scope.init_transcript(store),
+            store.intern_atom(Tag::Expr(Cons), *scope.memoset.r().unwrap()),
+        ]
+        .iter()
+        .map(|ptr| store.hash_ptr(ptr))
+        .collect::<Vec<_>>();
+        let mut cs_prev = None;
+        for (index, keys) in scope.unique_inserted_keys.iter() {
+            let rc = scope.rc_for_query(*index);
+            for chunk in keys.chunks(rc) {
+                let mut cs = TestConstraintSystem::<F>::new();
+                let alloc_ptr = input_ptrs
+                    .iter()
+                    .enumerate()
+                    .map(|(i, zptr)| {
+                        AllocatedPtr::alloc_infallible(
+                            &mut cs.namespace(|| format!("input {i}")),
+                            || *zptr,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
+                    None,
+                    scope,
+                    scope.memoset.clone(),
+                    chunk.to_vec(),
+                    *index,
+                    *index,
+                    store,
+                    rc,
+                );
+                let (_next, out) = circuit.supernova_synthesize(&mut cs, &alloc_ptr).unwrap();
+                let unsat = cs.which_is_unsatisfied();
+
+                if unsat.is_some() {
+                    eprintln!("{:?}", unsat);
+                }
+                assert!(cs.is_satisfied());
+                input_ptrs = out.into_iter().map(|x| x.get_value().unwrap()).collect();
+                if let Some(cs_prev) = cs_prev {
+                    // Check for all input expresssions that all frames are uniform.
+                    assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
+                }
+                cs_prev = Some(cs);
+            }
+        }
+    }
 
     #[test]
     fn coroutine_uniformity_test() {
