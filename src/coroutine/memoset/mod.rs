@@ -1000,12 +1000,12 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         };
 
         let dummy_provenance =
-            g.alloc_ptr(ns!(cs, "dummy_query"), &Provenance::dummy(s).to_ptr(s), s);
+            g.alloc_ptr(ns!(cs, "dummy_query"), Provenance::dummy(s).to_ptr(s), s);
 
         let effective_provenance = AllocatedPtr::pick(
             ns!(cs, "effective_provenance"),
             not_dummy,
-            &provenance,
+            provenance,
             &dummy_provenance,
         )?;
 
@@ -1246,7 +1246,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             s,
             &new_acc,
             &self.transcript,
-            &allocated_key,
+            allocated_key,
             &val,
             &provenance,
             not_dummy,
