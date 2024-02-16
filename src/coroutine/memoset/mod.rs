@@ -32,7 +32,11 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
-use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+use bellpepper_core::{
+    boolean::{AllocatedBit, Boolean},
+    num::AllocatedNum,
+    ConstraintSystem, SynthesisError,
+};
 use once_cell::sync::OnceCell;
 
 use crate::circuit::gadgets::{
@@ -58,6 +62,7 @@ pub use query::{CircuitQuery, Query};
 mod demo;
 mod env;
 mod multiset;
+mod prove;
 mod query;
 
 #[derive(Debug)]
@@ -379,6 +384,22 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
         Ok(Provenance::new(query, result, dependencies))
     }
+
+    fn init_memoset(&self, s: &Store<F>) -> Ptr {
+        let mut memoset = s.num(F::ZERO);
+        for kv in self.toplevel_insertions.iter() {
+            memoset = self.memoset.acc_add(&memoset, kv, s);
+        }
+        memoset
+    }
+
+    fn init_transcript(&self, s: &Store<F>) -> Ptr {
+        let mut transcript = Transcript::new(s);
+        for kv in self.toplevel_insertions.iter() {
+            transcript.add(s, *kv);
+        }
+        transcript.acc
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -391,11 +412,14 @@ pub struct CircuitScope<F: LurkField, CM> {
     acc: Option<AllocatedPtr<F>>,
 }
 
+#[derive(Clone)]
 pub struct CoroutineCircuit<'a, F: LurkField, CM, Q> {
+    input: Option<Vec<Ptr>>,
     provenances: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     memoset: CM,
     keys: Vec<Ptr>,
     query_index: usize,
+    next_query_index: usize,
     store: &'a Store<F>,
     rc: usize,
     _p: PhantomData<Q>,
@@ -403,21 +427,43 @@ pub struct CoroutineCircuit<'a, F: LurkField, CM, Q> {
 
 // TODO: Make this generic rather than specialized to LogMemo.
 // That will require a CircuitScopeTrait.
-impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q> {
+impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
     fn new(
+        input: Option<Vec<Ptr>>,
         scope: &'a Scope<Q, LogMemo<F>, F>,
-        memoset: LogMemoCircuit<F>,
+        memoset: LogMemo<F>,
         keys: Vec<Ptr>,
         query_index: usize,
+        next_query_index: usize,
         store: &'a Store<F>,
         rc: usize,
     ) -> Self {
         assert!(keys.len() <= rc);
         Self {
+            input,
             memoset,
             provenances: scope.provenances(store).clone(), // FIXME
             keys,
             query_index,
+            next_query_index,
+            store,
+            rc,
+            _p: Default::default(),
+        }
+    }
+
+    fn blank(
+        query_index: usize,
+        store: &'a Store<F>,
+        rc: usize,
+    ) -> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
+        Self {
+            input: None,
+            memoset: Default::default(),
+            provenances: Default::default(),
+            keys: Default::default(),
+            query_index,
+            next_query_index: 0,
             store,
             rc,
             _p: Default::default(),
@@ -426,8 +472,8 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
 
     // This is a supernova::StepCircuit method.
     // // TODO: we need to create a supernova::StepCircuit that will prove up to a fixed number of queries of a given type.
-    fn synthesize<CS: ConstraintSystem<F>>(
-        &mut self,
+    fn supernova_synthesize<CS: ConstraintSystem<F>>(
+        &self,
         cs: &mut CS,
         z: &[AllocatedPtr<F>],
     ) -> Result<(Option<AllocatedNum<F>>, Vec<AllocatedPtr<F>>), SynthesisError> {
@@ -438,8 +484,12 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
             unreachable!()
         };
 
+        let memoset = LogMemoCircuit {
+            multiset: self.memoset.multiset.clone(),
+            r: r.hash().clone(),
+        };
         let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>> =
-            CircuitScope::new(cs, g, self.store, self.memoset.clone(), &self.provenances);
+            CircuitScope::new(cs, g, self.store, memoset, &self.provenances);
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
         for (i, key) in self
@@ -460,12 +510,14 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemoCircuit<F>, Q
         }
 
         let (memoset_acc, transcript, r_num) = circuit_scope.io();
-        let r = AllocatedPtr::alloc_tag(ns!(cs, "r"), ExprTag::Num.to_field(), r_num)?;
+        let r = AllocatedPtr::alloc_tag(ns!(cs, "r"), ExprTag::Cons.to_field(), r_num)?;
 
         let z_out = vec![c.clone(), e.clone(), k.clone(), memoset_acc, transcript, r];
 
-        let next_pc = None; // FIXME.
-        Ok((next_pc, z_out))
+        let next_pc = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "next_pc"), || {
+            F::from_u64(self.next_query_index as u64)
+        });
+        Ok((Some(next_pc), z_out))
     }
 }
 
@@ -722,7 +774,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
             {
                 let (memoset_acc, transcript, r_num) = circuit_scope.io();
-                let r = AllocatedPtr::alloc_tag(ns!(cs, "r"), ExprTag::Num.to_field(), r_num)?;
+                let r = AllocatedPtr::from_parts(g.alloc_tag(cs, &ExprTag::Num).clone(), r_num);
                 let dummy = g.alloc_ptr(cs, &s.intern_nil(), s);
                 let mut z = vec![
                     dummy.clone(),
@@ -742,17 +794,20 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                         // It shouldn't exist, when instead we have only the single NIVC circuit repeated multiple times.
                         let cs = ns!(cs, format!("chunk-{i}"));
 
-                        let mut circuit: CoroutineCircuit<'_, F, LogMemoCircuit<F>, Q> =
-                            CoroutineCircuit::new(
-                                self,
-                                memoset_circuit.clone(),
-                                chunk.to_vec(),
-                                *index,
-                                s,
-                                rc,
-                            );
+                        // `next_query_index` is only relevant for SuperNova
+                        let next_query_index = 0;
+                        let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
+                            None,
+                            self,
+                            self.memoset.clone(),
+                            chunk.to_vec(),
+                            *index,
+                            next_query_index,
+                            s,
+                            rc,
+                        );
 
-                        let (_next_pc, z_out) = circuit.synthesize(cs, &z)?;
+                        let (_next_pc, z_out) = circuit.supernova_synthesize(cs, &z)?;
                         {
                             let memoset_acc = &z_out[3];
                             let transcript = &z_out[4];
@@ -1058,7 +1113,10 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             Q::CQ::dummy_from_index(ns!(cs, "circuit_query"), s, index)
         };
 
-        let not_dummy = key.is_some();
+        let not_dummy = Boolean::Is(AllocatedBit::alloc(
+            cs.namespace(|| "not_dummy"),
+            Some(key.is_some()),
+        )?);
 
         self.synthesize_prove_query::<_, Q::CQ>(
             cs,
@@ -1066,7 +1124,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             s,
             &allocated_key,
             &circuit_query,
-            not_dummy,
+            &not_dummy,
         )?;
         Ok(())
     }
@@ -1078,7 +1136,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         s: &Store<F>,
         allocated_key: &AllocatedPtr<F>,
         circuit_query: &CQ,
-        not_dummy: bool,
+        not_dummy: &Boolean,
     ) -> Result<(), SynthesisError> {
         let acc = self.acc.clone().unwrap();
         let transcript = self.transcript.clone();
@@ -1101,13 +1159,13 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         // Prover can choose non-deterministically whether or not a given query is a dummy, to allow for padding.
         let final_acc = AllocatedPtr::pick(
             ns!(cs, "final_acc"),
-            &Boolean::Constant(not_dummy),
+            not_dummy,
             &new_acc,
             self.acc.as_ref().expect("acc missing"),
         )?;
         let final_transcript = CircuitTranscript::pick(
             ns!(cs, "final_transcript"),
-            &Boolean::Constant(not_dummy),
+            not_dummy,
             &new_transcript,
             &self.transcript,
         )?;
@@ -1202,6 +1260,13 @@ impl<F: LurkField> LogMemo<F> {
             })
             .clone()
             .unwrap()
+    }
+
+    fn acc_add(&self, acc: &Ptr, kv: &Ptr, store: &Store<F>) -> Ptr {
+        let acc_num = store.expect_f(acc.get_atom().unwrap());
+        let kv_num = store.hash_raw_ptr(kv.raw()).0;
+        let element = self.map_to_element(kv_num).unwrap();
+        store.num(*acc_num + element)
     }
 }
 
@@ -1310,24 +1375,24 @@ mod test {
     #[test]
     fn test_query() {
         test_query_aux(
-            expect!["9451"],
-            expect!["9502"],
-            expect!["10034"],
-            expect!["10092"],
+            expect!["9456"],
+            expect!["9512"],
+            expect!["10039"],
+            expect!["10102"],
             1,
         );
         test_query_aux(
-            expect!["11195"],
-            expect!["11255"],
-            expect!["11778"],
-            expect!["11845"],
+            expect!["11201"],
+            expect!["11263"],
+            expect!["11784"],
+            expect!["11853"],
             3,
         );
         test_query_aux(
-            expect!["18248"],
-            expect!["18344"],
-            expect!["18831"],
-            expect!["18934"],
+            expect!["18258"],
+            expect!["18355"],
+            expect!["18841"],
+            expect!["18945"],
             10,
         )
     }
