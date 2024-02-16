@@ -983,9 +983,14 @@
 <a href="#982" id="982">982</a>
 <a href="#983" id="983">983</a>
 <a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper gadgets for synthesis
 
-</span><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+</span><span class="kw">use </span>std::borrow::Borrow;
+
+<span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 <span class="kw">use crate</span>::{
     circuit::gadgets::{
@@ -1106,18 +1111,26 @@
 <span class="doccomment">/// Constructs a cons-list with the provided `elts`. The terminating value defaults
 /// to `nil` when `last` is `None`
 </span><span class="attr">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_list&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>construct_list&lt;
+    F: LurkField,
+    CS: ConstraintSystem&lt;F&gt;,
+    B: Borrow&lt;AllocatedPtr&lt;F&gt;&gt;,
+    I: IntoIterator&lt;Item = B&gt;,
+&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-    elts: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
+    elts: I,
     last: <span class="prelude-ty">Option</span>&lt;AllocatedPtr&lt;F&gt;&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt;
+<span class="kw">where
+    </span>&lt;I <span class="kw">as </span>IntoIterator&gt;::IntoIter: DoubleEndedIterator,
+{
     <span class="kw">let </span>init = <span class="kw">match </span>last {
         <span class="prelude-val">Some</span>(last) =&gt; last,
         <span class="prelude-val">None </span>=&gt; g.alloc_ptr(cs, <span class="kw-2">&amp;</span>store.intern_nil(), store),
     };
-    elts.iter()
+    elts.into_iter()
         .rev()
         .enumerate()
         .try_fold(init, |acc, (i, ptr)| {
@@ -1125,7 +1138,7 @@
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"cons {i}"</span>)),
                 g,
                 store,
-                ptr,
+                ptr.borrow(),
                 <span class="kw-2">&amp;</span>acc,
             )
         })
@@ -1756,20 +1769,13 @@
         <span class="kw">let </span>a_one = g.alloc_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>one, <span class="kw-2">&amp;</span>store);
 
         <span class="comment">// proper list
-        </span><span class="kw">let </span>a_list =
-            construct_list(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>[a_one.clone(), a_one.clone()], <span class="prelude-val">None</span>).unwrap();
+        </span><span class="kw">let </span>a_list = construct_list(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>store, [<span class="kw-2">&amp;</span>a_one, <span class="kw-2">&amp;</span>a_one], <span class="prelude-val">None</span>).unwrap();
         <span class="kw">let </span>z_list = store.hash_ptr(<span class="kw-2">&amp;</span>store.list(<span class="macro">vec!</span>[one, one]));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>a_list), <span class="prelude-val">Some</span>(z_list));
 
         <span class="comment">// improper list
-        </span><span class="kw">let </span>a_list = construct_list(
-            <span class="kw-2">&amp;mut </span>cs,
-            <span class="kw-2">&amp;</span>g,
-            <span class="kw-2">&amp;</span>store,
-            <span class="kw-2">&amp;</span>[a_one.clone(), a_one.clone()],
-            <span class="prelude-val">Some</span>(a_one.clone()),
-        )
-        .unwrap();
+        </span><span class="kw">let </span>a_list =
+            construct_list(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>store, [<span class="kw-2">&amp;</span>a_one, <span class="kw-2">&amp;</span>a_one], <span class="prelude-val">Some</span>(a_one.clone())).unwrap();
         <span class="kw">let </span>z_list = store.hash_ptr(<span class="kw-2">&amp;</span>store.improper_list(<span class="macro">vec!</span>[one, one], one));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>a_list), <span class="prelude-val">Some</span>(z_list));
     }

@@ -1433,9 +1433,6 @@
 <a href="#1432" id="1432">1432</a>
 <a href="#1433" id="1433">1433</a>
 <a href="#1434" id="1434">1434</a>
-<a href="#1435" id="1435">1435</a>
-<a href="#1436" id="1436">1436</a>
-<a href="#1437" id="1437">1437</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -1471,7 +1468,6 @@
 <span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
-<span class="kw">use </span>indexmap::IndexSet;
 <span class="kw">use </span>once_cell::sync::OnceCell;
 
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::{
@@ -2078,39 +2074,36 @@
     <span class="kw">fn </span>build_transcript(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; (Transcript&lt;F&gt;, HashMap&lt;usize, Vec&lt;Ptr&gt;&gt;) {
         <span class="kw">let </span><span class="kw-2">mut </span>transcript = Transcript::new(s);
 
-        <span class="comment">// k -&gt; [kv]
-        </span><span class="kw">let </span><span class="kw-2">mut </span>insertions: HashMap&lt;Ptr, IndexSet&lt;Ptr&gt;&gt; = HashMap::new();
+        <span class="comment">// k -&gt; kv
+        </span><span class="kw">let </span><span class="kw-2">mut </span>kvs_by_key: HashMap&lt;Ptr, Ptr&gt; = HashMap::new();
         <span class="kw">let </span><span class="kw-2">mut </span>unique_keys: HashMap&lt;usize, Vec&lt;Ptr&gt;&gt; = Default::default();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>insert = |kv: Ptr| {
-            <span class="kw">let </span>key = s.car_cdr(<span class="kw-2">&amp;</span>kv).unwrap().<span class="number">0</span>;
-
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(kvs) = insertions.get_mut(<span class="kw-2">&amp;</span>key) {
-                kvs.insert(kv);
-            } <span class="kw">else </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>record_kv = |kv: <span class="kw-2">&amp;</span>Ptr| {
+            <span class="kw">let </span>key = s.car_cdr(kv).unwrap().<span class="number">0</span>;
+            <span class="kw">let </span>kv1 = kvs_by_key.entry(key).or_insert_with(|| {
                 <span class="kw">let </span>index = Q::from_ptr(s, <span class="kw-2">&amp;</span>key).expect(<span class="string">"bad query"</span>).index();
                 unique_keys
                     .entry(index)
                     .and_modify(|keys| keys.push(key))
                     .or_insert_with(|| <span class="macro">vec!</span>[key]);
-                <span class="kw">let </span><span class="kw-2">mut </span>x = IndexSet::new();
-                x.insert(kv);
 
-                insertions.insert(key, x);
-            }
+                <span class="kw-2">*</span>kv
+            });
+
+            <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>kv, <span class="kw-2">*</span>kv1);
         };
 
-        <span class="kw">let </span>internal_insertions_kv = <span class="self">self</span>.internal_insertions.iter().map(|key| {
+        <span class="kw">for </span>kv <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.toplevel_insertions {
+            record_kv(kv);
+        }
+
+        <span class="self">self</span>.internal_insertions.iter().for_each(|key| {
             <span class="kw">let </span>value = <span class="self">self</span>.queries.get(key).expect(<span class="string">"value missing for key"</span>);
-            Transcript::make_kv(s, <span class="kw-2">*</span>key, <span class="kw-2">*</span>value)
+            <span class="kw">let </span>kv = Transcript::make_kv(s, <span class="kw-2">*</span>key, <span class="kw-2">*</span>value);
+
+            record_kv(<span class="kw-2">&amp;</span>kv)
         });
 
-        <span class="kw">for </span>kv <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.toplevel_insertions {
-            insert(<span class="kw-2">*</span>kv);
-        }
-        <span class="kw">for </span>kv <span class="kw">in </span>internal_insertions_kv {
-            insert(kv);
-        }
         <span class="kw">for </span>kv <span class="kw">in </span><span class="self">self</span>.toplevel_insertions.iter() {
             <span class="kw">let </span>provenance = <span class="self">self</span>.provenance_from_kv(s, <span class="kw-2">*</span>kv).unwrap();
             transcript.add(s, <span class="kw-2">*</span>provenance.to_ptr(s));
@@ -2121,8 +2114,9 @@
         // (insertions) before then proving itself (making use of any subquery results) and removing the now-proved
         // deferral from the MemoSet.
         </span><span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..Q::count() {
-            <span class="kw">for </span>key <span class="kw">in </span>unique_keys.get(<span class="kw-2">&amp;</span>index).expect(<span class="string">"unreachable"</span>) {
-                <span class="kw">for </span>kv <span class="kw">in </span>insertions.get(key).unwrap().iter() {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(keys) = unique_keys.get(<span class="kw-2">&amp;</span>index) {
+                <span class="kw">for </span>key <span class="kw">in </span>keys {
+                    <span class="kw">let </span>kv = kvs_by_key.get(key).expect(<span class="string">"kv vanished"</span>);
                     <span class="kw">let </span>provenance = <span class="self">self</span>.provenance_from_kv(s, <span class="kw-2">*</span>kv).unwrap();
                     <span class="kw">let </span>prov = provenance.to_ptr(s);
                     <span class="kw">let </span>count = <span class="self">self</span>.memoset.count(kv);
