@@ -58,7 +58,7 @@ fn test_prove_and_verify() {
     file.write_all(b"!(verify \"supernova_bn256_10_18748ce7ba3dd0e7560ec64983d6b01d84a6303880b3b0b24878133aa1b4a6bb\")\n").unwrap();
 
     let mut cmd = lurk_cmd();
-    cmd.env("LURK_PERF", "max-parallel-simple");
+    cmd.env("LURK_PERF", "fully-parallel");
     cmd.arg("load");
     cmd.arg(lurk_file.into_string());
     cmd.arg("--public-params-dir");

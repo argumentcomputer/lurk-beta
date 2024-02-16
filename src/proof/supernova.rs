@@ -235,7 +235,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         recursive_snark_option = if lurk_config(None, None)
             .perf
             .parallelism
-            .recursive_steps
+            .wit_gen_vs_folding
             .is_parallel()
         {
             let cc = steps
