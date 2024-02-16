@@ -1152,14 +1152,6 @@
 <a href="#1151" id="1151">1151</a>
 <a href="#1152" id="1152">1152</a>
 <a href="#1153" id="1153">1153</a>
-<a href="#1154" id="1154">1154</a>
-<a href="#1155" id="1155">1155</a>
-<a href="#1156" id="1156">1156</a>
-<a href="#1157" id="1157">1157</a>
-<a href="#1158" id="1158">1158</a>
-<a href="#1159" id="1159">1159</a>
-<a href="#1160" id="1160">1160</a>
-<a href="#1161" id="1161">1161</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
 <span class="kw">use </span>bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
@@ -1777,7 +1769,7 @@
             func.bind_input(<span class="kw-2">&amp;</span>input, bound_allocations);
             <span class="kw">let </span>output = func
                 .synthesize_frame(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"frame {i}"</span>)),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"frame {i}"</span>)),
                     store,
                     frame,
                     g,
@@ -1905,18 +1897,16 @@
                 <span class="kw">let </span>z_ptr = store.hash_ptr(ptr);
 
                 <span class="kw">let </span>allocated_tag = AllocatedNum::alloc_infallible(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"allocated tag for input {i}"</span>)),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"allocated tag for input {i}"</span>)),
                     || z_ptr.tag_field(),
                 );
-                allocated_tag
-                    .inputize(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"inputized tag for input {i}"</span>)))<span class="question-mark">?</span>;
+                allocated_tag.inputize(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"inputized tag for input {i}"</span>)))<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>allocated_hash = AllocatedNum::alloc_infallible(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"allocated hash for input {i}"</span>)),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"allocated hash for input {i}"</span>)),
                     || <span class="kw-2">*</span>z_ptr.value(),
                 );
-                allocated_hash
-                    .inputize(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"inputized hash for input {i}"</span>)))<span class="question-mark">?</span>;
+                allocated_hash.inputize(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"inputized hash for input {i}"</span>)))<span class="question-mark">?</span>;
 
                 allocated_input.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
             }
@@ -1926,18 +1916,16 @@
                 <span class="kw">let </span>z_ptr = store.hash_ptr(ptr);
 
                 <span class="kw">let </span>allocated_tag = AllocatedNum::alloc_infallible(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"allocated tag for output {i}"</span>)),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"allocated tag for output {i}"</span>)),
                     || z_ptr.tag_field(),
                 );
-                allocated_tag
-                    .inputize(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"inputized tag for output {i}"</span>)))<span class="question-mark">?</span>;
+                allocated_tag.inputize(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"inputized tag for output {i}"</span>)))<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>allocated_hash = AllocatedNum::alloc_infallible(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"allocated hash for output {i}"</span>)),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"allocated hash for output {i}"</span>)),
                     || <span class="kw-2">*</span>z_ptr.value(),
                 );
-                allocated_hash
-                    .inputize(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"inputized hash for output {i}"</span>)))<span class="question-mark">?</span>;
+                allocated_hash.inputize(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"inputized hash for output {i}"</span>)))<span class="question-mark">?</span>;
 
                 allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
             }
@@ -1954,10 +1942,7 @@
                 .zip(allocated_output)
                 .enumerate()
             {
-                o_res.enforce_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"outer output {i} is correct"</span>)),
-                    <span class="kw-2">&amp;</span>o,
-                );
+                o_res.enforce_equal(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"outer output {i} is correct"</span>)), <span class="kw-2">&amp;</span>o);
             }
 
             <span class="prelude-val">Ok</span>(())
@@ -2097,9 +2082,8 @@
         _pc: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;&gt;,
         z: <span class="kw-2">&amp;</span>[AllocatedNum&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="prelude-ty">Option</span>&lt;AllocatedNum&lt;F&gt;&gt;, Vec&lt;AllocatedNum&lt;F&gt;&gt;), SynthesisError&gt; {
-        <span class="kw">let </span>next_pc = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"next_pc"</span>), || {
-            F::from_u64(<span class="self">self</span>.next_pc <span class="kw">as </span>u64)
-        });
+        <span class="kw">let </span>next_pc =
+            AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"next_pc"</span>), || F::from_u64(<span class="self">self</span>.next_pc <span class="kw">as </span>u64));
         <span class="kw">let </span>output = &lt;MultiFrame&lt;<span class="lifetime">'_</span>, F, C&gt; <span class="kw">as </span>nova::traits::circuit::StepCircuit&lt;F&gt;&gt;::synthesize(
             <span class="self">self</span>, cs, z,
         )<span class="question-mark">?</span>;

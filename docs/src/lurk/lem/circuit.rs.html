@@ -1683,19 +1683,6 @@
 <a href="#1682" id="1682">1682</a>
 <a href="#1683" id="1683">1683</a>
 <a href="#1684" id="1684">1684</a>
-<a href="#1685" id="1685">1685</a>
-<a href="#1686" id="1686">1686</a>
-<a href="#1687" id="1687">1687</a>
-<a href="#1688" id="1688">1688</a>
-<a href="#1689" id="1689">1689</a>
-<a href="#1690" id="1690">1690</a>
-<a href="#1691" id="1691">1691</a>
-<a href="#1692" id="1692">1692</a>
-<a href="#1693" id="1693">1693</a>
-<a href="#1694" id="1694">1694</a>
-<a href="#1695" id="1695">1695</a>
-<a href="#1696" id="1696">1696</a>
-<a href="#1697" id="1697">1697</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -1791,7 +1778,7 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(allocated_const) = <span class="self">self</span>.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>key) {
             allocated_const
         } <span class="kw">else </span>{
-            <span class="kw">let </span>allocated_const = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| f.hex_digits()), f);
+            <span class="kw">let </span>allocated_const = allocate_constant(<span class="macro">ns!</span>(cs, f.hex_digits()), f);
             <span class="self">self</span>.<span class="number">0</span>.insert(key, allocated_const.into())
         }
     }
@@ -2213,13 +2200,13 @@
                     <span class="kw">let </span>var = <span class="kw-2">&amp;</span><span class="macro-nonterminal">$preimg</span>[i];
                     <span class="kw">let </span>ptr_idx = <span class="number">2 </span>* i;
                     implies_equal(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {var}.tag pos {i}"</span>)),
+                        <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {var}.tag pos {i}"</span>)),
                         not_dummy,
                         allocated_ptr.tag(),
                         <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx], <span class="comment">// tag index
                     </span>);
                     implies_equal(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {var}.hash pos {i}"</span>)),
+                        <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {var}.hash pos {i}"</span>)),
                         not_dummy,
                         allocated_ptr.hash(),
                         <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx + <span class="number">1</span>], <span class="comment">// hash index
@@ -2255,7 +2242,7 @@
                     <span class="macro">bail!</span>(<span class="string">"Expected number"</span>)
                 };
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, <span class="macro-nonterminal">$img</span>)),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, <span class="macro-nonterminal">$img</span>)),
                     not_dummy,
                     allocated_img.hash(),
                     img_hash,
@@ -2297,7 +2284,7 @@
                     // the output matches the data collected during interpretation
                     </span><span class="kw">let </span>inp_ptrs = bound_allocations.get_many_ptr(inp)<span class="question-mark">?</span>;
                     <span class="kw">let </span>synthesize_output = cproc.synthesize_internal(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"Coprocessor {sym}"</span>)),
+                        <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"Coprocessor {sym}"</span>)),
                         ctx.global_allocator,
                         ctx.store,
                         not_dummy,
@@ -2321,11 +2308,11 @@
                     <span class="comment">// just move on with the data that was collected from interpretation
                     </span><span class="kw">for </span>((i, var), z_ptr) <span class="kw">in </span>out.iter().enumerate().zip(collected_z_ptrs) {
                         <span class="kw">let </span>allocated_tag = AllocatedNum::alloc_infallible(
-                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"tag for pointer {i} from cproc {sym}"</span>)),
+                            <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"tag for pointer {i} from cproc {sym}"</span>)),
                             || z_ptr.tag_field(),
                         );
                         <span class="kw">let </span>allocated_hash = AllocatedNum::alloc_infallible(
-                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"hash for pointer {i} from cproc {sym}"</span>)),
+                            <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"hash for pointer {i} from cproc {sym}"</span>)),
                             || <span class="kw-2">*</span>z_ptr.value(),
                         );
                         bound_allocations.insert(
@@ -2359,10 +2346,8 @@
                 };
                 <span class="kw">let </span><span class="kw-2">mut </span>output_ptrs = Vec::with_capacity(out.len());
                 <span class="kw">for </span>(z_ptr, var) <span class="kw">in </span>output_z_ptrs.into_iter().zip(out.iter()) {
-                    <span class="kw">let </span>ptr = AllocatedPtr::alloc_infallible(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"var: {var}"</span>)),
-                        || z_ptr,
-                    );
+                    <span class="kw">let </span>ptr =
+                        AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"var: {var}"</span>)), || z_ptr);
                     bound_allocations.insert_ptr(var.clone(), ptr.clone());
                     output_ptrs.push(ptr);
                 }
@@ -2376,7 +2361,7 @@
                 });
                 <span class="comment">// Finally, we synthesize the circuit for the function body
                 </span>synthesize_block(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"call"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"call"</span>),
                     <span class="kw-2">&amp;</span>func.body,
                     not_dummy,
                     next_slot,
@@ -2418,37 +2403,37 @@
                 </span><span class="kw">let </span>sym_tag = ctx.global_allocator.alloc_tag_cloned(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>Sym);
                 <span class="kw">let </span>env_tag = ctx.global_allocator.alloc_tag_cloned(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>Env);
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {}.tag"</span>, preimg[<span class="number">0</span>])),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {}.tag"</span>, preimg[<span class="number">0</span>])),
                     not_dummy,
                     sym.tag(),
                     <span class="kw-2">&amp;</span>sym_tag,
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, preimg[<span class="number">0</span>])),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, preimg[<span class="number">0</span>])),
                     not_dummy,
                     sym.hash(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {}.tag"</span>, preimg[<span class="number">1</span>])),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {}.tag"</span>, preimg[<span class="number">1</span>])),
                     not_dummy,
                     val.tag(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">1</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, preimg[<span class="number">1</span>])),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, preimg[<span class="number">1</span>])),
                     not_dummy,
                     val.hash(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">2</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {}.tag"</span>, preimg[<span class="number">2</span>])),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {}.tag"</span>, preimg[<span class="number">2</span>])),
                     not_dummy,
                     env.tag(),
                     <span class="kw-2">&amp;</span>env_tag,
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, preimg[<span class="number">2</span>])),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, preimg[<span class="number">2</span>])),
                     not_dummy,
                     env.hash(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">3</span>],
@@ -2476,7 +2461,7 @@
                     <span class="macro">bail!</span>(<span class="string">"Expected number"</span>)
                 };
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, img)),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {}.hash"</span>, img)),
                     not_dummy,
                     allocated_img.hash(),
                     img_hash,
@@ -2582,7 +2567,7 @@
             Op::And(tgt, a, b) =&gt; {
                 <span class="kw">let </span>a = bound_allocations.get_bool(a)<span class="question-mark">?</span>;
                 <span class="kw">let </span>b = bound_allocations.get_bool(b)<span class="question-mark">?</span>;
-                <span class="kw">let </span>c = Boolean::and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"and"</span>), a, b)<span class="question-mark">?</span>;
+                <span class="kw">let </span>c = Boolean::and(<span class="macro">ns!</span>(cs, <span class="string">"and"</span>), a, b)<span class="question-mark">?</span>;
                 bound_allocations.insert_bool(tgt.clone(), c);
             }
             Op::Or(tgt, a, b) =&gt; {
@@ -2676,19 +2661,19 @@
                 };
                 <span class="comment">// Check that the slot allocated preimages are the double of a, b, a-b
                 </span>implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal for a_preimg"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal for a_preimg"</span>),
                     not_dummy,
                     <span class="kw-2">&amp;</span>double_a,
                     <span class="kw-2">&amp;</span>double_a_preimg[<span class="number">0</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal for b_preimg"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal for b_preimg"</span>),
                     not_dummy,
                     <span class="kw-2">&amp;</span>double_b,
                     <span class="kw-2">&amp;</span>double_b_preimg[<span class="number">0</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal for diff_preimg"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal for diff_preimg"</span>),
                     not_dummy,
                     <span class="kw-2">&amp;</span>double_diff,
                     <span class="kw-2">&amp;</span>double_diff_preimg[<span class="number">0</span>],
@@ -2704,14 +2689,9 @@
                     Boolean::xor(cs.namespace(|| <span class="string">"same_sign"</span>), a_is_negative, b_is_negative)<span class="question-mark">?</span>.not();
 
                 <span class="comment">// Finally, a &lt; b iff (same_sign &amp;&amp; diff &lt; 0) || (!same_sign &amp;&amp; a &lt; 0)
-                </span><span class="kw">let </span>and1 =
-                    Boolean::and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"and1"</span>), <span class="kw-2">&amp;</span>same_sign, diff_is_negative)<span class="question-mark">?</span>;
-                <span class="kw">let </span>and2 = Boolean::and(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"and2"</span>),
-                    <span class="kw-2">&amp;</span>same_sign.not(),
-                    a_is_negative,
-                )<span class="question-mark">?</span>;
-                <span class="kw">let </span>lt = or(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"or"</span>), <span class="kw-2">&amp;</span>and1, <span class="kw-2">&amp;</span>and2)<span class="question-mark">?</span>;
+                </span><span class="kw">let </span>and1 = Boolean::and(<span class="macro">ns!</span>(cs, <span class="string">"and1"</span>), <span class="kw-2">&amp;</span>same_sign, diff_is_negative)<span class="question-mark">?</span>;
+                <span class="kw">let </span>and2 = Boolean::and(<span class="macro">ns!</span>(cs, <span class="string">"and2"</span>), <span class="kw-2">&amp;</span>same_sign.not(), a_is_negative)<span class="question-mark">?</span>;
+                <span class="kw">let </span>lt = or(<span class="macro">ns!</span>(cs, <span class="string">"or"</span>), <span class="kw-2">&amp;</span>and1, <span class="kw-2">&amp;</span>and2)<span class="question-mark">?</span>;
                 bound_allocations.insert_bool(tgt.clone(), lt.clone());
             }
             Op::Trunc(tgt, a, n) =&gt; {
@@ -2720,7 +2700,7 @@
                 <span class="kw">let </span>(preallocated_preimg, trunc_bits) =
                     <span class="kw-2">&amp;</span>ctx.bit_decomp_slots[next_slot.consume_bit_decomp()];
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal component trunc"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal component trunc"</span>),
                     not_dummy,
                     a.hash(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>],
@@ -2788,25 +2768,25 @@
                     <span class="macro">panic!</span>(<span class="string">"Excepted number"</span>)
                 };
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal secret.tag"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal secret.tag"</span>),
                     not_dummy,
                     sec.tag(),
                     sec_tag,
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal secret.hash"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal secret.hash"</span>),
                     not_dummy,
                     sec.hash(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal payload.tag"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal payload.tag"</span>),
                     not_dummy,
                     pay.tag(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">1</span>],
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal payload.hash"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal payload.hash"</span>),
                     not_dummy,
                     pay.hash(),
                     <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">2</span>],
@@ -2824,13 +2804,13 @@
                     <span class="macro">panic!</span>(<span class="string">"Excepted number"</span>)
                 };
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal comm.tag"</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal comm.tag"</span>),
                     not_dummy,
                     comm.tag(),
                     comm_tag,
                 );
                 implies_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"implies equal comm.hash "</span>),
+                    <span class="macro">ns!</span>(cs, <span class="string">"implies equal comm.hash "</span>),
                     not_dummy,
                     comm.hash(),
                     com_hash,
@@ -2874,7 +2854,7 @@
 
             <span class="comment">// If `not_dummy_and_has_match` is true, then we enforce a match
             </span>implies_equal_const(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{i}.implies_equal_const"</span>)),
+                <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"{i}.implies_equal_const"</span>)),
                 <span class="kw-2">&amp;</span>not_dummy_and_has_match,
                 matched,
                 <span class="kw-2">*</span>f,
@@ -2884,7 +2864,7 @@
 
             <span class="kw">let </span><span class="kw-2">mut </span>branch_slot = <span class="kw-2">*</span>next_slot;
             synthesize_block(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{i}"</span>)),
+                <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"{i}"</span>)),
                 block,
                 <span class="kw-2">&amp;</span>not_dummy_and_has_match,
                 <span class="kw-2">&amp;mut </span>branch_slot,
@@ -2911,7 +2891,7 @@
                 <span class="comment">// if the default path was taken, then there can be no tag in `cases`
                 // that equals the tag of the pointer being matched on
                 </span>implies_unequal_const(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{i}.implies_unequal_const"</span>)),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"{i}.implies_unequal_const"</span>)),
                     <span class="kw-2">&amp;</span>is_default,
                     matched,
                     <span class="kw-2">*</span>f,
@@ -2919,7 +2899,7 @@
             }
 
             synthesize_block(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"_"</span>),
+                <span class="macro">ns!</span>(cs, <span class="string">"_"</span>),
                 def,
                 <span class="kw-2">&amp;</span>is_default,
                 next_slot,
@@ -2936,7 +2916,7 @@
         // that the sum of the previously collected `Boolean`s is one. But, of course, this
         // is irrelevant if we're on a virtual path and thus we use an implication gadget.
         </span>enforce_selector_with_premise(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"enforce_selector_with_premise"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"enforce_selector_with_premise"</span>),
             not_dummy,
             <span class="kw-2">&amp;</span>selector,
         );
@@ -2950,7 +2930,7 @@
                 <span class="kw">let </span>allocated_ptr = bound_allocations.get_ptr(return_var)<span class="question-mark">?</span>;
 
                 allocated_ptr.implies_ptr_equal(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies_ptr_equal {return_var} pos {i}"</span>)),
+                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies_ptr_equal {return_var} pos {i}"</span>)),
                     not_dummy,
                     <span class="kw-2">&amp;</span>preallocated_outputs[i],
                 );
@@ -2959,15 +2939,12 @@
         }
         Ctrl::If(b, true_block, false_block) =&gt; {
             <span class="kw">let </span>b = bound_allocations.get_bool(b)<span class="question-mark">?</span>;
-            <span class="kw">let </span>b_not_dummy = Boolean::and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"b and not_dummy"</span>), b, not_dummy)<span class="question-mark">?</span>;
-            <span class="kw">let </span>not_b_not_dummy = Boolean::and(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"not_b and not_dummy"</span>),
-                <span class="kw-2">&amp;</span>b.not(),
-                not_dummy,
-            )<span class="question-mark">?</span>;
+            <span class="kw">let </span>b_not_dummy = Boolean::and(<span class="macro">ns!</span>(cs, <span class="string">"b and not_dummy"</span>), b, not_dummy)<span class="question-mark">?</span>;
+            <span class="kw">let </span>not_b_not_dummy =
+                Boolean::and(<span class="macro">ns!</span>(cs, <span class="string">"not_b and not_dummy"</span>), <span class="kw-2">&amp;</span>b.not(), not_dummy)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>branch_slot = <span class="kw-2">*</span>next_slot;
             synthesize_block(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"if_eq.true"</span>),
+                <span class="macro">ns!</span>(cs, <span class="string">"if_eq.true"</span>),
                 true_block,
                 <span class="kw-2">&amp;</span>b_not_dummy,
                 <span class="kw-2">&amp;mut </span>branch_slot,
@@ -2976,7 +2953,7 @@
                 ctx,
             )<span class="question-mark">?</span>;
             synthesize_block(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"if_eq.false"</span>),
+                <span class="macro">ns!</span>(cs, <span class="string">"if_eq.false"</span>),
                 false_block,
                 <span class="kw-2">&amp;</span>not_b_not_dummy,
                 next_slot,
@@ -3020,7 +2997,7 @@
             <span class="comment">// Now we enforce `MatchSymbol`'s tag
             </span><span class="kw">let </span>sym_tag = ctx.global_allocator.alloc_tag(cs, <span class="kw-2">&amp;</span>Sym);
             implies_equal(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"implies equal {match_var}.tag"</span>)),
+                <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies equal {match_var}.tag"</span>)),
                 not_dummy,
                 match_var_ptr.tag(),
                 sym_tag,
@@ -3058,7 +3035,7 @@
         <span class="kw">for </span>(i, ptr) <span class="kw">in </span>frame.output.iter().enumerate() {
             <span class="kw">let </span>zptr = store.hash_ptr(ptr);
             output.push(AllocatedPtr::alloc_infallible(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"var: output[{}]"</span>, i)),
+                <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"var: output[{}]"</span>, i)),
                 || zptr,
             ));
         }
@@ -3076,10 +3053,7 @@
         <span class="kw">for </span>(i, ptr) <span class="kw">in </span>frame.input.iter().enumerate() {
             <span class="kw">let </span>param = <span class="kw-2">&amp;</span><span class="self">self</span>.input_params[i];
             <span class="kw">let </span>zptr = store.hash_ptr(ptr);
-            <span class="kw">let </span>ptr = AllocatedPtr::alloc_infallible(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"var: {param}"</span>)),
-                || zptr,
-            );
+            <span class="kw">let </span>ptr = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"var: {param}"</span>)), || zptr);
             bound_allocations.insert_ptr(param.clone(), ptr);
         }
     }

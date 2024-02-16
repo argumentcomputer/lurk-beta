@@ -902,90 +902,6 @@
 <a href="#901" id="901">901</a>
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
-<a href="#956" id="956">956</a>
-<a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
-<a href="#961" id="961">961</a>
-<a href="#962" id="962">962</a>
-<a href="#963" id="963">963</a>
-<a href="#964" id="964">964</a>
-<a href="#965" id="965">965</a>
-<a href="#966" id="966">966</a>
-<a href="#967" id="967">967</a>
-<a href="#968" id="968">968</a>
-<a href="#969" id="969">969</a>
-<a href="#970" id="970">970</a>
-<a href="#971" id="971">971</a>
-<a href="#972" id="972">972</a>
-<a href="#973" id="973">973</a>
-<a href="#974" id="974">974</a>
-<a href="#975" id="975">975</a>
-<a href="#976" id="976">976</a>
-<a href="#977" id="977">977</a>
-<a href="#978" id="978">978</a>
-<a href="#979" id="979">979</a>
-<a href="#980" id="980">980</a>
-<a href="#981" id="981">981</a>
-<a href="#982" id="982">982</a>
-<a href="#983" id="983">983</a>
-<a href="#984" id="984">984</a>
-<a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper gadgets for synthesis
 
 </span><span class="kw">use </span>std::borrow::Borrow;
@@ -1134,13 +1050,7 @@
         .rev()
         .enumerate()
         .try_fold(init, |acc, (i, ptr)| {
-            construct_cons(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"cons {i}"</span>)),
-                g,
-                store,
-                ptr.borrow(),
-                <span class="kw-2">&amp;</span>acc,
-            )
+            construct_cons(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"cons {i}"</span>)), g, store, ptr.borrow(), <span class="kw-2">&amp;</span>acc)
         })
 }
 
@@ -1225,13 +1135,13 @@
         }
     };
 
-    <span class="kw">let </span>key_sym_hash = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"key_sym_hash"</span>), || a);
-    <span class="kw">let </span>val_tag = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"val_tag"</span>), || b);
-    <span class="kw">let </span>val_hash = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"val_hash"</span>), || c);
-    <span class="kw">let </span>new_env_hash = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_env_hash"</span>), || d);
+    <span class="kw">let </span>key_sym_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"key_sym_hash"</span>), || a);
+    <span class="kw">let </span>val_tag = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"val_tag"</span>), || b);
+    <span class="kw">let </span>val_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"val_hash"</span>), || c);
+    <span class="kw">let </span>new_env_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"new_env_hash"</span>), || d);
 
     <span class="kw">let </span>hash = hash_poseidon(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>),
+        <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             key_sym_hash.clone(),
             val_tag.clone(),
@@ -1243,7 +1153,7 @@
 
     <span class="kw">let </span>val = AllocatedPtr::from_parts(val_tag, val_hash);
 
-    implies_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash equality"</span>), not_dummy, env, <span class="kw-2">&amp;</span>hash);
+    implies_equal(<span class="macro">ns!</span>(cs, <span class="string">"hash equality"</span>), not_dummy, env, <span class="kw-2">&amp;</span>hash);
 
     <span class="prelude-val">Ok</span>((key_sym_hash, val, new_env_hash))
 }
@@ -1277,15 +1187,13 @@
         }
     };
 
-    <span class="kw">let </span>query_cons_hash =
-        AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"query_cons_hash"</span>), || a);
-    <span class="kw">let </span>res_tag = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"res_tag"</span>), || b);
-    <span class="kw">let </span>res_hash = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"res_hash"</span>), || c);
-    <span class="kw">let </span>deps_tuple_hash =
-        AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"deps_tuple_hash"</span>), || d);
+    <span class="kw">let </span>query_cons_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"query_cons_hash"</span>), || a);
+    <span class="kw">let </span>res_tag = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"res_tag"</span>), || b);
+    <span class="kw">let </span>res_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"res_hash"</span>), || c);
+    <span class="kw">let </span>deps_tuple_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"deps_tuple_hash"</span>), || d);
 
     <span class="kw">let </span>hash = hash_poseidon(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>),
+        <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             query_cons_hash.clone(),
             res_tag.clone(),
@@ -1297,12 +1205,7 @@
 
     <span class="kw">let </span>res = AllocatedPtr::from_parts(res_tag, res_hash);
 
-    implies_equal(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash equality"</span>),
-        not_dummy,
-        provenance,
-        <span class="kw-2">&amp;</span>hash,
-    );
+    implies_equal(<span class="macro">ns!</span>(cs, <span class="string">"hash equality"</span>), not_dummy, provenance, <span class="kw-2">&amp;</span>hash);
 
     <span class="prelude-val">Ok</span>((query_cons_hash, res, deps_tuple_hash))
 }
@@ -1346,11 +1249,11 @@
         (ZPtr::dummy(), ZPtr::dummy())
     };
 
-    <span class="kw">let </span>a = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"a"</span>), || a);
-    <span class="kw">let </span>b = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"b"</span>), || b);
+    <span class="kw">let </span>a = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"a"</span>), || a);
+    <span class="kw">let </span>b = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"b"</span>), || b);
 
     <span class="kw">let </span>hash = hash_poseidon(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>),
+        <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             a.tag().clone(),
             a.hash().clone(),
@@ -1360,12 +1263,7 @@
         store.poseidon_cache.constants.c4(),
     )<span class="question-mark">?</span>;
 
-    implies_equal(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash equality"</span>),
-        not_dummy,
-        tuple.hash(),
-        <span class="kw-2">&amp;</span>hash,
-    );
+    implies_equal(<span class="macro">ns!</span>(cs, <span class="string">"hash equality"</span>), not_dummy, tuple.hash(), <span class="kw-2">&amp;</span>hash);
 
     <span class="prelude-val">Ok</span>((a, b))
 }
@@ -1389,12 +1287,12 @@
         (ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy())
     };
 
-    <span class="kw">let </span>a = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"a"</span>), || a);
-    <span class="kw">let </span>b = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"b"</span>), || b);
-    <span class="kw">let </span>c = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"c"</span>), || c);
+    <span class="kw">let </span>a = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"a"</span>), || a);
+    <span class="kw">let </span>b = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"b"</span>), || b);
+    <span class="kw">let </span>c = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"c"</span>), || c);
 
     <span class="kw">let </span>hash = hash_poseidon(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>),
+        <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             a.tag().clone(),
             a.hash().clone(),
@@ -1406,12 +1304,7 @@
         store.poseidon_cache.constants.c6(),
     )<span class="question-mark">?</span>;
 
-    implies_equal(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash equality"</span>),
-        not_dummy,
-        tuple.hash(),
-        <span class="kw-2">&amp;</span>hash,
-    );
+    implies_equal(<span class="macro">ns!</span>(cs, <span class="string">"hash equality"</span>), not_dummy, tuple.hash(), <span class="kw-2">&amp;</span>hash);
 
     <span class="prelude-val">Ok</span>((a, b, c))
 }
@@ -1448,13 +1341,13 @@
         (ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy())
     };
 
-    <span class="kw">let </span>a = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"a"</span>), || a);
-    <span class="kw">let </span>b = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"b"</span>), || b);
-    <span class="kw">let </span>c = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"c"</span>), || c);
-    <span class="kw">let </span>d = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"d"</span>), || d);
+    <span class="kw">let </span>a = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"a"</span>), || a);
+    <span class="kw">let </span>b = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"b"</span>), || b);
+    <span class="kw">let </span>c = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"c"</span>), || c);
+    <span class="kw">let </span>d = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"d"</span>), || d);
 
     <span class="kw">let </span>hash = hash_poseidon(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>),
+        <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             a.tag().clone(),
             a.hash().clone(),
@@ -1468,12 +1361,7 @@
         store.poseidon_cache.constants.c8(),
     )<span class="question-mark">?</span>;
 
-    implies_equal(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash equality"</span>),
-        not_dummy,
-        tuple.hash(),
-        <span class="kw-2">&amp;</span>hash,
-    );
+    implies_equal(<span class="macro">ns!</span>(cs, <span class="string">"hash equality"</span>), not_dummy, tuple.hash(), <span class="kw-2">&amp;</span>hash);
 
     <span class="prelude-val">Ok</span>((a, b, c, d))
 }
@@ -1500,29 +1388,28 @@
     <span class="kw">let </span>nil = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>store.intern_nil(), store);
     <span class="kw">let </span>empty_str = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>store.intern_string(<span class="string">""</span>), store);
 
-    <span class="kw">let </span>car = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"car"</span>), || car);
-    <span class="kw">let </span>cdr = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"cdr"</span>), || cdr);
+    <span class="kw">let </span>car = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"car"</span>), || car);
+    <span class="kw">let </span>cdr = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"cdr"</span>), || cdr);
 
-    <span class="kw">let </span>data_is_nil = data.alloc_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"data is nil"</span>), <span class="kw-2">&amp;</span>nil)<span class="question-mark">?</span>;
+    <span class="kw">let </span>data_is_nil = data.alloc_equal(<span class="macro">ns!</span>(cs, <span class="string">"data is nil"</span>), <span class="kw-2">&amp;</span>nil)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>data_is_empty_str =
-        data.alloc_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"data is empty str"</span>), <span class="kw-2">&amp;</span>empty_str)<span class="question-mark">?</span>;
+    <span class="kw">let </span>data_is_empty_str = data.alloc_equal(<span class="macro">ns!</span>(cs, <span class="string">"data is empty str"</span>), <span class="kw-2">&amp;</span>empty_str)<span class="question-mark">?</span>;
 
     {
         <span class="comment">// when data is nil, we enforce that car and cdr are both nil
         </span><span class="kw">let </span>not_dummy_and_data_is_nil = Boolean::and(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"not dummy and data is nil"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"not dummy and data is nil"</span>),
             not_dummy,
             <span class="kw-2">&amp;</span>data_is_nil,
         )<span class="question-mark">?</span>;
 
         car.implies_ptr_equal(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"data is nil implies car is nil"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"data is nil implies car is nil"</span>),
             <span class="kw-2">&amp;</span>not_dummy_and_data_is_nil,
             <span class="kw-2">&amp;</span>nil,
         );
         cdr.implies_ptr_equal(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"data is nil implies cdr is nil"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"data is nil implies cdr is nil"</span>),
             <span class="kw-2">&amp;</span>not_dummy_and_data_is_nil,
             <span class="kw-2">&amp;</span>nil,
         );
@@ -1532,18 +1419,18 @@
         <span class="comment">// when data is the empty string, we enforce that car is nil and cdr is
         // the empty string
         </span><span class="kw">let </span>not_dummy_and_data_is_empty_str = Boolean::and(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"not dummy and data is empty str"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"not dummy and data is empty str"</span>),
             not_dummy,
             <span class="kw-2">&amp;</span>data_is_empty_str,
         )<span class="question-mark">?</span>;
 
         car.implies_ptr_equal(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"data is empty str implies car is nil"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"data is empty str implies car is nil"</span>),
             <span class="kw-2">&amp;</span>not_dummy_and_data_is_empty_str,
             <span class="kw-2">&amp;</span>nil,
         );
         cdr.implies_ptr_equal(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"data is empty str implies cdr is empty str"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"data is empty str implies cdr is empty str"</span>),
             <span class="kw-2">&amp;</span>not_dummy_and_data_is_empty_str,
             <span class="kw-2">&amp;</span>empty_str,
         );
@@ -1551,7 +1438,7 @@
 
     <span class="comment">// data is not empty: it's not nil and it's not the empty string
     </span><span class="kw">let </span>data_is_not_empty = Boolean::and(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"data is not empty"</span>),
+        <span class="macro">ns!</span>(cs, <span class="string">"data is not empty"</span>),
         <span class="kw-2">&amp;</span>data_is_nil.not(),
         <span class="kw-2">&amp;</span>data_is_empty_str.not(),
     )<span class="question-mark">?</span>;
@@ -1559,13 +1446,13 @@
     {
         <span class="comment">// when data is not empty, we enforce hash equality
         </span><span class="kw">let </span>not_dumy_and_data_is_not_empty = Boolean::and(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"not dummy and data is not empty"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"not dummy and data is not empty"</span>),
             not_dummy,
             <span class="kw-2">&amp;</span>data_is_not_empty,
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>hash = hash_poseidon(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"hash"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
             <span class="macro">vec!</span>[
                 car.tag().clone(),
                 car.hash().clone(),
@@ -1576,7 +1463,7 @@
         )<span class="question-mark">?</span>;
 
         implies_equal(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"data is not empty implies hash equality"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"data is not empty implies hash equality"</span>),
             <span class="kw-2">&amp;</span>not_dumy_and_data_is_not_empty,
             data.hash(),
             <span class="kw-2">&amp;</span>hash,
@@ -1655,20 +1542,12 @@
     <span class="kw">let </span><span class="kw-2">mut </span>cdr = data.clone();
     <span class="kw">let </span><span class="kw-2">mut </span>length = g.alloc_const_cloned(cs, F::ZERO);
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
-        <span class="kw">let </span>(car, new_cdr, not_empty) = car_cdr(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"car_cdr {i}"</span>)),
-            g,
-            store,
-            not_dummy,
-            <span class="kw-2">&amp;</span>cdr,
-        )<span class="question-mark">?</span>;
+        <span class="kw">let </span>(car, new_cdr, not_empty) =
+            car_cdr(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"car_cdr {i}"</span>)), g, store, not_dummy, <span class="kw-2">&amp;</span>cdr)<span class="question-mark">?</span>;
         cars.push(car);
         cdr = new_cdr;
-        <span class="kw">let </span>not_empty_num = boolean_to_num(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"not_empty_num {i}"</span>)),
-            <span class="kw-2">&amp;</span>not_empty,
-        )<span class="question-mark">?</span>;
-        length = length.add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"length {i}"</span>)), <span class="kw-2">&amp;</span>not_empty_num)<span class="question-mark">?</span>;
+        <span class="kw">let </span>not_empty_num = boolean_to_num(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"not_empty_num {i}"</span>)), <span class="kw-2">&amp;</span>not_empty)<span class="question-mark">?</span>;
+        length = length.add(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"length {i}"</span>)), <span class="kw-2">&amp;</span>not_empty_num)<span class="question-mark">?</span>;
     }
     <span class="prelude-val">Ok</span>((cars, cdr, length))
 }
@@ -1717,35 +1596,19 @@
         <span class="kw">let </span>nil_tag = nil.tag();
         <span class="kw">let </span>a_nil = g.alloc_ptr(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>nil, <span class="kw-2">&amp;</span>store);
 
-        <span class="kw">let </span>nil2 = construct_tuple2(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"nil2"</span>),
-            <span class="kw-2">&amp;</span>g,
-            <span class="kw-2">&amp;</span>store,
-            nil_tag,
-            <span class="kw-2">&amp;</span>a_nil,
-            <span class="kw-2">&amp;</span>a_nil,
-        )
-        .unwrap();
+        <span class="kw">let </span>nil2 = construct_tuple2(<span class="macro">ns!</span>(cs, <span class="string">"nil2"</span>), <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>store, nil_tag, <span class="kw-2">&amp;</span>a_nil, <span class="kw-2">&amp;</span>a_nil).unwrap();
         <span class="kw">let </span>nil2_ptr = <span class="macro">intern_ptrs!</span>(store, <span class="kw-2">*</span>nil_tag, nil, nil);
         <span class="kw">let </span>z_nil2_ptr = store.hash_ptr(<span class="kw-2">&amp;</span>nil2_ptr);
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>nil2), <span class="prelude-val">Some</span>(z_nil2_ptr));
 
-        <span class="kw">let </span>nil3 = construct_tuple3(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"nil3"</span>),
-            <span class="kw-2">&amp;</span>g,
-            <span class="kw-2">&amp;</span>store,
-            nil_tag,
-            <span class="kw-2">&amp;</span>a_nil,
-            <span class="kw-2">&amp;</span>a_nil,
-            <span class="kw-2">&amp;</span>a_nil,
-        )
-        .unwrap();
+        <span class="kw">let </span>nil3 =
+            construct_tuple3(<span class="macro">ns!</span>(cs, <span class="string">"nil3"</span>), <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>store, nil_tag, <span class="kw-2">&amp;</span>a_nil, <span class="kw-2">&amp;</span>a_nil, <span class="kw-2">&amp;</span>a_nil).unwrap();
         <span class="kw">let </span>nil3_ptr = <span class="macro">intern_ptrs!</span>(store, <span class="kw-2">*</span>nil_tag, nil, nil, nil);
         <span class="kw">let </span>z_nil3_ptr = store.hash_ptr(<span class="kw-2">&amp;</span>nil3_ptr);
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>nil3), <span class="prelude-val">Some</span>(z_nil3_ptr));
 
         <span class="kw">let </span>nil4 = construct_tuple4(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"nil4"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"nil4"</span>),
             <span class="kw-2">&amp;</span>g,
             <span class="kw-2">&amp;</span>store,
             nil_tag,
@@ -1791,41 +1654,29 @@
 
         <span class="kw">let </span>tuple2 = <span class="macro">intern_ptrs!</span>(store, nil_tag, nil, nil);
         <span class="kw">let </span>z_tuple2 = store.hash_ptr(<span class="kw-2">&amp;</span>tuple2);
-        <span class="kw">let </span>a_tuple2 = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tuple2"</span>), || z_tuple2);
-        <span class="kw">let </span>(a, b) = deconstruct_tuple2(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"deconstruct tuple2"</span>),
-            <span class="kw-2">&amp;</span>store,
-            <span class="kw-2">&amp;</span>not_dummy,
-            <span class="kw-2">&amp;</span>a_tuple2,
-        )
-        .unwrap();
+        <span class="kw">let </span>a_tuple2 = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"tuple2"</span>), || z_tuple2);
+        <span class="kw">let </span>(a, b) =
+            deconstruct_tuple2(<span class="macro">ns!</span>(cs, <span class="string">"deconstruct tuple2"</span>), <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>not_dummy, <span class="kw-2">&amp;</span>a_tuple2)
+                .unwrap();
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>a), <span class="prelude-val">Some</span>(z_nil));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>b), <span class="prelude-val">Some</span>(z_nil));
 
         <span class="kw">let </span>tuple3 = <span class="macro">intern_ptrs!</span>(store, nil_tag, nil, nil, nil);
         <span class="kw">let </span>z_tuple3 = store.hash_ptr(<span class="kw-2">&amp;</span>tuple3);
-        <span class="kw">let </span>a_tuple3 = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tuple3"</span>), || z_tuple3);
-        <span class="kw">let </span>(a, b, c) = deconstruct_tuple3(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"deconstruct tuple3"</span>),
-            <span class="kw-2">&amp;</span>store,
-            <span class="kw-2">&amp;</span>not_dummy,
-            <span class="kw-2">&amp;</span>a_tuple3,
-        )
-        .unwrap();
+        <span class="kw">let </span>a_tuple3 = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"tuple3"</span>), || z_tuple3);
+        <span class="kw">let </span>(a, b, c) =
+            deconstruct_tuple3(<span class="macro">ns!</span>(cs, <span class="string">"deconstruct tuple3"</span>), <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>not_dummy, <span class="kw-2">&amp;</span>a_tuple3)
+                .unwrap();
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>a), <span class="prelude-val">Some</span>(z_nil));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>b), <span class="prelude-val">Some</span>(z_nil));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>c), <span class="prelude-val">Some</span>(z_nil));
 
         <span class="kw">let </span>tuple4 = <span class="macro">intern_ptrs!</span>(store, nil_tag, nil, nil, nil, nil);
         <span class="kw">let </span>z_tuple4 = store.hash_ptr(<span class="kw-2">&amp;</span>tuple4);
-        <span class="kw">let </span>a_tuple4 = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"tuple4"</span>), || z_tuple4);
-        <span class="kw">let </span>(a, b, c, d) = deconstruct_tuple4(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"deconstruct tuple4"</span>),
-            <span class="kw-2">&amp;</span>store,
-            <span class="kw-2">&amp;</span>not_dummy,
-            <span class="kw-2">&amp;</span>a_tuple4,
-        )
-        .unwrap();
+        <span class="kw">let </span>a_tuple4 = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"tuple4"</span>), || z_tuple4);
+        <span class="kw">let </span>(a, b, c, d) =
+            deconstruct_tuple4(<span class="macro">ns!</span>(cs, <span class="string">"deconstruct tuple4"</span>), <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>not_dummy, <span class="kw-2">&amp;</span>a_tuple4)
+                .unwrap();
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>a), <span class="prelude-val">Some</span>(z_nil));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>b), <span class="prelude-val">Some</span>(z_nil));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>c), <span class="prelude-val">Some</span>(z_nil));
@@ -1846,15 +1697,9 @@
         <span class="kw">let </span>not_dummy = Boolean::Constant(<span class="bool-val">true</span>);
 
         <span class="comment">// nil
-        </span><span class="kw">let </span>a_nil = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"nil"</span>), || z_nil);
-        <span class="kw">let </span>(car, cdr, not_empty) = car_cdr(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"car_cdr of nil"</span>),
-            <span class="kw-2">&amp;</span>g,
-            <span class="kw-2">&amp;</span>store,
-            <span class="kw-2">&amp;</span>not_dummy,
-            <span class="kw-2">&amp;</span>a_nil,
-        )
-        .unwrap();
+        </span><span class="kw">let </span>a_nil = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"nil"</span>), || z_nil);
+        <span class="kw">let </span>(car, cdr, not_empty) =
+            car_cdr(<span class="macro">ns!</span>(cs, <span class="string">"car_cdr of nil"</span>), <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>not_dummy, <span class="kw-2">&amp;</span>a_nil).unwrap();
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>car), <span class="prelude-val">Some</span>(z_nil));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>cdr), <span class="prelude-val">Some</span>(z_nil));
         <span class="macro">assert_eq!</span>(not_empty.get_value(), <span class="prelude-val">Some</span>(<span class="bool-val">false</span>));
@@ -1864,24 +1709,17 @@
         <span class="kw">let </span>z_one = store.hash_ptr(<span class="kw-2">&amp;</span>one);
         <span class="kw">let </span>cons = store.cons(one, one);
         <span class="kw">let </span>z_cons = store.hash_ptr(<span class="kw-2">&amp;</span>cons);
-        <span class="kw">let </span>a_cons = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"cons"</span>), || z_cons);
-        <span class="kw">let </span>(car, cdr, not_empty) = car_cdr(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"car_cdr of cons"</span>),
-            <span class="kw-2">&amp;</span>g,
-            <span class="kw-2">&amp;</span>store,
-            <span class="kw-2">&amp;</span>not_dummy,
-            <span class="kw-2">&amp;</span>a_cons,
-        )
-        .unwrap();
+        <span class="kw">let </span>a_cons = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"cons"</span>), || z_cons);
+        <span class="kw">let </span>(car, cdr, not_empty) =
+            car_cdr(<span class="macro">ns!</span>(cs, <span class="string">"car_cdr of cons"</span>), <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>not_dummy, <span class="kw-2">&amp;</span>a_cons).unwrap();
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>car), <span class="prelude-val">Some</span>(z_one));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>cdr), <span class="prelude-val">Some</span>(z_one));
         <span class="macro">assert_eq!</span>(not_empty.get_value(), <span class="prelude-val">Some</span>(<span class="bool-val">true</span>));
 
         <span class="comment">// empty string
-        </span><span class="kw">let </span>a_empty_str =
-            AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"empty str"</span>), || z_empty_str);
+        </span><span class="kw">let </span>a_empty_str = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"empty str"</span>), || z_empty_str);
         <span class="kw">let </span>(car, cdr, not_empty) = car_cdr(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"car_cdr of empty str"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"car_cdr of empty str"</span>),
             <span class="kw-2">&amp;</span>g,
             <span class="kw-2">&amp;</span>store,
             <span class="kw-2">&amp;</span>not_dummy,
@@ -1899,15 +1737,9 @@
         <span class="kw">let </span>z_abc = store.hash_ptr(<span class="kw-2">&amp;</span>abc);
         <span class="kw">let </span>z_bc = store.hash_ptr(<span class="kw-2">&amp;</span>bc);
         <span class="kw">let </span>z_a = store.hash_ptr(<span class="kw-2">&amp;</span>a);
-        <span class="kw">let </span>a_abc = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"abc"</span>), || z_abc);
-        <span class="kw">let </span>(car, cdr, not_empty) = car_cdr(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"car_cdr of abc"</span>),
-            <span class="kw-2">&amp;</span>g,
-            <span class="kw-2">&amp;</span>store,
-            <span class="kw-2">&amp;</span>not_dummy,
-            <span class="kw-2">&amp;</span>a_abc,
-        )
-        .unwrap();
+        <span class="kw">let </span>a_abc = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"abc"</span>), || z_abc);
+        <span class="kw">let </span>(car, cdr, not_empty) =
+            car_cdr(<span class="macro">ns!</span>(cs, <span class="string">"car_cdr of abc"</span>), <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>not_dummy, <span class="kw-2">&amp;</span>a_abc).unwrap();
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>car), <span class="prelude-val">Some</span>(z_a));
         <span class="macro">assert_eq!</span>(a_ptr_as_z_ptr(<span class="kw-2">&amp;</span>cdr), <span class="prelude-val">Some</span>(z_bc));
         <span class="macro">assert_eq!</span>(not_empty.get_value(), <span class="prelude-val">Some</span>(<span class="bool-val">true</span>));
@@ -1933,9 +1765,9 @@
         <span class="kw">let </span>b = store.char(<span class="string">'b'</span>);
         <span class="kw">let </span>z_a = store.hash_ptr(<span class="kw-2">&amp;</span>a);
         <span class="kw">let </span>z_b = store.hash_ptr(<span class="kw-2">&amp;</span>b);
-        <span class="kw">let </span>a_ab = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"ab"</span>), || z_ab);
+        <span class="kw">let </span>a_ab = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"ab"</span>), || z_ab);
         <span class="kw">let </span>(cars, cdr, length) = chain_car_cdr(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"chain_car_cdr on ab"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"chain_car_cdr on ab"</span>),
             <span class="kw-2">&amp;</span>g,
             <span class="kw-2">&amp;</span>store,
             <span class="kw-2">&amp;</span>not_dummy,
@@ -1954,9 +1786,9 @@
         <span class="comment">// list
         </span><span class="kw">let </span>list = store.list(<span class="macro">vec!</span>[ab, ab]);
         <span class="kw">let </span>z_list = store.hash_ptr(<span class="kw-2">&amp;</span>list);
-        <span class="kw">let </span>a_list = AllocatedPtr::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"list"</span>), || z_list);
+        <span class="kw">let </span>a_list = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"list"</span>), || z_list);
         <span class="kw">let </span>(cars, cdr, length) = chain_car_cdr(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"chain_car_cdr on list"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"chain_car_cdr on list"</span>),
             <span class="kw-2">&amp;</span>g,
             <span class="kw-2">&amp;</span>store,
             <span class="kw-2">&amp;</span>not_dummy,

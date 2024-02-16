@@ -1432,7 +1432,6 @@
 <a href="#1431" id="1431">1431</a>
 <a href="#1432" id="1432">1432</a>
 <a href="#1433" id="1433">1433</a>
-<a href="#1434" id="1434">1434</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -1591,10 +1590,9 @@
         provenance: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         count: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedNum&lt;F&gt;), SynthesisError&gt; {
-        <span class="kw">let </span>allocated_count =
-            { AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"count"</span>), || <span class="prelude-val">Ok</span>(F::from_u64(count)))<span class="question-mark">? </span>};
+        <span class="kw">let </span>allocated_count = { AllocatedNum::alloc(<span class="macro">ns!</span>(cs, <span class="string">"count"</span>), || <span class="prelude-val">Ok</span>(F::from_u64(count)))<span class="question-mark">? </span>};
         <span class="kw">let </span>count_ptr = AllocatedPtr::alloc_tag(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"count_ptr"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"count_ptr"</span>),
             ExprTag::Num.to_field(),
             allocated_count.clone(),
         )<span class="question-mark">?</span>;

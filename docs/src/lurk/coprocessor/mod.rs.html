@@ -279,14 +279,6 @@
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper::gadgets::boolean::Boolean;
 <span class="kw">use </span>bellpepper_core::{ConstraintSystem, SynthesisError};
 <span class="kw">use </span>std::fmt::Debug;
@@ -425,33 +417,25 @@
             <span class="kw">let </span>a = <span class="kw-2">&amp;</span>input_exprs[<span class="number">0</span>];
             <span class="kw">let </span>b = <span class="kw-2">&amp;</span>input_exprs[<span class="number">1</span>];
 
-            <span class="kw">let </span>a_is_num = alloc_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"fst is num"</span>), a.tag(), num_tag)<span class="question-mark">?</span>;
-            <span class="kw">let </span>b_is_num = alloc_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"snd is num"</span>), b.tag(), num_tag)<span class="question-mark">?</span>;
-            <span class="kw">let </span>types_are_correct = Boolean::and(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"types are correct"</span>),
-                <span class="kw-2">&amp;</span>a_is_num,
-                <span class="kw-2">&amp;</span>b_is_num,
-            )<span class="question-mark">?</span>;
+            <span class="kw">let </span>a_is_num = alloc_equal(<span class="macro">ns!</span>(cs, <span class="string">"fst is num"</span>), a.tag(), num_tag)<span class="question-mark">?</span>;
+            <span class="kw">let </span>b_is_num = alloc_equal(<span class="macro">ns!</span>(cs, <span class="string">"snd is num"</span>), b.tag(), num_tag)<span class="question-mark">?</span>;
+            <span class="kw">let </span>types_are_correct =
+                Boolean::and(<span class="macro">ns!</span>(cs, <span class="string">"types are correct"</span>), <span class="kw-2">&amp;</span>a_is_num, <span class="kw-2">&amp;</span>b_is_num)<span class="question-mark">?</span>;
 
             <span class="comment">// a^2 + b = c
-            </span><span class="kw">let </span>a2 = mul(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"square"</span>), a.hash(), a.hash())<span class="question-mark">?</span>;
-            <span class="kw">let </span>c = a2.add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"add"</span>), b.hash())<span class="question-mark">?</span>;
+            </span><span class="kw">let </span>a2 = mul(<span class="macro">ns!</span>(cs, <span class="string">"square"</span>), a.hash(), a.hash())<span class="question-mark">?</span>;
+            <span class="kw">let </span>c = a2.add(<span class="macro">ns!</span>(cs, <span class="string">"add"</span>), b.hash())<span class="question-mark">?</span>;
             <span class="kw">let </span>c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>result_expr0 =
-                AllocatedPtr::pick(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"result_expr0"</span>), <span class="kw-2">&amp;</span>b_is_num, <span class="kw-2">&amp;</span>c_ptr, b)<span class="question-mark">?</span>;
+            <span class="kw">let </span>result_expr0 = AllocatedPtr::pick(<span class="macro">ns!</span>(cs, <span class="string">"result_expr0"</span>), <span class="kw-2">&amp;</span>b_is_num, <span class="kw-2">&amp;</span>c_ptr, b)<span class="question-mark">?</span>;
 
             <span class="comment">// If `a` is not a `Num`, then that error takes precedence, and we return `a`. Otherwise, return either the
             // correct result or `b`, depending on whether `b` is a `Num` or not.
-            </span><span class="kw">let </span>result_expr = AllocatedPtr::pick(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"result_expr"</span>),
-                <span class="kw-2">&amp;</span>a_is_num,
-                <span class="kw-2">&amp;</span>result_expr0,
-                a,
-            )<span class="question-mark">?</span>;
+            </span><span class="kw">let </span>result_expr =
+                AllocatedPtr::pick(<span class="macro">ns!</span>(cs, <span class="string">"result_expr"</span>), <span class="kw-2">&amp;</span>a_is_num, <span class="kw-2">&amp;</span>result_expr0, a)<span class="question-mark">?</span>;
 
             <span class="kw">let </span>result_cont = AllocatedPtr::pick(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"result_cont"</span>),
+                <span class="macro">ns!</span>(cs, <span class="string">"result_cont"</span>),
                 <span class="kw-2">&amp;</span>types_are_correct,
                 input_cont,
                 cont_error,

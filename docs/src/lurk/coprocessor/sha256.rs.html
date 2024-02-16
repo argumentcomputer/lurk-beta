@@ -132,8 +132,6 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper::gadgets::{multipack::pack_bits, sha256::sha256};
 <span class="kw">use </span>bellpepper_core::{boolean::Boolean, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>lurk_macros::Coproc;
@@ -171,12 +169,10 @@
     };
 
     <span class="kw">for </span>ptr <span class="kw">in </span>ptrs {
-        <span class="kw">let </span>tag_bits = ptr
-            .tag()
-            .to_bits_le_strict(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"preimage_tag_bits"</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>tag_bits = ptr.tag().to_bits_le_strict(<span class="macro">ns!</span>(cs, <span class="string">"preimage_tag_bits"</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span>hash_bits = ptr
             .hash()
-            .to_bits_le_strict(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"preimage_hash_bits"</span>))<span class="question-mark">?</span>;
+            .to_bits_le_strict(<span class="macro">ns!</span>(cs, <span class="string">"preimage_hash_bits"</span>))<span class="question-mark">?</span>;
 
         bits.extend(tag_bits);
         pad_to_next_len_multiple_of_8(<span class="kw-2">&amp;mut </span>bits);
@@ -193,7 +189,7 @@
     <span class="comment">// Fine to lose the last &lt;1 bit of precision.
     </span><span class="kw">let </span>digest_scalar = pack_bits(cs.namespace(|| <span class="string">"digest_scalar"</span>), <span class="kw-2">&amp;</span>digest_bits)<span class="question-mark">?</span>;
     AllocatedPtr::alloc_tag(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"output_expr"</span>),
+        <span class="macro">ns!</span>(cs, <span class="string">"output_expr"</span>),
         ExprTag::Num.to_field(),
         digest_scalar,
     )

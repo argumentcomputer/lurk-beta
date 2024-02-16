@@ -76,15 +76,6 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>neptune::{
     circuit2::poseidon_hash_allocated <span class="kw">as </span>poseidon_hash,
@@ -129,10 +120,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
     ) -&gt; AllocatedNum&lt;F&gt; {
-        allocate_constant(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{self:?} tag"</span>)),
-            <span class="self">self</span>.to_field(),
-        )
+        allocate_constant(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"{self:?} tag"</span>)), <span class="self">self</span>.to_field())
     }
 }
 
@@ -142,7 +130,7 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
     ) -&gt; AllocatedNum&lt;F&gt; {
         allocate_constant(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{self:?} base continuation tag"</span>)),
+            <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"{self:?} base continuation tag"</span>)),
             <span class="self">self</span>.to_field(),
         )
     }
@@ -153,10 +141,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
     ) -&gt; AllocatedNum&lt;F&gt; {
-        allocate_constant(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{self:?} tag"</span>)),
-            <span class="self">self</span>.to_field(),
-        )
+        allocate_constant(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"{self:?} tag"</span>)), <span class="self">self</span>.to_field())
     }
 }
 
@@ -165,10 +150,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
     ) -&gt; AllocatedNum&lt;F&gt; {
-        allocate_constant(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"{self:?} tag"</span>)),
-            <span class="self">self</span>.to_field(),
-        )
+        allocate_constant(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"{self:?} tag"</span>)), <span class="self">self</span>.to_field())
     }
 }
 </code></pre></div></section></main></body></html>

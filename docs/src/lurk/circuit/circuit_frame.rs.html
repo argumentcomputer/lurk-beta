@@ -72,11 +72,6 @@
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper::util_cs::Comparable;
 
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
@@ -123,20 +118,16 @@
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
 
         <span class="kw">for </span>x <span class="kw">in </span><span class="number">0</span>..<span class="number">128 </span>{
-            <span class="kw">let </span>alloc_a =
-                AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| x.to_string()), || <span class="prelude-val">Ok</span>(Fr::from(x)))
-                    .unwrap();
-            <span class="kw">let </span>bits = alloc_a
-                .to_bits_le(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"bits_{x}"</span>)))
-                .unwrap();
+            <span class="kw">let </span>alloc_a = AllocatedNum::alloc(<span class="macro">ns!</span>(cs, x.to_string()), || <span class="prelude-val">Ok</span>(Fr::from(x))).unwrap();
+            <span class="kw">let </span>bits = alloc_a.to_bits_le(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"bits_{x}"</span>))).unwrap();
             <span class="kw">let </span>popcount_result =
-                AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"alloc popcount {x}"</span>)), || {
+                AllocatedNum::alloc(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"alloc popcount {x}"</span>)), || {
                     <span class="prelude-val">Ok</span>(Fr::from(u64::from(x.count_ones())))
                 })
                 .unwrap();
 
             popcount_equal(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"popcount {x}"</span>)),
+                <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"popcount {x}"</span>)),
                 <span class="kw-2">&amp;</span>bits,
                 popcount_result.get_variable(),
             );
@@ -148,9 +139,8 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_enforce_pack() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-        <span class="kw">let </span>a_num =
-            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"a num"</span>), || Fr::from_u64(<span class="number">42</span>));
-        <span class="kw">let </span>bits = a_num.to_bits_le(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"bits"</span>)).unwrap();
+        <span class="kw">let </span>a_num = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"a num"</span>), || Fr::from_u64(<span class="number">42</span>));
+        <span class="kw">let </span>bits = a_num.to_bits_le(<span class="macro">ns!</span>(cs, <span class="string">"bits"</span>)).unwrap();
         implies_pack(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>Boolean::Constant(<span class="bool-val">true</span>), <span class="kw-2">&amp;</span>bits, <span class="kw-2">&amp;</span>a_num);
         <span class="macro">assert!</span>(cs.is_satisfied());
     }

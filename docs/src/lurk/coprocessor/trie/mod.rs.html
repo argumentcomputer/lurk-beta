@@ -1186,18 +1186,6 @@
 <a href="#1185" id="1185">1185</a>
 <a href="#1186" id="1186">1186</a>
 <a href="#1187" id="1187">1187</a>
-<a href="#1188" id="1188">1188</a>
-<a href="#1189" id="1189">1189</a>
-<a href="#1190" id="1190">1190</a>
-<a href="#1191" id="1191">1191</a>
-<a href="#1192" id="1192">1192</a>
-<a href="#1193" id="1193">1193</a>
-<a href="#1194" id="1194">1194</a>
-<a href="#1195" id="1195">1195</a>
-<a href="#1196" id="1196">1196</a>
-<a href="#1197" id="1197">1197</a>
-<a href="#1198" id="1198">1198</a>
-<a href="#1199" id="1199">1199</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `trie` module implements a Trie with the following properties:
 //! Big-endian bits of the (field element) key are taken N at a time, where the underlying hash has arity 2^N. This
 //! forms a fixed-length path whose final element is either zero or some non-zero payload. If the payload is assumed to
@@ -1354,12 +1342,10 @@
     };
 
     <span class="kw">let </span>allocated_root_value =
-        AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"allocated_root_value"</span>), || {
-            <span class="prelude-val">Ok</span>(trie.root)
-        })<span class="question-mark">?</span>;
+        AllocatedNum::alloc(<span class="macro">ns!</span>(cs, <span class="string">"allocated_root_value"</span>), || <span class="prelude-val">Ok</span>(trie.root))<span class="question-mark">?</span>;
 
     implies_equal(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"enforce_root"</span>),
+        <span class="macro">ns!</span>(cs, <span class="string">"enforce_root"</span>),
         not_dummy,
         supplied_root_value,
         <span class="kw-2">&amp;</span>allocated_root_value,
@@ -1461,12 +1447,10 @@
     };
 
     <span class="kw">let </span>allocated_root_value =
-        AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"allocated_root_value"</span>), || {
-            <span class="prelude-val">Ok</span>(trie.root)
-        })<span class="question-mark">?</span>;
+        AllocatedNum::alloc(<span class="macro">ns!</span>(cs, <span class="string">"allocated_root_value"</span>), || <span class="prelude-val">Ok</span>(trie.root))<span class="question-mark">?</span>;
 
     implies_equal(
-        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"enforce_root"</span>),
+        <span class="macro">ns!</span>(cs, <span class="string">"enforce_root"</span>),
         not_dummy,
         supplied_root_value,
         <span class="kw-2">&amp;</span>allocated_root_value,
@@ -1819,7 +1803,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;Boolean&gt;&gt;, SynthesisError&gt; {
         <span class="kw">let </span>(arity_bits, bits_needed) = <span class="self">Self</span>::path_bit_dimensions();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>bits = key.to_bits_le_strict(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"bits"</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>bits = key.to_bits_le_strict(<span class="macro">ns!</span>(cs, <span class="string">"bits"</span>))<span class="question-mark">?</span>;
         <span class="kw">for _ in </span><span class="number">0</span>..bits_needed - bits.len() {
             bits.push(Boolean::Constant(<span class="bool-val">false</span>));
         }
@@ -1861,7 +1845,7 @@
         allocated_root: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
         key: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-        <span class="kw">let </span>path = <span class="self">Self</span>::synthesize_path(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"path"</span>), key)<span class="question-mark">?</span>;
+        <span class="kw">let </span>path = <span class="self">Self</span>::synthesize_path(<span class="macro">ns!</span>(cs, <span class="string">"path"</span>), key)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>val = <span class="self">self
             </span>.synthesize_lookup_at_path(cs, hash_constants, allocated_root, <span class="kw-2">&amp;</span>path)<span class="question-mark">?
@@ -1890,19 +1874,15 @@
                         p.iter()
                             .enumerate()
                             .map(|(j, f)| {
-                                AllocatedNum::alloc(
-                                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"preimage-{i}-{j}"</span>)),
-                                    || <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>f),
-                                )
+                                AllocatedNum::alloc(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"preimage-{i}-{j}"</span>)), || <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>f))
                             })
                             .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, SynthesisError&gt;&gt;()<span class="question-mark">?
                     </span>} <span class="kw">else </span>{
                         (<span class="number">0</span>..ARITY)
                             .map(|j| {
-                                AllocatedNum::alloc(
-                                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"preimage-{i}-{j}"</span>)),
-                                    || <span class="prelude-val">Err</span>(SynthesisError::AssignmentMissing),
-                                )
+                                AllocatedNum::alloc(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"preimage-{i}-{j}"</span>)), || {
+                                    <span class="prelude-val">Err</span>(SynthesisError::AssignmentMissing)
+                                })
                             })
                             .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, SynthesisError&gt;&gt;()<span class="question-mark">?
                     </span>};
@@ -1910,18 +1890,14 @@
                     preimage_path.push(allocated_preimage.clone());
 
                     <span class="kw">let </span>hashed = hash_constants.constants(ARITY.into()).hash(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"poseidon_hash_{i}"</span>)),
+                        <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"poseidon_hash_{i}"</span>)),
                         allocated_preimage.clone(),
                         <span class="prelude-val">None</span>,
                     )<span class="question-mark">?</span>;
 
                     enforce_equal(cs, || <span class="macro">format!</span>(<span class="string">"hashed equals next {i}"</span>), <span class="kw-2">&amp;</span>hashed, <span class="kw-2">&amp;</span>next);
 
-                    select(
-                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"select-{i}"</span>)),
-                        <span class="kw-2">&amp;</span>allocated_preimage,
-                        k_bits,
-                    )
+                    select(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"select-{i}"</span>)), <span class="kw-2">&amp;</span>allocated_preimage, k_bits)
                 })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((found, preimage_path))
     }
@@ -2021,9 +1997,9 @@
         key: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
         value: AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-        <span class="kw">let </span>path = <span class="self">Self</span>::synthesize_path(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"path"</span>), key)<span class="question-mark">?</span>;
+        <span class="kw">let </span>path = <span class="self">Self</span>::synthesize_path(<span class="macro">ns!</span>(cs, <span class="string">"path"</span>), key)<span class="question-mark">?</span>;
         <span class="self">self</span>.synthesize_insert_at_path(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"insert_aux"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"insert_aux"</span>),
             hash_constants,
             allocated_root,
             <span class="kw-2">&amp;</span>path,
@@ -2041,7 +2017,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>preimage_path = <span class="self">self
             </span>.synthesize_lookup_at_path(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"found_value"</span>),
+                <span class="macro">ns!</span>(cs, <span class="string">"found_value"</span>),
                 hash_constants,
                 allocated_root,
                 path,
@@ -2049,7 +2025,7 @@
             </span>.<span class="number">1</span>;
 
         <span class="self">Self</span>::synthesize_modify_value_at_path(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">"new_root_value"</span>),
+            <span class="macro">ns!</span>(cs, <span class="string">"new_root_value"</span>),
             hash_constants,
             path,
             <span class="kw-2">&amp;</span>preimage_path,
@@ -2071,7 +2047,7 @@
                 .iter()
                 .enumerate()
                 .map(|(j, _x)| {
-                    AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"preimage-{i}-{j}"</span>)), || {
+                    AllocatedNum::alloc(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"preimage-{i}-{j}"</span>)), || {
                         <span class="kw">if </span>j == path_index {
                             value.get_value().ok_or(SynthesisError::AssignmentMissing)
                         } <span class="kw">else </span>{
@@ -2084,7 +2060,7 @@
                 .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, SynthesisError&gt;&gt;()<span class="question-mark">?</span>;
 
             value = hash_constants.constants(ARITY.into()).hash(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">"poseidon_hash_{i}"</span>)),
+                <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"poseidon_hash_{i}"</span>)),
                 new_preimage,
                 <span class="prelude-val">None</span>,
             )<span class="question-mark">?
