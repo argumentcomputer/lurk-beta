@@ -1497,6 +1497,35 @@
 <a href="#1496" id="1496">1496</a>
 <a href="#1497" id="1497">1497</a>
 <a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -2116,23 +2145,38 @@
     // }
 
     </span><span class="kw">fn </span>compute_provenances(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt; {
-        <span class="kw">let </span>base_cases = <span class="self">self
+        <span class="kw">let </span><span class="kw-2">mut </span>provenances = HashMap::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>ready = HashSet::new();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>missing_dependency_counts: HashMap&lt;<span class="kw-2">&amp;</span>Ptr, usize&gt; = <span class="self">self
             </span>.queries
             .keys()
-            .filter(|key| {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(deps) = <span class="self">self</span>.dependencies.get(key) {
-                    deps.is_empty()
-                } <span class="kw">else </span>{
-                    <span class="bool-val">true
-                </span>}
-            })
-            .collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
-        <span class="kw">let </span><span class="kw-2">mut </span>todo = base_cases;
-        <span class="kw">let </span><span class="kw-2">mut </span>provenances = HashMap::default();
+            .map(|key| {
+                <span class="kw">let </span>dep_count = <span class="self">self</span>.dependencies.get(key).map_or(<span class="number">0</span>, |x| x.len());
 
-        <span class="kw">while </span>!todo.is_empty() {
-            todo = <span class="self">self</span>.extend_provenances(store, <span class="kw-2">&amp;mut </span>provenances, todo);
+                <span class="kw">if </span>dep_count == <span class="number">0 </span>{
+                    <span class="comment">// Queries are ready if they have no missing dependencies.
+                    // Initially, this will be the base cases -- which have no dependencies.
+                    </span>ready.insert(key);
+                }
+                (key, dep_count)
+            })
+            .collect();
+
+        <span class="kw">while </span>!ready.is_empty() {
+            ready = <span class="self">self</span>.extend_provenances(
+                store,
+                <span class="kw-2">&amp;mut </span>provenances,
+                ready,
+                <span class="kw-2">&amp;mut </span>missing_dependency_counts,
+            );
         }
+
+        <span class="macro">assert_eq!</span>(
+            <span class="self">self</span>.queries.len(),
+            provenances.len(),
+            <span class="string">"incomplete provenance computation (probably a forbidden cyclic query)"
+        </span>);
 
         provenances
             .iter()
@@ -2140,17 +2184,19 @@
             .collect()
     }
 
-    <span class="kw">fn </span>extend_provenances(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    <span class="kw">fn </span>extend_provenances&lt;<span class="lifetime">'a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         provenances: <span class="kw-2">&amp;mut </span>HashMap&lt;Ptr, Ptr&gt;,
-        todo: HashSet&lt;<span class="kw-2">&amp;</span>Ptr&gt;,
+        ready: HashSet&lt;<span class="kw-2">&amp;</span>Ptr&gt;,
+        missing_dependency_counts: <span class="kw-2">&amp;mut </span>HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Ptr, usize&gt;,
     ) -&gt; HashSet&lt;<span class="kw-2">&amp;</span>Ptr&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>next = HashSet::new();
-
-        <span class="kw">for </span>query <span class="kw">in </span>todo.into_iter() {
+        <span class="kw">for </span>query <span class="kw">in </span>ready.into_iter() {
             <span class="kw">if </span>provenances.get(query).is_some() {
-                <span class="kw">continue</span>;
+                <span class="comment">// Skip if already complete. This should not happen if called by `compute_provenances` when computing
+                // all provenances from scratch, but it could happen if we compute more incrementally in the future.
+                </span><span class="kw">continue</span>;
             };
 
             <span class="kw">let </span>sub_provenances = <span class="self">self
@@ -2168,9 +2214,21 @@
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(dependents) = <span class="self">self</span>.dependents.get(query) {
                 <span class="kw">for </span>dependent <span class="kw">in </span>dependents {
-                    <span class="kw">if </span>provenances.get(dependent).is_none() {
-                        next.insert(dependent);
-                    }
+                    missing_dependency_counts
+                        .entry(dependent)
+                        .and_modify(|missing_count| {
+                            <span class="comment">// NOTE: A query only becomes the `dependent` here when one of its dependencies is
+                            // processed. Any query with `missing_count` 0 has no unprocessed dependencies to trigger
+                            // the following update. Therefore, the underflow guarded against below should never occur
+                            // if the implicit topological sort worked correctly. Any failure suggests the algorithm has
+                            // been broken accidentally.
+                            </span><span class="kw-2">*</span>missing_count = missing_count
+                                .checked_sub(<span class="number">1</span>)
+                                .expect(<span class="string">"topological sort has been broken; a dependency was processed out of order"</span>);
+                            <span class="kw">if </span><span class="kw-2">*</span>missing_count == <span class="number">0 </span>{
+                                next.insert(dependent);
+                            }
+                        });
                 }
             };
 
