@@ -775,7 +775,9 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                 for chunk in &keys.iter().chunks(rc) {
                     for key in chunk.map(Some).pad_using(rc, |_| None) {
                         let (provenance, count) = if let Some(key) = key {
-                            let kv = kvs_by_key.get(key).expect("xxxxxx");
+                            // This should not fail: `kv` was added in `record` above, when the key was added to
+                            // `unique_keys`.
+                            let kv = kvs_by_key.get(key).expect("kv missing");
                             let count = self.memoset.count(kv);
                             let provenance = self.provenance_from_kv(s, *kv).unwrap();
                             (provenance, count)
