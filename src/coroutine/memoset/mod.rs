@@ -794,7 +794,6 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             }
         }
 
-        transcript.dbg(s);
         (transcript, unique_keys)
     }
 
@@ -874,8 +873,6 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                 }
             }
         }
-
-        circuit_scope.transcript.dbg(s);
 
         circuit_scope.finalize(cs, g);
 
