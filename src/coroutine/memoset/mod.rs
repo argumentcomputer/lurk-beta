@@ -639,7 +639,14 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                     missing_dependency_counts
                         .entry(dependent)
                         .and_modify(|missing_count| {
-                            *missing_count -= 1;
+                            // NOTE: A query only becomes the `dependent` here when one of its dependencies is
+                            // processed. Any query with `missing_count` 0 has no unprocessed dependencies to trigger
+                            // the following update. Therefore, the underflow guarded against below should never occur
+                            // if the implicit topological sort worked correctly. Any failure suggests the algorithm has
+                            // been broken accidentally.
+                            *missing_count = missing_count
+                                .checked_sub(1)
+                                .expect("topological sort has been broken; a dependency was processed out of order");
                             if *missing_count == 0 {
                                 next.insert(dependent);
                             }
