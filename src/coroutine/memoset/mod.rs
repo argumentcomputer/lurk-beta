@@ -693,6 +693,9 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             let p = Provenance::new(*query, *result, sub_provenances);
             let provenance = p.to_ptr(store);
 
+            // Insert new provenance before decrementing `missing_dependency_counts`.
+            provenances.insert(*query, *provenance);
+
             if let Some(dependents) = self.dependents.get(query) {
                 for dependent in dependents {
                     missing_dependency_counts
@@ -712,8 +715,6 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                         });
                 }
             };
-
-            provenances.insert(*query, *provenance);
         }
 
         next
