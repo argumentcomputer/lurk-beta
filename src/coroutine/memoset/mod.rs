@@ -737,6 +737,9 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             let key = s.car_cdr(kv).unwrap().0;
             let kv1 = kvs_by_key.entry(key).or_insert_with(|| {
                 let index = Q::from_ptr(s, &key).expect("bad query").index();
+
+                // We only add to `unique_keys` inside this closure, which only happens once per key. This accomplishes
+                // the 'deduplication' referred to below.
                 unique_keys
                     .entry(index)
                     .and_modify(|keys| keys.push(key))
