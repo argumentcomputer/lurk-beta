@@ -143,8 +143,8 @@ impl Var {
 /// delimits their variables' scope.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Block {
-    ops: Vec<Op>,
-    ctrl: Ctrl,
+    pub ops: Vec<Op>,
+    pub ctrl: Ctrl,
 }
 
 /// The basic control nodes for LEM logical paths.
