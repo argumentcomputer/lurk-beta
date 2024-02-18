@@ -131,12 +131,11 @@ pub(crate) mod tests {
     #[test]
     fn pos_index_roundtrip() {
         for i in 0.. {
-            if let Some(tag) = Tag::pos(i) {
-                let j = tag.index();
-                assert_eq!(i, j);
-            } else {
+            let Some(tag) = Tag::pos(i) else {
                 break;
-            }
+            };
+            let j = tag.index();
+            assert_eq!(i, j);
         }
 
         for expr_tag in ExprTag::iter() {
