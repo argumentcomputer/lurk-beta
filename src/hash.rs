@@ -128,14 +128,10 @@ impl<F: LurkField> InversePoseidonCache<F> {
         macro_rules! get {
             ($name:ident, $n: expr) => {{
                 let preimage = self.$name.get(key);
-                if let Some(p) = preimage {
-                    assert_eq!(ARITY, $n);
+                preimage.and_then(|p | { assert_eq!(ARITY, $n);
                     // SAFETY: we are just teaching the compiler that the slice has size, ARITY, which is guaranteed by
                     // the assertion above.
-                    Some(unsafe { std::mem::transmute::<&[F; $n], &[F; ARITY]>(p) })
-                } else {
-                    None
-                }
+                    Some(unsafe { std::mem::transmute::<&[F; $n], &[F; ARITY]>(p) }) })
             }};
         }
 

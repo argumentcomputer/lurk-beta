@@ -865,21 +865,20 @@ impl<F: LurkField> Store<F> {
         }
 
         let idx = ptr.raw().get_hash4()?;
-        if let Some([query_pay, val_tag, val_pay, deps_pay]) = self.fetch_raw_ptrs(idx) {
-            let query = Ptr::new(Tag::Expr(Cons), *query_pay);
-            let val = self.raw_to_ptr(val_tag, val_pay)?;
+        self.fetch_raw_ptrs(idx)
+            .and_then(|[query_pay, val_tag, val_pay, deps_pay]| {
+                let query = Ptr::new(Tag::Expr(Cons), *query_pay);
+                let val = self.raw_to_ptr(val_tag, val_pay)?;
 
-            let nil = self.intern_nil();
-            let deps = if deps_pay == nil.raw() {
-                nil
-            } else {
-                Ptr::new(Tag::Expr(Prov), *deps_pay)
-            };
+                let nil = self.intern_nil();
+                let deps = if deps_pay == nil.raw() {
+                    nil
+                } else {
+                    Ptr::new(Tag::Expr(Prov), *deps_pay)
+                };
 
-            Some((query, val, deps))
-        } else {
-            None
-        }
+                Some((query, val, deps))
+            })
     }
 
     pub fn intern_syntax(&self, syn: Syntax<F>) -> Ptr {
