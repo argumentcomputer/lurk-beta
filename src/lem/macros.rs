@@ -715,6 +715,18 @@ macro_rules! func {
     };
 }
 
+#[macro_export]
+macro_rules! aux_func {
+    ($name:ident($( $in:ident ),*): $size:expr => $lem:tt) => {
+        $crate::lem::Func::new_unchecked(
+            stringify!($name).into(),
+            vec![$($crate::var!($in)),*],
+            $size,
+            $crate::block!($lem),
+        )
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{

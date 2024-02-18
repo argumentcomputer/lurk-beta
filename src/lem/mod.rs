@@ -266,6 +266,22 @@ impl Func {
         Ok(func)
     }
 
+    pub fn new_unchecked(
+        name: String,
+        input_params: Vec<Var>,
+        output_size: usize,
+        body: Block,
+    ) -> Func {
+        let slots_count = body.count_slots();
+        Func {
+            slots_count,
+            name,
+            input_params,
+            output_size,
+            body,
+        }
+    }
+
     /// Performs the static checks described in LEM's docstring.
     pub fn check(&self) -> Result<()> {
         use std::collections::{HashMap, HashSet};
@@ -551,7 +567,8 @@ impl Block {
                 Op::Call(out, func, inp) => {
                     let inp = map.get_many_cloned(&inp)?;
                     let out = insert_many(map, uniq, &out);
-                    let func = Box::new(func.deconflict(map, uniq)?);
+                    let new_map = &mut VarMap::new();
+                    let func = Box::new(func.deconflict(new_map, uniq)?);
                     ops.push(Op::Call(out, func, inp))
                 }
                 Op::Copy(tgt, src) => {
