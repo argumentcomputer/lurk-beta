@@ -1189,85 +1189,85 @@ impl Ptr {
                         "<Malformed U64>".into()
                     }
                 }
-                Fun => match self.raw().get_hash8() {
-                    None => "<Malformed Fun>".into(),
-                    Some(idx) => {
-                        let Some([vars, body, _, _]) = fetch_ptrs!(store, 4, idx) else {
-                            return "<Opaque Fun>".into();
-                        };
-                        match vars.tag() {
-                            Tag::Expr(Nil) => {
-                                format!("<FUNCTION () {}>", body.fmt_to_string(store, state))
-                            }
-                            Tag::Expr(Cons) => {
-                                format!(
-                                    "<FUNCTION {} {}>",
-                                    vars.fmt_to_string(store, state),
-                                    body.fmt_to_string(store, state)
-                                )
-                            }
-                            _ => "<Malformed Fun>".into(),
+                Fun => {
+                    let Some(idx) = self.raw().get_hash8() else {
+                        return "<Malformed Fun>".into();
+                    };
+                    let Some([vars, body, _, _]) = fetch_ptrs!(store, 4, idx) else {
+                        return "<Opaque Fun>".into();
+                    };
+                    match vars.tag() {
+                        Tag::Expr(Nil) => {
+                            format!("<FUNCTION () {}>", body.fmt_to_string(store, state))
                         }
-                    }
-                },
-                Rec => match self.raw().get_hash8() {
-                    None => "<Malformed Rec>".into(),
-                    Some(idx) => {
-                        let Some([vars, body, _, _]) = fetch_ptrs!(store, 4, idx) else {
-                            return "<Opaque Rec>".into();
-                        };
-                        match vars.tag() {
-                            Tag::Expr(Nil) => {
-                                format!("<REC_FUNCTION () {}>", body.fmt_to_string(store, state))
-                            }
-                            Tag::Expr(Cons) => {
-                                format!(
-                                    "<REC_FUNCTION {} {}>",
-                                    vars.fmt_to_string(store, state),
-                                    body.fmt_to_string(store, state)
-                                )
-                            }
-                            _ => "<Malformed Rec>".into(),
+                        Tag::Expr(Cons) => {
+                            format!(
+                                "<FUNCTION {} {}>",
+                                vars.fmt_to_string(store, state),
+                                body.fmt_to_string(store, state)
+                            )
                         }
+                        _ => "<Malformed Fun>".into(),
                     }
-                },
-                Thunk => match self.raw().get_hash4() {
-                    None => "<Malformed Thunk>".into(),
-                    Some(idx) => {
-                        let Some([val, cont]) = fetch_ptrs!(store, 2, idx) else {
-                            return "<Opaque Thunk>".into();
-                        };
-                        format!(
-                            "Thunk{{ value: {} => cont: {} }}",
-                            val.fmt_to_string(store, state),
-                            cont.fmt_to_string(store, state)
-                        )
-                    }
-                },
-                Comm => match self.raw().get_atom() {
-                    Some(idx) => {
-                        let f = store.expect_f(idx);
-                        if store.comms.get(&FWrap(*f)).is_some() {
-                            format!("(comm 0x{})", f.hex_digits())
-                        } else {
-                            format!("<Opaque Comm 0x{}>", f.hex_digits())
+                }
+                Rec => {
+                    let Some(idx) = self.raw().get_hash8() else {
+                        return "<Malformed Rec>".into();
+                    };
+                    let Some([vars, body, _, _]) = fetch_ptrs!(store, 4, idx) else {
+                        return "<Opaque Rec>".into();
+                    };
+                    match vars.tag() {
+                        Tag::Expr(Nil) => {
+                            format!("<REC_FUNCTION () {}>", body.fmt_to_string(store, state))
                         }
+                        Tag::Expr(Cons) => {
+                            format!(
+                                "<REC_FUNCTION {} {}>",
+                                vars.fmt_to_string(store, state),
+                                body.fmt_to_string(store, state)
+                            )
+                        }
+                        _ => "<Malformed Rec>".into(),
                     }
-                    None => "<Malformed Comm>".into(),
-                },
-                Cproc => match self.raw().get_hash4() {
-                    None => "<Malformed Cproc>".into(),
-                    Some(idx) => {
-                        let Some([cproc_name, args]) = fetch_ptrs!(store, 2, idx) else {
-                            return "<Opaque Cproc>".into();
-                        };
-                        format!(
-                            "<COPROC {} {}>",
-                            cproc_name.fmt_to_string(store, state),
-                            args.fmt_to_string(store, state)
-                        )
+                }
+                Thunk => {
+                    let Some(idx) = self.raw().get_hash4() else {
+                        return "<Malformed Thunk>".into();
+                    };
+                    let Some([val, cont]) = fetch_ptrs!(store, 2, idx) else {
+                        return "<Opaque Thunk>".into();
+                    };
+                    format!(
+                        "Thunk{{ value: {} => cont: {} }}",
+                        val.fmt_to_string(store, state),
+                        cont.fmt_to_string(store, state)
+                    )
+                }
+                Comm => {
+                    let Some(idx) = self.raw().get_atom() else {
+                        return "<Malformed Comm>".into();
+                    };
+                    let f = store.expect_f(idx);
+                    if store.comms.get(&FWrap(*f)).is_some() {
+                        format!("(comm 0x{})", f.hex_digits())
+                    } else {
+                        format!("<Opaque Comm 0x{}>", f.hex_digits())
                     }
-                },
+                }
+                Cproc => {
+                    let Some(idx) = self.raw().get_hash4() else {
+                        return "<Malformed Cproc>".into();
+                    };
+                    let Some([cproc_name, args]) = fetch_ptrs!(store, 2, idx) else {
+                        return "<Opaque Cproc>".into();
+                    };
+                    format!(
+                        "<COPROC {} {}>",
+                        cproc_name.fmt_to_string(store, state),
+                        args.fmt_to_string(store, state)
+                    )
+                }
                 Env => {
                     let Some(env) = store.fetch_env(self) else {
                         return "<Opaque Env>".into();
@@ -1356,18 +1356,18 @@ impl Ptr {
         store: &Store<F>,
         state: &State,
     ) -> String {
-        match self.raw().get_hash8() {
-            None => format!("<Malformed {name}>"),
-            Some(idx) => {
-                let Some([a, cont, _, _]) = fetch_ptrs!(store, 4, idx) else {
-                    return format!("<Opaque {name}>");
-                };
-                format!(
-                    "{name}{{ {field}: {}, continuation: {} }}",
-                    a.fmt_to_string(store, state),
-                    cont.fmt_to_string(store, state)
-                )
-            }
+        {
+            let Some(idx) = self.raw().get_hash8() else {
+                return format!("<Malformed {name}>");
+            };
+            let Some([a, cont, _, _]) = fetch_ptrs!(store, 4, idx) else {
+                return format!("<Opaque {name}>");
+            };
+            format!(
+                "{name}{{ {field}: {}, continuation: {} }}",
+                a.fmt_to_string(store, state),
+                cont.fmt_to_string(store, state)
+            )
         }
     }
 
@@ -1378,20 +1378,20 @@ impl Ptr {
         store: &Store<F>,
         state: &State,
     ) -> String {
-        match self.raw().get_hash8() {
-            None => format!("<Malformed {name}>"),
-            Some(idx) => {
-                let Some([a, b, cont, _]) = fetch_ptrs!(store, 4, idx) else {
-                    return format!("<Opaque {name}>");
-                };
-                let (fa, fb) = fields;
-                format!(
-                    "{name}{{ {fa}: {}, {fb}: {}, continuation: {} }}",
-                    a.fmt_to_string(store, state),
-                    b.fmt_to_string(store, state),
-                    cont.fmt_to_string(store, state)
-                )
-            }
+        {
+            let Some(idx) = self.raw().get_hash8() else {
+                return format!("<Malformed {name}>");
+            };
+            let Some([a, b, cont, _]) = fetch_ptrs!(store, 4, idx) else {
+                return format!("<Opaque {name}>");
+            };
+            let (fa, fb) = fields;
+            format!(
+                "{name}{{ {fa}: {}, {fb}: {}, continuation: {} }}",
+                a.fmt_to_string(store, state),
+                b.fmt_to_string(store, state),
+                cont.fmt_to_string(store, state)
+            )
         }
     }
 
@@ -1402,21 +1402,21 @@ impl Ptr {
         store: &Store<F>,
         state: &State,
     ) -> String {
-        match self.raw().get_hash8() {
-            None => format!("<Malformed {name}>"),
-            Some(idx) => {
-                let Some([a, b, c, cont]) = fetch_ptrs!(store, 4, idx) else {
-                    return format!("<Opaque {name}>");
-                };
-                let (fa, fb, fc) = fields;
-                format!(
-                    "{name}{{ {fa}: {}, {fb}: {}, {fc}: {}, continuation: {} }}",
-                    a.fmt_to_string(store, state),
-                    b.fmt_to_string(store, state),
-                    c.fmt_to_string(store, state),
-                    cont.fmt_to_string(store, state)
-                )
-            }
+        {
+            let Some(idx) = self.raw().get_hash8() else {
+                return format!("<Malformed {name}>");
+            };
+            let Some([a, b, c, cont]) = fetch_ptrs!(store, 4, idx) else {
+                return format!("<Opaque {name}>");
+            };
+            let (fa, fb, fc) = fields;
+            format!(
+                "{name}{{ {fa}: {}, {fb}: {}, {fc}: {}, continuation: {} }}",
+                a.fmt_to_string(store, state),
+                b.fmt_to_string(store, state),
+                c.fmt_to_string(store, state),
+                cont.fmt_to_string(store, state)
+            )
         }
     }
 }
