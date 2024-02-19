@@ -331,8 +331,15 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn fetch_f(&self, idx: usize) -> Option<&F> {
+    pub fn fetch_f_by_idx(&self, idx: usize) -> Option<&F> {
         self.f_elts.get_index(idx).map(|fw| &fw.0)
+    }
+
+    #[inline]
+    pub fn fetch_f(&self, ptr: &Ptr) -> Option<&F> {
+        ptr.raw()
+            .get_atom()
+            .and_then(|idx| self.fetch_f_by_idx(idx))
     }
 
     #[inline]
@@ -361,7 +368,7 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn expect_f(&self, idx: usize) -> &F {
-        self.fetch_f(idx).expect("Index missing from f_elts")
+        self.fetch_f_by_idx(idx).expect("Index missing from f_elts")
     }
 
     #[inline]
@@ -454,6 +461,14 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    pub fn fetch_num(&self, ptr: &Ptr) -> Option<&F> {
+        match ptr.tag() {
+            Tag::Expr(Num) => self.fetch_f(ptr),
+            _ => None,
+        }
+    }
+
+    #[inline]
     pub fn num_u64(&self, u: u64) -> Ptr {
         self.intern_atom(Tag::Expr(Num), F::from_u64(u))
     }
@@ -464,8 +479,24 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    pub fn fetch_u64(&self, ptr: &Ptr) -> Option<u64> {
+        match ptr.tag() {
+            Tag::Expr(U64) => self.fetch_f(ptr).and_then(F::to_u64),
+            _ => None,
+        }
+    }
+
+    #[inline]
     pub fn char(&self, c: char) -> Ptr {
         self.intern_atom(Tag::Expr(Char), F::from_char(c))
+    }
+
+    #[inline]
+    pub fn fetch_char(&self, ptr: &Ptr) -> Option<char> {
+        match ptr.tag() {
+            Tag::Expr(Char) => self.fetch_f(ptr).and_then(F::to_char),
+            _ => None,
+        }
     }
 
     #[inline]
@@ -485,7 +516,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn is_zero(&self, ptr: &RawPtr) -> bool {
         match ptr {
-            RawPtr::Atom(idx) => self.fetch_f(*idx) == Some(&F::ZERO),
+            RawPtr::Atom(idx) => self.fetch_f_by_idx(*idx) == Some(&F::ZERO),
             _ => false,
         }
     }
@@ -528,7 +559,7 @@ impl<F: LurkField> Store<F> {
             loop {
                 match *ptr.raw() {
                     RawPtr::Atom(idx) => {
-                        if self.fetch_f(idx)? == &F::ZERO {
+                        if self.fetch_f_by_idx(idx)? == &F::ZERO {
                             self.ptr_string_cache.insert(ptr, string.clone());
                             return Some(string);
                         } else {
@@ -541,7 +572,7 @@ impl<F: LurkField> Store<F> {
                         assert_eq!(*cdr_tag, self.tag(Tag::Expr(Str)));
                         match car {
                             RawPtr::Atom(idx) => {
-                                let f = self.fetch_f(*idx)?;
+                                let f = self.fetch_f_by_idx(*idx)?;
                                 string.push(f.to_char().expect("malformed char pointer"));
                                 ptr = Ptr::new(Tag::Expr(Str), *cdr)
                             }
@@ -591,7 +622,7 @@ impl<F: LurkField> Store<F> {
             path.push(string);
             match cdr {
                 RawPtr::Atom(idx) => {
-                    if self.fetch_f(*idx)? == &F::ZERO {
+                    if self.fetch_f_by_idx(*idx)? == &F::ZERO {
                         path.reverse();
                         return Some(path);
                     } else {
@@ -610,7 +641,7 @@ impl<F: LurkField> Store<F> {
         } else {
             match (ptr.tag(), ptr.raw()) {
                 (Tag::Expr(Sym), RawPtr::Atom(idx)) => {
-                    if self.fetch_f(*idx)? == &F::ZERO {
+                    if self.fetch_f_by_idx(*idx)? == &F::ZERO {
                         let sym = Symbol::root_sym();
                         self.ptr_symbol_cache.insert(*ptr, Box::new(sym.clone()));
                         Some(sym)
@@ -619,7 +650,7 @@ impl<F: LurkField> Store<F> {
                     }
                 }
                 (Tag::Expr(Key), RawPtr::Atom(idx)) => {
-                    if self.fetch_f(*idx)? == &F::ZERO {
+                    if self.fetch_f_by_idx(*idx)? == &F::ZERO {
                         let key = Symbol::root_key();
                         self.ptr_symbol_cache.insert(*ptr, Box::new(key.clone()));
                         Some(key)
@@ -1140,12 +1171,7 @@ impl Ptr {
                     format!("\"{str}\"")
                 }
                 Char => {
-                    if let Some(c) = self
-                        .raw()
-                        .get_atom()
-                        .map(|idx| store.expect_f(idx))
-                        .and_then(F::to_char)
-                    {
+                    if let Some(c) = store.fetch_f(self).and_then(F::to_char) {
                         format!("\'{c}\'")
                     } else {
                         "<Malformed Char>".into()
@@ -1169,7 +1195,7 @@ impl Ptr {
                     )
                 }
                 Num => {
-                    let Some(f) = self.raw().get_atom().map(|idx| store.expect_f(idx)) else {
+                    let Some(f) = store.fetch_f(self) else {
                         return "<Malformed Num>".into();
                     };
                     let Some(u) = f.to_u64() else {
@@ -1178,12 +1204,7 @@ impl Ptr {
                     u.to_string()
                 }
                 U64 => {
-                    if let Some(u) = self
-                        .raw()
-                        .get_atom()
-                        .map(|idx| store.expect_f(idx))
-                        .and_then(F::to_u64)
-                    {
+                    if let Some(u) = store.fetch_f(self).and_then(F::to_u64) {
                         format!("{u}u64")
                     } else {
                         "<Malformed U64>".into()
