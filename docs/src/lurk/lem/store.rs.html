@@ -1694,27 +1694,6 @@
 <a href="#1693" id="1693">1693</a>
 <a href="#1694" id="1694">1694</a>
 <a href="#1695" id="1695">1695</a>
-<a href="#1696" id="1696">1696</a>
-<a href="#1697" id="1697">1697</a>
-<a href="#1698" id="1698">1698</a>
-<a href="#1699" id="1699">1699</a>
-<a href="#1700" id="1700">1700</a>
-<a href="#1701" id="1701">1701</a>
-<a href="#1702" id="1702">1702</a>
-<a href="#1703" id="1703">1703</a>
-<a href="#1704" id="1704">1704</a>
-<a href="#1705" id="1705">1705</a>
-<a href="#1706" id="1706">1706</a>
-<a href="#1707" id="1707">1707</a>
-<a href="#1708" id="1708">1708</a>
-<a href="#1709" id="1709">1709</a>
-<a href="#1710" id="1710">1710</a>
-<a href="#1711" id="1711">1711</a>
-<a href="#1712" id="1712">1712</a>
-<a href="#1713" id="1713">1713</a>
-<a href="#1714" id="1714">1714</a>
-<a href="#1715" id="1715">1715</a>
-<a href="#1716" id="1716">1716</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -2582,21 +2561,20 @@
         }
 
         <span class="kw">let </span>idx = ptr.raw().get_hash4()<span class="question-mark">?</span>;
-        <span class="kw">if let </span><span class="prelude-val">Some</span>([query_pay, val_tag, val_pay, deps_pay]) = <span class="self">self</span>.fetch_raw_ptrs(idx) {
-            <span class="kw">let </span>query = Ptr::new(Tag::Expr(Cons), <span class="kw-2">*</span>query_pay);
-            <span class="kw">let </span>val = <span class="self">self</span>.raw_to_ptr(val_tag, val_pay)<span class="question-mark">?</span>;
+        <span class="self">self</span>.fetch_raw_ptrs(idx)
+            .and_then(|[query_pay, val_tag, val_pay, deps_pay]| {
+                <span class="kw">let </span>query = Ptr::new(Tag::Expr(Cons), <span class="kw-2">*</span>query_pay);
+                <span class="kw">let </span>val = <span class="self">self</span>.raw_to_ptr(val_tag, val_pay)<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>nil = <span class="self">self</span>.intern_nil();
-            <span class="kw">let </span>deps = <span class="kw">if </span>deps_pay == nil.raw() {
-                nil
-            } <span class="kw">else </span>{
-                Ptr::new(Tag::Expr(Prov), <span class="kw-2">*</span>deps_pay)
-            };
+                <span class="kw">let </span>nil = <span class="self">self</span>.intern_nil();
+                <span class="kw">let </span>deps = <span class="kw">if </span>deps_pay == nil.raw() {
+                    nil
+                } <span class="kw">else </span>{
+                    Ptr::new(Tag::Expr(Prov), <span class="kw-2">*</span>deps_pay)
+                };
 
-            <span class="prelude-val">Some</span>((query, val, deps))
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>}
+                <span class="prelude-val">Some</span>((query, val, deps))
+            })
     }
 
     <span class="kw">pub fn </span>intern_syntax(<span class="kw-2">&amp;</span><span class="self">self</span>, syn: Syntax&lt;F&gt;) -&gt; Ptr {
@@ -2834,32 +2812,28 @@
         <span class="kw">match </span><span class="self">self</span>.tag() {
             Tag::Expr(t) =&gt; <span class="kw">match </span>t {
                 Nil =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(sym) = store.fetch_symbol(<span class="self">self</span>) {
-                        state.fmt_to_string(<span class="kw-2">&amp;</span>sym.into())
-                    } <span class="kw">else </span>{
-                        <span class="string">"&lt;Opaque Nil&gt;"</span>.into()
-                    }
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(sym) = store.fetch_symbol(<span class="self">self</span>) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Nil&gt;"</span>.into();
+                    };
+                    state.fmt_to_string(<span class="kw-2">&amp;</span>sym.into())
                 }
                 Sym =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(sym) = store.fetch_sym(<span class="self">self</span>) {
-                        state.fmt_to_string(<span class="kw-2">&amp;</span>sym.into())
-                    } <span class="kw">else </span>{
-                        <span class="string">"&lt;Opaque Sym&gt;"</span>.into()
-                    }
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(sym) = store.fetch_sym(<span class="self">self</span>) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Sym&gt;"</span>.into();
+                    };
+                    state.fmt_to_string(<span class="kw-2">&amp;</span>sym.into())
                 }
                 Key =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = store.fetch_key(<span class="self">self</span>) {
-                        state.fmt_to_string(<span class="kw-2">&amp;</span>key.into())
-                    } <span class="kw">else </span>{
-                        <span class="string">"&lt;Opaque Key&gt;"</span>.into()
-                    }
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(key) = store.fetch_key(<span class="self">self</span>) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Key&gt;"</span>.into();
+                    };
+                    state.fmt_to_string(<span class="kw-2">&amp;</span>key.into())
                 }
                 Str =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(str) = store.fetch_string(<span class="self">self</span>) {
-                        <span class="macro">format!</span>(<span class="string">"\"{str}\""</span>)
-                    } <span class="kw">else </span>{
-                        <span class="string">"&lt;Opaque Str&gt;"</span>.into()
-                    }
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(str) = store.fetch_string(<span class="self">self</span>) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Str&gt;"</span>.into();
+                    };
+                    <span class="macro">format!</span>(<span class="string">"\"{str}\""</span>)
                 }
                 Char =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = <span class="self">self
@@ -2874,34 +2848,30 @@
                     }
                 }
                 Cons =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>((list, non_nil)) = store.fetch_list(<span class="self">self</span>) {
-                        <span class="kw">let </span>list = list
-                            .iter()
-                            .map(|p| p.fmt_to_string(store, state))
-                            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(non_nil) = non_nil {
-                            <span class="macro">format!</span>(
-                                <span class="string">"({} . {})"</span>,
-                                list.join(<span class="string">" "</span>),
-                                non_nil.fmt_to_string(store, state)
-                            )
-                        } <span class="kw">else </span>{
-                            <span class="macro">format!</span>(<span class="string">"({})"</span>, list.join(<span class="string">" "</span>))
-                        }
-                    } <span class="kw">else </span>{
-                        <span class="string">"&lt;Opaque Cons&gt;"</span>.into()
-                    }
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((list, non_nil)) = store.fetch_list(<span class="self">self</span>) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Cons&gt;"</span>.into();
+                    };
+                    <span class="kw">let </span>list = list
+                        .iter()
+                        .map(|p| p.fmt_to_string(store, state))
+                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(non_nil) = non_nil <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"({})"</span>, list.join(<span class="string">" "</span>));
+                    };
+                    <span class="macro">format!</span>(
+                        <span class="string">"({} . {})"</span>,
+                        list.join(<span class="string">" "</span>),
+                        non_nil.fmt_to_string(store, state)
+                    )
                 }
                 Num =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = <span class="self">self</span>.raw().get_atom().map(|idx| store.expect_f(idx)) {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = f.to_u64() {
-                            u.to_string()
-                        } <span class="kw">else </span>{
-                            <span class="macro">format!</span>(<span class="string">"0x{}"</span>, f.hex_digits())
-                        }
-                    } <span class="kw">else </span>{
-                        <span class="string">"&lt;Malformed Num&gt;"</span>.into()
-                    }
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(f) = <span class="self">self</span>.raw().get_atom().map(|idx| store.expect_f(idx)) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Malformed Num&gt;"</span>.into();
+                    };
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(u) = f.to_u64() <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"0x{}"</span>, f.hex_digits());
+                    };
+                    u.to_string()
                 }
                 U64 =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = <span class="self">self
@@ -2915,128 +2885,119 @@
                         <span class="string">"&lt;Malformed U64&gt;"</span>.into()
                     }
                 }
-                Fun =&gt; <span class="kw">match </span><span class="self">self</span>.raw().get_hash8() {
-                    <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;Malformed Fun&gt;"</span>.into(),
-                    <span class="prelude-val">Some</span>(idx) =&gt; {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>([vars, body, <span class="kw">_</span>, <span class="kw">_</span>]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) {
-                            <span class="kw">match </span>vars.tag() {
-                                Tag::Expr(Nil) =&gt; {
-                                    <span class="macro">format!</span>(<span class="string">"&lt;FUNCTION () {}&gt;"</span>, body.fmt_to_string(store, state))
-                                }
-                                Tag::Expr(Cons) =&gt; {
-                                    <span class="macro">format!</span>(
-                                        <span class="string">"&lt;FUNCTION {} {}&gt;"</span>,
-                                        vars.fmt_to_string(store, state),
-                                        body.fmt_to_string(store, state)
-                                    )
-                                }
-                                <span class="kw">_ </span>=&gt; <span class="string">"&lt;Malformed Fun&gt;"</span>.into(),
-                            }
-                        } <span class="kw">else </span>{
-                            <span class="string">"&lt;Opaque Fun&gt;"</span>.into()
+                Fun =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.raw().get_hash8() <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Malformed Fun&gt;"</span>.into();
+                    };
+                    <span class="kw">let </span><span class="prelude-val">Some</span>([vars, body, <span class="kw">_</span>, <span class="kw">_</span>]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Fun&gt;"</span>.into();
+                    };
+                    <span class="kw">match </span>vars.tag() {
+                        Tag::Expr(Nil) =&gt; {
+                            <span class="macro">format!</span>(<span class="string">"&lt;FUNCTION () {}&gt;"</span>, body.fmt_to_string(store, state))
                         }
-                    }
-                },
-                Rec =&gt; <span class="kw">match </span><span class="self">self</span>.raw().get_hash8() {
-                    <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;Malformed Rec&gt;"</span>.into(),
-                    <span class="prelude-val">Some</span>(idx) =&gt; {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>([vars, body, <span class="kw">_</span>, <span class="kw">_</span>]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) {
-                            <span class="kw">match </span>vars.tag() {
-                                Tag::Expr(Nil) =&gt; {
-                                    <span class="macro">format!</span>(
-                                        <span class="string">"&lt;REC_FUNCTION () {}&gt;"</span>,
-                                        body.fmt_to_string(store, state)
-                                    )
-                                }
-                                Tag::Expr(Cons) =&gt; {
-                                    <span class="macro">format!</span>(
-                                        <span class="string">"&lt;REC_FUNCTION {} {}&gt;"</span>,
-                                        vars.fmt_to_string(store, state),
-                                        body.fmt_to_string(store, state)
-                                    )
-                                }
-                                <span class="kw">_ </span>=&gt; <span class="string">"&lt;Malformed Rec&gt;"</span>.into(),
-                            }
-                        } <span class="kw">else </span>{
-                            <span class="string">"&lt;Opaque Rec&gt;"</span>.into()
-                        }
-                    }
-                },
-                Thunk =&gt; <span class="kw">match </span><span class="self">self</span>.raw().get_hash4() {
-                    <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;Malformed Thunk&gt;"</span>.into(),
-                    <span class="prelude-val">Some</span>(idx) =&gt; {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>([val, cont]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">2</span>, idx) {
+                        Tag::Expr(Cons) =&gt; {
                             <span class="macro">format!</span>(
-                                <span class="string">"Thunk{{ value: {} =&gt; cont: {} }}"</span>,
-                                val.fmt_to_string(store, state),
-                                cont.fmt_to_string(store, state)
+                                <span class="string">"&lt;FUNCTION {} {}&gt;"</span>,
+                                vars.fmt_to_string(store, state),
+                                body.fmt_to_string(store, state)
                             )
-                        } <span class="kw">else </span>{
-                            <span class="string">"&lt;Opaque Thunk&gt;"</span>.into()
                         }
-                    }
-                },
-                Comm =&gt; <span class="kw">match </span><span class="self">self</span>.raw().get_atom() {
-                    <span class="prelude-val">Some</span>(idx) =&gt; {
-                        <span class="kw">let </span>f = store.expect_f(idx);
-                        <span class="kw">if </span>store.comms.get(<span class="kw-2">&amp;</span>FWrap(<span class="kw-2">*</span>f)).is_some() {
-                            <span class="macro">format!</span>(<span class="string">"(comm 0x{})"</span>, f.hex_digits())
-                        } <span class="kw">else </span>{
-                            <span class="macro">format!</span>(<span class="string">"&lt;Opaque Comm 0x{}&gt;"</span>, f.hex_digits())
-                        }
-                    }
-                    <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;Malformed Comm&gt;"</span>.into(),
-                },
-                Cproc =&gt; <span class="kw">match </span><span class="self">self</span>.raw().get_hash4() {
-                    <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;Malformed Cproc&gt;"</span>.into(),
-                    <span class="prelude-val">Some</span>(idx) =&gt; {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>([cproc_name, args]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">2</span>, idx) {
-                            <span class="macro">format!</span>(
-                                <span class="string">"&lt;COPROC {} {}&gt;"</span>,
-                                cproc_name.fmt_to_string(store, state),
-                                args.fmt_to_string(store, state)
-                            )
-                        } <span class="kw">else </span>{
-                            <span class="string">"&lt;Opaque Cproc&gt;"</span>.into()
-                        }
-                    }
-                },
-                Env =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(env) = store.fetch_env(<span class="self">self</span>) {
-                        <span class="kw">let </span>list = env
-                            .iter()
-                            .map(|(sym, val)| {
-                                <span class="macro">format!</span>(
-                                    <span class="string">"({} . {})"</span>,
-                                    sym.fmt_to_string(store, state),
-                                    val.fmt_to_string(store, state)
-                                )
-                            })
-                            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-                        <span class="macro">format!</span>(<span class="string">"&lt;ENV ({})&gt;"</span>, list.join(<span class="string">" "</span>))
-                    } <span class="kw">else </span>{
-                        <span class="string">"&lt;Opaque Env&gt;"</span>.into()
+                        <span class="kw">_ </span>=&gt; <span class="string">"&lt;Malformed Fun&gt;"</span>.into(),
                     }
                 }
-                Prov =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>((query, val, deps)) = store.fetch_provenance(<span class="self">self</span>) {
-                        <span class="kw">let </span>nil = store.intern_nil();
-                        <span class="kw">if </span>store.ptr_eq(<span class="kw-2">&amp;</span>deps, <span class="kw-2">&amp;</span>nil) {
+                Rec =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.raw().get_hash8() <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Malformed Rec&gt;"</span>.into();
+                    };
+                    <span class="kw">let </span><span class="prelude-val">Some</span>([vars, body, <span class="kw">_</span>, <span class="kw">_</span>]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Rec&gt;"</span>.into();
+                    };
+                    <span class="kw">match </span>vars.tag() {
+                        Tag::Expr(Nil) =&gt; {
+                            <span class="macro">format!</span>(<span class="string">"&lt;REC_FUNCTION () {}&gt;"</span>, body.fmt_to_string(store, state))
+                        }
+                        Tag::Expr(Cons) =&gt; {
                             <span class="macro">format!</span>(
-                                <span class="string">"&lt;Prov ({} . {})&gt;"</span>,
-                                query.fmt_to_string(store, state),
-                                val.fmt_to_string(store, state),
-                            )
-                        } <span class="kw">else </span>{
-                            <span class="macro">format!</span>(
-                                <span class="string">"&lt;Prov ({} . {}) . {}&gt;"</span>,
-                                query.fmt_to_string(store, state),
-                                val.fmt_to_string(store, state),
-                                deps.fmt_to_string(store, state)
+                                <span class="string">"&lt;REC_FUNCTION {} {}&gt;"</span>,
+                                vars.fmt_to_string(store, state),
+                                body.fmt_to_string(store, state)
                             )
                         }
+                        <span class="kw">_ </span>=&gt; <span class="string">"&lt;Malformed Rec&gt;"</span>.into(),
+                    }
+                }
+                Thunk =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.raw().get_hash4() <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Malformed Thunk&gt;"</span>.into();
+                    };
+                    <span class="kw">let </span><span class="prelude-val">Some</span>([val, cont]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">2</span>, idx) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Thunk&gt;"</span>.into();
+                    };
+                    <span class="macro">format!</span>(
+                        <span class="string">"Thunk{{ value: {} =&gt; cont: {} }}"</span>,
+                        val.fmt_to_string(store, state),
+                        cont.fmt_to_string(store, state)
+                    )
+                }
+                Comm =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.raw().get_atom() <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Malformed Comm&gt;"</span>.into();
+                    };
+                    <span class="kw">let </span>f = store.expect_f(idx);
+                    <span class="kw">if </span>store.comms.get(<span class="kw-2">&amp;</span>FWrap(<span class="kw-2">*</span>f)).is_some() {
+                        <span class="macro">format!</span>(<span class="string">"(comm 0x{})"</span>, f.hex_digits())
                     } <span class="kw">else </span>{
-                        <span class="string">"&lt;Opaque Prov&gt;"</span>.into()
+                        <span class="macro">format!</span>(<span class="string">"&lt;Opaque Comm 0x{}&gt;"</span>, f.hex_digits())
+                    }
+                }
+                Cproc =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.raw().get_hash4() <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Malformed Cproc&gt;"</span>.into();
+                    };
+                    <span class="kw">let </span><span class="prelude-val">Some</span>([cproc_name, args]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">2</span>, idx) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Cproc&gt;"</span>.into();
+                    };
+                    <span class="macro">format!</span>(
+                        <span class="string">"&lt;COPROC {} {}&gt;"</span>,
+                        cproc_name.fmt_to_string(store, state),
+                        args.fmt_to_string(store, state)
+                    )
+                }
+                Env =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(env) = store.fetch_env(<span class="self">self</span>) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Env&gt;"</span>.into();
+                    };
+                    <span class="kw">let </span>list = env
+                        .iter()
+                        .map(|(sym, val)| {
+                            <span class="macro">format!</span>(
+                                <span class="string">"({} . {})"</span>,
+                                sym.fmt_to_string(store, state),
+                                val.fmt_to_string(store, state)
+                            )
+                        })
+                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+                    <span class="macro">format!</span>(<span class="string">"&lt;ENV ({})&gt;"</span>, list.join(<span class="string">" "</span>))
+                }
+                Prov =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((query, val, deps)) = store.fetch_provenance(<span class="self">self</span>) <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="string">"&lt;Opaque Prov&gt;"</span>.into();
+                    };
+                    <span class="kw">let </span>nil = store.intern_nil();
+                    <span class="kw">if </span>store.ptr_eq(<span class="kw-2">&amp;</span>deps, <span class="kw-2">&amp;</span>nil) {
+                        <span class="macro">format!</span>(
+                            <span class="string">"&lt;Prov ({} . {})&gt;"</span>,
+                            query.fmt_to_string(store, state),
+                            val.fmt_to_string(store, state),
+                        )
+                    } <span class="kw">else </span>{
+                        <span class="macro">format!</span>(
+                            <span class="string">"&lt;Prov ({} . {}) . {}&gt;"</span>,
+                            query.fmt_to_string(store, state),
+                            val.fmt_to_string(store, state),
+                            deps.fmt_to_string(store, state)
+                        )
                     }
                 }
             },
@@ -3091,19 +3052,18 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         state: <span class="kw-2">&amp;</span>State,
     ) -&gt; String {
-        <span class="kw">match </span><span class="self">self</span>.raw().get_hash8() {
-            <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">"&lt;Malformed {name}&gt;"</span>),
-            <span class="prelude-val">Some</span>(idx) =&gt; {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>([a, cont, <span class="kw">_</span>, <span class="kw">_</span>]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) {
-                    <span class="macro">format!</span>(
-                        <span class="string">"{name}{{ {field}: {}, continuation: {} }}"</span>,
-                        a.fmt_to_string(store, state),
-                        cont.fmt_to_string(store, state)
-                    )
-                } <span class="kw">else </span>{
-                    <span class="macro">format!</span>(<span class="string">"&lt;Opaque {name}&gt;"</span>)
-                }
-            }
+        {
+            <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.raw().get_hash8() <span class="kw">else </span>{
+                <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"&lt;Malformed {name}&gt;"</span>);
+            };
+            <span class="kw">let </span><span class="prelude-val">Some</span>([a, cont, <span class="kw">_</span>, <span class="kw">_</span>]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) <span class="kw">else </span>{
+                <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"&lt;Opaque {name}&gt;"</span>);
+            };
+            <span class="macro">format!</span>(
+                <span class="string">"{name}{{ {field}: {}, continuation: {} }}"</span>,
+                a.fmt_to_string(store, state),
+                cont.fmt_to_string(store, state)
+            )
         }
     }
 
@@ -3114,21 +3074,20 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         state: <span class="kw-2">&amp;</span>State,
     ) -&gt; String {
-        <span class="kw">match </span><span class="self">self</span>.raw().get_hash8() {
-            <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">"&lt;Malformed {name}&gt;"</span>),
-            <span class="prelude-val">Some</span>(idx) =&gt; {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>([a, b, cont, <span class="kw">_</span>]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) {
-                    <span class="kw">let </span>(fa, fb) = fields;
-                    <span class="macro">format!</span>(
-                        <span class="string">"{name}{{ {fa}: {}, {fb}: {}, continuation: {} }}"</span>,
-                        a.fmt_to_string(store, state),
-                        b.fmt_to_string(store, state),
-                        cont.fmt_to_string(store, state)
-                    )
-                } <span class="kw">else </span>{
-                    <span class="macro">format!</span>(<span class="string">"&lt;Opaque {name}&gt;"</span>)
-                }
-            }
+        {
+            <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.raw().get_hash8() <span class="kw">else </span>{
+                <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"&lt;Malformed {name}&gt;"</span>);
+            };
+            <span class="kw">let </span><span class="prelude-val">Some</span>([a, b, cont, <span class="kw">_</span>]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) <span class="kw">else </span>{
+                <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"&lt;Opaque {name}&gt;"</span>);
+            };
+            <span class="kw">let </span>(fa, fb) = fields;
+            <span class="macro">format!</span>(
+                <span class="string">"{name}{{ {fa}: {}, {fb}: {}, continuation: {} }}"</span>,
+                a.fmt_to_string(store, state),
+                b.fmt_to_string(store, state),
+                cont.fmt_to_string(store, state)
+            )
         }
     }
 
@@ -3139,22 +3098,21 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         state: <span class="kw-2">&amp;</span>State,
     ) -&gt; String {
-        <span class="kw">match </span><span class="self">self</span>.raw().get_hash8() {
-            <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">"&lt;Malformed {name}&gt;"</span>),
-            <span class="prelude-val">Some</span>(idx) =&gt; {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>([a, b, c, cont]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) {
-                    <span class="kw">let </span>(fa, fb, fc) = fields;
-                    <span class="macro">format!</span>(
-                        <span class="string">"{name}{{ {fa}: {}, {fb}: {}, {fc}: {}, continuation: {} }}"</span>,
-                        a.fmt_to_string(store, state),
-                        b.fmt_to_string(store, state),
-                        c.fmt_to_string(store, state),
-                        cont.fmt_to_string(store, state)
-                    )
-                } <span class="kw">else </span>{
-                    <span class="macro">format!</span>(<span class="string">"&lt;Opaque {name}&gt;"</span>)
-                }
-            }
+        {
+            <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.raw().get_hash8() <span class="kw">else </span>{
+                <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"&lt;Malformed {name}&gt;"</span>);
+            };
+            <span class="kw">let </span><span class="prelude-val">Some</span>([a, b, c, cont]) = <span class="macro">fetch_ptrs!</span>(store, <span class="number">4</span>, idx) <span class="kw">else </span>{
+                <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"&lt;Opaque {name}&gt;"</span>);
+            };
+            <span class="kw">let </span>(fa, fb, fc) = fields;
+            <span class="macro">format!</span>(
+                <span class="string">"{name}{{ {fa}: {}, {fb}: {}, {fc}: {}, continuation: {} }}"</span>,
+                a.fmt_to_string(store, state),
+                b.fmt_to_string(store, state),
+                c.fmt_to_string(store, state),
+                cont.fmt_to_string(store, state)
+            )
         }
     }
 }

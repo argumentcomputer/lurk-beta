@@ -1150,8 +1150,6 @@
 <a href="#1149" id="1149">1149</a>
 <a href="#1150" id="1150">1150</a>
 <a href="#1151" id="1151">1151</a>
-<a href="#1152" id="1152">1152</a>
-<a href="#1153" id="1153">1153</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
 <span class="kw">use </span>bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
@@ -1458,14 +1456,12 @@
                             inner_frames.push(frames[current_frame_idx].clone());
                             chunk_start_idx = current_frame_idx + <span class="number">1</span>;
 
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(next_frame) = frames.get(chunk_start_idx) {
-                                next_pc = next_frame.pc;
-                                <span class="kw">if </span>next_pc != <span class="number">0 </span>{
-                                    <span class="comment">// incompatible `pc` incoming
-                                    </span><span class="kw">break</span>;
-                                }
-                            } <span class="kw">else </span>{
-                                <span class="comment">// not enough frames
+                            <span class="kw">let </span><span class="prelude-val">Some</span>(next_frame) = frames.get(chunk_start_idx) <span class="kw">else </span>{
+                                <span class="kw">break</span>;
+                            };
+                            next_pc = next_frame.pc;
+                            <span class="kw">if </span>next_pc != <span class="number">0 </span>{
+                                <span class="comment">// incompatible `pc` incoming
                                 </span><span class="kw">break</span>;
                             }
                         }
