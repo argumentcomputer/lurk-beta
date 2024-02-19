@@ -1457,7 +1457,8 @@
             <span class="string">"!(fetch 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001)"</span>,
         ],
         run: |repl, args, _path| {
-            <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>hash_expr = repl.peek1(args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(hash_expr)<span class="question-mark">?</span>;
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)
         },
     };
@@ -1472,7 +1473,8 @@
             <span class="string">"!(open 0x178217493faea2931df4e333837ba9312d0bb9f59bb787c1f40fd3af6d845001)"</span>,
         ],
         run: |repl, args, _path| {
-            <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>hash_expr = repl.peek1(args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(hash_expr)<span class="question-mark">?</span>;
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">true</span>)
         },
     };
@@ -1690,13 +1692,11 @@
     }
 
     <span class="kw">fn </span>call(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F, C&gt;, args: <span class="kw-2">&amp;</span>Ptr, _path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>(hash_ptr, args) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
-        <span class="kw">let </span>hash_expr = <span class="kw">match </span>hash_ptr.tag() {
-            Tag::Expr(ExprTag::Cons) =&gt; hash_ptr,
-            <span class="kw">_ </span>=&gt; repl.store.list(<span class="macro">vec!</span>[hash_ptr]),
-        };
-        <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(<span class="kw-2">&amp;</span>hash_expr)<span class="question-mark">?</span>;
-        <span class="kw">if </span>repl.store.open(hash).is_none() {
+        <span class="kw">let </span>(hash_expr, args) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
+        <span class="kw">let </span>hash = <span class="kw-2">*</span>repl.get_comm_hash(hash_expr)<span class="question-mark">?</span>;
+        <span class="comment">// check if the data is already available on the store before trying to
+        // fetch it from the file system
+        </span><span class="kw">if </span>repl.store.open(hash).is_none() {
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
         }
         <span class="kw">let </span>open = repl.store.intern_lurk_symbol(<span class="string">"open"</span>);

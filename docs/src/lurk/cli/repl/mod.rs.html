@@ -695,7 +695,7 @@
 </pre></div><pre class="rust"><code><span class="kw">mod </span>meta_cmd;
 
 <span class="kw">use </span>abomonation::Abomonation;
-<span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
 <span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>rustyline::{
@@ -1199,15 +1199,15 @@
         <span class="prelude-val">Ok</span>((output, iterations))
     }
 
-    <span class="kw">fn </span>get_comm_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, args: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
-        <span class="kw">let </span>first = <span class="self">self</span>.peek1(args)<span class="question-mark">?</span>;
-        <span class="kw">let </span>num = <span class="self">self</span>.store.intern_lurk_symbol(<span class="string">"num"</span>);
-        <span class="kw">let </span>expr = <span class="self">self</span>.store.list(<span class="macro">vec!</span>[num, first]);
-        <span class="kw">let </span>(expr_io, ..) = <span class="self">self
-            </span>.eval_expr(expr)
-            .with_context(|| <span class="string">"evaluating first arg"</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>(Tag::Expr(ExprTag::Num), RawPtr::Atom(hash_idx)) = <span class="kw-2">&amp;</span>expr_io[<span class="number">0</span>].parts() <span class="kw">else </span>{
-            <span class="macro">bail!</span>(<span class="string">"hash must be a number"</span>)
+    <span class="doccomment">/// Evaluates `hash_expr` and returns the resulting commitment hash
+    ///
+    /// # Errors
+    /// Errors when `hash_expr` doesn't reduce to a Num or Comm pointer
+    </span><span class="kw">fn </span>get_comm_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash_expr: Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
+        <span class="kw">let </span>(io, ..) = <span class="self">self</span>.eval_expr(hash_expr)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(Tag::Expr(ExprTag::Num | ExprTag::Comm), RawPtr::Atom(hash_idx)) = io[<span class="number">0</span>].parts()
+        <span class="kw">else </span>{
+            <span class="macro">bail!</span>(<span class="string">"Commitment hash expression must reduce to a Num or Comm pointer"</span>)
         };
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.store.expect_f(<span class="kw-2">*</span>hash_idx))
     }
