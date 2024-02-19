@@ -3,6 +3,7 @@ use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 
 use crate::{
+    aux_func,
     coprocessor::Coprocessor,
     ctrl,
     eval::lang::Lang,
@@ -301,7 +302,7 @@ fn make_eval_step(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
 /// Simpler version of `car_cdr` that doesn't deconstruct strings to save some
 /// constraints
 fn car_cdr() -> Func {
-    func!(car_cdr(xs): 2 => {
+    aux_func!(car_cdr(xs): 2 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         match xs.tag {
@@ -479,7 +480,7 @@ pub fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
 /// ```
 fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
     if cprocs.is_empty() {
-        func!(is_cproc(_head): 1 => {
+        aux_func!(is_cproc(_head): 1 => {
             let nil = Symbol("nil");
             let nil = cast(nil, Expr::Nil);
             return (nil);
@@ -497,7 +498,7 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
             .collect();
         let def = Some(Block::ctrl(ctrl!(return (nil))));
         let ctrl = Ctrl::match_symbol(head.clone(), match_symbol_cases, def);
-        Func::new("is_cproc".into(), vec![head], 1, Block { ops, ctrl }).unwrap()
+        Func::new_unchecked("is_cproc".into(), vec![head], 1, Block { ops, ctrl })
     }
 }
 
@@ -648,19 +649,18 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
             op!(let nil = cast(nil, Expr::Nil)),
         ]
     };
-    Func::new(
+    Func::new_unchecked(
         "match_and_run_cproc".into(),
         func_inp,
         4,
         Block { ops, ctrl },
     )
-    .unwrap()
 }
 
 fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
     // Auxiliary functions
     let car_cdr = car_cdr();
-    let expand_bindings = func!(expand_bindings(head, body, body1, rest_bindings): 1 => {
+    let expand_bindings = aux_func!(expand_bindings(head, body, body1, rest_bindings): 1 => {
         match rest_bindings.tag {
             Expr::Nil => {
                 return (body1)
@@ -670,7 +670,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         let expanded: Expr::Cons = cons2(head, expanded_0);
         return (expanded)
     });
-    let get_unop = func!(get_unop(head): 1 => {
+    let get_unop = aux_func!(get_unop(head): 1 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         match symbol head {
@@ -721,7 +721,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         };
         return (nil)
     });
-    let get_binop = func!(get_binop(head): 1 => {
+    let get_binop = aux_func!(get_binop(head): 1 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         match symbol head {
@@ -784,7 +784,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         };
         return (nil)
     });
-    let is_potentially_fun = func!(is_potentially_fun(head): 1 => {
+    let is_potentially_fun = aux_func!(is_potentially_fun(head): 1 => {
         let fun: Expr::Fun;
         let cons: Expr::Cons;
         let thunk: Expr::Thunk;
@@ -802,7 +802,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         return (nil)
     });
     let is_cproc = is_cproc(cprocs);
-    let lookup = func!(lookup(expr, env, state): 3 => {
+    let lookup = aux_func!(lookup(expr, env, state): 3 => {
         let found = Symbol("found");
         let not_found = Symbol("not_found");
         let error = Symbol("error");
@@ -823,7 +823,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         return (expr, smaller_env, not_found)
     });
 
-    func!(reduce(expr, env, cont): 4 => {
+    aux_func!(reduce(expr, env, cont): 4 => {
         let ret = Symbol("return");
         let term: Cont::Terminal = HASH_8_ZEROS;
         let err: Cont::Error = HASH_8_ZEROS;
@@ -1134,7 +1134,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
 /// from outside, which is supposed to know how to reduce such expression.
 fn choose_cproc_call(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     if cprocs.is_empty() {
-        func!(no_cproc_error(cproc_name, _evaluated_args, env, _cont): 4 => {
+        aux_func!(no_cproc_error(cproc_name, _evaluated_args, env, _cont): 4 => {
             let err: Cont::Error = HASH_8_ZEROS;
             let errctrl = Symbol("error");
             return (cproc_name, env, err, errctrl);
@@ -1142,7 +1142,7 @@ fn choose_cproc_call(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     } else if ivc {
         match_and_run_cproc(cprocs)
     } else {
-        func!(setup_cproc_loop(cproc_name, evaluated_args, env, cont): 4 => {
+        aux_func!(setup_cproc_loop(cproc_name, evaluated_args, env, cont): 4 => {
             let ret = Symbol("return");
             // setup loop
             let cproc: Expr::Cproc = cons2(cproc_name, evaluated_args);
@@ -1155,7 +1155,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     let car_cdr = car_cdr();
     // Returns 0u64 if both arguments are U64, 0 (num) if the arguments are some kind of number (either U64 or Num),
     // and nil otherwise
-    let args_num_type = func!(args_num_type(arg1, arg2): 1 => {
+    let args_num_type = aux_func!(args_num_type(arg1, arg2): 1 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         match arg1.tag {
@@ -1189,7 +1189,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
         return (nil)
     });
     let choose_cproc_call = choose_cproc_call(cprocs, ivc);
-    func!(apply_cont(result, env, cont, ctrl): 4 => {
+    aux_func!(apply_cont(result, env, cont, ctrl): 4 => {
         match symbol ctrl {
             "apply-continuation" => {
                 let makethunk = Symbol("make-thunk");
@@ -1698,7 +1698,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
 }
 
 fn make_thunk() -> Func {
-    func!(make_thunk(expr, env, cont, ctrl): 3 => {
+    aux_func!(make_thunk(expr, env, cont, ctrl): 3 => {
         match symbol ctrl {
             "make-thunk" => {
                 match cont.tag {
