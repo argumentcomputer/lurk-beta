@@ -266,6 +266,8 @@ impl Func {
         Ok(func)
     }
 
+    /// Instantiates a `Func` with no transformations or check. Should only be used for auxiliary `Func`s, i.e.,
+    /// `Func`s that are used inside other `Func`s
     pub fn new_unchecked(
         name: String,
         input_params: Vec<Var>,

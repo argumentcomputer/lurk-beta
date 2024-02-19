@@ -704,6 +704,7 @@ macro_rules! block {
 }
 
 #[macro_export]
+/// Creates a checked `Func`
 macro_rules! func {
     ($name:ident($( $in:ident ),*): $size:expr => $lem:tt) => {
         $crate::lem::Func::new(
@@ -716,6 +717,7 @@ macro_rules! func {
 }
 
 #[macro_export]
+/// Creates an auxiliary `Func`. No transformations or checks are performed
 macro_rules! aux_func {
     ($name:ident($( $in:ident ),*): $size:expr => $lem:tt) => {
         $crate::lem::Func::new_unchecked(
