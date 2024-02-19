@@ -322,6 +322,11 @@
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Global config for Lurk
 //! Includes settings for cache locations, public parameters, and parallelism.
 </span><span class="kw">use </span>std::collections::HashMap;
@@ -399,7 +404,7 @@
         </span>Config::builder()
             <span class="comment">// Default settings if unspecified in the config file
             </span>.set_default(public_params, public_params_default_dir().to_string())<span class="question-mark">?
-            </span>.set_default(<span class="string">"perf"</span>, <span class="string">"max-parallel-simple"</span>.to_string())<span class="question-mark">?
+            </span>.set_default(<span class="string">"perf"</span>, <span class="string">"fully-parallel"</span>.to_string())<span class="question-mark">?
             </span>.add_source(File::with_name(config_file.as_str()).required(<span class="bool-val">false</span>))
             <span class="comment">// Then override with any `LURK` environment variables
             </span>.add_source(Environment::with_prefix(<span class="string">"LURK"</span>))
@@ -441,59 +446,68 @@
 </span><span class="kw">pub struct </span>PerfConfig {
     <span class="doccomment">/// Parallelism settings
     </span><span class="kw">pub </span>parallelism: ParallelConfig,
-    <span class="doccomment">/// Witness generation settings
-    </span><span class="kw">pub </span>witness_generation: WitnessGeneration,
 }
 
 <span class="kw">impl </span>PerfConfig {
-    <span class="kw">fn </span>fully_sequential() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Every config attribute set to sequential
+    </span><span class="attr">#[inline]
+    </span><span class="kw">fn </span>fully_sequential() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             parallelism: ParallelConfig {
-                recursive_steps: Flow::Sequential,
-                synthesis: Flow::Sequential,
-                poseidon_witnesses: Flow::Sequential,
-            },
-            witness_generation: WitnessGeneration {
-                precompute_neptune: <span class="bool-val">false</span>,
+                wit_gen_vs_folding: Flow::Sequential,
+                frames: Flow::Sequential,
+                slots: Flow::Sequential,
             },
         }
     }
 
-    <span class="kw">fn </span>max_parallel_simple() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Every config attribute set to sequential, except for witness generation
+    /// vs folding
+    </span><span class="attr">#[inline]
+    </span><span class="kw">fn </span>parallel_wit_gen_vs_folding() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             parallelism: ParallelConfig {
-                recursive_steps: Flow::Parallel,
-                synthesis: Flow::Parallel,
-                poseidon_witnesses: Flow::Parallel,
-            },
-            witness_generation: WitnessGeneration {
-                precompute_neptune: <span class="bool-val">true</span>,
+                wit_gen_vs_folding: Flow::Parallel,
+                frames: Flow::Sequential,
+                slots: Flow::Sequential,
             },
         }
     }
 
-    <span class="kw">fn </span>parallel_synthesis() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Every config attribute set to sequential, except for witness generation
+    /// for the slots
+    </span><span class="attr">#[inline]
+    </span><span class="kw">fn </span>parallel_slots() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             parallelism: ParallelConfig {
-                recursive_steps: Flow::Parallel,
-                synthesis: Flow::Parallel,
-                poseidon_witnesses: Flow::Sequential,
-            },
-            witness_generation: WitnessGeneration {
-                precompute_neptune: <span class="bool-val">true</span>,
+                wit_gen_vs_folding: Flow::Sequential,
+                frames: Flow::Sequential,
+                slots: Flow::Parallel,
             },
         }
     }
 
-    <span class="kw">fn </span>parallel_steps_only() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Every config attribute set to sequential, except for witness generation
+    /// for each Frame within a MultiFrame
+    </span><span class="attr">#[inline]
+    </span><span class="kw">fn </span>parallel_frames() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             parallelism: ParallelConfig {
-                recursive_steps: Flow::Parallel,
-                synthesis: Flow::Sequential,
-                poseidon_witnesses: Flow::Sequential,
+                wit_gen_vs_folding: Flow::Sequential,
+                frames: Flow::Parallel,
+                slots: Flow::Sequential,
             },
-            witness_generation: WitnessGeneration {
-                precompute_neptune: <span class="bool-val">true</span>,
+        }
+    }
+
+    <span class="doccomment">/// Every config attribute set to parallel
+    </span><span class="attr">#[inline]
+    </span><span class="kw">fn </span>fully_parallel() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            parallelism: ParallelConfig {
+                wit_gen_vs_folding: Flow::Parallel,
+                frames: Flow::Parallel,
+                slots: Flow::Parallel,
             },
         }
     }
@@ -502,20 +516,12 @@
 <span class="doccomment">/// Parallel configuration settings
 </span><span class="attr">#[derive(Default, Debug, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>ParallelConfig {
-    <span class="doccomment">/// Multiple `StepCircuit`s.
-    </span><span class="kw">pub </span>recursive_steps: Flow,
-    <span class="doccomment">/// Synthesis (within one `StepCircuit`)
-    </span><span class="kw">pub </span>synthesis: Flow,
-    <span class="doccomment">/// The poseidon witness part of synthesis.
-    </span><span class="kw">pub </span>poseidon_witnesses: Flow,
-}
-
-<span class="doccomment">/// Should we use optimized witness-generation when possible?
-</span><span class="attr">#[derive(Debug, Default, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>WitnessGeneration {
-    <span class="doccomment">/// NOTE: Neptune itself *will* do this transparently at the level of individual hashes, where possible.
-    /// so this configuration is only required for higher-level decisions.
-    </span><span class="kw">pub </span>precompute_neptune: bool,
+    <span class="doccomment">/// Witnesses generation for MultiFrames in parallel with folding.
+    </span><span class="kw">pub </span>wit_gen_vs_folding: Flow,
+    <span class="doccomment">/// Parallel witness generation for each Frame within a MultiFrame
+    </span><span class="kw">pub </span>frames: Flow,
+    <span class="doccomment">/// Parallel witness generation for each slot in a Frame
+    </span><span class="kw">pub </span>slots: Flow,
 }
 
 <span class="doccomment">/// The level of parallelism used when synthesizing the Lurk circuit
@@ -532,11 +538,13 @@
 
 <span class="kw">impl </span>Flow {
     <span class="doccomment">/// Returns `true` on `Flow::Sequential`
+    </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>is_sequential(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Sequential)
     }
 
     <span class="doccomment">/// Returns `true` on `Flow::Parallel` or `Flow::ParallelN`
+    </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>is_parallel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         !<span class="self">self</span>.is_sequential()
     }
@@ -547,19 +555,21 @@
 #[serde(rename_all = <span class="string">"kebab-case"</span>)]
 </span><span class="kw">enum </span>CannedConfig {
     FullySequential,
+    ParallelSlots,
+    ParallelFrames,
+    ParallelWitGenVsFolding,
     <span class="attr">#[default]
-    </span>MaxParallelSimple,
-    ParallelStepsOnly,
-    ParallelSynthesis,
+    </span>FullyParallel,
 }
 
 <span class="kw">impl </span>From&lt;CannedConfig&gt; <span class="kw">for </span>PerfConfig {
     <span class="kw">fn </span>from(canned: CannedConfig) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>canned {
             CannedConfig::FullySequential =&gt; <span class="self">Self</span>::fully_sequential(),
-            CannedConfig::MaxParallelSimple =&gt; <span class="self">Self</span>::max_parallel_simple(),
-            CannedConfig::ParallelSynthesis =&gt; <span class="self">Self</span>::parallel_synthesis(),
-            CannedConfig::ParallelStepsOnly =&gt; <span class="self">Self</span>::parallel_steps_only(),
+            CannedConfig::ParallelSlots =&gt; <span class="self">Self</span>::parallel_slots(),
+            CannedConfig::ParallelFrames =&gt; <span class="self">Self</span>::parallel_frames(),
+            CannedConfig::ParallelWitGenVsFolding =&gt; <span class="self">Self</span>::parallel_wit_gen_vs_folding(),
+            CannedConfig::FullyParallel =&gt; <span class="self">Self</span>::fully_parallel(),
         }
     }
 }
@@ -611,7 +621,7 @@
             .write_all(<span class="macro">format!</span>(<span class="string">"public_params_dir = \"{public_params_dir}\"\n"</span>).as_bytes())
             .unwrap();
         config_file
-            .write_all(<span class="string">"perf = \"parallel-steps-only\"\n"</span>.as_bytes())
+            .write_all(<span class="string">"perf = \"parallel-wit-gen-vs-folding\"\n"</span>.as_bytes())
             .unwrap();
 
         <span class="comment">// Overwrite public params dir to simulate CLI setting
@@ -622,7 +632,7 @@
         <span class="kw">let </span>config = Settings::from_config(<span class="kw-2">&amp;</span>config_dir, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>overrides)).unwrap();
 
         <span class="macro">assert_eq!</span>(config.public_params_dir, public_params_dir_cli);
-        <span class="macro">assert_eq!</span>(config.perf, PerfConfig::parallel_steps_only());
+        <span class="macro">assert_eq!</span>(config.perf, PerfConfig::parallel_wit_gen_vs_folding());
     }
 
     <span class="comment">// Tests that duplicate config keys result in an error

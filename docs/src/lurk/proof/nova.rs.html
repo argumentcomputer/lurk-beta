@@ -724,7 +724,7 @@
         recursive_snark_option = <span class="kw">if </span>lurk_config(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
             .perf
             .parallelism
-            .recursive_steps
+            .wit_gen_vs_folding
             .is_parallel()
         {
             <span class="kw">let </span>cc = steps.into_iter().map(Mutex::new).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
