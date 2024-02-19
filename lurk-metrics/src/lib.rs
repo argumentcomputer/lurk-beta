@@ -158,13 +158,12 @@ impl ThreadMetricsSinkHandle {
 
     /// Initialize the thread-local metrics sink by registering it with the global sink
     fn init() -> ThreadMetricsSinkHandle {
-        if let Some(global_sink) = GLOBAL_SINK.get() {
-            let me = Arc::new(Mutex::new(ThreadMetricsSink::default()));
-            global_sink.threads.lock().unwrap().push(Arc::clone(&me));
-            ThreadMetricsSinkHandle { inner: me }
-        } else {
+        let Some(global_sink) = GLOBAL_SINK.get() else {
             panic!("global metrics sink must be installed first");
-        }
+        };
+        let me = Arc::new(Mutex::new(ThreadMetricsSink::default()));
+        global_sink.threads.lock().unwrap().push(Arc::clone(&me));
+        ThreadMetricsSinkHandle { inner: me }
     }
 }
 

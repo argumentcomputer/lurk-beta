@@ -207,22 +207,16 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
 
     fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
         let query = EnvQuery::from_ptr(s, ptr);
-        if let Some(q) = query {
-            match q {
-                EnvQuery::Lookup(var, env) => {
-                    let allocated_var = AllocatedNum::alloc_infallible(ns!(cs, "var"), || {
-                        *s.hash_ptr(&var).value()
-                    });
-                    let allocated_env = AllocatedNum::alloc_infallible(ns!(cs, "env"), || {
-                        *s.hash_ptr(&env).value()
-                    });
-                    Some(Self::Lookup(allocated_var, allocated_env))
-                }
-                _ => unreachable!(),
+        query.and_then(|q| match q {
+            EnvQuery::Lookup(var, env) => {
+                let allocated_var =
+                    AllocatedNum::alloc_infallible(ns!(cs, "var"), || *s.hash_ptr(&var).value());
+                let allocated_env =
+                    AllocatedNum::alloc_infallible(ns!(cs, "env"), || *s.hash_ptr(&env).value());
+                Some(Self::Lookup(allocated_var, allocated_env))
             }
-        } else {
-            None
-        }
+            _ => unreachable!(),
+        })
     }
 
     fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self {

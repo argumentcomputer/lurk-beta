@@ -304,14 +304,12 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                             inner_frames.push(frames[current_frame_idx].clone());
                             chunk_start_idx = current_frame_idx + 1;
 
-                            if let Some(next_frame) = frames.get(chunk_start_idx) {
-                                next_pc = next_frame.pc;
-                                if next_pc != 0 {
-                                    // incompatible `pc` incoming
-                                    break;
-                                }
-                            } else {
-                                // not enough frames
+                            let Some(next_frame) = frames.get(chunk_start_idx) else {
+                                break;
+                            };
+                            next_pc = next_frame.pc;
+                            if next_pc != 0 {
+                                // incompatible `pc` incoming
                                 break;
                             }
                         }
