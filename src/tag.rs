@@ -486,8 +486,107 @@ impl fmt::Display for Op2 {
 #[cfg(test)]
 pub(crate) mod tests {
 
+    use std::collections::HashMap;
+
     use super::*;
     use proptest::prelude::*;
+
+    #[inline]
+    fn assert_tags_u16s<T: Into<u16>>(map: HashMap<T, u16>) {
+        map.into_iter().for_each(|(k, v)| assert_eq!(k.into(), v));
+    }
+
+    #[test]
+    fn stable_expr_tag() {
+        let map = HashMap::from_iter([
+            (ExprTag::Nil, 0),
+            (ExprTag::Cons, 1),
+            (ExprTag::Sym, 2),
+            (ExprTag::Fun, 3),
+            (ExprTag::Num, 4),
+            (ExprTag::Thunk, 5),
+            (ExprTag::Str, 6),
+            (ExprTag::Char, 7),
+            (ExprTag::Comm, 8),
+            (ExprTag::U64, 9),
+            (ExprTag::Key, 10),
+            (ExprTag::Cproc, 11),
+            (ExprTag::Env, 12),
+            (ExprTag::Rec, 13),
+            (ExprTag::Prov, 14),
+        ]);
+        assert_eq!(map.len(), ExprTag::COUNT);
+        assert_tags_u16s(map)
+    }
+
+    #[test]
+    fn stable_cont_tag() {
+        let map = HashMap::from_iter([
+            (ContTag::Outermost, 4096),
+            (ContTag::Call0, 4097),
+            (ContTag::Call, 4098),
+            (ContTag::Call2, 4099),
+            (ContTag::Tail, 4100),
+            (ContTag::Error, 4101),
+            (ContTag::Lookup, 4102),
+            (ContTag::Unop, 4103),
+            (ContTag::Binop, 4104),
+            (ContTag::Binop2, 4105),
+            (ContTag::If, 4106),
+            (ContTag::Let, 4107),
+            (ContTag::LetRec, 4108),
+            (ContTag::Dummy, 4109),
+            (ContTag::Terminal, 4110),
+            (ContTag::Emit, 4111),
+            (ContTag::Cproc, 4112),
+        ]);
+        assert_eq!(map.len(), ContTag::COUNT);
+        assert_tags_u16s(map)
+    }
+
+    #[test]
+    fn stable_op1() {
+        let map = HashMap::from_iter([
+            (Op1::Car, 8192),
+            (Op1::Cdr, 8193),
+            (Op1::Atom, 8194),
+            (Op1::Emit, 8195),
+            (Op1::Open, 8196),
+            (Op1::Secret, 8197),
+            (Op1::Commit, 8198),
+            (Op1::Num, 8199),
+            (Op1::Comm, 8200),
+            (Op1::Char, 8201),
+            (Op1::Eval, 8202),
+            (Op1::U64, 8203),
+        ]);
+        assert_eq!(map.len(), Op1::COUNT);
+        assert_tags_u16s(map)
+    }
+
+    #[test]
+    fn stable_op2() {
+        let map = HashMap::from_iter([
+            (Op2::Sum, 12288),
+            (Op2::Diff, 12289),
+            (Op2::Product, 12290),
+            (Op2::Quotient, 12291),
+            (Op2::Equal, 12292),
+            (Op2::NumEqual, 12293),
+            (Op2::Less, 12294),
+            (Op2::Greater, 12295),
+            (Op2::LessEqual, 12296),
+            (Op2::GreaterEqual, 12297),
+            (Op2::Cons, 12298),
+            (Op2::StrCons, 12299),
+            (Op2::Begin, 12300),
+            (Op2::Hide, 12301),
+            (Op2::Modulo, 12302),
+            (Op2::Eval, 12303),
+        ]);
+        assert_eq!(map.len(), Op2::COUNT);
+        assert_tags_u16s(map)
+    }
 
     proptest! {
     #[test]
