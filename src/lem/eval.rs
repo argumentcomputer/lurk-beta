@@ -445,7 +445,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
         ctrl: Ctrl::match_tag(cproc.clone(), vec![(Tag::Expr(Cproc), block)], None),
     };
     let func_inp = vec![cproc, env, cont];
-    Func::new_unchecked("run_cproc".into(), func_inp, 3, block)
+    Func::new("run_cproc".into(), func_inp, 3, block).unwrap()
 }
 
 /// Creates the `Func`s used to call coprocessors in the NIVC scenario. Each
