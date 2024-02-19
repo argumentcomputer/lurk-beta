@@ -75,7 +75,7 @@ impl Settings {
         Config::builder()
             // Default settings if unspecified in the config file
             .set_default(public_params, public_params_default_dir().to_string())?
-            .set_default("perf", "max-parallel-simple".to_string())?
+            .set_default("perf", "fully-parallel".to_string())?
             .add_source(File::with_name(config_file.as_str()).required(false))
             // Then override with any `LURK` environment variables
             .add_source(Environment::with_prefix("LURK"))
@@ -117,59 +117,68 @@ pub fn home_dir() -> Utf8PathBuf {
 pub struct PerfConfig {
     /// Parallelism settings
     pub parallelism: ParallelConfig,
-    /// Witness generation settings
-    pub witness_generation: WitnessGeneration,
 }
 
 impl PerfConfig {
+    /// Every config attribute set to sequential
+    #[inline]
     fn fully_sequential() -> Self {
         Self {
             parallelism: ParallelConfig {
-                recursive_steps: Flow::Sequential,
-                synthesis: Flow::Sequential,
-                poseidon_witnesses: Flow::Sequential,
-            },
-            witness_generation: WitnessGeneration {
-                precompute_neptune: false,
+                wit_gen_vs_folding: Flow::Sequential,
+                frames: Flow::Sequential,
+                slots: Flow::Sequential,
             },
         }
     }
 
-    fn max_parallel_simple() -> Self {
+    /// Every config attribute set to sequential, except for witness generation
+    /// vs folding
+    #[inline]
+    fn parallel_wit_gen_vs_folding() -> Self {
         Self {
             parallelism: ParallelConfig {
-                recursive_steps: Flow::Parallel,
-                synthesis: Flow::Parallel,
-                poseidon_witnesses: Flow::Parallel,
-            },
-            witness_generation: WitnessGeneration {
-                precompute_neptune: true,
+                wit_gen_vs_folding: Flow::Parallel,
+                frames: Flow::Sequential,
+                slots: Flow::Sequential,
             },
         }
     }
 
-    fn parallel_synthesis() -> Self {
+    /// Every config attribute set to sequential, except for witness generation
+    /// for the slots
+    #[inline]
+    fn parallel_slots() -> Self {
         Self {
             parallelism: ParallelConfig {
-                recursive_steps: Flow::Parallel,
-                synthesis: Flow::Parallel,
-                poseidon_witnesses: Flow::Sequential,
-            },
-            witness_generation: WitnessGeneration {
-                precompute_neptune: true,
+                wit_gen_vs_folding: Flow::Sequential,
+                frames: Flow::Sequential,
+                slots: Flow::Parallel,
             },
         }
     }
 
-    fn parallel_steps_only() -> Self {
+    /// Every config attribute set to sequential, except for witness generation
+    /// for each Frame within a MultiFrame
+    #[inline]
+    fn parallel_frames() -> Self {
         Self {
             parallelism: ParallelConfig {
-                recursive_steps: Flow::Parallel,
-                synthesis: Flow::Sequential,
-                poseidon_witnesses: Flow::Sequential,
+                wit_gen_vs_folding: Flow::Sequential,
+                frames: Flow::Parallel,
+                slots: Flow::Sequential,
             },
-            witness_generation: WitnessGeneration {
-                precompute_neptune: true,
+        }
+    }
+
+    /// Every config attribute set to parallel
+    #[inline]
+    fn fully_parallel() -> Self {
+        Self {
+            parallelism: ParallelConfig {
+                wit_gen_vs_folding: Flow::Parallel,
+                frames: Flow::Parallel,
+                slots: Flow::Parallel,
             },
         }
     }
@@ -178,20 +187,12 @@ impl PerfConfig {
 /// Parallel configuration settings
 #[derive(Default, Debug, PartialEq, Eq)]
 pub struct ParallelConfig {
-    /// Multiple `StepCircuit`s.
-    pub recursive_steps: Flow,
-    /// Synthesis (within one `StepCircuit`)
-    pub synthesis: Flow,
-    /// The poseidon witness part of synthesis.
-    pub poseidon_witnesses: Flow,
-}
-
-/// Should we use optimized witness-generation when possible?
-#[derive(Debug, Default, PartialEq, Eq)]
-pub struct WitnessGeneration {
-    /// NOTE: Neptune itself *will* do this transparently at the level of individual hashes, where possible.
-    /// so this configuration is only required for higher-level decisions.
-    pub precompute_neptune: bool,
+    /// Witnesses generation for MultiFrames in parallel with folding.
+    pub wit_gen_vs_folding: Flow,
+    /// Parallel witness generation for each Frame within a MultiFrame
+    pub frames: Flow,
+    /// Parallel witness generation for each slot in a Frame
+    pub slots: Flow,
 }
 
 /// The level of parallelism used when synthesizing the Lurk circuit
@@ -208,11 +209,13 @@ pub enum Flow {
 
 impl Flow {
     /// Returns `true` on `Flow::Sequential`
+    #[inline]
     pub fn is_sequential(&self) -> bool {
         matches!(self, Self::Sequential)
     }
 
     /// Returns `true` on `Flow::Parallel` or `Flow::ParallelN`
+    #[inline]
     pub fn is_parallel(&self) -> bool {
         !self.is_sequential()
     }
@@ -223,19 +226,21 @@ impl Flow {
 #[serde(rename_all = "kebab-case")]
 enum CannedConfig {
     FullySequential,
+    ParallelSlots,
+    ParallelFrames,
+    ParallelWitGenVsFolding,
     #[default]
-    MaxParallelSimple,
-    ParallelStepsOnly,
-    ParallelSynthesis,
+    FullyParallel,
 }
 
 impl From<CannedConfig> for PerfConfig {
     fn from(canned: CannedConfig) -> Self {
         match canned {
             CannedConfig::FullySequential => Self::fully_sequential(),
-            CannedConfig::MaxParallelSimple => Self::max_parallel_simple(),
-            CannedConfig::ParallelSynthesis => Self::parallel_synthesis(),
-            CannedConfig::ParallelStepsOnly => Self::parallel_steps_only(),
+            CannedConfig::ParallelSlots => Self::parallel_slots(),
+            CannedConfig::ParallelFrames => Self::parallel_frames(),
+            CannedConfig::ParallelWitGenVsFolding => Self::parallel_wit_gen_vs_folding(),
+            CannedConfig::FullyParallel => Self::fully_parallel(),
         }
     }
 }
@@ -287,7 +292,7 @@ mod tests {
             .write_all(format!("public_params_dir = \"{public_params_dir}\"\n").as_bytes())
             .unwrap();
         config_file
-            .write_all("perf = \"parallel-steps-only\"\n".as_bytes())
+            .write_all("perf = \"parallel-wit-gen-vs-folding\"\n".as_bytes())
             .unwrap();
 
         // Overwrite public params dir to simulate CLI setting
@@ -298,7 +303,7 @@ mod tests {
         let config = Settings::from_config(&config_dir, Some(&overrides)).unwrap();
 
         assert_eq!(config.public_params_dir, public_params_dir_cli);
-        assert_eq!(config.perf, PerfConfig::parallel_steps_only());
+        assert_eq!(config.perf, PerfConfig::parallel_wit_gen_vs_folding());
     }
 
     // Tests that duplicate config keys result in an error

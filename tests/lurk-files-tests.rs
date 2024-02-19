@@ -57,7 +57,6 @@ fn test_demo() {
 
     demo_examples.into_par_iter().for_each(|f| {
         let mut cmd = lurk_cmd();
-        cmd.env("LURK_PERF", "max-parallel-simple");
         cmd.arg(f);
         cmd.assert().success();
     });

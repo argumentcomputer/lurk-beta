@@ -156,16 +156,12 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 store,
                 frames,
                 num_slots_per_frame,
-                lurk_config(None, None)
-                    .perf
-                    .parallelism
-                    .poseidon_witnesses
-                    .is_parallel(),
+                lurk_config(None, None).perf.parallelism.slots.is_parallel(),
             );
             if lurk_config(None, None)
                 .perf
                 .parallelism
-                .synthesis
+                .frames
                 .is_parallel()
             {
                 Ok(synthesize_frames_parallel(
