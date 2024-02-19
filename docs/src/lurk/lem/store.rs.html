@@ -1694,6 +1694,27 @@
 <a href="#1693" id="1693">1693</a>
 <a href="#1694" id="1694">1694</a>
 <a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
+<a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
+<a href="#1715" id="1715">1715</a>
+<a href="#1716" id="1716">1716</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -2027,8 +2048,15 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>fetch_f(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
+    </span><span class="kw">pub fn </span>fetch_f_by_idx(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
         <span class="self">self</span>.f_elts.get_index(idx).map(|fw| <span class="kw-2">&amp;</span>fw.<span class="number">0</span>)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>fetch_f(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
+        ptr.raw()
+            .get_atom()
+            .and_then(|idx| <span class="self">self</span>.fetch_f_by_idx(idx))
     }
 
     <span class="attr">#[inline]
@@ -2057,7 +2085,7 @@
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>expect_f(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="kw-2">&amp;</span>F {
-        <span class="self">self</span>.fetch_f(idx).expect(<span class="string">"Index missing from f_elts"</span>)
+        <span class="self">self</span>.fetch_f_by_idx(idx).expect(<span class="string">"Index missing from f_elts"</span>)
     }
 
     <span class="attr">#[inline]
@@ -2150,6 +2178,14 @@
     }
 
     <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>fetch_num(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
+        <span class="kw">match </span>ptr.tag() {
+            Tag::Expr(Num) =&gt; <span class="self">self</span>.fetch_f(ptr),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>num_u64(<span class="kw-2">&amp;</span><span class="self">self</span>, u: u64) -&gt; Ptr {
         <span class="self">self</span>.intern_atom(Tag::Expr(Num), F::from_u64(u))
     }
@@ -2160,8 +2196,24 @@
     }
 
     <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>fetch_u64(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
+        <span class="kw">match </span>ptr.tag() {
+            Tag::Expr(U64) =&gt; <span class="self">self</span>.fetch_f(ptr).and_then(F::to_u64),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>char(<span class="kw-2">&amp;</span><span class="self">self</span>, c: char) -&gt; Ptr {
         <span class="self">self</span>.intern_atom(Tag::Expr(Char), F::from_char(c))
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>fetch_char(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;char&gt; {
+        <span class="kw">match </span>ptr.tag() {
+            Tag::Expr(Char) =&gt; <span class="self">self</span>.fetch_f(ptr).and_then(F::to_char),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
     }
 
     <span class="attr">#[inline]
@@ -2181,7 +2233,7 @@
 
     <span class="kw">pub fn </span>is_zero(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>RawPtr) -&gt; bool {
         <span class="kw">match </span>ptr {
-            RawPtr::Atom(idx) =&gt; <span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx) == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>F::ZERO),
+            RawPtr::Atom(idx) =&gt; <span class="self">self</span>.fetch_f_by_idx(<span class="kw-2">*</span>idx) == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>F::ZERO),
             <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
         }
     }
@@ -2224,7 +2276,7 @@
             <span class="kw">loop </span>{
                 <span class="kw">match </span><span class="kw-2">*</span>ptr.raw() {
                     RawPtr::Atom(idx) =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.fetch_f(idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
+                        <span class="kw">if </span><span class="self">self</span>.fetch_f_by_idx(idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
                             <span class="self">self</span>.ptr_string_cache.insert(ptr, string.clone());
                             <span class="kw">return </span><span class="prelude-val">Some</span>(string);
                         } <span class="kw">else </span>{
@@ -2237,7 +2289,7 @@
                         <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>cdr_tag, <span class="self">self</span>.tag(Tag::Expr(Str)));
                         <span class="kw">match </span>car {
                             RawPtr::Atom(idx) =&gt; {
-                                <span class="kw">let </span>f = <span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx)<span class="question-mark">?</span>;
+                                <span class="kw">let </span>f = <span class="self">self</span>.fetch_f_by_idx(<span class="kw-2">*</span>idx)<span class="question-mark">?</span>;
                                 string.push(f.to_char().expect(<span class="string">"malformed char pointer"</span>));
                                 ptr = Ptr::new(Tag::Expr(Str), <span class="kw-2">*</span>cdr)
                             }
@@ -2287,7 +2339,7 @@
             path.push(string);
             <span class="kw">match </span>cdr {
                 RawPtr::Atom(idx) =&gt; {
-                    <span class="kw">if </span><span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
+                    <span class="kw">if </span><span class="self">self</span>.fetch_f_by_idx(<span class="kw-2">*</span>idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
                         path.reverse();
                         <span class="kw">return </span><span class="prelude-val">Some</span>(path);
                     } <span class="kw">else </span>{
@@ -2306,7 +2358,7 @@
         } <span class="kw">else </span>{
             <span class="kw">match </span>(ptr.tag(), ptr.raw()) {
                 (Tag::Expr(Sym), RawPtr::Atom(idx)) =&gt; {
-                    <span class="kw">if </span><span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
+                    <span class="kw">if </span><span class="self">self</span>.fetch_f_by_idx(<span class="kw-2">*</span>idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
                         <span class="kw">let </span>sym = Symbol::root_sym();
                         <span class="self">self</span>.ptr_symbol_cache.insert(<span class="kw-2">*</span>ptr, Box::new(sym.clone()));
                         <span class="prelude-val">Some</span>(sym)
@@ -2315,7 +2367,7 @@
                     </span>}
                 }
                 (Tag::Expr(Key), RawPtr::Atom(idx)) =&gt; {
-                    <span class="kw">if </span><span class="self">self</span>.fetch_f(<span class="kw-2">*</span>idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
+                    <span class="kw">if </span><span class="self">self</span>.fetch_f_by_idx(<span class="kw-2">*</span>idx)<span class="question-mark">? </span>== <span class="kw-2">&amp;</span>F::ZERO {
                         <span class="kw">let </span>key = Symbol::root_key();
                         <span class="self">self</span>.ptr_symbol_cache.insert(<span class="kw-2">*</span>ptr, Box::new(key.clone()));
                         <span class="prelude-val">Some</span>(key)
@@ -2836,12 +2888,7 @@
                     <span class="macro">format!</span>(<span class="string">"\"{str}\""</span>)
                 }
                 Char =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = <span class="self">self
-                        </span>.raw()
-                        .get_atom()
-                        .map(|idx| store.expect_f(idx))
-                        .and_then(F::to_char)
-                    {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = store.fetch_f(<span class="self">self</span>).and_then(F::to_char) {
                         <span class="macro">format!</span>(<span class="string">"\'{c}\'"</span>)
                     } <span class="kw">else </span>{
                         <span class="string">"&lt;Malformed Char&gt;"</span>.into()
@@ -2865,7 +2912,7 @@
                     )
                 }
                 Num =&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>(f) = <span class="self">self</span>.raw().get_atom().map(|idx| store.expect_f(idx)) <span class="kw">else </span>{
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(f) = store.fetch_f(<span class="self">self</span>) <span class="kw">else </span>{
                         <span class="kw">return </span><span class="string">"&lt;Malformed Num&gt;"</span>.into();
                     };
                     <span class="kw">let </span><span class="prelude-val">Some</span>(u) = f.to_u64() <span class="kw">else </span>{
@@ -2874,12 +2921,7 @@
                     u.to_string()
                 }
                 U64 =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = <span class="self">self
-                        </span>.raw()
-                        .get_atom()
-                        .map(|idx| store.expect_f(idx))
-                        .and_then(F::to_u64)
-                    {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = store.fetch_f(<span class="self">self</span>).and_then(F::to_u64) {
                         <span class="macro">format!</span>(<span class="string">"{u}u64"</span>)
                     } <span class="kw">else </span>{
                         <span class="string">"&lt;Malformed U64&gt;"</span>.into()

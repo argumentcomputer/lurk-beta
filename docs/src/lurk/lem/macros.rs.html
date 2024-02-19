@@ -878,6 +878,20 @@
 <a href="#877" id="877">877</a>
 <a href="#878" id="878">878</a>
 <a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
 </pre></div><pre class="rust"><code><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>var {
     (<span class="macro-nonterminal">$variable</span>:ident) =&gt; {
@@ -1584,6 +1598,7 @@
 }
 
 <span class="attr">#[macro_export]
+</span><span class="doccomment">/// Creates a checked `Func`
 </span><span class="macro">macro_rules! </span>func {
     (<span class="macro-nonterminal">$name</span>:ident($( <span class="macro-nonterminal">$</span><span class="kw">in</span>:<span class="macro-nonterminal">ident </span>),<span class="kw-2">*</span>): <span class="macro-nonterminal">$size</span>:expr =&gt; <span class="macro-nonterminal">$lem</span>:tt) =&gt; {
         <span class="macro-nonterminal">$crate::lem::Func::new</span>(
@@ -1592,6 +1607,19 @@
             <span class="macro-nonterminal">$size</span>,
             <span class="macro-nonterminal">$</span><span class="macro">crate::block!</span>(<span class="macro-nonterminal">$lem</span>),
         ).unwrap()
+    };
+}
+
+<span class="attr">#[macro_export]
+</span><span class="doccomment">/// Creates an auxiliary `Func`. No transformations or checks are performed
+</span><span class="macro">macro_rules! </span>aux_func {
+    (<span class="macro-nonterminal">$name</span>:ident($( <span class="macro-nonterminal">$</span><span class="kw">in</span>:<span class="macro-nonterminal">ident </span>),<span class="kw-2">*</span>): <span class="macro-nonterminal">$size</span>:expr =&gt; <span class="macro-nonterminal">$lem</span>:tt) =&gt; {
+        <span class="macro-nonterminal">$crate::lem::Func::new_unchecked</span>(
+            <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>).into(),
+            <span class="macro">vec!</span>[$(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$</span><span class="kw">in</span>)),<span class="kw-2">*</span>],
+            <span class="macro-nonterminal">$size</span>,
+            <span class="macro-nonterminal">$</span><span class="macro">crate::block!</span>(<span class="macro-nonterminal">$lem</span>),
+        )
     };
 }
 

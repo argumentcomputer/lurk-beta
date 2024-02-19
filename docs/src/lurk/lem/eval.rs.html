@@ -1753,6 +1753,7 @@
 <span class="kw">use </span>once_cell::sync::OnceCell;
 
 <span class="kw">use crate</span>::{
+    aux_func,
     coprocessor::Coprocessor,
     ctrl,
     eval::lang::Lang,
@@ -2051,7 +2052,7 @@
 <span class="doccomment">/// Simpler version of `car_cdr` that doesn't deconstruct strings to save some
 /// constraints
 </span><span class="kw">fn </span>car_cdr() -&gt; Func {
-    <span class="macro">func!</span>(car_cdr(xs): <span class="number">2 </span>=&gt; {
+    <span class="macro">aux_func!</span>(car_cdr(xs): <span class="number">2 </span>=&gt; {
         <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">match </span>xs.tag {
@@ -2229,7 +2230,7 @@
 /// ```
 </span><span class="kw">fn </span>is_cproc(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)]) -&gt; Func {
     <span class="kw">if </span>cprocs.is_empty() {
-        <span class="macro">func!</span>(is_cproc(_head): <span class="number">1 </span>=&gt; {
+        <span class="macro">aux_func!</span>(is_cproc(_head): <span class="number">1 </span>=&gt; {
             <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
             <span class="kw">let </span>nil = cast(nil, Expr::Nil);
             <span class="kw">return </span>(nil);
@@ -2247,7 +2248,7 @@
             .collect();
         <span class="kw">let </span>def = <span class="prelude-val">Some</span>(Block::ctrl(<span class="macro">ctrl!</span>(<span class="kw">return </span>(nil))));
         <span class="kw">let </span>ctrl = Ctrl::match_symbol(head.clone(), match_symbol_cases, def);
-        Func::new(<span class="string">"is_cproc"</span>.into(), <span class="macro">vec!</span>[head], <span class="number">1</span>, Block { ops, ctrl }).unwrap()
+        Func::new_unchecked(<span class="string">"is_cproc"</span>.into(), <span class="macro">vec!</span>[head], <span class="number">1</span>, Block { ops, ctrl })
     }
 }
 
@@ -2398,19 +2399,18 @@
             <span class="macro">op!</span>(<span class="kw">let </span>nil = cast(nil, Expr::Nil)),
         ]
     };
-    Func::new(
+    Func::new_unchecked(
         <span class="string">"match_and_run_cproc"</span>.into(),
         func_inp,
         <span class="number">4</span>,
         Block { ops, ctrl },
     )
-    .unwrap()
 }
 
 <span class="kw">fn </span>reduce(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)]) -&gt; Func {
     <span class="comment">// Auxiliary functions
     </span><span class="kw">let </span>car_cdr = car_cdr();
-    <span class="kw">let </span>expand_bindings = <span class="macro">func!</span>(expand_bindings(head, body, body1, rest_bindings): <span class="number">1 </span>=&gt; {
+    <span class="kw">let </span>expand_bindings = <span class="macro">aux_func!</span>(expand_bindings(head, body, body1, rest_bindings): <span class="number">1 </span>=&gt; {
         <span class="kw">match </span>rest_bindings.tag {
             Expr::Nil =&gt; {
                 <span class="kw">return </span>(body1)
@@ -2420,7 +2420,7 @@
         <span class="kw">let </span>expanded: Expr::Cons = cons2(head, expanded_0);
         <span class="kw">return </span>(expanded)
     });
-    <span class="kw">let </span>get_unop = <span class="macro">func!</span>(get_unop(head): <span class="number">1 </span>=&gt; {
+    <span class="kw">let </span>get_unop = <span class="macro">aux_func!</span>(get_unop(head): <span class="number">1 </span>=&gt; {
         <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">match </span>symbol head {
@@ -2471,7 +2471,7 @@
         };
         <span class="kw">return </span>(nil)
     });
-    <span class="kw">let </span>get_binop = <span class="macro">func!</span>(get_binop(head): <span class="number">1 </span>=&gt; {
+    <span class="kw">let </span>get_binop = <span class="macro">aux_func!</span>(get_binop(head): <span class="number">1 </span>=&gt; {
         <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">match </span>symbol head {
@@ -2534,7 +2534,7 @@
         };
         <span class="kw">return </span>(nil)
     });
-    <span class="kw">let </span>is_potentially_fun = <span class="macro">func!</span>(is_potentially_fun(head): <span class="number">1 </span>=&gt; {
+    <span class="kw">let </span>is_potentially_fun = <span class="macro">aux_func!</span>(is_potentially_fun(head): <span class="number">1 </span>=&gt; {
         <span class="kw">let </span>fun: Expr::Fun;
         <span class="kw">let </span>cons: Expr::Cons;
         <span class="kw">let </span>thunk: Expr::Thunk;
@@ -2552,7 +2552,7 @@
         <span class="kw">return </span>(nil)
     });
     <span class="kw">let </span>is_cproc = is_cproc(cprocs);
-    <span class="kw">let </span>lookup = <span class="macro">func!</span>(lookup(expr, env, state): <span class="number">3 </span>=&gt; {
+    <span class="kw">let </span>lookup = <span class="macro">aux_func!</span>(lookup(expr, env, state): <span class="number">3 </span>=&gt; {
         <span class="kw">let </span>found = Symbol(<span class="string">"found"</span>);
         <span class="kw">let </span>not_found = Symbol(<span class="string">"not_found"</span>);
         <span class="kw">let </span>error = Symbol(<span class="string">"error"</span>);
@@ -2573,7 +2573,7 @@
         <span class="kw">return </span>(expr, smaller_env, not_found)
     });
 
-    <span class="macro">func!</span>(reduce(expr, env, cont): <span class="number">4 </span>=&gt; {
+    <span class="macro">aux_func!</span>(reduce(expr, env, cont): <span class="number">4 </span>=&gt; {
         <span class="kw">let </span>ret = Symbol(<span class="string">"return"</span>);
         <span class="kw">let </span>term: Cont::Terminal = HASH_8_ZEROS;
         <span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS;
@@ -2884,7 +2884,7 @@
 /// from outside, which is supposed to know how to reduce such expression.
 </span><span class="kw">fn </span>choose_cproc_call(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)], ivc: bool) -&gt; Func {
     <span class="kw">if </span>cprocs.is_empty() {
-        <span class="macro">func!</span>(no_cproc_error(cproc_name, _evaluated_args, env, _cont): <span class="number">4 </span>=&gt; {
+        <span class="macro">aux_func!</span>(no_cproc_error(cproc_name, _evaluated_args, env, _cont): <span class="number">4 </span>=&gt; {
             <span class="kw">let </span>err: Cont::Error = HASH_8_ZEROS;
             <span class="kw">let </span>errctrl = Symbol(<span class="string">"error"</span>);
             <span class="kw">return </span>(cproc_name, env, err, errctrl);
@@ -2892,7 +2892,7 @@
     } <span class="kw">else if </span>ivc {
         match_and_run_cproc(cprocs)
     } <span class="kw">else </span>{
-        <span class="macro">func!</span>(setup_cproc_loop(cproc_name, evaluated_args, env, cont): <span class="number">4 </span>=&gt; {
+        <span class="macro">aux_func!</span>(setup_cproc_loop(cproc_name, evaluated_args, env, cont): <span class="number">4 </span>=&gt; {
             <span class="kw">let </span>ret = Symbol(<span class="string">"return"</span>);
             <span class="comment">// setup loop
             </span><span class="kw">let </span>cproc: Expr::Cproc = cons2(cproc_name, evaluated_args);
@@ -2905,7 +2905,7 @@
     <span class="kw">let </span>car_cdr = car_cdr();
     <span class="comment">// Returns 0u64 if both arguments are U64, 0 (num) if the arguments are some kind of number (either U64 or Num),
     // and nil otherwise
-    </span><span class="kw">let </span>args_num_type = <span class="macro">func!</span>(args_num_type(arg1, arg2): <span class="number">1 </span>=&gt; {
+    </span><span class="kw">let </span>args_num_type = <span class="macro">aux_func!</span>(args_num_type(arg1, arg2): <span class="number">1 </span>=&gt; {
         <span class="kw">let </span>nil = Symbol(<span class="string">"nil"</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">match </span>arg1.tag {
@@ -2939,7 +2939,7 @@
         <span class="kw">return </span>(nil)
     });
     <span class="kw">let </span>choose_cproc_call = choose_cproc_call(cprocs, ivc);
-    <span class="macro">func!</span>(apply_cont(result, env, cont, ctrl): <span class="number">4 </span>=&gt; {
+    <span class="macro">aux_func!</span>(apply_cont(result, env, cont, ctrl): <span class="number">4 </span>=&gt; {
         <span class="kw">match </span>symbol ctrl {
             <span class="string">"apply-continuation" </span>=&gt; {
                 <span class="kw">let </span>makethunk = Symbol(<span class="string">"make-thunk"</span>);
@@ -3448,7 +3448,7 @@
 }
 
 <span class="kw">fn </span>make_thunk() -&gt; Func {
-    <span class="macro">func!</span>(make_thunk(expr, env, cont, ctrl): <span class="number">3 </span>=&gt; {
+    <span class="macro">aux_func!</span>(make_thunk(expr, env, cont, ctrl): <span class="number">3 </span>=&gt; {
         <span class="kw">match </span>symbol ctrl {
             <span class="string">"make-thunk" </span>=&gt; {
                 <span class="kw">match </span>cont.tag {
