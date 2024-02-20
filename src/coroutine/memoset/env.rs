@@ -364,7 +364,7 @@ mod test {
             scope.finalize_transcript(s);
 
             let cs = &mut TestConstraintSystem::new();
-            let g = &mut GlobalAllocator::default();
+            let g = &GlobalAllocator::default();
 
             scope.synthesize(cs, g, s).unwrap();
 
