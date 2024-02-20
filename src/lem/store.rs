@@ -438,16 +438,16 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn pop_provenance(&self, env: Ptr) -> Option<[Ptr; 3]> {
-        assert_eq!(*env.tag(), Tag::Expr(Prov));
-        let idx = env.get_index2()?;
-        let [sym_pay, val_tag, val_pay, env_pay] = self.fetch_raw_ptrs::<4>(idx)?;
+    pub fn deconstruct_provenance(&self, prov: Ptr) -> Option<[Ptr; 3]> {
+        assert_eq!(*prov.tag(), Tag::Expr(Prov));
+        let idx = prov.get_index2()?;
+        let [query_pay, val_tag, val_pay, deps_pay] = self.fetch_raw_ptrs::<4>(idx)?;
         let val_tag = self.fetch_tag(val_tag)?;
-        let query = Ptr::new(Tag::Expr(Cons), *sym_pay);
+        let query = Ptr::new(Tag::Expr(Cons), *query_pay);
         let val = Ptr::new(val_tag, *val_pay);
 
-        let env = Ptr::new(Tag::Expr(Cons), *env_pay);
-        Some([query, val, env])
+        let deps = Ptr::new(Tag::Expr(Cons), *deps_pay);
+        Some([query, val, deps])
     }
 
     #[inline]

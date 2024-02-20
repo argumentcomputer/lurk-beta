@@ -2,7 +2,7 @@ use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use super::{
     query::{CircuitQuery, Query, RecursiveQuery},
-    CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope,
+    CircuitScope, LogMemo, LogMemoCircuit, Scope,
 };
 use crate::circuit::gadgets::constraints::alloc_is_zero;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
@@ -136,15 +136,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         store: &Store<F>,
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
-        transcript: &CircuitTranscript<F>,
-    ) -> Result<
-        (
-            (AllocatedPtr<F>, AllocatedPtr<F>),
-            AllocatedPtr<F>,
-            CircuitTranscript<F>,
-        ),
-        SynthesisError,
-    > {
+    ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
         match self {
             Self::Factorial(n) => {
                 // FIXME: Check n tag or decide not to.
@@ -187,7 +179,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
                     &query,
                     &new_num,
                     &n_is_zero.not(),
-                    (&base_case, acc, transcript),
+                    (&base_case, acc),
                 )
             }
         }
