@@ -137,9 +137,7 @@ fn discard_bits<Scalar: LurkField>(bytes: &mut [u8]) {
     let full_bytes_to_zero = bits_to_zero / 8;
     let partial_bits_to_zero = bits_to_zero % 8;
 
-    for i in 0..full_bytes_to_zero {
-        bytes[i] = 0;
-    }
+    bytes[..full_bytes_to_zero].iter_mut().for_each(|b| *b = 0);
 
     if partial_bits_to_zero > 0 {
         let mask = 0xFF >> partial_bits_to_zero;
