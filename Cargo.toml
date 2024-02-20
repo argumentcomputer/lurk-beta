@@ -116,7 +116,7 @@ members = ["lurk-macros", "lurk-metrics"]
 abomonation = "0.7.3"
 anyhow = "1.0.72"
 bellpepper = { git = "https://github.com/lurk-lab/bellpepper", branch = "dev" }
-bellpepper-core = { git = "https://github.com/lurk-lab/bellpepper", branch = "dev" }
+bellpepper-core = { version = "0.4.0" }
 bincode = "1.3.3"
 clap = "4.3.17"
 ff = "0.13"
