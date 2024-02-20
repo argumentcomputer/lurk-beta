@@ -125,7 +125,7 @@ neptune = { git = "https://github.com/lurk-lab/neptune", branch = "dev", default
 nova = { git = "https://github.com/lurk-lab/arecibo", branch = "dev", package = "arecibo", features = ["abomonate"]}
 once_cell = "1.18.0"
 pairing = { version = "0.23" }
-pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch = "dev" }
+pasta_curves = { version = "0.5.0" }
 proptest = "1.2.0"
 proptest-derive = "0.4.0"
 rand = "0.8"
@@ -185,7 +185,3 @@ harness = false
 [[bench]]
 name = "public_params"
 harness = false
-
-[patch.crates-io]
-# This is needed to ensure halo2curves, which imports pasta-curves, uses the *same* traits in bn256_grumpkin
-pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch = "dev" }
