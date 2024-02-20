@@ -205,7 +205,8 @@ pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
         &circuit_secondary,
         &*commitment_size_hint1,
         &*commitment_size_hint2,
-    );
+    )
+    .unwrap();
     PublicParams {
         pp,
         pk_and_vk: OnceCell::new(),
