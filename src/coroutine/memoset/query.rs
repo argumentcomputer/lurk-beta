@@ -88,13 +88,9 @@ where
         store: &Store<F>,
         result: AllocatedPtr<F>,
         dependency_provenances: Vec<AllocatedPtr<F>>,
-        allocated_key: Option<&AllocatedPtr<F>>,
+        allocated_key: &AllocatedPtr<F>,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        let query = if let Some(q) = allocated_key {
-            q.clone()
-        } else {
-            self.synthesize_query(ns!(cs, "query"), g, store)?
-        };
+        let query = allocated_key.clone();
         let p = AllocatedProvenance::new(query, result, dependency_provenances.clone());
 
         Ok(p.to_ptr(cs, g, store)?.clone())
@@ -166,7 +162,7 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
             store,
             value.clone(),
             vec![dependency_provenance.clone()],
-            Some(allocated_key),
+            allocated_key,
         )?;
 
         Ok(((value, provenance.clone()), acc))
