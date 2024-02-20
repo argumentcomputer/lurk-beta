@@ -50,6 +50,7 @@ where
         store: &Store<F>,
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
+        allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError>;
 
     fn symbol(&self) -> Symbol;
@@ -61,6 +62,43 @@ where
     fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self>;
 
     fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self;
+
+    fn synthesize_args<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        store: &Store<F>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError>;
+
+    fn synthesize_query<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        store: &Store<F>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let symbol = g.alloc_ptr(ns!(cs, "symbol_"), &self.symbol_ptr(store), store);
+        let args = self.synthesize_args(ns!(cs, "args"), g, store)?;
+        construct_cons(ns!(cs, "query"), g, store, &symbol, &args)
+    }
+
+    fn synthesize_provenance<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        store: &Store<F>,
+        result: AllocatedPtr<F>,
+        dependency_provenances: Vec<AllocatedPtr<F>>,
+        allocated_key: Option<&AllocatedPtr<F>>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let query = if let Some(q) = allocated_key {
+            q.clone()
+        } else {
+            self.synthesize_query(ns!(cs, "query"), g, store)?
+        };
+        let p = AllocatedProvenance::new(query, result, dependency_provenances.clone());
+
+        Ok(p.to_ptr(cs, g, store)?.clone())
+    }
 }
 
 pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
@@ -69,6 +107,7 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
         _cs: &mut CS,
         subquery_result: AllocatedPtr<F>,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        // The default implementation provides tail recursion.
         Ok(subquery_result)
     }
 
@@ -78,17 +117,14 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
         g: &GlobalAllocator<F>,
         store: &Store<F>,
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
-        query: &AllocatedPtr<F>,
-        args: &AllocatedPtr<F>,
+        subquery: Self,
         is_recursive: &Boolean,
         immediate: (&AllocatedPtr<F>, &AllocatedPtr<F>),
+        allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
         let is_immediate = is_recursive.not();
 
-        let subquery = {
-            let symbol = g.alloc_ptr(ns!(cs, "symbol"), &self.symbol_ptr(store), store);
-            construct_cons(ns!(cs, "subquery"), g, store, &symbol, args)?
-        };
+        let subquery = subquery.synthesize_query(cs, g, store)?;
 
         let ((sub_result, sub_provenance), new_acc) = scope.synthesize_internal_query(
             ns!(cs, "recursive query"),
@@ -124,13 +160,14 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
             &sub_provenance,
         )?;
 
-        let p = AllocatedProvenance::new(
-            query.clone(),
+        let provenance = self.synthesize_provenance(
+            ns!(cs, "provenance"),
+            g,
+            store,
             value.clone(),
             vec![dependency_provenance.clone()],
-        );
-
-        let provenance = p.to_ptr(cs, g, store)?;
+            Some(allocated_key),
+        )?;
 
         Ok(((value, provenance.clone()), acc))
     }

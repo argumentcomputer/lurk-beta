@@ -1149,7 +1149,16 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
         for (i, kv) in scope.toplevel_insertions.iter().enumerate() {
-            self.synthesize_toplevel_query(cs, g, s, i, kv)?;
+            let cs = ns!(cs, format!("toplevel_insertion-{i}"));
+            let (key, value) = s.car_cdr(kv).expect("kv missing");
+            // NOTE: This is an unconstrained allocation, but when actually hooked up to Lurk reduction, it must be
+            // constrained appropriately.
+            let allocated_key =
+                AllocatedPtr::alloc(ns!(cs, "allocated_key"), || Ok(s.hash_ptr(&key))).unwrap();
+            // NOTE: The returned value is unused here, but when actually hooked up to Lurk reduction, it must be used
+            // as the result of evaluating the query.
+            let _allocated_value =
+                self.synthesize_toplevel_query(cs, g, s, i, &allocated_key, value)?;
         }
         Ok(())
     }
@@ -1160,12 +1169,10 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         g: &mut GlobalAllocator<F>,
         s: &Store<F>,
         i: usize,
-        kv: &Ptr,
-    ) -> Result<(), SynthesisError> {
-        let (key, value) = s.car_cdr(kv).unwrap();
+        allocated_key: &AllocatedPtr<F>,
+        value: Ptr,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
         let cs = ns!(cs, format!("toplevel-{i}"));
-        let allocated_key =
-            AllocatedPtr::alloc(ns!(cs, "allocated_key"), || Ok(s.hash_ptr(&key))).unwrap();
 
         let acc = self.acc.clone().unwrap();
         let insertion_transcript = self.transcript.clone();
@@ -1174,7 +1181,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             cs,
             g,
             s,
-            &allocated_key,
+            allocated_key,
             &acc,
             &insertion_transcript,
             &Boolean::Constant(true),
@@ -1186,7 +1193,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
 
         self.acc = Some(new_acc);
         self.transcript = new_transcript;
-        Ok(())
+        Ok(val)
     }
 
     fn synthesize_prove_key_query<CS: ConstraintSystem<F>, Q: Query<F>>(
@@ -1197,25 +1204,20 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         key: Option<&Ptr>,
         index: usize,
     ) -> Result<(), SynthesisError> {
-        let allocated_key = AllocatedPtr::alloc(ns!(cs, "allocated_key"), || {
-            if let Some(key) = key {
-                Ok(s.hash_ptr(key))
-            } else {
-                Ok(s.hash_ptr(&s.intern_nil()))
-            }
-        })
-        .unwrap();
-
-        let circuit_query = if let Some(key) = key {
-            Q::CQ::from_ptr(ns!(cs, "circuit_query"), s, key).unwrap()
-        } else {
-            Q::CQ::dummy_from_index(ns!(cs, "circuit_query"), s, index)
-        };
-
         let not_dummy = Boolean::Is(AllocatedBit::alloc(
             cs.namespace(|| "not_dummy"),
             Some(key.is_some()),
         )?);
+
+        let circuit_query = if let Some(key) = key {
+            let query = Q::from_ptr(s, key).unwrap();
+            assert_eq!(index, query.index());
+            query.to_circuit(ns!(cs, "circuit_query"), s)
+        } else {
+            Q::CQ::dummy_from_index(ns!(cs, "circuit_query"), s, index)
+        };
+
+        let allocated_key = circuit_query.synthesize_query(ns!(cs, "allocated_key"), g, s)?;
 
         self.synthesize_prove_query::<_, Q::CQ>(
             cs,
@@ -1240,7 +1242,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         let acc = self.acc.clone().unwrap();
 
         let ((val, provenance), new_acc) = circuit_query
-            .synthesize_eval(ns!(cs, "eval"), g, s, self, &acc)
+            .synthesize_eval(ns!(cs, "eval"), g, s, self, &acc, allocated_key)
             .unwrap();
 
         let (new_acc, new_transcript) = self.synthesize_remove(
@@ -1468,23 +1470,23 @@ mod test {
     fn test_query() {
         test_query_aux(
             expect!["9451"],
-            expect!["9507"],
+            expect!["9497"],
             expect!["10034"],
-            expect!["10097"],
+            expect!["10087"],
             1,
         );
         test_query_aux(
             expect!["11191"],
-            expect!["11253"],
+            expect!["11241"],
             expect!["11774"],
-            expect!["11843"],
+            expect!["11831"],
             3,
         );
         test_query_aux(
             expect!["18239"],
-            expect!["18336"],
+            expect!["18316"],
             expect!["18822"],
-            expect!["18926"],
+            expect!["18906"],
             10,
         )
     }

@@ -6,7 +6,6 @@ use super::{
 };
 use crate::circuit::gadgets::constraints::alloc_is_zero;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
-use crate::coprocessor::gadgets::construct_cons;
 use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
 use crate::lem::{pointers::Ptr, store::Store};
@@ -129,6 +128,17 @@ impl<F: LurkField> RecursiveQuery<F> for DemoCircuitQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
+    fn synthesize_args<CS: ConstraintSystem<F>>(
+        &self,
+        _cs: &mut CS,
+        _g: &GlobalAllocator<F>,
+        _store: &Store<F>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        match self {
+            Self::Factorial(n) => Ok(n.clone()),
+        }
+    }
+
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -136,6 +146,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         store: &Store<F>,
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
+        allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
         match self {
             Self::Factorial(n) => {
@@ -167,19 +178,17 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
                 let new_num =
                     AllocatedPtr::alloc_tag(ns!(cs, "new_num"), ExprTag::Num.to_field(), new_n)?;
 
-                let symbol = g.alloc_ptr(ns!(cs, "symbol_"), &self.symbol_ptr(store), store);
-
-                let query = construct_cons(ns!(cs, "query"), g, store, &symbol, n)?;
+                let subquery = Self::Factorial(new_num);
 
                 self.recurse(
                     cs,
                     g,
                     store,
                     scope,
-                    &query,
-                    &new_num,
+                    subquery,
                     &n_is_zero.not(),
                     (&base_case, acc),
+                    allocated_key,
                 )
             }
         }

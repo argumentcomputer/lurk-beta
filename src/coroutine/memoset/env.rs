@@ -117,6 +117,24 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
 impl<F: LurkField> RecursiveQuery<F> for EnvCircuitQuery<F> {}
 
 impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
+    fn synthesize_args<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        store: &Store<F>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        match self {
+            Self::Lookup(var, env) => {
+                let sym_tag = g.alloc_tag(ns!(cs, "sym_tag"), &ExprTag::Sym);
+                let env_tag = g.alloc_tag(ns!(cs, "env_tag"), &ExprTag::Env);
+                let var_alloc = AllocatedPtr::from_parts(sym_tag.clone(), var.clone());
+                let env_alloc = AllocatedPtr::from_parts(env_tag.clone(), env.clone());
+
+                construct_cons(ns!(cs, "args"), g, store, &var_alloc, &env_alloc)
+            }
+        }
+    }
+
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -124,6 +142,7 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
         store: &Store<F>,
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
         acc: &AllocatedPtr<F>,
+        allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
         match self {
             Self::Lookup(var, env) => {
@@ -131,8 +150,6 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
                 let t = store.intern_t();
                 let allocated_nil = g.alloc_ptr(cs, &nil, store);
                 let allocated_t = g.alloc_ptr(cs, &t, store);
-                let sym_tag = g.alloc_tag(ns!(cs, "sym_tag"), &ExprTag::Sym);
-                let env_tag = g.alloc_tag(ns!(cs, "env_tag"), &ExprTag::Env);
 
                 let env_is_empty = alloc_is_zero(ns!(cs, "env_is_empty"), env)?;
 
@@ -164,34 +181,17 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
                     &immediate_bound,
                 )?;
 
-                let new_env_alloc = AllocatedPtr::from_parts(env_tag.clone(), new_env);
-                let var_alloc = AllocatedPtr::from_parts(sym_tag.clone(), var.clone());
-
-                let recursive_args = construct_cons(
-                    ns!(cs, "recursive_args"),
-                    g,
-                    store,
-                    &var_alloc,
-                    &new_env_alloc,
-                )?;
-
-                let env_alloc = AllocatedPtr::from_parts(env_tag.clone(), env.clone());
-                let these_args =
-                    construct_cons(ns!(cs, "these_args"), g, store, &var_alloc, &env_alloc)?;
-
-                let symbol = g.alloc_ptr(ns!(cs, "symbol_"), &self.symbol_ptr(store), store);
-
-                let query = construct_cons(ns!(cs, "query"), g, store, &symbol, &these_args)?;
+                let subquery = Self::Lookup(var.clone(), new_env);
 
                 self.recurse(
                     cs,
                     g,
                     store,
                     scope,
-                    &query,
-                    &recursive_args,
+                    subquery,
                     &is_immediate.not(),
                     (&immediate_result, acc),
+                    allocated_key,
                 )
             }
         }
@@ -305,21 +305,21 @@ mod test {
             // Without internal insertions transcribed.
 
             let (one_lookup_constraints, one_lookup_aux) =
-                test_lookup_circuit_aux(s, a, empty, expect!["3525"], expect!["3543"]);
+                test_lookup_circuit_aux(s, a, empty, expect!["3525"], expect!["3541"]);
 
-            test_lookup_circuit_aux(s, a, a_env, expect!["3525"], expect!["3543"]);
+            test_lookup_circuit_aux(s, a, a_env, expect!["3525"], expect!["3541"]);
 
             let (two_lookup_constraints, two_lookup_aux) =
-                test_lookup_circuit_aux(s, b, a_env, expect!["6459"], expect!["6489"]);
+                test_lookup_circuit_aux(s, b, a_env, expect!["6459"], expect!["6485"]);
 
-            test_lookup_circuit_aux(s, b, b_env, expect!["3525"], expect!["3543"]);
-            test_lookup_circuit_aux(s, a, a2_env, expect!["3525"], expect!["3543"]);
+            test_lookup_circuit_aux(s, b, b_env, expect!["3525"], expect!["3541"]);
+            test_lookup_circuit_aux(s, a, a2_env, expect!["3525"], expect!["3541"]);
 
             let (three_lookup_constraints, three_lookup_aux) =
-                test_lookup_circuit_aux(s, c, b_env, expect!["9393"], expect!["9435"]);
+                test_lookup_circuit_aux(s, c, b_env, expect!["9393"], expect!["9429"]);
 
-            test_lookup_circuit_aux(s, c, c_env, expect!["3525"], expect!["3543"]);
-            test_lookup_circuit_aux(s, c, a2_env, expect!["6459"], expect!["6489"]);
+            test_lookup_circuit_aux(s, c, c_env, expect!["3525"], expect!["3541"]);
+            test_lookup_circuit_aux(s, c, a2_env, expect!["6459"], expect!["6485"]);
 
             let delta1_constraints = two_lookup_constraints - one_lookup_constraints;
             let delta2_constraints = three_lookup_constraints - two_lookup_constraints;
@@ -340,7 +340,7 @@ mod test {
             assert_eq!(delta1_aux, delta2_aux);
 
             // This is the number of aux per lookup.
-            expect_eq(delta1_aux, expect!["2946"]);
+            expect_eq(delta1_aux, expect!["2944"]);
 
             // This is the number of aux in the constant overhead.
             expect_eq(overhead_aux, expect!["597"]);
