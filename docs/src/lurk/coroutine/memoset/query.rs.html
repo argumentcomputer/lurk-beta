@@ -136,6 +136,43 @@
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{boolean::Boolean, ConstraintSystem, SynthesisError};
 
 <span class="kw">use super</span>::{AllocatedProvenance, CircuitScope, LogMemo, LogMemoCircuit, Scope};
@@ -188,6 +225,7 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
+        allocated_key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;((AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), AllocatedPtr&lt;F&gt;), SynthesisError&gt;;
 
     <span class="kw">fn </span>symbol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Symbol;
@@ -199,6 +237,43 @@
     <span class="kw">fn </span>from_ptr&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
 
     <span class="kw">fn </span>dummy_from_index&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, index: usize) -&gt; <span class="self">Self</span>;
+
+    <span class="kw">fn </span>synthesize_args&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt;;
+
+    <span class="kw">fn </span>synthesize_query&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
+        <span class="kw">let </span>symbol = g.alloc_ptr(<span class="macro">ns!</span>(cs, <span class="string">"symbol_"</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.symbol_ptr(store), store);
+        <span class="kw">let </span>args = <span class="self">self</span>.synthesize_args(<span class="macro">ns!</span>(cs, <span class="string">"args"</span>), g, store)<span class="question-mark">?</span>;
+        construct_cons(<span class="macro">ns!</span>(cs, <span class="string">"query"</span>), g, store, <span class="kw-2">&amp;</span>symbol, <span class="kw-2">&amp;</span>args)
+    }
+
+    <span class="kw">fn </span>synthesize_provenance&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        result: AllocatedPtr&lt;F&gt;,
+        dependency_provenances: Vec&lt;AllocatedPtr&lt;F&gt;&gt;,
+        allocated_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
+        <span class="kw">let </span>query = <span class="kw">if let </span><span class="prelude-val">Some</span>(q) = allocated_key {
+            q.clone()
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.synthesize_query(<span class="macro">ns!</span>(cs, <span class="string">"query"</span>), g, store)<span class="question-mark">?
+        </span>};
+        <span class="kw">let </span>p = AllocatedProvenance::new(query, result, dependency_provenances.clone());
+
+        <span class="prelude-val">Ok</span>(p.to_ptr(cs, g, store)<span class="question-mark">?</span>.clone())
+    }
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>RecursiveQuery&lt;F: LurkField&gt;: CircuitQuery&lt;F&gt; {
@@ -207,7 +282,8 @@
         _cs: <span class="kw-2">&amp;mut </span>CS,
         subquery_result: AllocatedPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
-        <span class="prelude-val">Ok</span>(subquery_result)
+        <span class="comment">// The default implementation provides tail recursion.
+        </span><span class="prelude-val">Ok</span>(subquery_result)
     }
 
     <span class="kw">fn </span>recurse&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -216,17 +292,14 @@
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt;,
-        query: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-        args: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
+        subquery: <span class="self">Self</span>,
         is_recursive: <span class="kw-2">&amp;</span>Boolean,
         immediate: (<span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;, <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;),
+        allocated_key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;((AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), AllocatedPtr&lt;F&gt;), SynthesisError&gt; {
         <span class="kw">let </span>is_immediate = is_recursive.not();
 
-        <span class="kw">let </span>subquery = {
-            <span class="kw">let </span>symbol = g.alloc_ptr(<span class="macro">ns!</span>(cs, <span class="string">"symbol"</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.symbol_ptr(store), store);
-            construct_cons(<span class="macro">ns!</span>(cs, <span class="string">"subquery"</span>), g, store, <span class="kw-2">&amp;</span>symbol, args)<span class="question-mark">?
-        </span>};
+        <span class="kw">let </span>subquery = subquery.synthesize_query(cs, g, store)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>((sub_result, sub_provenance), new_acc) = scope.synthesize_internal_query(
             <span class="macro">ns!</span>(cs, <span class="string">"recursive query"</span>),
@@ -262,13 +335,14 @@
             <span class="kw-2">&amp;</span>sub_provenance,
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>p = AllocatedProvenance::new(
-            query.clone(),
+        <span class="kw">let </span>provenance = <span class="self">self</span>.synthesize_provenance(
+            <span class="macro">ns!</span>(cs, <span class="string">"provenance"</span>),
+            g,
+            store,
             value.clone(),
             <span class="macro">vec!</span>[dependency_provenance.clone()],
-        );
-
-        <span class="kw">let </span>provenance = p.to_ptr(cs, g, store)<span class="question-mark">?</span>;
+            <span class="prelude-val">Some</span>(allocated_key),
+        )<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(((value, provenance.clone()), acc))
     }

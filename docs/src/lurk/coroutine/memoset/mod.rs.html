@@ -1589,6 +1589,8 @@
 <a href="#1588" id="1588">1588</a>
 <a href="#1589" id="1589">1589</a>
 <a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -2740,7 +2742,16 @@
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
         <span class="kw">for </span>(i, kv) <span class="kw">in </span>scope.toplevel_insertions.iter().enumerate() {
-            <span class="self">self</span>.synthesize_toplevel_query(cs, g, s, i, kv)<span class="question-mark">?</span>;
+            <span class="kw">let </span>cs = <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"toplevel_insertion-{i}"</span>));
+            <span class="kw">let </span>(key, value) = s.car_cdr(kv).expect(<span class="string">"kv missing"</span>);
+            <span class="comment">// NOTE: This is an unconstrained allocation, but when actually hooked up to Lurk reduction, it must be
+            // constrained appropriately.
+            </span><span class="kw">let </span>allocated_key =
+                AllocatedPtr::alloc(<span class="macro">ns!</span>(cs, <span class="string">"allocated_key"</span>), || <span class="prelude-val">Ok</span>(s.hash_ptr(<span class="kw-2">&amp;</span>key))).unwrap();
+            <span class="comment">// NOTE: The returned value is unused here, but when actually hooked up to Lurk reduction, it must be used
+            // as the result of evaluating the query.
+            </span><span class="kw">let </span>_allocated_value =
+                <span class="self">self</span>.synthesize_toplevel_query(cs, g, s, i, <span class="kw-2">&amp;</span>allocated_key, value)<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -2751,12 +2762,10 @@
         g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         i: usize,
-        kv: <span class="kw-2">&amp;</span>Ptr,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
-        <span class="kw">let </span>(key, value) = s.car_cdr(kv).unwrap();
+        allocated_key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
+        value: Ptr,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>cs = <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"toplevel-{i}"</span>));
-        <span class="kw">let </span>allocated_key =
-            AllocatedPtr::alloc(<span class="macro">ns!</span>(cs, <span class="string">"allocated_key"</span>), || <span class="prelude-val">Ok</span>(s.hash_ptr(<span class="kw-2">&amp;</span>key))).unwrap();
 
         <span class="kw">let </span>acc = <span class="self">self</span>.acc.clone().unwrap();
         <span class="kw">let </span>insertion_transcript = <span class="self">self</span>.transcript.clone();
@@ -2765,7 +2774,7 @@
             cs,
             g,
             s,
-            <span class="kw-2">&amp;</span>allocated_key,
+            allocated_key,
             <span class="kw-2">&amp;</span>acc,
             <span class="kw-2">&amp;</span>insertion_transcript,
             <span class="kw-2">&amp;</span>Boolean::Constant(<span class="bool-val">true</span>),
@@ -2777,7 +2786,7 @@
 
         <span class="self">self</span>.acc = <span class="prelude-val">Some</span>(new_acc);
         <span class="self">self</span>.transcript = new_transcript;
-        <span class="prelude-val">Ok</span>(())
+        <span class="prelude-val">Ok</span>(val)
     }
 
     <span class="kw">fn </span>synthesize_prove_key_query&lt;CS: ConstraintSystem&lt;F&gt;, Q: Query&lt;F&gt;&gt;(
@@ -2788,25 +2797,20 @@
         key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Ptr&gt;,
         index: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
-        <span class="kw">let </span>allocated_key = AllocatedPtr::alloc(<span class="macro">ns!</span>(cs, <span class="string">"allocated_key"</span>), || {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = key {
-                <span class="prelude-val">Ok</span>(s.hash_ptr(key))
-            } <span class="kw">else </span>{
-                <span class="prelude-val">Ok</span>(s.hash_ptr(<span class="kw-2">&amp;</span>s.intern_nil()))
-            }
-        })
-        .unwrap();
-
-        <span class="kw">let </span>circuit_query = <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = key {
-            Q::CQ::from_ptr(<span class="macro">ns!</span>(cs, <span class="string">"circuit_query"</span>), s, key).unwrap()
-        } <span class="kw">else </span>{
-            Q::CQ::dummy_from_index(<span class="macro">ns!</span>(cs, <span class="string">"circuit_query"</span>), s, index)
-        };
-
         <span class="kw">let </span>not_dummy = Boolean::Is(AllocatedBit::alloc(
             cs.namespace(|| <span class="string">"not_dummy"</span>),
             <span class="prelude-val">Some</span>(key.is_some()),
         )<span class="question-mark">?</span>);
+
+        <span class="kw">let </span>circuit_query = <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = key {
+            <span class="kw">let </span>query = Q::from_ptr(s, key).unwrap();
+            <span class="macro">assert_eq!</span>(index, query.index());
+            query.to_circuit(<span class="macro">ns!</span>(cs, <span class="string">"circuit_query"</span>), s)
+        } <span class="kw">else </span>{
+            Q::CQ::dummy_from_index(<span class="macro">ns!</span>(cs, <span class="string">"circuit_query"</span>), s, index)
+        };
+
+        <span class="kw">let </span>allocated_key = circuit_query.synthesize_query(<span class="macro">ns!</span>(cs, <span class="string">"allocated_key"</span>), g, s)<span class="question-mark">?</span>;
 
         <span class="self">self</span>.synthesize_prove_query::&lt;<span class="kw">_</span>, Q::CQ&gt;(
             cs,
@@ -2831,7 +2835,7 @@
         <span class="kw">let </span>acc = <span class="self">self</span>.acc.clone().unwrap();
 
         <span class="kw">let </span>((val, provenance), new_acc) = circuit_query
-            .synthesize_eval(<span class="macro">ns!</span>(cs, <span class="string">"eval"</span>), g, s, <span class="self">self</span>, <span class="kw-2">&amp;</span>acc)
+            .synthesize_eval(<span class="macro">ns!</span>(cs, <span class="string">"eval"</span>), g, s, <span class="self">self</span>, <span class="kw-2">&amp;</span>acc, allocated_key)
             .unwrap();
 
         <span class="kw">let </span>(new_acc, new_transcript) = <span class="self">self</span>.synthesize_remove(
@@ -3059,23 +3063,23 @@
     </span><span class="kw">fn </span>test_query() {
         test_query_aux(
             <span class="macro">expect!</span>[<span class="string">"9451"</span>],
-            <span class="macro">expect!</span>[<span class="string">"9507"</span>],
+            <span class="macro">expect!</span>[<span class="string">"9497"</span>],
             <span class="macro">expect!</span>[<span class="string">"10034"</span>],
-            <span class="macro">expect!</span>[<span class="string">"10097"</span>],
+            <span class="macro">expect!</span>[<span class="string">"10087"</span>],
             <span class="number">1</span>,
         );
         test_query_aux(
             <span class="macro">expect!</span>[<span class="string">"11191"</span>],
-            <span class="macro">expect!</span>[<span class="string">"11253"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11241"</span>],
             <span class="macro">expect!</span>[<span class="string">"11774"</span>],
-            <span class="macro">expect!</span>[<span class="string">"11843"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11831"</span>],
             <span class="number">3</span>,
         );
         test_query_aux(
             <span class="macro">expect!</span>[<span class="string">"18239"</span>],
-            <span class="macro">expect!</span>[<span class="string">"18336"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18316"</span>],
             <span class="macro">expect!</span>[<span class="string">"18822"</span>],
-            <span class="macro">expect!</span>[<span class="string">"18926"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18906"</span>],
             <span class="number">10</span>,
         )
     }
