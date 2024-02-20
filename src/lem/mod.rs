@@ -77,7 +77,7 @@ use std::sync::Arc;
 #[cfg(test)]
 mod tests;
 
-use crate::{field::LurkField, symbol::Symbol};
+use crate::{field::LurkField, symbol::Symbol, tag::ExprTag};
 
 use self::{pointers::Ptr, slot::SlotsCounter, store::Store, tag::Tag, var_map::VarMap};
 
@@ -112,6 +112,46 @@ impl Lit {
             Self::Symbol(s) => store.intern_symbol(s),
             Self::String(s) => store.intern_string(s),
             Self::Num(num) => store.num(F::from_u128(*num)),
+        }
+    }
+
+    pub fn from_ptr<F: LurkField>(ptr: &Ptr, store: &Store<F>) -> Option<Self> {
+        use ExprTag::{Num, Str, Sym};
+        match ptr.tag() {
+            Tag::Expr(Num) => {
+                let f = store.fetch_num(ptr).expect("Pointer is not interned");
+                let num = LurkField::to_u128(f)?;
+                Some(Self::Num(num))
+            }
+            Tag::Expr(Str) => store.fetch_string(ptr).map(Lit::String),
+            Tag::Expr(Sym) => store.fetch_symbol(ptr).map(Lit::Symbol),
+            _ => None,
+        }
+    }
+
+    pub fn lit_type(&self) -> LitType {
+        match self {
+            Self::Symbol(..) => LitType::Symbol,
+            Self::String(..) => LitType::String,
+            Self::Num(..) => LitType::Num,
+        }
+    }
+}
+
+/// LEM literals
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
+pub enum LitType {
+    Num,
+    String,
+    Symbol,
+}
+
+impl LitType {
+    pub fn tag(&self) -> Tag {
+        match self {
+            LitType::Num => Tag::Expr(ExprTag::Num),
+            LitType::String => Tag::Expr(ExprTag::Str),
+            LitType::Symbol => Tag::Expr(ExprTag::Sym),
         }
     }
 }
@@ -159,6 +199,10 @@ pub enum Ctrl {
     /// whether `x` matches some symbol among the ones provided in `cases`. If so,
     /// run the corresponding `Block`. Run `def` otherwise
     MatchSymbol(Var, IndexMap<Symbol, Block>, Option<Box<Block>>),
+    /// `MatchValue(x, cases, def)` requires that `x` is a literal and checks
+    /// whether `x` matches some literal among the ones provided in `cases`. If so,
+    /// run the corresponding `Block`. Run `def` otherwise
+    MatchValue(Var, LitType, IndexMap<Lit, Block>, Option<Box<Block>>),
     /// `If(x, true_block, false_block)` runs `true_block` if `x` is true, and
     /// otherwise runs `false_block`
     If(Var, Box<Block>, Box<Block>),
@@ -476,6 +520,22 @@ impl Func {
                         recurse(def, return_size, map)?;
                     }
                 }
+                Ctrl::MatchValue(var, lit_typ, cases, def) => {
+                    is_bound(var, map)?;
+                    for (lit, block) in cases.iter() {
+                        if lit.lit_type() != *lit_typ {
+                            bail!(
+                                "Literal is of type {:?} but is supposed to be {:?}",
+                                lit.lit_type(),
+                                lit_typ
+                            );
+                        }
+                        recurse(block, return_size, map)?;
+                    }
+                    if let Some(def) = def {
+                        recurse(def, return_size, map)?;
+                    }
+                }
                 Ctrl::If(x, true_block, false_block) => {
                     is_bound(x, map)?;
                     recurse(true_block, return_size, map)?;
@@ -752,6 +812,19 @@ impl Block {
                     None => None,
                 };
                 Ctrl::MatchSymbol(var, IndexMap::from_iter(new_cases), new_def)
+            }
+            Ctrl::MatchValue(var, lit_type, cases, def) => {
+                let var = map.get_cloned(&var)?;
+                let mut new_cases = Vec::with_capacity(cases.len());
+                for (sym, case) in cases {
+                    let new_case = case.deconflict(&mut map.clone(), uniq)?;
+                    new_cases.push((sym.clone(), new_case));
+                }
+                let new_def = match def {
+                    Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
+                    None => None,
+                };
+                Ctrl::MatchValue(var, lit_type, IndexMap::from_iter(new_cases), new_def)
             }
             Ctrl::If(x, true_block, false_block) => {
                 let x = map.get_cloned(&x)?;

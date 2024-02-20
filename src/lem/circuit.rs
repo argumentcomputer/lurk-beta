@@ -468,6 +468,16 @@ impl Block {
                     def.alloc_consts(cs, store, g, lang);
                 }
             }
+            Ctrl::MatchValue(_, lit_type, cases, def) => {
+                let tag = lit_type.tag();
+                g.alloc_tag(cs, &tag);
+                for block in cases.values() {
+                    block.alloc_consts(cs, store, g, lang);
+                }
+                if let Some(def) = def {
+                    def.alloc_consts(cs, store, g, lang);
+                }
+            }
             Ctrl::Return(..) => (),
         }
     }
@@ -1337,6 +1347,37 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             // The number of slots the match used is the max number of slots of each branch
             *next_slot = next_slot.fold_max(branch_slots);
         }
+        Ctrl::MatchValue(match_var, lit_type, cases, def) => {
+            let tag = lit_type.tag();
+            let match_var_ptr = bound_allocations.get_ptr(match_var)?.clone();
+
+            let mut cases_vec = Vec::with_capacity(cases.len());
+            for (lit, block) in cases {
+                let lit_ptr = lit.to_ptr(ctx.store);
+                let lit_hash = *ctx.store.hash_ptr(&lit_ptr).value();
+                cases_vec.push((lit_hash, block));
+            }
+
+            let branch_slots = synthesize_match(
+                match_var_ptr.hash(),
+                &cases_vec,
+                def,
+                bound_allocations,
+                ctx,
+            )?;
+
+            // Now we enforce `MatchValue`'s tag
+            let lit_tag = ctx.global_allocator.alloc_tag(cs, &tag);
+            implies_equal(
+                ns!(cs, format!("implies equal {match_var}.tag")),
+                not_dummy,
+                match_var_ptr.tag(),
+                lit_tag,
+            );
+
+            // The number of slots the match used is the max number of slots of each branch
+            *next_slot = next_slot.fold_max(branch_slots);
+        }
     }
     Ok(())
 }
@@ -1648,6 +1689,26 @@ impl Func {
                     // is Sym
                     num_constraints += 1;
                     globals.insert(FWrap(Sym.to_field()));
+                    // We allocate one boolean per case and constrain it once
+                    // per case. Then we add 1 constraint to enforce only one
+                    // case was selected
+                    num_constraints += 2 * cases.len() + 1;
+
+                    for block in cases.values() {
+                        num_constraints += recurse(block, globals, store, true, true);
+                    }
+                    if let Some(def) = def {
+                        // constraints for the boolean, the inequalities and the default case
+                        num_constraints += 1 + cases.len();
+                        num_constraints += recurse(def, globals, store, true, true);
+                    }
+                    num_constraints
+                }
+                Ctrl::MatchValue(_, lit_type, cases, def) => {
+                    let tag = lit_type.tag();
+                    // First we enforce the tag of the pointer being matched
+                    num_constraints += 1;
+                    globals.insert(FWrap(tag.to_field()));
                     // We allocate one boolean per case and constrain it once
                     // per case. Then we add 1 constraint to enforce only one
                     // case was selected

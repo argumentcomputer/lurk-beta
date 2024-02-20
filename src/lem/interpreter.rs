@@ -6,7 +6,7 @@ use super::{
     store::{fetch_ptrs, intern_ptrs, Store},
     tag::Tag,
     var_map::VarMap,
-    Block, Ctrl, Func, Op, Var,
+    Block, Ctrl, Func, Lit, Op, Var,
 };
 
 use crate::{
@@ -492,6 +492,23 @@ impl Block {
                 } else {
                     let Some(def) = def else {
                         bail!("No match for symbol {sym}")
+                    };
+                    def.run(input, store, bindings, hints, emitted, lang, pc)
+                }
+            }
+            Ctrl::MatchValue(match_var, lit_type, cases, def) => {
+                let tag = lit_type.tag();
+                let ptr = bindings.get_ptr(match_var)?;
+                if ptr.tag() != &tag {
+                    bail!("{match_var} is not a value of type {:?}", lit_type);
+                }
+                let lit = Lit::from_ptr(&ptr, store);
+
+                if let Some(block) = lit.and_then(|lit| cases.get(&lit)) {
+                    block.run(input, store, bindings, hints, emitted, lang, pc)
+                } else {
+                    let Some(def) = def else {
+                        bail!("No match for value {:?}", ptr.fmt_to_string_simple(store))
                     };
                     def.run(input, store, bindings, hints, emitted, lang, pc)
                 }

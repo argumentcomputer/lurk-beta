@@ -271,6 +271,30 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
         }
     };
+    ( match $sii:ident.value { $( $lit:ident($val:literal) $(| $other_lit:ident($other_val:literal))* => $case_ops:tt )+ } $(; $($def:tt)*)? ) => {
+        {
+            let mut cases = indexmap::IndexMap::new();
+            $(
+                let _lit_type = $crate::lem::LitType::$lit;
+                if cases.insert(
+                    $crate::lit!($lit($val)),
+                    $crate::block!( $case_ops ),
+                ).is_some() {
+                    panic!("Repeated value on `match`");
+                };
+                $(
+                    if cases.insert(
+                        $crate::lit!($other_lit($other_val)),
+                        $crate::block!( $case_ops ),
+                    ).is_some() {
+                        panic!("Repeated value on `match`");
+                    };
+                )*
+            )+
+            let default = None $( .or (Some(Box::new($crate::block!( @seq {}, $($def)* )))) )?;
+            $crate::lem::Ctrl::MatchValue($crate::var!($sii), _lit_type, cases, default)
+        }
+    };
     ( if $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
         {
             let x = $crate::var!($x);
@@ -660,6 +684,16 @@ macro_rules! block {
                 $($limbs)*
             },
             $crate::ctrl!( match symbol $sii { $( $sym $(, $other_sym)* => $case_ops )* } $(; $($def)*)? )
+        )
+    };
+    (@seq {$($limbs:expr)*},
+     match $sii:ident.value { $( $lit:ident($val:literal) $(| $other_lit:ident($other_val:literal))* => $case_ops:tt )+ } $(; $($def:tt)*)?) => {
+        $crate::block! (
+            @end
+            {
+                $($limbs)*
+            },
+            $crate::ctrl!( match $sii.value { $( $lit($val) $(| $other_lit($other_val))* => $case_ops )+ } $(; $($def)*)? )
         )
     };
     (@seq {$($limbs:expr)*}, if $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
