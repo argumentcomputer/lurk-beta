@@ -305,21 +305,21 @@ mod test {
             // Without internal insertions transcribed.
 
             let (one_lookup_constraints, one_lookup_aux) =
-                test_lookup_circuit_aux(s, a, empty, expect!["2947"], expect!["2965"]);
+                test_lookup_circuit_aux(s, a, empty, expect!["3525"], expect!["3541"]);
 
-            test_lookup_circuit_aux(s, a, a_env, expect!["2947"], expect!["2965"]);
+            test_lookup_circuit_aux(s, a, a_env, expect!["3525"], expect!["3541"]);
 
             let (two_lookup_constraints, two_lookup_aux) =
-                test_lookup_circuit_aux(s, b, a_env, expect!["5303"], expect!["5333"]);
+                test_lookup_circuit_aux(s, b, a_env, expect!["6459"], expect!["6485"]);
 
-            test_lookup_circuit_aux(s, b, b_env, expect!["2947"], expect!["2965"]);
-            test_lookup_circuit_aux(s, a, a2_env, expect!["2947"], expect!["2965"]);
+            test_lookup_circuit_aux(s, b, b_env, expect!["3525"], expect!["3541"]);
+            test_lookup_circuit_aux(s, a, a2_env, expect!["3525"], expect!["3541"]);
 
             let (three_lookup_constraints, three_lookup_aux) =
-                test_lookup_circuit_aux(s, c, b_env, expect!["7659"], expect!["7701"]);
+                test_lookup_circuit_aux(s, c, b_env, expect!["9393"], expect!["9429"]);
 
-            test_lookup_circuit_aux(s, c, c_env, expect!["2947"], expect!["2965"]);
-            test_lookup_circuit_aux(s, c, a2_env, expect!["5303"], expect!["5333"]);
+            test_lookup_circuit_aux(s, c, c_env, expect!["3525"], expect!["3541"]);
+            test_lookup_circuit_aux(s, c, a2_env, expect!["6459"], expect!["6485"]);
 
             let delta1_constraints = two_lookup_constraints - one_lookup_constraints;
             let delta2_constraints = three_lookup_constraints - two_lookup_constraints;
@@ -328,7 +328,7 @@ mod test {
             assert_eq!(delta1_constraints, delta2_constraints);
 
             // This is the number of constraints per lookup.
-            expect_eq(delta1_constraints, expect!["2356"]);
+            expect_eq(delta1_constraints, expect!["2934"]);
 
             // This is the number of constraints in the constant overhead.
             expect_eq(overhead_constraints, expect!["591"]);
@@ -340,7 +340,7 @@ mod test {
             assert_eq!(delta1_aux, delta2_aux);
 
             // This is the number of aux per lookup.
-            expect_eq(delta1_aux, expect!["2368"]);
+            expect_eq(delta1_aux, expect!["2944"]);
 
             // This is the number of aux in the constant overhead.
             expect_eq(overhead_aux, expect!["597"]);

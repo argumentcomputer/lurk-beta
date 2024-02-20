@@ -1204,25 +1204,20 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         key: Option<&Ptr>,
         index: usize,
     ) -> Result<(), SynthesisError> {
-        let allocated_key = AllocatedPtr::alloc(ns!(cs, "allocated_key"), || {
-            if let Some(key) = key {
-                Ok(s.hash_ptr(key))
-            } else {
-                Ok(s.hash_ptr(&s.intern_nil()))
-            }
-        })
-        .unwrap();
-
-        let circuit_query = if let Some(key) = key {
-            Q::CQ::from_ptr(ns!(cs, "circuit_query"), s, key).unwrap()
-        } else {
-            Q::CQ::dummy_from_index(ns!(cs, "circuit_query"), s, index)
-        };
-
         let not_dummy = Boolean::Is(AllocatedBit::alloc(
             cs.namespace(|| "not_dummy"),
             Some(key.is_some()),
         )?);
+
+        let circuit_query = if let Some(key) = key {
+            let query = Q::from_ptr(s, key).unwrap();
+            assert_eq!(index, query.index());
+            query.to_circuit(ns!(cs, "circuit_query"), s)
+        } else {
+            Q::CQ::dummy_from_index(ns!(cs, "circuit_query"), s, index)
+        };
+
+        let allocated_key = circuit_query.synthesize_query(ns!(cs, "allocated_key"), g, s)?;
 
         self.synthesize_prove_query::<_, Q::CQ>(
             cs,
@@ -1474,24 +1469,24 @@ mod test {
     #[test]
     fn test_query() {
         test_query_aux(
-            expect!["8006"],
-            expect!["8062"],
-            expect!["8589"],
-            expect!["8652"],
+            expect!["9451"],
+            expect!["9497"],
+            expect!["10034"],
+            expect!["10087"],
             1,
         );
         test_query_aux(
-            expect!["9457"],
-            expect!["9519"],
-            expect!["10040"],
-            expect!["10109"],
+            expect!["11191"],
+            expect!["11241"],
+            expect!["11774"],
+            expect!["11831"],
             3,
         );
         test_query_aux(
-            expect!["15349"],
-            expect!["15446"],
-            expect!["15932"],
-            expect!["16036"],
+            expect!["18239"],
+            expect!["18316"],
+            expect!["18822"],
+            expect!["18906"],
             10,
         )
     }
