@@ -60,6 +60,8 @@ fn main() {
         .with(TeXRayLayer::new());
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
+    nova::data::set_write_data(true);
+
     let args = std::env::args().collect::<Vec<_>>();
     let n = args.get(1).unwrap_or(&"1".into()).parse().unwrap();
 
