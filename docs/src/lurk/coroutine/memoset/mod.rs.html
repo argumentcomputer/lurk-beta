@@ -1526,6 +1526,69 @@
 <a href="#1525" id="1525">1525</a>
 <a href="#1526" id="1526">1526</a>
 <a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
+<a href="#1548" id="1548">1548</a>
+<a href="#1549" id="1549">1549</a>
+<a href="#1550" id="1550">1550</a>
+<a href="#1551" id="1551">1551</a>
+<a href="#1552" id="1552">1552</a>
+<a href="#1553" id="1553">1553</a>
+<a href="#1554" id="1554">1554</a>
+<a href="#1555" id="1555">1555</a>
+<a href="#1556" id="1556">1556</a>
+<a href="#1557" id="1557">1557</a>
+<a href="#1558" id="1558">1558</a>
+<a href="#1559" id="1559">1559</a>
+<a href="#1560" id="1560">1560</a>
+<a href="#1561" id="1561">1561</a>
+<a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -1581,6 +1644,7 @@
     pointers::Ptr,
     store::{Store, WithStore},
 };
+<span class="kw">use </span><span class="kw">crate</span>::symbol::Symbol;
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ExprTag, Tag <span class="kw">as </span>XTag};
 <span class="kw">use </span><span class="kw">crate</span>::z_ptr::ZPtr;
 
@@ -1710,6 +1774,7 @@
     </span><span class="kw">fn </span>dbg(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) {
         <span class="kw">let </span>z = <span class="self">self</span>.acc.get_value::&lt;Tag&gt;().unwrap();
         <span class="kw">let </span>transcript = s.to_ptr(<span class="kw-2">&amp;</span>z);
+
         <span class="macro">tracing::debug!</span>(<span class="string">"transcript: {}"</span>, transcript.fmt_to_string_simple(s));
     }
 }
@@ -1736,6 +1801,13 @@
             result,
             dependencies,
         }
+    }
+
+    <span class="kw">fn </span>dummy&lt;F: LurkField&gt;(store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>nil = store.intern_nil();
+        <span class="kw">let </span>sym = store.intern_symbol(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">"lurk"</span>, <span class="string">"query"</span>, <span class="string">"dummy"</span>]));
+        <span class="kw">let </span>query = store.cons(sym, nil);
+        <span class="self">Self</span>::new(query, nil, <span class="macro">vec!</span>[])
     }
 
     <span class="kw">fn </span>to_ptr&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="kw-2">&amp;</span>Ptr {
@@ -2212,6 +2284,9 @@
             <span class="kw">let </span>p = Provenance::new(<span class="kw-2">*</span>query, <span class="kw-2">*</span>result, sub_provenances);
             <span class="kw">let </span>provenance = p.to_ptr(store);
 
+            <span class="comment">// Insert new provenance before decrementing `missing_dependency_counts`.
+            </span>provenances.insert(<span class="kw-2">*</span>query, <span class="kw-2">*</span>provenance);
+
             <span class="kw">if let </span><span class="prelude-val">Some</span>(dependents) = <span class="self">self</span>.dependents.get(query) {
                 <span class="kw">for </span>dependent <span class="kw">in </span>dependents {
                     missing_dependency_counts
@@ -2231,8 +2306,6 @@
                         });
                 }
             };
-
-            provenances.insert(<span class="kw-2">*</span>query, <span class="kw-2">*</span>provenance);
         }
 
         next
@@ -2255,7 +2328,10 @@
             <span class="kw">let </span>key = s.car_cdr(kv).unwrap().<span class="number">0</span>;
             <span class="kw">let </span>kv1 = kvs_by_key.entry(key).or_insert_with(|| {
                 <span class="kw">let </span>index = Q::from_ptr(s, <span class="kw-2">&amp;</span>key).expect(<span class="string">"bad query"</span>).index();
-                unique_keys
+
+                <span class="comment">// We only add to `unique_keys` inside this closure, which only happens once per key. This accomplishes
+                // the 'deduplication' referred to below.
+                </span>unique_keys
                     .entry(index)
                     .and_modify(|keys| keys.push(key))
                     .or_insert_with(|| <span class="macro">vec!</span>[key]);
@@ -2288,21 +2364,32 @@
         // deferral from the MemoSet.
         </span><span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..Q::count() {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(keys) = unique_keys.get(<span class="kw-2">&amp;</span>index) {
-                <span class="kw">for </span>key <span class="kw">in </span>keys {
-                    <span class="kw">let </span>kv = kvs_by_key.get(key).expect(<span class="string">"kv vanished"</span>);
-                    <span class="kw">let </span>provenance = <span class="self">self</span>.provenance_from_kv(s, <span class="kw-2">*</span>kv).unwrap();
-                    <span class="kw">let </span>prov = provenance.to_ptr(s);
-                    <span class="kw">let </span>count = <span class="self">self</span>.memoset.count(kv);
+                <span class="kw">let </span>rc = <span class="self">self</span>.rc_for_query(index);
 
-                    <span class="kw">let </span>prov_count = Transcript::make_provenance_count(s, <span class="kw-2">*</span>prov, count);
+                <span class="kw">for </span>chunk <span class="kw">in </span><span class="kw-2">&amp;</span>keys.iter().chunks(rc) {
+                    <span class="kw">for </span>key <span class="kw">in </span>chunk.map(<span class="prelude-val">Some</span>).pad_using(rc, |<span class="kw">_</span>| <span class="prelude-val">None</span>) {
+                        <span class="kw">let </span>(provenance, count) = <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = key {
+                            <span class="comment">// This should not fail: `kv` was added in `record` above, when the key was added to
+                            // `unique_keys`.
+                            </span><span class="kw">let </span>kv = kvs_by_key.get(key).expect(<span class="string">"kv missing"</span>);
+                            <span class="kw">let </span>count = <span class="self">self</span>.memoset.count(kv);
+                            <span class="kw">let </span>provenance = <span class="self">self</span>.provenance_from_kv(s, <span class="kw-2">*</span>kv).unwrap();
+                            (provenance, count)
+                        } <span class="kw">else </span>{
+                            (Provenance::dummy(s), <span class="number">0</span>)
+                        };
+                        <span class="kw">let </span>prov = provenance.to_ptr(s);
+                        <span class="kw">let </span>prov_count = Transcript::make_provenance_count(s, <span class="kw-2">*</span>prov, count);
 
-                    <span class="comment">// Add removal for the query identified by `key`. The queries being removed here were deduplicated
-                    // above, so each is removed only once. However, we freely choose the multiplicity (`count`) of the
-                    // removal to match the total number of insertions actually made (considering dependencies).
-                    </span>transcript.add(s, prov_count);
+                        <span class="comment">// Add removal for the query identified by `key`. The queries being removed here were deduplicated
+                        // above, so each is removed only once. However, we freely choose the multiplicity (`count`) of the
+                        // removal to match the total number of insertions actually made (considering dependencies).
+                        </span>transcript.add(s, prov_count);
+                    }
                 }
             }
         }
+
         (transcript, unique_keys)
     }
 
@@ -2448,13 +2535,8 @@
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
         provenance: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-        is_toplevel: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt; {
-        <span class="kw">let </span>new_transcript = <span class="kw">if </span>is_toplevel {
-            transcript.add(<span class="macro">ns!</span>(cs, <span class="string">"new_transcript"</span>), g, s, provenance)<span class="question-mark">?
-        </span>} <span class="kw">else </span>{
-            transcript.clone()
-        };
+        <span class="kw">let </span>new_transcript = transcript.add(<span class="macro">ns!</span>(cs, <span class="string">"new_transcript"</span>), g, s, provenance)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>acc_v = acc.hash();
 
@@ -2465,7 +2547,25 @@
         <span class="kw">let </span>new_acc =
             AllocatedPtr::alloc_tag(<span class="macro">ns!</span>(cs, <span class="string">"new_acc"</span>), ExprTag::Num.to_field(), new_acc_v)<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>((new_acc, new_transcript.clone()))
+        <span class="prelude-val">Ok</span>((new_acc, new_transcript))
+    }
+
+    <span class="kw">fn </span>synthesize_insert_internal_query&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
+        provenance: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
+        <span class="kw">let </span>acc_v = acc.hash();
+
+        <span class="kw">let </span>new_acc_v = <span class="self">self
+            </span>.memoset
+            .synthesize_add(<span class="macro">ns!</span>(cs, <span class="string">"new_acc_v"</span>), acc_v, provenance)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>new_acc =
+            AllocatedPtr::alloc_tag(<span class="macro">ns!</span>(cs, <span class="string">"new_acc"</span>), ExprTag::Num.to_field(), new_acc_v)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(new_acc)
     }
 
     <span class="kw">fn </span>synthesize_remove&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -2478,21 +2578,36 @@
         key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         value: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         provenance: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
+        not_dummy: <span class="kw-2">&amp;</span>Boolean,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, CircuitTranscript&lt;F&gt;), SynthesisError&gt; {
-        <span class="kw">let </span>raw_count = <span class="kw">match </span>(key.get_value(), value.get_value()) {
-            (<span class="prelude-val">Some</span>(k), <span class="prelude-val">Some</span>(v)) =&gt; {
-                <span class="comment">// FIXME: Memoset should hold the actual provenances, not the kvs.
-                </span><span class="kw">let </span>kv = s.cons(s.to_ptr(<span class="kw-2">&amp;</span>k), s.to_ptr(<span class="kw-2">&amp;</span>v));
-                <span class="self">self</span>.memoset.count(<span class="kw-2">&amp;</span>kv) <span class="kw">as </span>u64
-            }
-            <span class="kw">_ </span>=&gt; <span class="number">0</span>, <span class="comment">// dummy case: count is meaningless
-        </span>};
+        <span class="kw">let </span>raw_count = <span class="kw">match </span>not_dummy.get_value() {
+            <span class="comment">// dummy case: count must be zero -- since we will actually constrain a removal
+            </span><span class="prelude-val">Some</span>(<span class="bool-val">false</span>) =&gt; <span class="number">0</span>,
+            <span class="kw">_ </span>=&gt; <span class="kw">match </span>(key.get_value(), value.get_value()) {
+                (<span class="prelude-val">Some</span>(k), <span class="prelude-val">Some</span>(v)) =&gt; {
+                    <span class="comment">// FIXME: Memoset should hold the actual provenances, not the kvs.
+                    </span><span class="kw">let </span>kv = s.cons(s.to_ptr(<span class="kw-2">&amp;</span>k), s.to_ptr(<span class="kw-2">&amp;</span>v));
+                    <span class="self">self</span>.memoset.count(<span class="kw-2">&amp;</span>kv) <span class="kw">as </span>u64
+                }
+                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+            },
+        };
+
+        <span class="kw">let </span>dummy_provenance =
+            g.alloc_ptr(<span class="macro">ns!</span>(cs, <span class="string">"dummy_query"</span>), Provenance::dummy(s).to_ptr(s), s);
+
+        <span class="kw">let </span>effective_provenance = AllocatedPtr::pick(
+            <span class="macro">ns!</span>(cs, <span class="string">"effective_provenance"</span>),
+            not_dummy,
+            provenance,
+            <span class="kw-2">&amp;</span>dummy_provenance,
+        )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(provenance_count, count) = CircuitTranscript::make_provenance_count(
             <span class="macro">ns!</span>(cs, <span class="string">"kv count"</span>),
             g,
             s,
-            provenance,
+            <span class="kw-2">&amp;</span>effective_provenance,
             raw_count,
         )<span class="question-mark">?</span>;
 
@@ -2534,7 +2649,14 @@
         ),
         SynthesisError,
     &gt; {
-        <span class="self">self</span>.synthesize_query_aux(cs, g, store, key, acc, transcript, not_dummy, <span class="bool-val">true</span>)
+        <span class="kw">let </span>((result, provenance), new_acc, new_insertion_transcript) =
+            <span class="self">self</span>.synthesize_query_aux(cs, g, store, key, acc, <span class="prelude-val">Some</span>(transcript), not_dummy, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>((
+            (result, provenance),
+            new_acc,
+            new_insertion_transcript.unwrap(),
+        ))
     }
 
     <span class="kw">fn </span>synthesize_internal_query&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -2544,17 +2666,14 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-        transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
         not_dummy: <span class="kw-2">&amp;</span>Boolean,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-        (
-            (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;),
-            AllocatedPtr&lt;F&gt;,
-            CircuitTranscript&lt;F&gt;,
-        ),
-        SynthesisError,
-    &gt; {
-        <span class="self">self</span>.synthesize_query_aux(cs, g, store, key, acc, transcript, not_dummy, <span class="bool-val">false</span>)
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;((AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), AllocatedPtr&lt;F&gt;), SynthesisError&gt; {
+        <span class="kw">let </span>((result, provenance), new_acc, new_insertion_transcript) =
+            <span class="self">self</span>.synthesize_query_aux(cs, g, store, key, acc, <span class="prelude-val">None</span>, not_dummy, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+
+        <span class="macro">assert!</span>(new_insertion_transcript.is_none());
+
+        <span class="prelude-val">Ok</span>(((result, provenance), new_acc))
     }
 
     <span class="kw">fn </span>synthesize_query_aux&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -2564,14 +2683,14 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-        transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
+        transcript: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;&gt;,
         not_dummy: <span class="kw-2">&amp;</span>Boolean, <span class="comment">// TODO: use this more deeply?
         </span>is_toplevel: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
             (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;),
             AllocatedPtr&lt;F&gt;,
-            CircuitTranscript&lt;F&gt;,
+            <span class="prelude-ty">Option</span>&lt;CircuitTranscript&lt;F&gt;&gt;,
         ),
         SynthesisError,
     &gt; {
@@ -2593,10 +2712,24 @@
             provenance.hash(),
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>(new_acc, new_insertion_transcript) =
-            <span class="self">self</span>.synthesize_insert_query(cs, g, store, acc, transcript, <span class="kw-2">&amp;</span>provenance, is_toplevel)<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(((result, provenance), new_acc, new_insertion_transcript))
+        <span class="kw">if </span>is_toplevel {
+            <span class="kw">let </span>(new_acc, new_insertion_transcript) = <span class="self">self</span>.synthesize_insert_query(
+                cs,
+                g,
+                store,
+                acc,
+                transcript.expect(<span class="string">"transcript missing"</span>),
+                <span class="kw-2">&amp;</span>provenance,
+            )<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>((
+                (result, provenance),
+                new_acc,
+                <span class="prelude-val">Some</span>(new_insertion_transcript),
+            ))
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>new_acc = <span class="self">self</span>.synthesize_insert_internal_query(cs, acc, <span class="kw-2">&amp;</span>provenance)<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(((result, provenance), new_acc, <span class="prelude-val">None</span>))
+        }
     }
 
     <span class="kw">fn </span>synthesize_insert_toplevel_queries&lt;CS: ConstraintSystem&lt;F&gt;, Q: Query&lt;F&gt;&gt;(
@@ -2696,10 +2829,9 @@
         not_dummy: <span class="kw-2">&amp;</span>Boolean,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
         <span class="kw">let </span>acc = <span class="self">self</span>.acc.clone().unwrap();
-        <span class="kw">let </span>transcript = <span class="self">self</span>.transcript.clone();
 
-        <span class="kw">let </span>((val, provenance), new_acc, new_transcript) = circuit_query
-            .synthesize_eval(<span class="macro">ns!</span>(cs, <span class="string">"eval"</span>), g, s, <span class="self">self</span>, <span class="kw-2">&amp;</span>acc, <span class="kw-2">&amp;</span>transcript)
+        <span class="kw">let </span>((val, provenance), new_acc) = circuit_query
+            .synthesize_eval(<span class="macro">ns!</span>(cs, <span class="string">"eval"</span>), g, s, <span class="self">self</span>, <span class="kw-2">&amp;</span>acc)
             .unwrap();
 
         <span class="kw">let </span>(new_acc, new_transcript) = <span class="self">self</span>.synthesize_remove(
@@ -2707,10 +2839,11 @@
             g,
             s,
             <span class="kw-2">&amp;</span>new_acc,
-            <span class="kw-2">&amp;</span>new_transcript,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.transcript,
             allocated_key,
             <span class="kw-2">&amp;</span>val,
             <span class="kw-2">&amp;</span>provenance,
+            not_dummy,
         )<span class="question-mark">?</span>;
 
         <span class="comment">// Prover can choose non-deterministically whether or not a given query is a dummy, to allow for padding.
@@ -2720,16 +2853,9 @@
             <span class="kw-2">&amp;</span>new_acc,
             <span class="self">self</span>.acc.as_ref().expect(<span class="string">"acc missing"</span>),
         )<span class="question-mark">?</span>;
-        <span class="kw">let </span>final_transcript = CircuitTranscript::pick(
-            <span class="macro">ns!</span>(cs, <span class="string">"final_transcript"</span>),
-            not_dummy,
-            <span class="kw-2">&amp;</span>new_transcript,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.transcript,
-        )<span class="question-mark">?</span>;
 
+        <span class="self">self</span>.transcript = new_transcript;
         <span class="self">self</span>.acc = <span class="prelude-val">Some</span>(final_acc);
-        <span class="self">self</span>.transcript = final_transcript;
-
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -2932,24 +3058,24 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_query() {
         test_query_aux(
-            <span class="macro">expect!</span>[<span class="string">"9456"</span>],
-            <span class="macro">expect!</span>[<span class="string">"9512"</span>],
-            <span class="macro">expect!</span>[<span class="string">"10039"</span>],
-            <span class="macro">expect!</span>[<span class="string">"10102"</span>],
+            <span class="macro">expect!</span>[<span class="string">"9451"</span>],
+            <span class="macro">expect!</span>[<span class="string">"9507"</span>],
+            <span class="macro">expect!</span>[<span class="string">"10034"</span>],
+            <span class="macro">expect!</span>[<span class="string">"10097"</span>],
             <span class="number">1</span>,
         );
         test_query_aux(
-            <span class="macro">expect!</span>[<span class="string">"11201"</span>],
-            <span class="macro">expect!</span>[<span class="string">"11263"</span>],
-            <span class="macro">expect!</span>[<span class="string">"11784"</span>],
-            <span class="macro">expect!</span>[<span class="string">"11853"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11191"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11253"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11774"</span>],
+            <span class="macro">expect!</span>[<span class="string">"11843"</span>],
             <span class="number">3</span>,
         );
         test_query_aux(
-            <span class="macro">expect!</span>[<span class="string">"18258"</span>],
-            <span class="macro">expect!</span>[<span class="string">"18355"</span>],
-            <span class="macro">expect!</span>[<span class="string">"18841"</span>],
-            <span class="macro">expect!</span>[<span class="string">"18945"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18239"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18336"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18822"</span>],
+            <span class="macro">expect!</span>[<span class="string">"18926"</span>],
             <span class="number">10</span>,
         )
     }

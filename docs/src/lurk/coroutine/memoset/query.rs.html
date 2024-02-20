@@ -136,37 +136,9 @@
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{boolean::Boolean, ConstraintSystem, SynthesisError};
 
-<span class="kw">use super</span>::{AllocatedProvenance, CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope};
+<span class="kw">use super</span>::{AllocatedProvenance, CircuitScope, LogMemo, LogMemoCircuit, Scope};
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::gadgets::construct_cons;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
@@ -216,15 +188,7 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-        transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-        (
-            (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;),
-            AllocatedPtr&lt;F&gt;,
-            CircuitTranscript&lt;F&gt;,
-        ),
-        SynthesisError,
-    &gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;((AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), AllocatedPtr&lt;F&gt;), SynthesisError&gt;;
 
     <span class="kw">fn </span>symbol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Symbol;
 
@@ -255,15 +219,8 @@
         query: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         args: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         is_recursive: <span class="kw-2">&amp;</span>Boolean,
-        immediate: (<span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;, <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;, <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;),
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-        (
-            (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;),
-            AllocatedPtr&lt;F&gt;,
-            CircuitTranscript&lt;F&gt;,
-        ),
-        SynthesisError,
-    &gt; {
+        immediate: (<span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;, <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;),
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;((AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), AllocatedPtr&lt;F&gt;), SynthesisError&gt; {
         <span class="kw">let </span>is_immediate = is_recursive.not();
 
         <span class="kw">let </span>subquery = {
@@ -271,22 +228,16 @@
             construct_cons(<span class="macro">ns!</span>(cs, <span class="string">"subquery"</span>), g, store, <span class="kw-2">&amp;</span>symbol, args)<span class="question-mark">?
         </span>};
 
-        <span class="kw">let </span>((sub_result, sub_provenance), new_acc, new_transcript) = scope
-            .synthesize_internal_query(
-                <span class="macro">ns!</span>(cs, <span class="string">"recursive query"</span>),
-                g,
-                store,
-                <span class="kw-2">&amp;</span>subquery,
-                immediate.<span class="number">1</span>,
-                immediate.<span class="number">2</span>,
-                is_recursive,
-            )<span class="question-mark">?</span>;
+        <span class="kw">let </span>((sub_result, sub_provenance), new_acc) = scope.synthesize_internal_query(
+            <span class="macro">ns!</span>(cs, <span class="string">"recursive query"</span>),
+            g,
+            store,
+            <span class="kw-2">&amp;</span>subquery,
+            immediate.<span class="number">1</span>,
+            is_recursive,
+        )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>(recursive_result, recursive_acc, recursive_transcript) = (
-            <span class="self">self</span>.post_recursion(cs, sub_result)<span class="question-mark">?</span>,
-            new_acc,
-            new_transcript,
-        );
+        <span class="kw">let </span>(recursive_result, recursive_acc) = (<span class="self">self</span>.post_recursion(cs, sub_result)<span class="question-mark">?</span>, new_acc);
 
         <span class="kw">let </span>value = AllocatedPtr::pick(
             <span class="macro">ns!</span>(cs, <span class="string">"pick value"</span>),
@@ -300,13 +251,6 @@
             <span class="kw-2">&amp;</span>is_immediate,
             immediate.<span class="number">1</span>,
             <span class="kw-2">&amp;</span>recursive_acc,
-        )<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>transcript = CircuitTranscript::pick(
-            <span class="macro">ns!</span>(cs, <span class="string">"pick recursive_transcript"</span>),
-            <span class="kw-2">&amp;</span>is_immediate,
-            immediate.<span class="number">2</span>,
-            <span class="kw-2">&amp;</span>recursive_transcript,
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>nil = g.alloc_ptr(<span class="macro">ns!</span>(cs, <span class="string">"nil"</span>), <span class="kw-2">&amp;</span>store.intern_nil(), store);
@@ -326,7 +270,7 @@
 
         <span class="kw">let </span>provenance = p.to_ptr(cs, g, store)<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>(((value, provenance.clone()), acc, transcript))
+        <span class="prelude-val">Ok</span>(((value, provenance.clone()), acc))
     }
 }
 </code></pre></div></section></main></body></html>

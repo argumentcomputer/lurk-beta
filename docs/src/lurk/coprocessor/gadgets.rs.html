@@ -1172,7 +1172,7 @@
     <span class="kw">let </span>prov_ptr = s.to_ptr(<span class="kw-2">&amp;</span>prov_zptr);
 
     <span class="kw">let </span>(a, b, c, d) = {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>([q, res, deps]) = s.pop_provenance(prov_ptr) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>([q, res, deps]) = s.deconstruct_provenance(prov_ptr) {
             <span class="kw">let </span>q_zptr = s.hash_ptr(<span class="kw-2">&amp;</span>q);
             <span class="kw">let </span>res_zptr = s.hash_ptr(<span class="kw-2">&amp;</span>res);
             <span class="kw">let </span>deps_zptr = s.hash_ptr(<span class="kw-2">&amp;</span>deps);

@@ -2155,16 +2155,16 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>pop_provenance(<span class="kw-2">&amp;</span><span class="self">self</span>, env: Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;[Ptr; <span class="number">3</span>]&gt; {
-        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>env.tag(), Tag::Expr(Prov));
-        <span class="kw">let </span>idx = env.get_index2()<span class="question-mark">?</span>;
-        <span class="kw">let </span>[sym_pay, val_tag, val_pay, env_pay] = <span class="self">self</span>.fetch_raw_ptrs::&lt;<span class="number">4</span>&gt;(idx)<span class="question-mark">?</span>;
+    </span><span class="kw">pub fn </span>deconstruct_provenance(<span class="kw-2">&amp;</span><span class="self">self</span>, prov: Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;[Ptr; <span class="number">3</span>]&gt; {
+        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>prov.tag(), Tag::Expr(Prov));
+        <span class="kw">let </span>idx = prov.get_index2()<span class="question-mark">?</span>;
+        <span class="kw">let </span>[query_pay, val_tag, val_pay, deps_pay] = <span class="self">self</span>.fetch_raw_ptrs::&lt;<span class="number">4</span>&gt;(idx)<span class="question-mark">?</span>;
         <span class="kw">let </span>val_tag = <span class="self">self</span>.fetch_tag(val_tag)<span class="question-mark">?</span>;
-        <span class="kw">let </span>query = Ptr::new(Tag::Expr(Cons), <span class="kw-2">*</span>sym_pay);
+        <span class="kw">let </span>query = Ptr::new(Tag::Expr(Cons), <span class="kw-2">*</span>query_pay);
         <span class="kw">let </span>val = Ptr::new(val_tag, <span class="kw-2">*</span>val_pay);
 
-        <span class="kw">let </span>env = Ptr::new(Tag::Expr(Cons), <span class="kw-2">*</span>env_pay);
-        <span class="prelude-val">Some</span>([query, val, env])
+        <span class="kw">let </span>deps = Ptr::new(Tag::Expr(Cons), <span class="kw-2">*</span>deps_pay);
+        <span class="prelude-val">Some</span>([query, val, deps])
     }
 
     <span class="attr">#[inline]

@@ -226,19 +226,11 @@
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 <span class="kw">use super</span>::{
     query::{CircuitQuery, Query, RecursiveQuery},
-    CircuitScope, CircuitTranscript, LogMemo, LogMemoCircuit, Scope,
+    CircuitScope, LogMemo, LogMemoCircuit, Scope,
 };
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::constraints::alloc_is_zero;
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr;
@@ -372,15 +364,7 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt;,
         acc: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-        transcript: <span class="kw-2">&amp;</span>CircuitTranscript&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-        (
-            (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;),
-            AllocatedPtr&lt;F&gt;,
-            CircuitTranscript&lt;F&gt;,
-        ),
-        SynthesisError,
-    &gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;((AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), AllocatedPtr&lt;F&gt;), SynthesisError&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Factorial(n) =&gt; {
                 <span class="comment">// FIXME: Check n tag or decide not to.
@@ -423,7 +407,7 @@
                     <span class="kw-2">&amp;</span>query,
                     <span class="kw-2">&amp;</span>new_num,
                     <span class="kw-2">&amp;</span>n_is_zero.not(),
-                    (<span class="kw-2">&amp;</span>base_case, acc, transcript),
+                    (<span class="kw-2">&amp;</span>base_case, acc),
                 )
             }
         }
