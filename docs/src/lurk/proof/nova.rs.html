@@ -432,6 +432,7 @@
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Bn256Scalar;
 <span class="kw">use </span>nova::{
@@ -639,7 +640,8 @@
         <span class="kw-2">&amp;</span>circuit_secondary,
         <span class="kw-2">&amp;*</span>commitment_size_hint1,
         <span class="kw-2">&amp;*</span>commitment_size_hint2,
-    );
+    )
+    .unwrap();
     PublicParams {
         pp,
         pk_and_vk: OnceCell::new(),
