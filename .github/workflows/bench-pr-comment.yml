@@ -20,4 +20,4 @@ jobs:
     with:
       default-runner: "self-hosted,gpu-bench"
       default-benches: "fibonacci"
-      default-env: "LURK_BENCH_OUTPUT=pr-comment LURK_RC=100,600"
+      default-env: "LURK_BENCH_OUTPUT=pr-comment LURK_BENCH_RC=100,600"

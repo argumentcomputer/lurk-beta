@@ -24,24 +24,47 @@ use common::{
 
 use crate::common::fib::{test_coeffs, test_fib_io_matches};
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug)]
 struct ProveParams {
     fib_n: usize,
     reduction_count: usize,
-    date: &'static str,
-    sha: &'static str,
+    commit_timestamp: String,
+    sha: String,
 }
 
 impl ProveParams {
+    fn new(fib_n: usize, reduction_count: usize) -> Self {
+        let mut commit_timestamp = env!("VERGEN_GIT_COMMIT_TIMESTAMP").to_owned();
+        // Truncate decimal seconds for readability
+        commit_timestamp.replace_range(19..29, "");
+        let mut sha = env!("VERGEN_GIT_SHA").to_owned();
+        sha.truncate(7);
+        Self {
+            fib_n,
+            reduction_count,
+            commit_timestamp,
+            sha,
+        }
+    }
     fn name_params(&self) -> (String, String) {
         let output_type = output_type_env().unwrap_or("stdout".into());
+
         match output_type.as_ref() {
-            "pr-comment" => ("fib".into(), format!("num-{}", self.fib_n)),
-            "commit-comment" => (format!("ref={}", self.sha), format!("num-{}", self.fib_n)),
-            // TODO: refine "gh-pages",
+            "pr-comment" => ("fib".into(), format!("rc-{}", self.reduction_count)),
+            "commit-comment" => (
+                format!("ref={}", self.sha),
+                format!("rc-{}", self.reduction_count),
+            ),
+            "gh-pages" => (
+                format!("{}-{}", self.sha, self.commit_timestamp),
+                format!("rc-{}", self.reduction_count),
+            ),
             _ => (
                 "fib".into(),
-                format!("num-{}-{}-{}", self.fib_n, self.sha, self.date),
+                format!(
+                    "rc-{}-{}-{}",
+                    self.reduction_count, self.sha, self.commit_timestamp
+                ),
             ),
         }
     }
@@ -51,8 +74,23 @@ fn output_type_env() -> anyhow::Result<String> {
     std::env::var("LURK_BENCH_OUTPUT").map_err(|e| anyhow!("Output type env var isn't set: {e}"))
 }
 
+fn fibn_env() -> anyhow::Result<Vec<usize>> {
+    std::env::var("LURK_BENCH_FIBN")
+        .map_err(|e| anyhow!("Fibonacci input env var isn't set: {e}"))
+        .and_then(|rc| {
+            let vec: anyhow::Result<Vec<usize>> = rc
+                .split(',')
+                .map(|rc| {
+                    rc.parse::<usize>()
+                        .map_err(|e| anyhow!("Failed to parse FibN: {e}"))
+                })
+                .collect();
+            vec
+        })
+}
+
 fn rc_env() -> anyhow::Result<Vec<usize>> {
-    std::env::var("LURK_RC")
+    std::env::var("LURK_BENCH_RC")
         .map_err(|e| anyhow!("Reduction count env var isn't set: {e}"))
         .and_then(|rc| {
             let vec: anyhow::Result<Vec<usize>> = rc
@@ -133,22 +171,17 @@ fn fibonacci_benchmark(c: &mut Criterion) {
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
     let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
-    let batch_sizes = [100, 200];
+    let batch_sizes = fibn_env().unwrap_or_else(|_| vec![100, 200]);
 
-    for reduction_count in reduction_counts.iter() {
+    for fib_n in batch_sizes.iter() {
         let mut group: BenchmarkGroup<'_, _> =
-            c.benchmark_group(format!("LEM Fibonacci Prove - rc = {}", reduction_count));
+            c.benchmark_group(format!("Fibonacci Prove - num = {}", fib_n));
         group.sampling_mode(SamplingMode::Flat); // This can take a *while*
         group.sample_size(10);
         group.noise_threshold(noise_threshold_env().unwrap_or(0.05));
 
-        for fib_n in batch_sizes.iter() {
-            let prove_params = ProveParams {
-                fib_n: *fib_n,
-                reduction_count: *reduction_count,
-                date: env!("VERGEN_GIT_COMMIT_DATE"),
-                sha: env!("VERGEN_GIT_SHA"),
-            };
+        for reduction_count in reduction_counts.iter() {
+            let prove_params = ProveParams::new(*fib_n, *reduction_count);
             fibonacci_prove(prove_params, &mut group);
         }
     }

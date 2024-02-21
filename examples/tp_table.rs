@@ -96,8 +96,8 @@ fn analyze_adj(data: &[Vec<(usize, Vec<f64>)>], rc_vec: &[usize]) -> Vec<Vec<Str
 }
 
 fn rc_env() -> Result<Vec<usize>> {
-    std::env::var("LURK_RC")
-        .map_err(|e| anyhow!("LURK_RC env var isn't set: {e}"))
+    std::env::var("LURK_BENCH_RC")
+        .map_err(|e| anyhow!("LURK_BENCH_RC env var isn't set: {e}"))
         .and_then(|rc| {
             let vec: Result<Vec<usize>> = rc
                 .split(',')
@@ -125,7 +125,7 @@ fn n_folds_env() -> Result<usize> {
 ///
 /// Example:
 /// ```text
-/// $ LURK_RC=8,16 LURK_N_FOLDS=2 cargo run --release --example tp_table
+/// $ LURK_BENCH_RC=8,16 LURK_N_FOLDS=2 cargo run --release --example tp_table
 /// ...
 /// Raw throughput
 /// ┌────────────┬─────────────┬────────────┬────────────┐

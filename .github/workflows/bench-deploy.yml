@@ -1,64 +1,14 @@
-name: GPU benchmark on `main`
+# Deploys `criterion` benchmarks and historical plots to `gh-pages`
+# https://lurk-lab.github.io/lurk-rs/benchmarks/criterion/reports/
+# https://lurk-lab.github.io/lurk-rs/benchmarks/history/plots.html
+name: GPU benchmark and deploy on `main`
+
 on:
   push:
-    branches:
-      - main
+    branches: main
+  workflow_dispatch:
 
 jobs:
-  # TODO: Account for different `justfile` and `bench.env` files
-  # One option is to upload them to gh-pages for qualitative comparison
-  # TODO: Fall back to a default if `justfile`/`bench.env` not present
   benchmark:
-    name: Bench and deploy
-    runs-on: [self-hosted, gpu-bench, gh-pages]
-    steps:
-      # Install deps
-      - uses: actions/checkout@v4
-        with:
-          repository: lurk-lab/ci-workflows
-      - uses: ./.github/actions/gpu-setup
-        with:
-          gpu-framework: 'cuda'
-      - uses: ./.github/actions/ci-env
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: just@1.22.0
-      # Run benchmarks and deploy
-      - name: Get old benchmarks
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: gh-pages
-      - run: mkdir -p target; cp -r gh-pages/benchmarks/criterion target;
-      - name: Install criterion
-        run: cargo install cargo-criterion
-      - name: Run benchmarks
-        run: |
-          just gpu-bench-ci fibonacci
-          cp fibonacci-${{ github.sha }}.json ..
-        working-directory: ${{ github.workspace }}/benches
-      # TODO: Prettify labels for easier viewing
-      # Compress the benchmark file and metadata for later analysis
-      - name: Compress artifacts
-        run: |
-          echo $LABELS > labels.md
-          tar -cvzf fibonacci-${{ github.sha }}.tar.gz Cargo.lock fibonacci-${{ github.sha }}.json labels.md
-        working-directory: ${{ github.workspace }}
-      - name: Deploy latest benchmark report
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./target/criterion
-          destination_dir: benchmarks/criterion
-      - name: Copy benchmark json to history
-        run: mkdir history; cp fibonacci-${{ github.sha }}.tar.gz history/
-      - name: Deploy benchmark history
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: history/
-          destination_dir: benchmarks/history
-          keep_files: true
+    # TODO: Switch to `main` once https://github.com/lurk-lab/ci-workflows/pull/44 is merged
+    uses: lurk-lab/ci-workflows/.github/workflows/bench-deploy.yml@bench-deploy
