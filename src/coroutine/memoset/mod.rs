@@ -125,7 +125,7 @@ pub struct CircuitTranscript<F: LurkField> {
 }
 
 impl<F: LurkField> CircuitTranscript<F> {
-    fn new<CS: ConstraintSystem<F>>(cs: &mut CS, g: &mut GlobalAllocator<F>, s: &Store<F>) -> Self {
+    fn new<CS: ConstraintSystem<F>>(cs: &mut CS, g: &GlobalAllocator<F>, s: &Store<F>) -> Self {
         let nil = s.intern_nil();
         let allocated_nil = g.alloc_ptr(cs, &nil, s);
         Self {
@@ -486,7 +486,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
         cs: &mut CS,
         z: &[AllocatedPtr<F>],
     ) -> Result<(Option<AllocatedNum<F>>, Vec<AllocatedPtr<F>>), SynthesisError> {
-        let g = &mut GlobalAllocator::<F>::default();
+        let g = &GlobalAllocator::<F>::default();
 
         assert_eq!(6, z.len());
         let [c, e, k, memoset_acc, transcript, r] = z else {
@@ -805,7 +805,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     pub fn synthesize<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
+        g: &GlobalAllocator<F>,
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
         self.ensure_transcript_finalized(s);
@@ -892,7 +892,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
     fn new<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
+        g: &GlobalAllocator<F>,
         s: &Store<F>,
         memoset: LogMemoCircuit<F>,
         provenances: &HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
@@ -905,12 +905,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         }
     }
 
-    fn init<CS: ConstraintSystem<F>>(
-        &mut self,
-        cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
-        s: &Store<F>,
-    ) {
+    fn init<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, g: &GlobalAllocator<F>, s: &Store<F>) {
         self.acc =
             Some(AllocatedPtr::alloc_constant(ns!(cs, "acc"), s.hash_ptr(&s.num_u64(0))).unwrap());
 
@@ -1035,7 +1030,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         Ok((new_acc, new_transcript))
     }
 
-    fn finalize<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, _g: &mut GlobalAllocator<F>) {
+    fn finalize<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, _g: &GlobalAllocator<F>) {
         let r = self.memoset.allocated_r();
         enforce_equal(cs, || "r_matches_transcript", self.transcript.r(), &r);
         enforce_equal_zero(cs, || "acc_is_zero", self.acc.clone().unwrap().hash());
@@ -1145,7 +1140,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         &mut self,
         scope: &mut Scope<Q, LogMemo<F>, F>,
         cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
+        g: &GlobalAllocator<F>,
         s: &Store<F>,
     ) -> Result<(), SynthesisError> {
         for (i, kv) in scope.toplevel_insertions.iter().enumerate() {
@@ -1166,7 +1161,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
     fn synthesize_toplevel_query<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
+        g: &GlobalAllocator<F>,
         s: &Store<F>,
         i: usize,
         allocated_key: &AllocatedPtr<F>,
@@ -1199,7 +1194,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
     fn synthesize_prove_key_query<CS: ConstraintSystem<F>, Q: Query<F>>(
         &mut self,
         cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
+        g: &GlobalAllocator<F>,
         s: &Store<F>,
         key: Option<&Ptr>,
         index: usize,
@@ -1233,7 +1228,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
     fn synthesize_prove_query<CS: ConstraintSystem<F>, CQ: CircuitQuery<F>>(
         &mut self,
         cs: &mut CS,
-        g: &mut GlobalAllocator<F>,
+        g: &GlobalAllocator<F>,
         s: &Store<F>,
         allocated_key: &AllocatedPtr<F>,
         circuit_query: &CQ,
@@ -1525,7 +1520,7 @@ mod test {
             scope.finalize_transcript(s);
 
             let cs = &mut TestConstraintSystem::new();
-            let g = &mut GlobalAllocator::default();
+            let g = &GlobalAllocator::default();
 
             scope.synthesize(cs, g, s).unwrap();
 
@@ -1565,7 +1560,7 @@ mod test {
             scope.finalize_transcript(s);
 
             let cs = &mut TestConstraintSystem::new();
-            let g = &mut GlobalAllocator::default();
+            let g = &GlobalAllocator::default();
 
             scope.synthesize(cs, g, s).unwrap();
 

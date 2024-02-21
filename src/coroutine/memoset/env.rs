@@ -83,12 +83,10 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
     fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ {
         match self {
             EnvQuery::Lookup(var, env) => {
-                let mut var_cs = cs.namespace(|| "var");
                 let allocated_var =
-                    AllocatedNum::alloc_infallible(&mut var_cs, || *s.hash_ptr(var).value());
-                let mut env_cs = var_cs.namespace(|| "env");
+                    AllocatedNum::alloc_infallible(ns!(cs, "var"), || *s.hash_ptr(var).value());
                 let allocated_env =
-                    AllocatedNum::alloc_infallible(&mut env_cs, || *s.hash_ptr(env).value());
+                    AllocatedNum::alloc_infallible(ns!(cs, "env"), || *s.hash_ptr(env).value());
                 Self::CQ::Lookup(allocated_var, allocated_env)
             }
             _ => unreachable!(),
@@ -114,7 +112,16 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
     }
 }
 
-impl<F: LurkField> RecursiveQuery<F> for EnvCircuitQuery<F> {}
+impl<F: LurkField> RecursiveQuery<F> for EnvCircuitQuery<F> {
+    fn post_recursion<CS: ConstraintSystem<F>>(
+        &self,
+        _cs: &mut CS,
+        subquery_results: &[AllocatedPtr<F>],
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        assert_eq!(subquery_results.len(), 1);
+        Ok(subquery_results[0].clone())
+    }
+}
 
 impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
     fn synthesize_args<CS: ConstraintSystem<F>>(
@@ -188,7 +195,7 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
                     g,
                     store,
                     scope,
-                    subquery,
+                    &[subquery],
                     &is_immediate.not(),
                     (&immediate_result, acc),
                     allocated_key,
@@ -198,17 +205,7 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
     }
 
     fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
-        let query = EnvQuery::from_ptr(s, ptr);
-        query.and_then(|q| match q {
-            EnvQuery::Lookup(var, env) => {
-                let allocated_var =
-                    AllocatedNum::alloc_infallible(ns!(cs, "var"), || *s.hash_ptr(&var).value());
-                let allocated_env =
-                    AllocatedNum::alloc_infallible(ns!(cs, "env"), || *s.hash_ptr(&env).value());
-                Some(Self::Lookup(allocated_var, allocated_env))
-            }
-            _ => unreachable!(),
-        })
+        EnvQuery::from_ptr(s, ptr).map(|q| q.to_circuit(cs, s))
     }
 
     fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self {
@@ -376,7 +373,7 @@ mod test {
             scope.finalize_transcript(s);
 
             let cs = &mut TestConstraintSystem::new();
-            let g = &mut GlobalAllocator::default();
+            let g = &GlobalAllocator::default();
 
             scope.synthesize(cs, g, s).unwrap();
 

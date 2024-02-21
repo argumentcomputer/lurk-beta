@@ -112,8 +112,10 @@ impl<F: LurkField> RecursiveQuery<F> for DemoCircuitQuery<F> {
     fn post_recursion<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        subquery_result: AllocatedPtr<F>,
+        subquery_results: &[AllocatedPtr<F>],
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        assert_eq!(subquery_results.len(), 1);
+        let subquery_result = &subquery_results[0];
         match self {
             Self::Factorial(n) => {
                 let result_f = n.hash().mul(
@@ -185,7 +187,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
                     g,
                     store,
                     scope,
-                    subquery,
+                    &[subquery],
                     &n_is_zero.not(),
                     (&base_case, acc),
                     allocated_key,
