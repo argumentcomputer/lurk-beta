@@ -318,11 +318,14 @@ mod test {
     use crate::{coroutine::memoset::demo::DemoQuery, lem::tag::Tag, tag::ExprTag::Cons};
     use bellpepper::util_cs::Comparable;
     use bellpepper_core::{test_cs::TestConstraintSystem, Delta};
+    use expect_test::{expect, Expect};
     use halo2curves::bn256::Fr;
 
     fn check_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
         scope: &'a Scope<Q, LogMemo<F>, F>,
         store: &'a Store<F>,
+        expected_constraints: &Expect,
+        expected_aux: &Expect,
     ) {
         let mut input_ptrs = [
             store.dummy(),
@@ -366,6 +369,8 @@ mod test {
                 if unsat.is_some() {
                     eprintln!("{:?}", unsat);
                 }
+                expected_constraints.assert_eq(&cs.num_constraints().to_string());
+                expected_aux.assert_eq(&cs.aux().len().to_string());
                 assert!(cs.is_satisfied());
                 input_ptrs = out.into_iter().map(|x| x.get_value().unwrap()).collect();
                 if let Some(cs_prev) = cs_prev {
@@ -381,11 +386,11 @@ mod test {
     fn coroutine_uniformity_test() {
         let s = &Store::<Fr>::default();
         let query = s.read_with_default_state("(factorial . 40)").unwrap();
-        let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::new(10);
+        let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::new(1);
         let mut scope = Scope::<DemoQuery<_>, _, _>::new(prover.reduction_count);
         scope.query(s, query);
         scope.finalize_transcript(s);
-        check_from_scope(&scope, s);
+        check_from_scope(&scope, s, &expect!["1772"], &expect!["1792"]);
     }
 
     #[test]
