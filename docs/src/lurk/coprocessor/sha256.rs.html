@@ -132,6 +132,22 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper::gadgets::{multipack::pack_bits, sha256::sha256};
 <span class="kw">use </span>bellpepper_core::{boolean::Boolean, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>lurk_macros::Coproc;
@@ -211,11 +227,13 @@
 
     hasher.update(input);
     <span class="kw">let </span><span class="kw-2">mut </span>bytes = hasher.finalize();
-    bytes.reverse();
-    <span class="kw">let </span>l = bytes.len();
-    <span class="comment">// Discard the two most significant bits.
-    </span>bytes[l - <span class="number">1</span>] &amp;= <span class="number">0b00111111</span>;
 
+    <span class="comment">// The pack_bits gadget used by the synthesize_sha256 function
+    // sets the n most significant bits of the hash output to zero,
+    // where n is 256 minus the field's capacity. We do the same
+    // here to match the output.
+    </span>discard_bits::&lt;F&gt;(<span class="kw-2">&amp;mut </span>bytes);
+    bytes.reverse();
     F::from_bytes(<span class="kw-2">&amp;</span>bytes).unwrap()
 }
 
@@ -258,6 +276,20 @@
             n,
             _p: Default::default(),
         }
+    }
+}
+
+<span class="comment">// Retains the Scalar::CAPACITY last bits of a big-endian input
+</span><span class="kw">fn </span>discard_bits&lt;Scalar: LurkField&gt;(bytes: <span class="kw-2">&amp;mut </span>[u8]) {
+    <span class="kw">let </span>bits_to_zero = <span class="number">256 </span>- Scalar::CAPACITY <span class="kw">as </span>usize;
+    <span class="kw">let </span>full_bytes_to_zero = bits_to_zero / <span class="number">8</span>;
+    <span class="kw">let </span>partial_bits_to_zero = bits_to_zero % <span class="number">8</span>;
+
+    bytes[..full_bytes_to_zero].iter_mut().for_each(|b| <span class="kw-2">*</span>b = <span class="number">0</span>);
+
+    <span class="kw">if </span>partial_bits_to_zero &gt; <span class="number">0 </span>{
+        <span class="kw">let </span>mask = <span class="number">0xFF </span>&gt;&gt; partial_bits_to_zero;
+        bytes[full_bytes_to_zero] &amp;= mask;
     }
 }
 
