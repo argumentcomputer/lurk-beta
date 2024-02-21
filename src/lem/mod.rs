@@ -60,6 +60,7 @@
 //!    be prefixed by "_"
 
 pub mod circuit;
+pub mod coroutine;
 pub mod eval;
 pub(crate) mod interpreter;
 mod macros;
