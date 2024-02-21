@@ -116,6 +116,7 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
         let is_immediate = is_recursive.not();
+        let nil = g.alloc_ptr(ns!(cs, "nil"), &store.intern_nil(), store);
 
         let mut sub_results = vec![];
         let mut dependency_provenances = vec![];
@@ -130,7 +131,6 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
                 &new_acc,
                 is_recursive,
             )?;
-            let nil = g.alloc_ptr(ns!(cs, "nil"), &store.intern_nil(), store);
             let dependency_provenance = AllocatedPtr::pick(
                 ns!(cs, "dependency provenance"),
                 &is_immediate,
