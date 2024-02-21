@@ -77,11 +77,13 @@ fn compute_sha256<F: LurkField, T: Tag>(n: usize, z_ptrs: &[ZPtr<T, F>]) -> F {
 
     hasher.update(input);
     let mut bytes = hasher.finalize();
-    bytes.reverse();
-    let l = bytes.len();
-    // Discard the two most significant bits.
-    bytes[l - 1] &= 0b00111111;
 
+    // The pack_bits gadget used by the synthesize_sha256 function
+    // sets the n most significant bits of the hash output to zero,
+    // where n is 256 minus the field's capacity. We do the same
+    // here to match the output.
+    discard_bits::<F>(&mut bytes);
+    bytes.reverse();
     F::from_bytes(&bytes).unwrap()
 }
 
@@ -124,6 +126,20 @@ impl<F: LurkField> Sha256Coprocessor<F> {
             n,
             _p: Default::default(),
         }
+    }
+}
+
+// Retains the Scalar::CAPACITY last bits of a big-endian input
+fn discard_bits<Scalar: LurkField>(bytes: &mut [u8]) {
+    let bits_to_zero = 256 - Scalar::CAPACITY as usize;
+    let full_bytes_to_zero = bits_to_zero / 8;
+    let partial_bits_to_zero = bits_to_zero % 8;
+
+    bytes[..full_bytes_to_zero].iter_mut().for_each(|b| *b = 0);
+
+    if partial_bits_to_zero > 0 {
+        let mask = 0xFF >> partial_bits_to_zero;
+        bytes[full_bytes_to_zero] &= mask;
     }
 }
 
