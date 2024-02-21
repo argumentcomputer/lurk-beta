@@ -101,11 +101,8 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
     fn post_recursion<CS: ConstraintSystem<F>>(
         &self,
         _cs: &mut CS,
-        subquery_result: AllocatedPtr<F>,
-    ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        // The default implementation provides tail recursion.
-        Ok(subquery_result)
-    }
+        subquery_results: &[AllocatedPtr<F>],
+    ) -> Result<AllocatedPtr<F>, SynthesisError>;
 
     fn recurse<CS: ConstraintSystem<F>>(
         &self,
@@ -113,25 +110,39 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
         g: &GlobalAllocator<F>,
         store: &Store<F>,
         scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
-        subquery: Self,
+        subqueries: &[Self],
         is_recursive: &Boolean,
         immediate: (&AllocatedPtr<F>, &AllocatedPtr<F>),
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
         let is_immediate = is_recursive.not();
 
-        let subquery = subquery.synthesize_query(cs, g, store)?;
+        let mut sub_results = vec![];
+        let mut dependency_provenances = vec![];
+        let mut new_acc = immediate.1.clone();
+        for subquery in subqueries {
+            let subquery = subquery.synthesize_query(cs, g, store)?;
+            let ((sub_result, sub_provenance), next_acc) = scope.synthesize_internal_query(
+                ns!(cs, "recursive query"),
+                g,
+                store,
+                &subquery,
+                &new_acc,
+                is_recursive,
+            )?;
+            let nil = g.alloc_ptr(ns!(cs, "nil"), &store.intern_nil(), store);
+            let dependency_provenance = AllocatedPtr::pick(
+                ns!(cs, "dependency provenance"),
+                &is_immediate,
+                &nil,
+                &sub_provenance,
+            )?;
+            sub_results.push(sub_result);
+            dependency_provenances.push(dependency_provenance);
+            new_acc = next_acc;
+        }
 
-        let ((sub_result, sub_provenance), new_acc) = scope.synthesize_internal_query(
-            ns!(cs, "recursive query"),
-            g,
-            store,
-            &subquery,
-            immediate.1,
-            is_recursive,
-        )?;
-
-        let (recursive_result, recursive_acc) = (self.post_recursion(cs, sub_result)?, new_acc);
+        let (recursive_result, recursive_acc) = (self.post_recursion(cs, &sub_results)?, new_acc);
 
         let value = AllocatedPtr::pick(
             ns!(cs, "pick value"),
@@ -147,21 +158,12 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
             &recursive_acc,
         )?;
 
-        let nil = g.alloc_ptr(ns!(cs, "nil"), &store.intern_nil(), store);
-
-        let dependency_provenance = AllocatedPtr::pick(
-            ns!(cs, "dependency provenance"),
-            &is_immediate,
-            &nil,
-            &sub_provenance,
-        )?;
-
         let provenance = self.synthesize_provenance(
             ns!(cs, "provenance"),
             g,
             store,
             value.clone(),
-            vec![dependency_provenance.clone()],
+            dependency_provenances,
             allocated_key,
         )?;
 

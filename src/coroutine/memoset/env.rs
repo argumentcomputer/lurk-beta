@@ -112,7 +112,16 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
     }
 }
 
-impl<F: LurkField> RecursiveQuery<F> for EnvCircuitQuery<F> {}
+impl<F: LurkField> RecursiveQuery<F> for EnvCircuitQuery<F> {
+    fn post_recursion<CS: ConstraintSystem<F>>(
+        &self,
+        _cs: &mut CS,
+        subquery_results: &[AllocatedPtr<F>],
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        assert_eq!(subquery_results.len(), 1);
+        Ok(subquery_results[0].clone())
+    }
+}
 
 impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
     fn synthesize_args<CS: ConstraintSystem<F>>(
@@ -186,7 +195,7 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
                     g,
                     store,
                     scope,
-                    subquery,
+                    &[subquery],
                     &is_immediate.not(),
                     (&immediate_result, acc),
                     allocated_key,
