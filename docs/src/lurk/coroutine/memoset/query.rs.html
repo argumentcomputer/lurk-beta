@@ -171,8 +171,6 @@
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{boolean::Boolean, ConstraintSystem, SynthesisError};
 
 <span class="kw">use super</span>::{AllocatedProvenance, CircuitScope, LogMemo, LogMemoCircuit, Scope};
@@ -263,13 +261,9 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         result: AllocatedPtr&lt;F&gt;,
         dependency_provenances: Vec&lt;AllocatedPtr&lt;F&gt;&gt;,
-        allocated_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;&gt;,
+        allocated_key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
-        <span class="kw">let </span>query = <span class="kw">if let </span><span class="prelude-val">Some</span>(q) = allocated_key {
-            q.clone()
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.synthesize_query(<span class="macro">ns!</span>(cs, <span class="string">"query"</span>), g, store)<span class="question-mark">?
-        </span>};
+        <span class="kw">let </span>query = allocated_key.clone();
         <span class="kw">let </span>p = AllocatedProvenance::new(query, result, dependency_provenances.clone());
 
         <span class="prelude-val">Ok</span>(p.to_ptr(cs, g, store)<span class="question-mark">?</span>.clone())
@@ -280,11 +274,8 @@
     <span class="kw">fn </span>post_recursion&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _cs: <span class="kw-2">&amp;mut </span>CS,
-        subquery_result: AllocatedPtr&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
-        <span class="comment">// The default implementation provides tail recursion.
-        </span><span class="prelude-val">Ok</span>(subquery_result)
-    }
+        subquery_results: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt;;
 
     <span class="kw">fn </span>recurse&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -292,25 +283,39 @@
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         scope: <span class="kw-2">&amp;mut </span>CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt;,
-        subquery: <span class="self">Self</span>,
+        subqueries: <span class="kw-2">&amp;</span>[<span class="self">Self</span>],
         is_recursive: <span class="kw-2">&amp;</span>Boolean,
         immediate: (<span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;, <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;),
         allocated_key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;((AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), AllocatedPtr&lt;F&gt;), SynthesisError&gt; {
         <span class="kw">let </span>is_immediate = is_recursive.not();
+        <span class="kw">let </span>nil = g.alloc_ptr(<span class="macro">ns!</span>(cs, <span class="string">"nil"</span>), <span class="kw-2">&amp;</span>store.intern_nil(), store);
 
-        <span class="kw">let </span>subquery = subquery.synthesize_query(cs, g, store)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>sub_results = <span class="macro">vec!</span>[];
+        <span class="kw">let </span><span class="kw-2">mut </span>dependency_provenances = <span class="macro">vec!</span>[];
+        <span class="kw">let </span><span class="kw-2">mut </span>new_acc = immediate.<span class="number">1</span>.clone();
+        <span class="kw">for </span>subquery <span class="kw">in </span>subqueries {
+            <span class="kw">let </span>subquery = subquery.synthesize_query(cs, g, store)<span class="question-mark">?</span>;
+            <span class="kw">let </span>((sub_result, sub_provenance), next_acc) = scope.synthesize_internal_query(
+                <span class="macro">ns!</span>(cs, <span class="string">"recursive query"</span>),
+                g,
+                store,
+                <span class="kw-2">&amp;</span>subquery,
+                <span class="kw-2">&amp;</span>new_acc,
+                is_recursive,
+            )<span class="question-mark">?</span>;
+            <span class="kw">let </span>dependency_provenance = AllocatedPtr::pick(
+                <span class="macro">ns!</span>(cs, <span class="string">"dependency provenance"</span>),
+                <span class="kw-2">&amp;</span>is_immediate,
+                <span class="kw-2">&amp;</span>nil,
+                <span class="kw-2">&amp;</span>sub_provenance,
+            )<span class="question-mark">?</span>;
+            sub_results.push(sub_result);
+            dependency_provenances.push(dependency_provenance);
+            new_acc = next_acc;
+        }
 
-        <span class="kw">let </span>((sub_result, sub_provenance), new_acc) = scope.synthesize_internal_query(
-            <span class="macro">ns!</span>(cs, <span class="string">"recursive query"</span>),
-            g,
-            store,
-            <span class="kw-2">&amp;</span>subquery,
-            immediate.<span class="number">1</span>,
-            is_recursive,
-        )<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>(recursive_result, recursive_acc) = (<span class="self">self</span>.post_recursion(cs, sub_result)<span class="question-mark">?</span>, new_acc);
+        <span class="kw">let </span>(recursive_result, recursive_acc) = (<span class="self">self</span>.post_recursion(cs, <span class="kw-2">&amp;</span>sub_results)<span class="question-mark">?</span>, new_acc);
 
         <span class="kw">let </span>value = AllocatedPtr::pick(
             <span class="macro">ns!</span>(cs, <span class="string">"pick value"</span>),
@@ -326,22 +331,13 @@
             <span class="kw-2">&amp;</span>recursive_acc,
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>nil = g.alloc_ptr(<span class="macro">ns!</span>(cs, <span class="string">"nil"</span>), <span class="kw-2">&amp;</span>store.intern_nil(), store);
-
-        <span class="kw">let </span>dependency_provenance = AllocatedPtr::pick(
-            <span class="macro">ns!</span>(cs, <span class="string">"dependency provenance"</span>),
-            <span class="kw-2">&amp;</span>is_immediate,
-            <span class="kw-2">&amp;</span>nil,
-            <span class="kw-2">&amp;</span>sub_provenance,
-        )<span class="question-mark">?</span>;
-
         <span class="kw">let </span>provenance = <span class="self">self</span>.synthesize_provenance(
             <span class="macro">ns!</span>(cs, <span class="string">"provenance"</span>),
             g,
             store,
             value.clone(),
-            <span class="macro">vec!</span>[dependency_provenance.clone()],
-            <span class="prelude-val">Some</span>(allocated_key),
+            dependency_provenances,
+            allocated_key,
         )<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(((value, provenance.clone()), acc))

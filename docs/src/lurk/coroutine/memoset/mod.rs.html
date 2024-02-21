@@ -1586,11 +1586,6 @@
 <a href="#1585" id="1585">1585</a>
 <a href="#1586" id="1586">1586</a>
 <a href="#1587" id="1587">1587</a>
-<a href="#1588" id="1588">1588</a>
-<a href="#1589" id="1589">1589</a>
-<a href="#1590" id="1590">1590</a>
-<a href="#1591" id="1591">1591</a>
-<a href="#1592" id="1592">1592</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -1718,7 +1713,7 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; CircuitTranscript&lt;F&gt; {
-    <span class="kw">fn </span>new&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>new&lt;CS: ConstraintSystem&lt;F&gt;&gt;(cs: <span class="kw-2">&amp;mut </span>CS, g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>nil = s.intern_nil();
         <span class="kw">let </span>allocated_nil = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>nil, s);
         <span class="self">Self </span>{
@@ -2079,7 +2074,7 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         z: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="prelude-ty">Option</span>&lt;AllocatedNum&lt;F&gt;&gt;, Vec&lt;AllocatedPtr&lt;F&gt;&gt;), SynthesisError&gt; {
-        <span class="kw">let </span>g = <span class="kw-2">&amp;mut </span>GlobalAllocator::&lt;F&gt;::default();
+        <span class="kw">let </span>g = <span class="kw-2">&amp;</span>GlobalAllocator::&lt;F&gt;::default();
 
         <span class="macro">assert_eq!</span>(<span class="number">6</span>, z.len());
         <span class="kw">let </span>[c, e, k, memoset_acc, transcript, r] = z <span class="kw">else </span>{
@@ -2398,7 +2393,7 @@
     <span class="kw">pub fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
-        g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
         <span class="self">self</span>.ensure_transcript_finalized(s);
@@ -2485,7 +2480,7 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt; {
     <span class="kw">fn </span>new&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         cs: <span class="kw-2">&amp;mut </span>CS,
-        g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         memoset: LogMemoCircuit&lt;F&gt;,
         provenances: <span class="kw-2">&amp;</span>HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt;,
@@ -2498,12 +2493,7 @@
         }
     }
 
-    <span class="kw">fn </span>init&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        cs: <span class="kw-2">&amp;mut </span>CS,
-        g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-    ) {
+    <span class="kw">fn </span>init&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) {
         <span class="self">self</span>.acc =
             <span class="prelude-val">Some</span>(AllocatedPtr::alloc_constant(<span class="macro">ns!</span>(cs, <span class="string">"acc"</span>), s.hash_ptr(<span class="kw-2">&amp;</span>s.num_u64(<span class="number">0</span>))).unwrap());
 
@@ -2628,7 +2618,7 @@
         <span class="prelude-val">Ok</span>((new_acc, new_transcript))
     }
 
-    <span class="kw">fn </span>finalize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, _g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;) {
+    <span class="kw">fn </span>finalize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS, _g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;) {
         <span class="kw">let </span>r = <span class="self">self</span>.memoset.allocated_r();
         enforce_equal(cs, || <span class="string">"r_matches_transcript"</span>, <span class="self">self</span>.transcript.r(), <span class="kw-2">&amp;</span>r);
         enforce_equal_zero(cs, || <span class="string">"acc_is_zero"</span>, <span class="self">self</span>.acc.clone().unwrap().hash());
@@ -2738,7 +2728,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         scope: <span class="kw-2">&amp;mut </span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt;,
         cs: <span class="kw-2">&amp;mut </span>CS,
-        g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
         <span class="kw">for </span>(i, kv) <span class="kw">in </span>scope.toplevel_insertions.iter().enumerate() {
@@ -2759,7 +2749,7 @@
     <span class="kw">fn </span>synthesize_toplevel_query&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
-        g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         i: usize,
         allocated_key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
@@ -2792,7 +2782,7 @@
     <span class="kw">fn </span>synthesize_prove_key_query&lt;CS: ConstraintSystem&lt;F&gt;, Q: Query&lt;F&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
-        g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Ptr&gt;,
         index: usize,
@@ -2826,7 +2816,7 @@
     <span class="kw">fn </span>synthesize_prove_query&lt;CS: ConstraintSystem&lt;F&gt;, CQ: CircuitQuery&lt;F&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
-        g: <span class="kw-2">&amp;mut </span>GlobalAllocator&lt;F&gt;,
+        g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         allocated_key: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         circuit_query: <span class="kw-2">&amp;</span>CQ,
@@ -3118,7 +3108,7 @@
             scope.finalize_transcript(s);
 
             <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>TestConstraintSystem::new();
-            <span class="kw">let </span>g = <span class="kw-2">&amp;mut </span>GlobalAllocator::default();
+            <span class="kw">let </span>g = <span class="kw-2">&amp;</span>GlobalAllocator::default();
 
             scope.synthesize(cs, g, s).unwrap();
 
@@ -3158,7 +3148,7 @@
             scope.finalize_transcript(s);
 
             <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>TestConstraintSystem::new();
-            <span class="kw">let </span>g = <span class="kw-2">&amp;mut </span>GlobalAllocator::default();
+            <span class="kw">let </span>g = <span class="kw-2">&amp;</span>GlobalAllocator::default();
 
             scope.synthesize(cs, g, s).unwrap();
 
