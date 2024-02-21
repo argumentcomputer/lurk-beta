@@ -7,14 +7,15 @@ use crate::field::LurkField;
 use crate::lem::{circuit::GlobalAllocator, pointers::Ptr, store::Store, Func};
 use crate::symbol::Symbol;
 
+use anyhow::{bail, Context, Result};
 use bellpepper_core::{ConstraintSystem, SynthesisError};
 use indexmap::IndexMap;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Coroutine<F> {
     pub func: Func,
-    pub index: usize,
     pub rc: usize,
     pub _p: PhantomData<F>,
 }
@@ -22,17 +23,49 @@ pub struct Coroutine<F> {
 #[derive(Clone)]
 pub struct Toplevel<F>(IndexMap<Symbol, Coroutine<F>>);
 
+fn compute_rc(_func: &Func) -> usize {
+    // TODO
+    1
+}
+
 impl<F> Toplevel<F> {
-    pub fn new(funcs: &[Func]) -> Self {
-        todo!()
+    pub fn new(funcs: Vec<(Symbol, Func)>) -> Self {
+        let mut toplevel = IndexMap::new();
+        for (name, func) in funcs.into_iter() {
+            let rc = compute_rc(&func);
+            let _p = PhantomData;
+            toplevel.insert(name, Coroutine { func, rc, _p });
+        }
+        Toplevel(toplevel)
     }
 }
 
 #[derive(Clone)]
 pub struct ToplevelQuery<F> {
-    pub name: Symbol,
-    pub args: Ptr,
-    pub toplevel: Toplevel<F>,
+    name: Symbol,
+    args: Vec<Ptr>,
+    toplevel: Arc<Toplevel<F>>,
+}
+
+impl<F> ToplevelQuery<F> {
+    pub fn new(name: Symbol, args: Vec<Ptr>, toplevel: Arc<Toplevel<F>>) -> Result<Self> {
+        let msg = || format!("`{name}` not found in the toplevel");
+        let coroutine = toplevel.0.get(&name).with_context(msg)?;
+        let input_size = coroutine.func.input_params.len();
+        if args.len() != input_size {
+            bail!(
+                "Wrong number of arguments. Expected {}, found {}",
+                args.len(),
+                input_size
+            )
+        }
+        let query = ToplevelQuery {
+            name,
+            args,
+            toplevel,
+        };
+        Ok(query)
+    }
 }
 
 impl<F: LurkField> Query<F> for ToplevelQuery<F> {
@@ -53,10 +86,10 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
         todo!()
     }
     fn symbol(&self) -> Symbol {
-        todo!()
+        self.name.clone()
     }
     fn index(&self) -> usize {
-        todo!()
+        self.toplevel.0.get_index_of(&self.name).unwrap()
     }
     fn count() -> usize {
         todo!()
