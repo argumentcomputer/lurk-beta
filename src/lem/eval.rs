@@ -788,11 +788,14 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         let fun: Expr::Fun;
         let cons: Expr::Cons;
         let thunk: Expr::Thunk;
+        let num: Expr::Num;
         let head_is_fun = eq_tag(head, fun);
         let head_is_cons = eq_tag(head, cons);
         let head_is_thunk = eq_tag(head, thunk);
+        let head_is_num = eq_tag(head, num);
         let acc = or(head_is_fun, head_is_cons);
         let acc = or(acc, head_is_thunk);
+        let acc = or(acc, head_is_num);
         if acc {
             let t = Symbol("t");
             return (t)
@@ -1188,6 +1191,19 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
         };
         return (nil)
     });
+    let open_if_num_or_comm = aux_func!(open_if_num_or_comm(input): 1 => {
+        let num: Expr::Num;
+        let comm: Expr::Comm;
+        let input_is_num = eq_tag(input, num);
+        let input_is_comm = eq_tag(input, comm);
+        let input_is_num_or_comm = or(input_is_num, input_is_comm);
+        if input_is_num_or_comm {
+            let cast = cast(input, Expr::Comm);
+            let (_secret, payload) = open(cast);
+            return (payload)
+        }
+        return (input)
+    });
     let choose_cproc_call = choose_cproc_call(cprocs, ivc);
     aux_func!(apply_cont(result, env, cont, ctrl): 4 => {
         match symbol ctrl {
@@ -1217,20 +1233,21 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         return (result, env, cont, makethunk)
                     }
                     Cont::Call => {
-                        match result.tag {
+                        let (fun) = open_if_num_or_comm(result);
+                        match fun.tag {
                             Expr::Fun => {
                                 let (args, args_env, continuation, _foo) = decons4(cont);
-                                let (vars, body, fun_env, _foo) = decons4(result);
+                                let (vars, body, fun_env, _foo) = decons4(fun);
                                 match args.tag {
                                     Expr::Cons => {
                                         match vars.tag {
                                             Expr::Nil => {
                                                 // Cannot apply non-zero number of arguments to a zero argument function
-                                                return (result, env, err, errctrl)
+                                                return (fun, env, err, errctrl)
                                             }
                                             Expr::Cons => {
                                                 let (arg, rest_args) = decons2(args);
-                                                let newer_cont: Cont::Call2 = cons4(result, rest_args, args_env, continuation);
+                                                let newer_cont: Cont::Call2 = cons4(fun, rest_args, args_env, continuation);
                                                 return (arg, args_env, newer_cont, ret)
                                             }
                                         }
@@ -1243,14 +1260,14 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                             Expr::Cons => {
                                                 // TODO should we not fail here in an analogous way to the non-zero application
                                                 // on a zero argument function case?
-                                                return (result, env, continuation, ret)
+                                                return (fun, env, continuation, ret)
                                             }
                                         }
                                     }
                                 }
                             }
                         };
-                        return (result, env, err, errctrl)
+                        return (fun, env, err, errctrl)
                     }
                     Cont::Call2 => {
                         let (function, args, args_env, continuation) = decons4(cont);
@@ -1742,8 +1759,8 @@ mod tests {
         expect_eq(func.slots_count.commitment, expect!["1"]);
         expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9095"]);
-        expect_eq(cs.num_constraints(), expect!["11025"]);
+        expect_eq(cs.aux().len(), expect!["9107"]);
+        expect_eq(cs.num_constraints(), expect!["11044"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }

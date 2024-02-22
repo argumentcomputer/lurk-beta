@@ -14,7 +14,9 @@ use crate::{
     tag::{ExprTag, Op, Op1, Op2},
 };
 
-use super::{nova_test_full_aux, nova_test_full_aux2, test_aux, DEFAULT_REDUCTION_COUNT};
+use super::{
+    nova_test_full_aux, nova_test_full_aux2, test_aux, test_aux_ptr, DEFAULT_REDUCTION_COUNT,
+};
 
 #[test]
 fn test_prove_self_evaluating() {
@@ -1575,40 +1577,6 @@ fn test_prove_zero_arg_lambda4() {
         Some(error),
         None,
         &expect!["2"],
-        &None,
-    );
-}
-
-#[test]
-fn test_prove_zero_arg_lambda5() {
-    let s = &Store::<Fr>::default();
-    let expected = s.read_with_default_state("(123)").unwrap();
-    let error = s.cont_error();
-    test_aux::<_, Coproc<_>>(
-        s,
-        "(123)",
-        Some(expected),
-        None,
-        Some(error),
-        None,
-        &expect!["1"],
-        &None,
-    );
-}
-
-#[test]
-fn test_prove_zero_arg_lambda6() {
-    let s = &Store::<Fr>::default();
-    let expected = s.num_u64(123);
-    let error = s.cont_error();
-    test_aux::<_, Coproc<_>>(
-        s,
-        "((emit 123))",
-        Some(expected),
-        None,
-        Some(error),
-        None,
-        &expect!["5"],
         &None,
     );
 }
@@ -3910,111 +3878,47 @@ fn test_prove_head_with_sym_mimicking_value() {
     let s = &Store::<Fr>::default();
     let error = s.cont_error();
 
-    let hash_num = |s: &Store<Fr>, state: Rc<RefCell<State>>, name| {
-        let sym = s.read(state, name).unwrap();
-        let z_ptr = s.hash_ptr(&sym);
-        let hash = *z_ptr.value();
-        Num::Scalar(hash)
+    let mk_expr = |s: &Store<Fr>, state: Rc<RefCell<State>>, name, args| {
+        let sym_as_char = s.intern_lurk_symbol(name).cast(Tag::Expr(ExprTag::Char));
+        let args = s.read(state.clone(), args).unwrap();
+        s.cons(sym_as_char, args)
     };
 
     let state = State::init_lurk_state().rccell();
     {
         // binop
-        let expr = format!("({} 1 1)", hash_num(s, state.clone(), "+"));
-        test_aux::<_, Coproc<_>>(
-            s,
-            &expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "+", "(1 1)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // unop
-        let expr = format!("({} '(1 . 2))", hash_num(s, state.clone(), "car"));
-        test_aux::<_, Coproc<_>>(
-            s,
-            &expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "car", "('(1 . 2))");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // let_or_letrec
-        let expr = format!("({} ((a 1)) a)", hash_num(s, state.clone(), "let"));
-        test_aux::<_, Coproc<_>>(
-            s,
-            &expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "let", "(((a 1)) a)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // current-env
-        let expr = format!("({})", hash_num(s, state.clone(), "current-env"));
-        test_aux::<_, Coproc<_>>(
-            s,
-            &expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "current-env", "nil");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // lambda
-        let expr = format!("({} (x) 123)", hash_num(s, state.clone(), "lambda"));
-        test_aux::<_, Coproc<_>>(
-            s,
-            &expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "lambda", "((x) 123)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // quote
-        let expr = format!("({} asdf)", hash_num(s, state.clone(), "quote"));
-        test_aux::<_, Coproc<_>>(
-            s,
-            &expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "quote", "(asdf)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // if
-        let expr = format!("({} t 123 456)", hash_num(s, state, "if"));
-        test_aux::<_, Coproc<_>>(
-            s,
-            &expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "if", "(t 123 456)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
 }
 
