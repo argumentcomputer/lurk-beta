@@ -388,7 +388,7 @@ mod test {
         let s = Arc::new(Store::<Fr>::default());
         let query = s.read_with_default_state("(factorial . 40)").unwrap();
         let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::new(1);
-        let mut scope = Scope::<DemoQuery<_>, _, _>::new(prover.reduction_count, s);
+        let mut scope = Scope::<DemoQuery<_>, _, _>::new(prover.reduction_count, s, ());
         scope.query(query);
         scope.finalize_transcript();
         check_from_scope(&scope, &expect!["1772"], &expect!["1792"]);
@@ -399,7 +399,7 @@ mod test {
         let s = Arc::new(Store::<Fr>::default());
         let query = s.read_with_default_state("(factorial . 40)").unwrap();
         let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::new(10);
-        let mut scope = Scope::new(prover.reduction_count, s.clone());
+        let mut scope = Scope::new(prover.reduction_count, s.clone(), ());
         scope.query(query);
         scope.finalize_transcript();
 

@@ -70,7 +70,8 @@ impl<F> ToplevelQuery<F> {
 
 impl<F: LurkField> Query<F> for ToplevelQuery<F> {
     type CQ = Self;
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
+    type C = ();
+    fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         todo!()
     }
     fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self> {

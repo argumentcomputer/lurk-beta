@@ -13,6 +13,7 @@ where
     Self: Sized + Clone,
 {
     type CQ: CircuitQuery<F>;
+    type C: Clone;
 
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr;
     fn recursive_eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>, subquery: Self) -> Ptr {

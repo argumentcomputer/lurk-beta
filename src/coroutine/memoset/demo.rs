@@ -26,6 +26,7 @@ pub(crate) enum DemoCircuitQuery<F: LurkField> {
 
 impl<F: LurkField> Query<F> for DemoQuery<F> {
     type CQ = DemoCircuitQuery<F>;
+    type C = ();
 
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         match self {
@@ -230,7 +231,7 @@ mod test {
         let four = s.num(F::from_u64(4));
         let six = s.num(F::from_u64(6));
         let twenty_four = s.num(F::from_u64(24));
-        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::new(1, s);
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::new(1, s, ());
         assert_eq!(one, DemoQuery::Factorial(zero).eval(&mut scope));
         assert_eq!(one, DemoQuery::Factorial(one).eval(&mut scope));
         assert_eq!(two, DemoQuery::Factorial(two).eval(&mut scope));

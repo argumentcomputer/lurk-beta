@@ -312,7 +312,7 @@ impl<'a, F: LurkField> Debug for PW<'a, F> {
 /// A `Scope` tracks the queries made while evaluating, including the subqueries that result from evaluating other
 /// queries -- then makes use of the bookkeeping performed at evaluation time to synthesize proof of each query
 /// performed.
-pub struct Scope<Q, M, F: LurkField> {
+pub struct Scope<Q: Query<F>, M, F: LurkField> {
     memoset: M,
     /// k => v
     queries: HashMap<Ptr, Ptr>,
@@ -330,13 +330,14 @@ pub struct Scope<Q, M, F: LurkField> {
     provenances: OnceCell<HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
     default_rc: usize,
     store: Arc<Store<F>>,
+    content: Q::C,
 }
 
 const DEFAULT_RC_FOR_QUERY: usize = 1;
 
 impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     #[allow(dead_code)]
-    fn new(default_rc: usize, store: Arc<Store<F>>) -> Self {
+    fn new(default_rc: usize, store: Arc<Store<F>>, content: Q::C) -> Self {
         Self {
             memoset: Default::default(),
             queries: Default::default(),
@@ -347,6 +348,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             unique_inserted_keys: Default::default(),
             provenances: Default::default(),
             default_rc,
+            content,
             store,
         }
     }
@@ -1506,7 +1508,8 @@ mod test {
             expected.assert_eq(&computed.to_string());
         };
 
-        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::new(circuit_query_rc, s.clone());
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> =
+            Scope::new(circuit_query_rc, s.clone(), ());
         {
             scope.query(fact_4);
 
@@ -1550,7 +1553,7 @@ mod test {
 
         {
             let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> =
-                Scope::new(circuit_query_rc, s.clone());
+                Scope::new(circuit_query_rc, s.clone(), ());
             scope.query(fact_4);
             scope.query(fact_3);
 

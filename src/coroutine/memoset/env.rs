@@ -27,6 +27,7 @@ pub(crate) enum EnvCircuitQuery<F: LurkField> {
 
 impl<F: LurkField> Query<F> for EnvQuery<F> {
     type CQ = EnvCircuitQuery<F>;
+    type C = ();
 
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         let s = scope.store.as_ref();
@@ -255,7 +256,7 @@ mod test {
         let t = s.intern_t();
         let nil = s.intern_nil();
 
-        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s);
+        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s, ());
         let mut test = |var, env, found| {
             let expected = if let Some(val) = found {
                 scope.store.cons(val, t)
@@ -358,7 +359,7 @@ mod test {
             expected.assert_eq(&computed.to_string());
         };
 
-        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s.clone());
+        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s.clone(), ());
 
         let make_query = |sym, env| EnvQuery::Lookup(sym, env).to_ptr(s);
 
