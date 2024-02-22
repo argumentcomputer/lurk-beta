@@ -1748,6 +1748,23 @@
 <a href="#1747" id="1747">1747</a>
 <a href="#1748" id="1748">1748</a>
 <a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
+<a href="#1766" id="1766">1766</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2538,11 +2555,14 @@
         <span class="kw">let </span>fun: Expr::Fun;
         <span class="kw">let </span>cons: Expr::Cons;
         <span class="kw">let </span>thunk: Expr::Thunk;
+        <span class="kw">let </span>num: Expr::Num;
         <span class="kw">let </span>head_is_fun = eq_tag(head, fun);
         <span class="kw">let </span>head_is_cons = eq_tag(head, cons);
         <span class="kw">let </span>head_is_thunk = eq_tag(head, thunk);
+        <span class="kw">let </span>head_is_num = eq_tag(head, num);
         <span class="kw">let </span>acc = or(head_is_fun, head_is_cons);
         <span class="kw">let </span>acc = or(acc, head_is_thunk);
+        <span class="kw">let </span>acc = or(acc, head_is_num);
         <span class="kw">if </span>acc {
             <span class="kw">let </span>t = Symbol(<span class="string">"t"</span>);
             <span class="kw">return </span>(t)
@@ -2938,6 +2958,19 @@
         };
         <span class="kw">return </span>(nil)
     });
+    <span class="kw">let </span>open_if_num_or_comm = <span class="macro">aux_func!</span>(open_if_num_or_comm(input): <span class="number">1 </span>=&gt; {
+        <span class="kw">let </span>num: Expr::Num;
+        <span class="kw">let </span>comm: Expr::Comm;
+        <span class="kw">let </span>input_is_num = eq_tag(input, num);
+        <span class="kw">let </span>input_is_comm = eq_tag(input, comm);
+        <span class="kw">let </span>input_is_num_or_comm = or(input_is_num, input_is_comm);
+        <span class="kw">if </span>input_is_num_or_comm {
+            <span class="kw">let </span>cast = cast(input, Expr::Comm);
+            <span class="kw">let </span>(_secret, payload) = open(cast);
+            <span class="kw">return </span>(payload)
+        }
+        <span class="kw">return </span>(input)
+    });
     <span class="kw">let </span>choose_cproc_call = choose_cproc_call(cprocs, ivc);
     <span class="macro">aux_func!</span>(apply_cont(result, env, cont, ctrl): <span class="number">4 </span>=&gt; {
         <span class="kw">match </span>symbol ctrl {
@@ -2967,20 +3000,21 @@
                         <span class="kw">return </span>(result, env, cont, makethunk)
                     }
                     Cont::Call =&gt; {
-                        <span class="kw">match </span>result.tag {
+                        <span class="kw">let </span>(fun) = open_if_num_or_comm(result);
+                        <span class="kw">match </span>fun.tag {
                             Expr::Fun =&gt; {
                                 <span class="kw">let </span>(args, args_env, continuation, _foo) = decons4(cont);
-                                <span class="kw">let </span>(vars, body, fun_env, _foo) = decons4(result);
+                                <span class="kw">let </span>(vars, body, fun_env, _foo) = decons4(fun);
                                 <span class="kw">match </span>args.tag {
                                     Expr::Cons =&gt; {
                                         <span class="kw">match </span>vars.tag {
                                             Expr::Nil =&gt; {
                                                 <span class="comment">// Cannot apply non-zero number of arguments to a zero argument function
-                                                </span><span class="kw">return </span>(result, env, err, errctrl)
+                                                </span><span class="kw">return </span>(fun, env, err, errctrl)
                                             }
                                             Expr::Cons =&gt; {
                                                 <span class="kw">let </span>(arg, rest_args) = decons2(args);
-                                                <span class="kw">let </span>newer_cont: Cont::Call2 = cons4(result, rest_args, args_env, continuation);
+                                                <span class="kw">let </span>newer_cont: Cont::Call2 = cons4(fun, rest_args, args_env, continuation);
                                                 <span class="kw">return </span>(arg, args_env, newer_cont, ret)
                                             }
                                         }
@@ -2993,14 +3027,14 @@
                                             Expr::Cons =&gt; {
                                                 <span class="comment">// TODO should we not fail here in an analogous way to the non-zero application
                                                 // on a zero argument function case?
-                                                </span><span class="kw">return </span>(result, env, continuation, ret)
+                                                </span><span class="kw">return </span>(fun, env, continuation, ret)
                                             }
                                         }
                                     }
                                 }
                             }
                         };
-                        <span class="kw">return </span>(result, env, err, errctrl)
+                        <span class="kw">return </span>(fun, env, err, errctrl)
                     }
                     Cont::Call2 =&gt; {
                         <span class="kw">let </span>(function, args, args_env, continuation) = decons4(cont);
@@ -3492,8 +3526,8 @@
         expect_eq(func.slots_count.commitment, <span class="macro">expect!</span>[<span class="string">"1"</span>]);
         expect_eq(func.slots_count.bit_decomp, <span class="macro">expect!</span>[<span class="string">"3"</span>]);
         expect_eq(cs.num_inputs(), <span class="macro">expect!</span>[<span class="string">"1"</span>]);
-        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"9095"</span>]);
-        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"11025"</span>]);
+        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"9107"</span>]);
+        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"11044"</span>]);
         <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), cs.num_constraints());
     }
 }
