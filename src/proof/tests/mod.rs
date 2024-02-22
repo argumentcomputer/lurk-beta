@@ -60,6 +60,33 @@ fn test_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
     }
 }
 
+fn test_aux_ptr<F: CurveCycleEquipped, C: Coprocessor<F>>(
+    s: &Store<F>,
+    expr: Ptr,
+    expected_result: Option<Ptr>,
+    expected_env: Option<Ptr>,
+    expected_cont: Option<Ptr>,
+    expected_emitted: Option<&[Ptr]>,
+    expected_iterations: &Expect,
+    lang: &Option<Arc<Lang<F, C>>>,
+) {
+    for chunk_size in REDUCTION_COUNTS_TO_TEST {
+        nova_test_full_aux_ptr::<F, C>(
+            s,
+            expr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            chunk_size,
+            false,
+            None,
+            lang,
+        )
+    }
+}
+
 fn nova_test_full_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
     s: &Store<F>,
     expr: &str,
@@ -75,6 +102,34 @@ fn nova_test_full_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
 ) {
     let expr = EvaluationStore::read(s, expr).unwrap();
 
+    nova_test_full_aux_ptr(
+        s,
+        expr,
+        expected_result,
+        expected_env,
+        expected_cont,
+        expected_emitted,
+        expected_iterations,
+        reduction_count,
+        check_nova,
+        limit,
+        lang,
+    );
+}
+
+fn nova_test_full_aux_ptr<F: CurveCycleEquipped, C: Coprocessor<F>>(
+    s: &Store<F>,
+    expr: Ptr,
+    expected_result: Option<Ptr>,
+    expected_env: Option<Ptr>,
+    expected_cont: Option<Ptr>,
+    expected_emitted: Option<&[Ptr]>,
+    expected_iterations: &Expect,
+    reduction_count: usize,
+    check_nova: bool,
+    limit: Option<usize>,
+    lang: &Option<Arc<Lang<F, C>>>,
+) {
     let f = |l| {
         nova_test_full_aux2::<F, C>(
             s,

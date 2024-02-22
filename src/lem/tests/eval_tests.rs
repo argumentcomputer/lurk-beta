@@ -353,6 +353,101 @@ fn evaluate_lambda5() {
 }
 
 #[test]
+fn evaluate_comm_callable() {
+    let s = &Store::<Fr>::default();
+    let expr = "((commit (lambda (x) x)) nil)";
+
+    let expected = s.intern_nil();
+    let terminal = s.cont_terminal();
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        &expect!["6"],
+        &None,
+    );
+}
+
+#[test]
+fn evaluate_comm_callable2() {
+    let s = &Store::<Fr>::default();
+    let expr = "(begin (commit (lambda (x) x)) ((comm 0x2f31ee658b82c09daebbd2bd976c9d6669ad3bd6065056763797d5aaf4a3001b) nil))";
+
+    let expected = s.intern_nil();
+    let terminal = s.cont_terminal();
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        &expect!["10"],
+        &None,
+    );
+}
+
+#[test]
+fn evaluate_num_callable() {
+    let s = &Store::<Fr>::default();
+    let expr = "((num (commit (lambda (x) x))) nil)";
+
+    let expected = s.intern_nil();
+    let terminal = s.cont_terminal();
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        &expect!["8"],
+        &None,
+    );
+}
+
+#[test]
+fn evaluate_num_callable2() {
+    let s = &Store::<Fr>::default();
+    let expr = "(begin (commit (lambda (x) x)) (0x2f31ee658b82c09daebbd2bd976c9d6669ad3bd6065056763797d5aaf4a3001b nil))";
+
+    let expected = s.intern_nil();
+    let terminal = s.cont_terminal();
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        &expect!["8"],
+        &None,
+    );
+}
+
+#[test]
+fn evaluate_num_callable3() {
+    let s = &Store::<Fr>::default();
+    let expr = "(begin (commit (lambda () nil)) (0x1b1eaa8d0e216957c90a9a1d55784f0d9a4f84918d5a898a1ca74e6260cfd1e7))";
+
+    let expected = s.intern_nil();
+    let terminal = s.cont_terminal();
+    test_aux::<Coproc<Fr>>(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        &expect!["7"],
+        &None,
+    );
+}
+
+#[test]
 fn evaluate_sum() {
     let s = &Store::<Fr>::default();
     let expr = "(+ 2 (+ 3 4))";
@@ -1194,13 +1289,6 @@ fn evaluate_zero_arg_lambda_variants() {
 
         let error = s.cont_error();
         test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
-    }
-    {
-        let s = &Store::<Fr>::default();
-        let expr = "(123)";
-
-        let error = s.cont_error();
-        test_aux::<Coproc<Fr>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
 }
 
@@ -3383,16 +3471,6 @@ fn test_eval_quote_error() {
     let s = &Store::<Fr>::default();
     let error = s.cont_error();
 
-    test_aux::<Coproc<Fr>>(
-        s,
-        "(1)",
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["1"],
-        &None,
-    );
     test_aux::<Coproc<Fr>>(
         s,
         "(quote . 1)",
