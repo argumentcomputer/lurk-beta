@@ -134,4 +134,4 @@ https://lurk-lab.github.io/lurk-rs/benchmarks/criterion/reports/
 Ask a maintainer for a benchmark report if you can't find a recent one.
 
 ## License
-By contributing to lurk-lang, you agree that your contributions will be licensed under both [MIT](https://opensource.org/licenses/MIT) and [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0) licenses.
+By contributing to lurk-lang, you agree that your contributions will be licensed under both [MIT](https://opensource.org/license/MIT) and [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0) licenses.
