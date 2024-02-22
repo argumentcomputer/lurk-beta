@@ -185,3 +185,6 @@ harness = false
 [[bench]]
 name = "public_params"
 harness = false
+
+[patch.crates-io]
+sppark = { git = "https://github.com/supranational/sppark", rev = "2a431120282269e2d6a8f09a4d3bef3ff8280dda" }
