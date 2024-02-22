@@ -102,7 +102,7 @@ fn lookup_vertex_id<F: LurkField>(store: &Store<F>, env: &Ptr, var: &Ptr) -> Res
 }
 
 impl Context {
-    fn new<F: LurkField>(store: &mut Store<F>) -> Self {
+    fn new<F: LurkField>(store: &Store<F>) -> Self {
         Self {
             env: store.intern_empty_env(),
         }
@@ -117,7 +117,7 @@ impl Context {
         lookup_vertex_id(store, &self.env, var)
     }
 
-    fn push_binding<F: LurkField>(&mut self, store: &mut Store<F>, var: Ptr, id: Id) {
+    fn push_binding<F: LurkField>(&mut self, store: &Store<F>, var: Ptr, id: Id) {
         let num = store.num((id as u64).into());
 
         self.env = store.push_binding(var, num, self.env);
@@ -145,7 +145,7 @@ pub trait Syntax<F: LurkField> {
     fn expand(
         &self,
         foil: &mut Foil<F, CoilMeta>,
-        store: &mut Store<F>,
+        store: &Store<F>,
         head: &Ptr,
         rest: &[Ptr],
     ) -> Result<Vec<Ptr>>
@@ -170,7 +170,7 @@ impl<F: LurkField> Syntax<F> for Let {
     fn expand(
         &self,
         _foil: &mut Foil<F, CoilMeta>,
-        store: &mut Store<F>,
+        store: &Store<F>,
         _head: &Ptr,
         rest: &[Ptr],
     ) -> Result<Vec<Ptr>> {
@@ -247,7 +247,7 @@ impl<F: LurkField> Syntax<F> for CoilSyntax {
     fn expand(
         &self,
         foil: &mut Foil<F, CoilMeta>,
-        store: &mut Store<F>,
+        store: &Store<F>,
         head: &Ptr,
         rest: &[Ptr],
     ) -> Result<Vec<Ptr>> {
@@ -350,7 +350,7 @@ impl<F: LurkField, R: Relation<F>, S: Syntax<F>> CoilDef<F, R, S> {
     fn add_to_foil(
         &self,
         foil: &mut Foil<F, CoilMeta>,
-        store: &mut Store<F>,
+        store: &Store<F>,
         context: &mut Context,
         expr: &Ptr,
     ) -> Result<Option<Vert>> {
@@ -442,7 +442,7 @@ impl<F: LurkField, R: Relation<F>, S: Syntax<F>> CoilDef<F, R, S> {
 
     fn handle_bind(
         &self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         context: &mut Context,
         args: &[Ptr],
         successors: &[Vert],
@@ -468,7 +468,7 @@ impl<F: LurkField, R: Relation<F>, S: Syntax<F>> CoilDef<F, R, S> {
     }
     fn handle_pop_binding(
         &self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         context: &mut Context,
         args: &[Ptr],
     ) -> Result<Option<Vert>> {
