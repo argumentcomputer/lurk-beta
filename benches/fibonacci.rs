@@ -133,7 +133,7 @@ fn fibonacci_benchmark(c: &mut Criterion) {
     tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
 
     let reduction_counts = rc_env().unwrap_or_else(|_| vec![100]);
-    let batch_sizes = [100, 200];
+    let batch_sizes = [300, 600, 900];
 
     for reduction_count in reduction_counts.iter() {
         let mut group: BenchmarkGroup<'_, _> =
