@@ -814,7 +814,10 @@ impl<F: LurkField> Store<F> {
 
     /// Interns a sequence of pointers as a cons-list. The terminating element
     /// defaults to `nil` if `last` is `None`
-    fn intern_list(&self, elts: Vec<Ptr>, last: Option<Ptr>) -> Ptr {
+    fn intern_list<I: IntoIterator<Item = Ptr>>(&self, elts: I, last: Option<Ptr>) -> Ptr
+    where
+        <I as IntoIterator>::IntoIter: DoubleEndedIterator,
+    {
         elts.into_iter()
             .rev()
             .fold(last.unwrap_or_else(|| self.intern_nil()), |acc, elt| {
@@ -824,7 +827,10 @@ impl<F: LurkField> Store<F> {
 
     /// Interns a sequence of pointers as a proper (`nil`-terminated) cons-list
     #[inline]
-    pub fn list(&self, elts: Vec<Ptr>) -> Ptr {
+    pub fn list<I: IntoIterator<Item = Ptr>>(&self, elts: I) -> Ptr
+    where
+        <I as IntoIterator>::IntoIter: DoubleEndedIterator,
+    {
         self.intern_list(elts, None)
     }
 
@@ -833,6 +839,14 @@ impl<F: LurkField> Store<F> {
     #[inline]
     pub fn improper_list(&self, elts: Vec<Ptr>, last: Ptr) -> Ptr {
         self.intern_list(elts, Some(last))
+    }
+
+    /// Fetches a cons list that was interned. Panics if the list is improper.
+    pub fn fetch_proper_list(&self, ptr: &Ptr) -> Option<Vec<Ptr>> {
+        self.fetch_list(ptr).map(|(list, tail)| {
+            assert!(tail.is_none(), "improper list when proper list expected");
+            list
+        })
     }
 
     /// Fetches a cons list that was interned. If the list is improper, the second
@@ -923,9 +937,7 @@ impl<F: LurkField> Store<F> {
                 self.intern_symbol(&lurk_sym("quote")),
                 self.intern_syntax(*x),
             ]),
-            Syntax::List(_, xs) => {
-                self.list(xs.into_iter().map(|x| self.intern_syntax(x)).collect())
-            }
+            Syntax::List(_, xs) => self.list(xs.into_iter().map(|x| self.intern_syntax(x))),
             Syntax::Improper(_, xs, y) => self.improper_list(
                 xs.into_iter().map(|x| self.intern_syntax(x)).collect(),
                 self.intern_syntax(*y),

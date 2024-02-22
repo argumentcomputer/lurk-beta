@@ -282,12 +282,27 @@ impl Lurk {
     fn emit(&self) -> TokenStream {
         let output = match self {
             Lurk::Src(string) => {
-                quote!(s_.read(&#string))
+                quote!(s_.read(lurk::state::State::init_lurk_state().rccell(), &#string))
             }
         };
 
         output.into()
     }
+}
+
+#[proc_macro]
+/// Binds a mutable `Store` to the variable `s_`, which is (somewhat unfortunately) hard-coded into the `lurk!` macro.
+/// Users should therefore avoid using `s_` for other purposes, and will need to use `s_` directly when manipulating the
+/// `Store`. The name `s_` was chosen to walk the line between obscurity and brevity/clarity. Accidental collisions are
+/// undesirable, but so is an awkward or unwieldy name.
+pub fn let_store(_tokens: TokenStream) -> TokenStream {
+    quote!(let s_ = &mut Store::<Fr>::default();).into()
+}
+
+#[proc_macro]
+/// Exposes the `Store` introduced by `let_store!`, without the user needing to know the name of the cryptic variable to which it is bound.
+pub fn store(_tokens: TokenStream) -> TokenStream {
+    quote!(s_).into()
 }
 
 #[proc_macro]

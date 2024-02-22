@@ -11,7 +11,7 @@ use ff::PrimeField;
 /// Adds a constraint to CS, enforcing an equality relationship between the allocated numbers a and b.
 ///
 /// a == b
-pub(crate) fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,

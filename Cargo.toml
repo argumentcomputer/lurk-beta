@@ -109,7 +109,7 @@ flamegraph = ["pprof/flamegraph", "pprof/criterion"]
 
 [workspace]
 resolver = "2"
-members = ["lurk-macros", "lurk-metrics"]
+members = ["foil", "lurk-macros", "lurk-metrics"]
 
 # Dependencies that should be kept in sync through the whole workspace
 [workspace.dependencies]
