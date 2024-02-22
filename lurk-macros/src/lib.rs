@@ -291,12 +291,12 @@ impl Lurk {
 }
 
 #[proc_macro]
-/// Binds a mutable `Store` to the variable `s_`, which is (somewhat unfortunately) hard-coded into the `lurk!` macro.
+/// Binds a `Store` reference to the variable `s_`, which is (somewhat unfortunately) hard-coded into the `lurk!` macro.
 /// Users should therefore avoid using `s_` for other purposes, and will need to use `s_` directly when manipulating the
 /// `Store`. The name `s_` was chosen to walk the line between obscurity and brevity/clarity. Accidental collisions are
 /// undesirable, but so is an awkward or unwieldy name.
 pub fn let_store(_tokens: TokenStream) -> TokenStream {
-    quote!(let s_ = &mut Store::<Fr>::default();).into()
+    quote!(let s_ = &Store::<Fr>::default();).into()
 }
 
 #[proc_macro]
