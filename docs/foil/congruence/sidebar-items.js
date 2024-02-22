@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Graph","Partition","Vert","Vertex"],"trait":["LabelTrait","MetaData"],"type":["Id","SimpleLabel"]};

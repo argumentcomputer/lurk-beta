@@ -530,6 +530,21 @@
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Lurk Macros
 //!
 //! ## Derive macros for Lurk
@@ -814,12 +829,27 @@
     <span class="kw">fn </span>emit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TokenStream {
         <span class="kw">let </span>output = <span class="kw">match </span><span class="self">self </span>{
             Lurk::Src(string) =&gt; {
-                <span class="macro">quote!</span>(s_.read(<span class="kw-2">&amp;</span>#string))
+                <span class="macro">quote!</span>(s_.read(lurk::state::State::init_lurk_state().rccell(), <span class="kw-2">&amp;</span>#string))
             }
         };
 
         output.into()
     }
+}
+
+<span class="attr">#[proc_macro]
+</span><span class="doccomment">/// Binds a `Store` reference to the variable `s_`, which is (somewhat unfortunately) hard-coded into the `lurk!` macro.
+/// Users should therefore avoid using `s_` for other purposes, and will need to use `s_` directly when manipulating the
+/// `Store`. The name `s_` was chosen to walk the line between obscurity and brevity/clarity. Accidental collisions are
+/// undesirable, but so is an awkward or unwieldy name.
+</span><span class="kw">pub fn </span>let_store(_tokens: TokenStream) -&gt; TokenStream {
+    <span class="macro">quote!</span>(<span class="kw">let </span>s_ = <span class="kw-2">&amp;</span>Store::&lt;Fr&gt;::default();).into()
+}
+
+<span class="attr">#[proc_macro]
+</span><span class="doccomment">/// Exposes the `Store` introduced by `let_store!`, without the user needing to know the name of the cryptic variable to which it is bound.
+</span><span class="kw">pub fn </span>store(_tokens: TokenStream) -&gt; TokenStream {
+    <span class="macro">quote!</span>(s_).into()
 }
 
 <span class="attr">#[proc_macro]

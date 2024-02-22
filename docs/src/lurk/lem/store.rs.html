@@ -1715,6 +1715,18 @@
 <a href="#1714" id="1714">1714</a>
 <a href="#1715" id="1715">1715</a>
 <a href="#1716" id="1716">1716</a>
+<a href="#1717" id="1717">1717</a>
+<a href="#1718" id="1718">1718</a>
+<a href="#1719" id="1719">1719</a>
+<a href="#1720" id="1720">1720</a>
+<a href="#1721" id="1721">1721</a>
+<a href="#1722" id="1722">1722</a>
+<a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -2531,7 +2543,10 @@
 
     <span class="doccomment">/// Interns a sequence of pointers as a cons-list. The terminating element
     /// defaults to `nil` if `last` is `None`
-    </span><span class="kw">fn </span>intern_list(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: Vec&lt;Ptr&gt;, last: <span class="prelude-ty">Option</span>&lt;Ptr&gt;) -&gt; Ptr {
+    </span><span class="kw">fn </span>intern_list&lt;I: IntoIterator&lt;Item = Ptr&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: I, last: <span class="prelude-ty">Option</span>&lt;Ptr&gt;) -&gt; Ptr
+    <span class="kw">where
+        </span>&lt;I <span class="kw">as </span>IntoIterator&gt;::IntoIter: DoubleEndedIterator,
+    {
         elts.into_iter()
             .rev()
             .fold(last.unwrap_or_else(|| <span class="self">self</span>.intern_nil()), |acc, elt| {
@@ -2541,7 +2556,10 @@
 
     <span class="doccomment">/// Interns a sequence of pointers as a proper (`nil`-terminated) cons-list
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>list(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: Vec&lt;Ptr&gt;) -&gt; Ptr {
+    </span><span class="kw">pub fn </span>list&lt;I: IntoIterator&lt;Item = Ptr&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: I) -&gt; Ptr
+    <span class="kw">where
+        </span>&lt;I <span class="kw">as </span>IntoIterator&gt;::IntoIter: DoubleEndedIterator,
+    {
         <span class="self">self</span>.intern_list(elts, <span class="prelude-val">None</span>)
     }
 
@@ -2550,6 +2568,14 @@
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>improper_list(<span class="kw-2">&amp;</span><span class="self">self</span>, elts: Vec&lt;Ptr&gt;, last: Ptr) -&gt; Ptr {
         <span class="self">self</span>.intern_list(elts, <span class="prelude-val">Some</span>(last))
+    }
+
+    <span class="doccomment">/// Fetches a cons list that was interned. Panics if the list is improper.
+    </span><span class="kw">pub fn </span>fetch_proper_list(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;Ptr&gt;&gt; {
+        <span class="self">self</span>.fetch_list(ptr).map(|(list, tail)| {
+            <span class="macro">assert!</span>(tail.is_none(), <span class="string">"improper list when proper list expected"</span>);
+            list
+        })
     }
 
     <span class="doccomment">/// Fetches a cons list that was interned. If the list is improper, the second
@@ -2640,9 +2666,7 @@
                 <span class="self">self</span>.intern_symbol(<span class="kw-2">&amp;</span>lurk_sym(<span class="string">"quote"</span>)),
                 <span class="self">self</span>.intern_syntax(<span class="kw-2">*</span>x),
             ]),
-            Syntax::List(<span class="kw">_</span>, xs) =&gt; {
-                <span class="self">self</span>.list(xs.into_iter().map(|x| <span class="self">self</span>.intern_syntax(x)).collect())
-            }
+            Syntax::List(<span class="kw">_</span>, xs) =&gt; <span class="self">self</span>.list(xs.into_iter().map(|x| <span class="self">self</span>.intern_syntax(x))),
             Syntax::Improper(<span class="kw">_</span>, xs, y) =&gt; <span class="self">self</span>.improper_list(
                 xs.into_iter().map(|x| <span class="self">self</span>.intern_syntax(x)).collect(),
                 <span class="self">self</span>.intern_syntax(<span class="kw-2">*</span>y),

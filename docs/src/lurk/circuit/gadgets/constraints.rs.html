@@ -1328,7 +1328,7 @@
 <span class="doccomment">/// Adds a constraint to CS, enforcing an equality relationship between the allocated numbers a and b.
 ///
 /// a == b
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_equal&lt;F: PrimeField, A, AR, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">pub fn </span>enforce_equal&lt;F: PrimeField, A, AR, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     annotation: A,
     a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Label"],"mod":["circuit","coil","congruence","constructors"],"struct":["Foil","FoilConfig","Func","MappedFoil","Meta","Schema","Var"],"trait":["MetaMapper"]};

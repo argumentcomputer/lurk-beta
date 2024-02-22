@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["alloc_equal"]};
+window.SIDEBAR_ITEMS = {"fn":["alloc_equal","enforce_equal"]};
