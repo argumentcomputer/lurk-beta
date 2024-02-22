@@ -16,7 +16,7 @@ pub(crate) const SYM_SEPARATOR: char = '.';
 pub(crate) const SYM_MARKER: char = '.';
 pub(crate) const ESCAPE_CHARS: &str = "|(){}[],.:'\\\"";
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash, Ord)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 /// Type for hierarchical symbol names.

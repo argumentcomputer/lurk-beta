@@ -1,0 +1,27 @@
+[package]
+name = "foil"
+version = "0.1.0"
+edition = "2021"
+authors = ["porcuquine <porcuquine@gmail.com>"]
+description = "Flat Optimization Intermediate Language"
+repository = "https://github.com/lurk-lab/lurk-rs"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = { workspace = true }
+bellpepper = { workspace = true }
+bellpepper-core = { workspace = true }
+ff = { workspace = true }
+indexmap = { version = "1.9.3", features = ["rayon"] }
+generic-array = "0.14.7"
+lurk = { path = "../" }
+lurk-macros = { path = "../lurk-macros" }
+tracing = { workspace = true }
+neptune = { workspace = true, features = ["arity2","arity4","arity8","arity16","pasta","bls"] }
+once_cell = { workspace = true }
+pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
+pretty_env_logger = "0.4"
+
+[dev-dependencies]
+env_logger = "*"
+test-log = "0.2.12"
