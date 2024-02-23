@@ -789,13 +789,16 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         let cons: Expr::Cons;
         let thunk: Expr::Thunk;
         let num: Expr::Num;
+        let comm: Expr::Comm;
         let head_is_fun = eq_tag(head, fun);
         let head_is_cons = eq_tag(head, cons);
         let head_is_thunk = eq_tag(head, thunk);
         let head_is_num = eq_tag(head, num);
+        let head_is_comm = eq_tag(head, comm);
         let acc = or(head_is_fun, head_is_cons);
         let acc = or(acc, head_is_thunk);
         let acc = or(acc, head_is_num);
+        let acc = or(acc, head_is_comm);
         if acc {
             let t = Symbol("t");
             return (t)
@@ -1759,8 +1762,8 @@ mod tests {
         expect_eq(func.slots_count.commitment, expect!["1"]);
         expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9107"]);
-        expect_eq(cs.num_constraints(), expect!["11044"]);
+        expect_eq(cs.aux().len(), expect!["9110"]);
+        expect_eq(cs.num_constraints(), expect!["11048"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }

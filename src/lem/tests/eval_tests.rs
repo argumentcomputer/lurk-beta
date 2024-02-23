@@ -391,6 +391,30 @@ fn evaluate_comm_callable2() {
 }
 
 #[test]
+fn evaluate_comm_callable3() {
+    let s = &Store::<Fr>::default();
+    let comm_id_expr = s
+        .read_with_default_state("(commit (lambda (x) x))")
+        .unwrap();
+    let (io, ..) = evaluate_simple::<_, Coproc<Fr>>(None, comm_id_expr, s, 100).unwrap();
+    let comm_id = io[0];
+    let expr = s.list([comm_id, s.intern_nil()]);
+
+    let expected = s.intern_nil();
+    let terminal = s.cont_terminal();
+    do_test_aux::<Coproc<Fr>>(
+        s,
+        &expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        &expect!["4"],
+        &None,
+    );
+}
+
+#[test]
 fn evaluate_num_callable() {
     let s = &Store::<Fr>::default();
     let expr = "((num (commit (lambda (x) x))) nil)";
