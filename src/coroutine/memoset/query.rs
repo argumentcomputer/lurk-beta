@@ -14,14 +14,9 @@ where
 {
     type CQ: CircuitQuery<F>;
 
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr;
-    fn recursive_eval(
-        &self,
-        scope: &mut Scope<Self, LogMemo<F>, F>,
-        s: &Store<F>,
-        subquery: Self,
-    ) -> Ptr {
-        scope.query_recursively(s, self, subquery)
+    fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr;
+    fn recursive_eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>, subquery: Self) -> Ptr {
+        scope.query_recursively(self, subquery)
     }
     fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self>;
     fn to_ptr(&self, s: &Store<F>) -> Ptr;

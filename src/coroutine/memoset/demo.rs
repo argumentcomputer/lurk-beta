@@ -27,20 +27,21 @@ pub(crate) enum DemoCircuitQuery<F: LurkField> {
 impl<F: LurkField> Query<F> for DemoQuery<F> {
     type CQ = DemoCircuitQuery<F>;
 
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
+    fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         match self {
             Self::Factorial(n) => {
-                let n_zptr = s.hash_ptr(n);
+                let n_zptr = scope.store.hash_ptr(n);
                 let n = n_zptr.value();
 
                 if *n == F::ZERO {
-                    s.num(F::ONE)
+                    scope.store.num(F::ONE)
                 } else {
-                    let m_ptr = self.recursive_eval(scope, s, Self::Factorial(s.num(*n - F::ONE)));
-                    let m_zptr = s.hash_ptr(&m_ptr);
+                    let sub_query = Self::Factorial(scope.store.num(*n - F::ONE));
+                    let m_ptr = self.recursive_eval(scope, sub_query);
+                    let m_zptr = scope.store.hash_ptr(&m_ptr);
                     let m = m_zptr.value();
 
-                    s.num(*n * m)
+                    scope.store.num(*n * m)
                 }
             }
             _ => unreachable!(),
@@ -217,11 +218,11 @@ mod test {
 
     use ff::Field;
     use halo2curves::bn256::Fr as F;
+    use std::sync::Arc;
 
     #[test]
     fn test_factorial() {
-        let s = Store::default();
-        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::default();
+        let s = Arc::new(Store::default());
         let zero = s.num(F::ZERO);
         let one = s.num(F::ONE);
         let two = s.num(F::from_u64(2));
@@ -229,10 +230,11 @@ mod test {
         let four = s.num(F::from_u64(4));
         let six = s.num(F::from_u64(6));
         let twenty_four = s.num(F::from_u64(24));
-        assert_eq!(one, DemoQuery::Factorial(zero).eval(&s, &mut scope));
-        assert_eq!(one, DemoQuery::Factorial(one).eval(&s, &mut scope));
-        assert_eq!(two, DemoQuery::Factorial(two).eval(&s, &mut scope));
-        assert_eq!(six, DemoQuery::Factorial(three).eval(&s, &mut scope));
-        assert_eq!(twenty_four, DemoQuery::Factorial(four).eval(&s, &mut scope));
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::new(1, s);
+        assert_eq!(one, DemoQuery::Factorial(zero).eval(&mut scope));
+        assert_eq!(one, DemoQuery::Factorial(one).eval(&mut scope));
+        assert_eq!(two, DemoQuery::Factorial(two).eval(&mut scope));
+        assert_eq!(six, DemoQuery::Factorial(three).eval(&mut scope));
+        assert_eq!(twenty_four, DemoQuery::Factorial(four).eval(&mut scope));
     }
 }

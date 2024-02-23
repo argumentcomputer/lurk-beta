@@ -28,7 +28,8 @@ pub(crate) enum EnvCircuitQuery<F: LurkField> {
 impl<F: LurkField> Query<F> for EnvQuery<F> {
     type CQ = EnvCircuitQuery<F>;
 
-    fn eval(&self, s: &Store<F>, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
+    fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
+        let s = scope.store.as_ref();
         match self {
             Self::Lookup(var, env) => {
                 if let Some([v, val, new_env]) = s.pop_binding(*env) {
@@ -36,7 +37,7 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
                         let t = s.intern_t();
                         s.cons(val, t)
                     } else {
-                        self.recursive_eval(scope, s, Self::Lookup(*var, new_env))
+                        self.recursive_eval(scope, Self::Lookup(*var, new_env))
                     }
                 } else {
                     let nil = s.intern_nil();
@@ -231,11 +232,11 @@ mod test {
     use ff::Field;
     use halo2curves::bn256::Fr as F;
     use std::default::Default;
+    use std::sync::Arc;
 
     #[test]
     fn test_env_lookup() {
-        let s = Store::<F>::default();
-        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::default();
+        let s = Arc::new(Store::<F>::default());
         let a = s.intern_symbol(&sym!("a"));
         let b = s.intern_symbol(&sym!("b"));
         let c = s.intern_symbol(&sym!("c"));
@@ -254,15 +255,16 @@ mod test {
         let t = s.intern_t();
         let nil = s.intern_nil();
 
+        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s);
         let mut test = |var, env, found| {
             let expected = if let Some(val) = found {
-                s.cons(val, t)
+                scope.store.cons(val, t)
             } else {
-                s.cons(nil, nil)
+                scope.store.cons(nil, nil)
             };
 
-            let result = EnvQuery::Lookup(var, env).eval(&s, &mut scope);
-            assert!(s.ptr_eq(&expected, &result))
+            let result = EnvQuery::Lookup(var, env).eval(&mut scope);
+            assert!(scope.store.ptr_eq(&expected, &result))
         };
 
         test(a, empty, None);
@@ -281,7 +283,7 @@ mod test {
             expected.assert_eq(&computed.to_string());
         };
 
-        let s = &Store::<F>::default();
+        let s = &Arc::new(Store::<F>::default());
 
         let a = s.intern_symbol(&sym!("a"));
         let b = s.intern_symbol(&sym!("b"));
@@ -345,7 +347,7 @@ mod test {
     }
 
     fn test_lookup_circuit_aux(
-        s: &Store<F>,
+        s: &Arc<Store<F>>,
         sym: Ptr,
         env: Ptr,
         expected_constraints_simple: Expect,
@@ -356,26 +358,26 @@ mod test {
             expected.assert_eq(&computed.to_string());
         };
 
-        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1);
+        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s.clone());
 
         let make_query = |sym, env| EnvQuery::Lookup(sym, env).to_ptr(s);
 
         {
             let query = make_query(sym, env);
 
-            scope.query(s, query);
+            scope.query(query);
 
             for (k, v) in scope.queries.iter() {
                 println!("k: {}", k.fmt_to_string(s, &state));
                 println!("v: {}", v.fmt_to_string(s, &state));
             }
 
-            scope.finalize_transcript(s);
+            scope.finalize_transcript();
 
             let cs = &mut TestConstraintSystem::new();
             let g = &GlobalAllocator::default();
 
-            scope.synthesize(cs, g, s).unwrap();
+            scope.synthesize(cs, g).unwrap();
 
             println!(
                 "transcript: {}",
