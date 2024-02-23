@@ -44,11 +44,11 @@ impl<F> Toplevel<F> {
 pub struct ToplevelQuery<F> {
     name: Symbol,
     args: Vec<Ptr>,
-    toplevel: Arc<Toplevel<F>>,
+    _p: PhantomData<F>,
 }
 
 impl<F> ToplevelQuery<F> {
-    pub fn new(name: Symbol, args: Vec<Ptr>, toplevel: Arc<Toplevel<F>>) -> Result<Self> {
+    pub fn new(name: Symbol, args: Vec<Ptr>, toplevel: &Toplevel<F>) -> Result<Self> {
         let msg = || format!("`{name}` not found in the toplevel");
         let coroutine = toplevel.0.get(&name).with_context(msg)?;
         let input_size = coroutine.func.input_params.len();
@@ -59,18 +59,15 @@ impl<F> ToplevelQuery<F> {
                 input_size
             )
         }
-        let query = ToplevelQuery {
-            name,
-            args,
-            toplevel,
-        };
+        let _p = PhantomData;
+        let query = ToplevelQuery { name, args, _p };
         Ok(query)
     }
 }
 
 impl<F: LurkField> Query<F> for ToplevelQuery<F> {
     type CQ = Self;
-    type C = ();
+    type C = Arc<Toplevel<F>>;
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         todo!()
     }
@@ -89,11 +86,11 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
     fn symbol(&self) -> Symbol {
         self.name.clone()
     }
-    fn index(&self) -> usize {
-        self.toplevel.0.get_index_of(&self.name).unwrap()
+    fn index(&self, toplevel: &Self::C) -> usize {
+        toplevel.0.get_index_of(&self.name).unwrap()
     }
-    fn count() -> usize {
-        todo!()
+    fn count(toplevel: &Self::C) -> usize {
+        toplevel.0.len()
     }
 }
 

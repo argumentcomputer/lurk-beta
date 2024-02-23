@@ -63,11 +63,16 @@ where
     type C2 = C2<F>;
 
     fn num_circuits(&self) -> usize {
-        Q::count()
+        Q::count(&self.content)
     }
 
     fn primary_circuit(&self, circuit_index: usize) -> Coroutine<F, Q> {
-        Coroutine::blank(circuit_index, self.store.clone(), self.rc)
+        Coroutine::blank(
+            circuit_index,
+            self.store.clone(),
+            self.rc,
+            self.content.clone(),
+        )
     }
 
     fn secondary_circuit(&self) -> C2<F> {
@@ -277,6 +282,7 @@ fn prove_from_scope<F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
                 *index,
                 next_query_index,
                 rc,
+                scope.content.clone(),
             );
             steps.push(circuit);
         }
@@ -363,6 +369,7 @@ mod test {
                     *index,
                     *index,
                     rc,
+                    scope.content.clone(),
                 );
                 let (_next, out) = circuit.supernova_synthesize(&mut cs, &alloc_ptr).unwrap();
                 let unsat = cs.which_is_unsatisfied();
@@ -403,7 +410,7 @@ mod test {
         scope.query(query);
         scope.finalize_transcript();
 
-        let sc = CoroutineCircuit::<_, _, DemoQuery<Fr>>::blank(0, s, prover.reduction_count);
+        let sc = CoroutineCircuit::<_, _, DemoQuery<Fr>>::blank(0, s, prover.reduction_count, ());
         let pp = public_params(&sc);
         let (snark, input, output, _iterations) = prove_from_scope(&prover, &pp, &scope).unwrap();
         assert!(snark.verify(&pp, &input, &output).unwrap());

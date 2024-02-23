@@ -102,14 +102,14 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         }
     }
 
-    fn index(&self) -> usize {
+    fn index(&self, _: &Self::C) -> usize {
         match self {
             Self::Lookup(_, _) => 0,
             _ => unreachable!(),
         }
     }
 
-    fn count() -> usize {
+    fn count(_: &Self::C) -> usize {
         1
     }
 }

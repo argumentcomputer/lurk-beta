@@ -13,7 +13,7 @@ where
     Self: Sized + Clone,
 {
     type CQ: CircuitQuery<F>;
-    type C: Clone;
+    type C: Clone + Send + Sync;
 
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr;
     fn recursive_eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>, subquery: Self) -> Ptr {
@@ -30,9 +30,9 @@ where
     }
 
     /// What is this queries index? Used for ordering circuits and transcripts, grouped by query type.
-    fn index(&self) -> usize;
+    fn index(&self, c: &Self::C) -> usize;
     /// How many types of query are provided?
-    fn count() -> usize;
+    fn count(c: &Self::C) -> usize;
 }
 
 pub trait CircuitQuery<F: LurkField>

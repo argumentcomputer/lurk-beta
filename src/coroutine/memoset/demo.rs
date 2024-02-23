@@ -95,14 +95,14 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
         }
     }
 
-    fn index(&self) -> usize {
+    fn index(&self, _: &Self::C) -> usize {
         match self {
             Self::Factorial(_) => 0,
             _ => unreachable!(),
         }
     }
 
-    fn count() -> usize {
+    fn count(_: &Self::C) -> usize {
         1
     }
 }
