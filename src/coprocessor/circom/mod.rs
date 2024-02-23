@@ -9,6 +9,7 @@ pub mod error;
 pub mod non_wasm {
     use core::fmt::Debug;
     use std::fs;
+    use std::hash::Hash;
     use std::io::Write;
 
     use ansi_term::Colour::Red;

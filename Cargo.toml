@@ -95,6 +95,7 @@ criterion = "0.5"
 expect-test = "1.4.1"
 hex = "0.4.3"
 statrs = "0.16.0"
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 tap = "1.0.1"
 tempfile = { workspace = true }
 

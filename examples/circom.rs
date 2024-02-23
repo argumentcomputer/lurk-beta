@@ -9,12 +9,12 @@
 //!
 //! Now return to the `lurk-rs` directory and run the following commands
 //! ```
-//! cargo run --release -- circom --reference iden3/sha256_2_test <PATH_TO_CIRCOMLIB>/test/circuits/
+//! cargo run --release -- circom --name sha256_2_test <PATH_TO_CIRCOMLIB>/test/circuits/
 //! cargo run --release --example circom
 //! ```
 //!
 //! This compiles the circom project and processes it for lurk to interface with.
-//! The new `sha256_2_test` gadget is stored in `<CIRCOM_DIR>/iden3/sha256_2_test/*`.
+//! The new `sha256_2_test` gadget is stored in `<CIRCOM_DIR>/sha256_2_test/*`.
 //! To use the gadget, create a [CircomSha256] struct and implement the [CircomGadget] trait.
 //! Refer to the example code below. Finally, declare the sha256 coprocessor:
 //!
@@ -51,42 +51,32 @@ use lurk::public_parameters::{
 use lurk::Symbol;
 use lurk_macros::Coproc;
 
-use anyhow::Result;
-use circom_scotia::r1cs::CircomInput;
-
 const REDUCTION_COUNT: usize = 1;
 
 #[derive(Debug, Clone)]
 pub struct CircomSha256<F: LurkField> {
     _n: usize,
     pub(crate) _p: PhantomData<F>,
-    reference: CircomGadgetReference,
 }
 
 impl<F: LurkField> CircomSha256<F> {
-    fn new(n: usize) -> Result<Self> {
-        Ok(CircomSha256 {
+    fn new(n: usize) -> Self {
+        CircomSha256 {
             _n: n,
             _p: PhantomData,
-            reference: CircomGadgetReference::new("iden3/sha256_2_test")?,
-        })
+        }
     }
 }
 
 impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
     fn reference(&self) -> &CircomGadgetReference {
-        &self.reference
+        todo!()
     }
 
-    fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<CircomInput<F>> {
-        dbg!(input.len());
-        dbg!(input.get(0).unwrap().hash().get_value());
-        dbg!(input.get(0).unwrap().hash().get_variable().get_unchecked());
-        dbg!(input.get(1).unwrap().hash().get_value());
-        dbg!(input.get(1).unwrap().hash().get_variable().get_unchecked());
+    fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
         // TODO: actually use the lurk inputs
-        let a = CircomInput::new("a".into(), vec![F::ZERO]);
-        let b = CircomInput::new("b".into(), vec![F::ZERO]);
+        let a = ("a".into(), vec![F::ZERO]);
+        let b = ("b".into(), vec![F::ZERO]);
         vec![a, b]
     }
 
@@ -101,7 +91,7 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
     }
 
     fn arity(&self) -> usize {
-        2
+        todo!()
     }
 }
 
@@ -116,14 +106,12 @@ enum Sha256Coproc<F: LurkField> {
 fn main() {
     let store = &Store::default();
     let sym_str = Symbol::new(&[".circom_sha256_2"], false); // two inputs
-
-    let circom_sha256: CircomSha256<Bn> = CircomSha256::new(0).unwrap();
+    let circom_sha256: CircomSha256<Bn> = CircomSha256::new(0);
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
-
     lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_sha256));
     let lang_rc = Arc::new(lang);
 
-    let expr = "(.circom_sha256_2 \"b\" \"a\")".to_string();
+    let expr = "(.circom_sha256_2)".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();
 
     let nova_prover = NovaProver::<Bn, Sha256Coproc<Bn>>::new(REDUCTION_COUNT, lang_rc.clone());

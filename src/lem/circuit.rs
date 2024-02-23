@@ -675,7 +675,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 if cproc.has_circuit() {
                     // call the coprocessor's synthesize and then make sure that
                     // the output matches the data collected during interpretation
-                    dbg!(&inp);
                     let inp_ptrs = bound_allocations.get_many_ptr(inp)?;
                     let synthesize_output = cproc.synthesize_internal(
                         ns!(cs, format!("Coprocessor {sym}")),
@@ -688,8 +687,12 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                         bail!("Incompatible output length for coprocessor {sym}")
                     }
                     for ((i, var), ptr) in out.iter().enumerate().zip(synthesize_output) {
+                        // TODO COMPARE COPROC RESULT CIRCUIT
+
                         if not_dummy_and_not_blank {
                             let z_ptr = &collected_z_ptrs[i];
+                            dbg!(ptr.hash().get_value());
+                            dbg!(*z_ptr.value());
                             if ptr.tag().get_value() != Some(z_ptr.tag_field())
                                 || ptr.hash().get_value() != Some(*z_ptr.value())
                             {

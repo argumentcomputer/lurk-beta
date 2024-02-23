@@ -42,6 +42,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
     }
 
     fn evaluate(&self, s: &Store<F>, args: &[Ptr], env: &Ptr, cont: &Ptr) -> Vec<Ptr> {
+        dbg!("COPROCESSOR EVALUATE");
         vec![self.evaluate_simple(s, args), *env, *cont]
     }
 
