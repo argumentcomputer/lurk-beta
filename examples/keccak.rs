@@ -17,12 +17,14 @@
 //!
 //! Hooray! Now we can use a [CircomKeccak] coprocessor just like a normal one.
 
+use circom_scotia::r1cs::CircomInput;
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
-use lurk::circuit::gadgets::circom::CircomGadget;
+use lurk::circuit::gadgets::circom::{CircomGadget, CircomGadgetReference};
 use lurk::circuit::gadgets::pointer::AllocatedPtr;
 use lurk::lem::multiframe::MultiFrame;
 
@@ -31,15 +33,22 @@ use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 
 use lurk::eval::lang::Lang;
 use lurk::field::LurkField;
+use lurk::lem::eval::{
+    evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig,
+};
+use lurk::lem::pointers::RawPtr;
 use lurk::lem::{pointers::Ptr, store::Store};
+use lurk::proof::supernova::SuperNovaProver;
 use lurk::proof::{nova::NovaProver, Prover, RecursiveSNARKTrait};
 use lurk::public_parameters::{
     instance::{Instance, Kind},
-    public_params,
+    public_params, supernova_public_params,
 };
+use lurk::state::user_sym;
 use lurk::Symbol;
 use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
+use tiny_keccak::{Hasher, Keccak};
 
 const REDUCTION_COUNT: usize = 1;
 
@@ -47,6 +56,7 @@ const REDUCTION_COUNT: usize = 1;
 pub struct CircomKeccak<F: LurkField> {
     _n: usize,
     pub(crate) _p: PhantomData<F>,
+    reference: CircomGadgetReference,
 }
 
 impl<F: LurkField> CircomKeccak<F> {
@@ -54,21 +64,22 @@ impl<F: LurkField> CircomKeccak<F> {
         CircomKeccak {
             _n: n,
             _p: PhantomData,
+            reference: CircomGadgetReference::new("lurk-lab/keccak-circom-gadget").unwrap(),
         }
     }
 }
 
 impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
-    fn reference(&self) -> &str {
-        "lurk-lab/keccak-circom-gadget"
+    fn reference(&self) -> &CircomGadgetReference {
+        &self.reference
     }
 
     fn version(&self) -> Option<&str> {
         Some("v0.1.0")
     }
 
-    fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
-        dbg!(input);
+    fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<CircomInput<F>> {
+        dbg!(input.get(0).unwrap().hash().get_value());
         // TODO: actually use the lurk inputs
         let input_bytes = [
             116, 101, 115, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -77,7 +88,7 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
 
         let input_bits = bytes_to_bits(&input_bytes);
 
-        vec![(
+        vec![CircomInput::new(
             "in".into(),
             input_bits.clone().iter().map(|_| F::ZERO).collect(),
         )]
@@ -87,19 +98,23 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
         )]*/
     }
 
-    fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
-        // TODO: actually use the lurk inputs
-        let _expected_output = [
-            37, 17, 98, 135, 161, 178, 88, 97, 125, 150, 143, 65, 228, 211, 170, 133, 153, 9, 88,
-            212, 4, 212, 175, 238, 249, 210, 214, 116, 170, 85, 45, 21,
-        ];
+    fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
+        let string_ptr = &args[0];
+        let string_scalar = *s.hash_ptr(string_ptr).value();
+        dbg!(string_scalar);
+        let string_scalar_bytes = string_scalar.to_bytes();
 
-        s.num(
-            F::from_str_vartime(
-                "55165702627807990590530466439275329993482327026534454077267643456",
-            )
-            .unwrap(),
-        )
+        let mut hasher = Keccak::v256();
+        let mut output_bytes = [0u8; 32];
+        hasher.update(&string_scalar_bytes);
+
+        hasher.finalize(&mut output_bytes);
+
+        s.num(F::from_bytes(&output_bytes).unwrap())
+    }
+
+    fn arity(&self) -> usize {
+        1
     }
 }
 
@@ -109,52 +124,75 @@ enum KeccakCoproc<F: LurkField> {
 }
 
 fn main() {
-    let store = &Store::<Fr>::default();
-    let sym_str = Symbol::new(&["circom_keccak"], false); // two inputs
-    let circom_keccak: CircomKeccak<Fr> = CircomKeccak::new(0);
-    let mut lang = Lang::<Fr, KeccakCoproc<Fr>>::new();
-    lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_keccak));
-    let lang_rc = Arc::new(lang);
+    let store = &Store::default();
+    let circom_sym = user_sym(&format!("circom_keccak"));
 
-    let expr = "(cons 'circom_keccak \"aaa\")".to_string();
+    let expr = "(circom_keccak \"test\")".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();
 
-    let nova_prover = NovaProver::<Fr, KeccakCoproc<Fr>, MultiFrame<'_, _, _>>::new(
-        REDUCTION_COUNT,
-        lang_rc.clone(),
-    );
+    let circom_sha256: CircomKeccak<Fr> = CircomKeccak::new(0);
+    let mut lang = Lang::<Fr, KeccakCoproc<Fr>>::new();
 
-    println!("Setting up public parameters...");
+    lang.add_coprocessor(circom_sym, CircomCoprocessor::new(circom_sha256));
+    let lang_rc = Arc::new(lang.clone());
+
+    let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang));
+    let cprocs = make_cprocs_funcs_from_lang(&lang);
+    let frames = evaluate(Some((&lurk_step, &cprocs, &lang)), ptr, store, 1000).unwrap();
+
+    // TODO is reduction count alright
+    let supernova_prover = SuperNovaProver::<Fr, KeccakCoproc<Fr>>::new(10, lang_rc.clone());
 
     let pp_start = Instant::now();
-    let instance = Instance::new(REDUCTION_COUNT, lang_rc, true, Kind::NovaPublicParams);
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
-    let pp_end = pp_start.elapsed();
 
-    println!("Public parameters took {pp_end:?}");
+    println!("Setting up running claim parameters (rc = 10)...");
+
+    let instance_primary = Instance::new(10, lang_rc, true, Kind::SuperNovaAuxParams);
+    let pp = supernova_public_params(&instance_primary).unwrap();
+
+    let pp_end = pp_start.elapsed();
+    println!("Running claim parameters took {:?}", pp_end);
 
     println!("Beginning proof step...");
-
     let proof_start = Instant::now();
-    let (proof, z0, zi, _num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, store.intern_nil(), store, 10000)
-        .unwrap();
+    let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
+        .in_scope(|| {
+            supernova_prover
+                .prove_from_frames(&pp, &frames, store)
+                .unwrap()
+        });
     let proof_end = proof_start.elapsed();
 
-    println!("Proofs took {proof_end:?}");
+    println!("Proofs took {:?}", proof_end);
 
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    let res = proof.verify(&pp, &z0, &zi).unwrap();
+    assert!(proof.verify(&pp, &z0, &zi).unwrap());
     let verify_end = verify_start.elapsed();
 
-    println!("Verify took {verify_end:?}");
+    println!("Verify took {:?}", verify_end);
+
+    println!("Compressing proof..");
+    let compress_start = Instant::now();
+    let compressed_proof = proof.compress(&pp).unwrap();
+    let compress_end = compress_start.elapsed();
+
+    println!("Compression took {:?}", compress_end);
+
+    let buf = bincode::serialize(&compressed_proof).unwrap();
+    println!("proof size : {:}B", buf.len());
+
+    let compressed_verify_start = Instant::now();
+    let res = compressed_proof.verify(&pp, &z0, &zi).unwrap();
+    let compressed_verify_end = compressed_verify_start.elapsed();
+
+    println!("Final verification took {:?}", compressed_verify_end);
 
     if res {
         println!(
-            "Congratulations! You proved and verified a Keccak hash calculation in {:?} time!",
-            pp_end + proof_end + verify_end
+            "Congratulations! You proved, verified, compressed, and verified (again!) an NIVC SHA256 hash calculation in {:?} time!",
+            verify_end + proof_end + verify_end + compress_end
         );
     }
 }
