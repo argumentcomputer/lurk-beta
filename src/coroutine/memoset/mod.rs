@@ -31,6 +31,7 @@ use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 use bellpepper_core::{
     boolean::{AllocatedBit, Boolean},
@@ -328,18 +329,14 @@ pub struct Scope<Q, M, F: LurkField> {
     // This may become an explicit map or something allowing more fine-grained control.
     provenances: OnceCell<HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
     default_rc: usize,
+    store: Arc<Store<F>>,
 }
 
 const DEFAULT_RC_FOR_QUERY: usize = 1;
 
-impl<F: LurkField, Q: Query<F>> Default for Scope<Q, LogMemo<F>, F> {
-    fn default() -> Self {
-        Self::new(DEFAULT_RC_FOR_QUERY)
-    }
-}
-
 impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
-    fn new(default_rc: usize) -> Self {
+    #[allow(dead_code)]
+    fn new(default_rc: usize, store: Arc<Store<F>>) -> Self {
         Self {
             memoset: Default::default(),
             queries: Default::default(),
@@ -350,10 +347,12 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             unique_inserted_keys: Default::default(),
             provenances: Default::default(),
             default_rc,
+            store,
         }
     }
 
-    fn provenance(&self, store: &Store<F>, query: Ptr) -> Result<Provenance, MemoSetError> {
+    fn provenance(&self, query: Ptr) -> Result<Provenance, MemoSetError> {
+        let store = self.store.as_ref();
         let query_dependencies = self.dependencies.get(&query);
         let result = self
             .queries
@@ -365,7 +364,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                 .iter()
                 .map(|query| {
                     let ptr = query.to_ptr(store);
-                    *self.provenance(store, ptr).unwrap().to_ptr(store)
+                    *self.provenance(ptr).unwrap().to_ptr(store)
                 })
                 .collect())
         } else {
@@ -375,7 +374,8 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         Ok(Provenance::new(query, *result, dependencies))
     }
 
-    fn provenance_from_kv(&self, store: &Store<F>, kv: Ptr) -> Result<Provenance, MemoSetError> {
+    fn provenance_from_kv(&self, kv: Ptr) -> Result<Provenance, MemoSetError> {
+        let store = self.store.as_ref();
         let (query, result) = store.car_cdr(&kv).expect("kv missing");
         let query_dependencies = self.dependencies.get(&query);
 
@@ -384,7 +384,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                 .iter()
                 .map(|query| {
                     let ptr = query.to_ptr(store);
-                    *self.provenance(store, ptr).unwrap().to_ptr(store)
+                    *self.provenance(ptr).unwrap().to_ptr(store)
                 })
                 .collect())
         } else {
@@ -394,7 +394,8 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         Ok(Provenance::new(query, result, dependencies))
     }
 
-    fn init_memoset(&self, s: &Store<F>) -> Ptr {
+    fn init_memoset(&self) -> Ptr {
+        let s = self.store.as_ref();
         let mut memoset = s.num(F::ZERO);
         for kv in self.toplevel_insertions.iter() {
             memoset = self.memoset.acc_add(&memoset, kv, s);
@@ -402,7 +403,8 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         memoset
     }
 
-    fn init_transcript(&self, s: &Store<F>) -> Ptr {
+    fn init_transcript(&self) -> Ptr {
+        let s = self.store.as_ref();
         let mut transcript = Transcript::new(s);
         for kv in self.toplevel_insertions.iter() {
             transcript.add(s, *kv);
@@ -451,7 +453,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
         Self {
             input,
             memoset,
-            provenances: scope.provenances(store).clone(), // FIXME
+            provenances: scope.provenances().clone(), // FIXME
             keys,
             query_index,
             next_query_index,
@@ -531,26 +533,28 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
 }
 
 impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
-    pub fn query(&mut self, s: &Store<F>, form: Ptr) -> Ptr {
-        let (result, kv_ptr) = self.query_aux(s, form);
+    pub fn query(&mut self, form: Ptr) -> Ptr {
+        let (result, kv_ptr) = self.query_aux(form);
 
         self.toplevel_insertions.push(kv_ptr);
 
         result
     }
 
-    fn query_recursively(&mut self, s: &Store<F>, parent: &Q, child: Q) -> Ptr {
+    fn query_recursively(&mut self, parent: &Q, child: Q) -> Ptr {
+        let s = self.store.as_ref();
         let form = child.to_ptr(s);
 
         self.internal_insertions.push(form);
 
-        let (result, _) = self.query_aux(s, form);
+        let (result, _) = self.query_aux(form);
 
-        self.register_dependency(s, parent, child);
+        self.register_dependency(parent, child);
         result
     }
 
-    fn register_dependency(&mut self, s: &Store<F>, parent: &Q, child: Q) {
+    fn register_dependency(&mut self, parent: &Q, child: Q) {
+        let s = self.store.as_ref();
         let parent_ptr = parent.to_ptr(s);
 
         self.dependents
@@ -570,18 +574,20 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             .or_insert_with(|| vec![child]);
     }
 
-    fn query_aux(&mut self, s: &Store<F>, form: Ptr) -> (Ptr, Ptr) {
+    fn query_aux(&mut self, form: Ptr) -> (Ptr, Ptr) {
         // Ensure base-case queries explicitly contain no dependencies.
         self.dependencies.entry(form).or_insert_with(|| Vec::new());
 
         let result = self.queries.get(&form).cloned().unwrap_or_else(|| {
+            let s = self.store.as_ref();
             let query = Q::from_ptr(s, &form).expect("invalid query");
 
-            let evaluated = query.eval(s, self);
+            let evaluated = query.eval(self);
 
             self.queries.insert(form, evaluated);
             evaluated
         });
+        let s = self.store.as_ref();
 
         let kv = Transcript::make_kv(s, form, result);
 
@@ -591,17 +597,17 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         (result, kv)
     }
 
-    fn finalize_transcript(&mut self, s: &Store<F>) -> Transcript<F> {
-        let (transcript, insertions) = self.build_transcript(s);
+    fn finalize_transcript(&mut self) -> Transcript<F> {
+        let s = self.store.as_ref();
+        let (transcript, insertions) = self.build_transcript();
         self.memoset.finalize_transcript(s, transcript.clone());
         self.unique_inserted_keys = insertions;
 
         transcript
     }
 
-    fn provenances(&self, store: &Store<F>) -> &HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
-        self.provenances
-            .get_or_init(|| self.compute_provenances(store))
+    fn provenances(&self) -> &HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
+        self.provenances.get_or_init(|| self.compute_provenances())
     }
 
     // Retain for use when debugging.
@@ -625,7 +631,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     //     }
     // }
 
-    fn compute_provenances(&self, store: &Store<F>) -> HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
+    fn compute_provenances(&self) -> HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
         let mut provenances = HashMap::default();
         let mut ready = HashSet::new();
 
@@ -645,12 +651,8 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             .collect();
 
         while !ready.is_empty() {
-            ready = self.extend_provenances(
-                store,
-                &mut provenances,
-                ready,
-                &mut missing_dependency_counts,
-            );
+            ready =
+                self.extend_provenances(&mut provenances, ready, &mut missing_dependency_counts);
         }
 
         assert_eq!(
@@ -659,6 +661,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             "incomplete provenance computation (probably a forbidden cyclic query)"
         );
 
+        let store = self.store.as_ref();
         provenances
             .iter()
             .map(|(k, v)| (store.hash_ptr(k), store.hash_ptr(v)))
@@ -667,7 +670,6 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
     fn extend_provenances<'a>(
         &'a self,
-        store: &Store<F>,
         provenances: &mut HashMap<Ptr, Ptr>,
         ready: HashSet<&Ptr>,
         missing_dependency_counts: &mut HashMap<&'a Ptr, usize>,
@@ -680,6 +682,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                 continue;
             };
 
+            let store = self.store.as_ref();
             let sub_provenances = self
                 .dependencies
                 .get(query)
@@ -720,13 +723,14 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         next
     }
 
-    fn ensure_transcript_finalized(&mut self, s: &Store<F>) {
+    fn ensure_transcript_finalized(&mut self) {
         if !self.memoset.is_finalized() {
-            self.finalize_transcript(s);
+            self.finalize_transcript();
         }
     }
 
-    fn build_transcript(&self, s: &Store<F>) -> (Transcript<F>, HashMap<usize, Vec<Ptr>>) {
+    fn build_transcript(&self) -> (Transcript<F>, HashMap<usize, Vec<Ptr>>) {
+        let s = self.store.as_ref();
         let mut transcript = Transcript::new(s);
 
         // k -> kv
@@ -763,7 +767,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         });
 
         for kv in self.toplevel_insertions.iter() {
-            let provenance = self.provenance_from_kv(s, *kv).unwrap();
+            let provenance = self.provenance_from_kv(*kv).unwrap();
             transcript.add(s, *provenance.to_ptr(s));
         }
 
@@ -782,7 +786,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                             // `unique_keys`.
                             let kv = kvs_by_key.get(key).expect("kv missing");
                             let count = self.memoset.count(kv);
-                            let provenance = self.provenance_from_kv(s, *kv).unwrap();
+                            let provenance = self.provenance_from_kv(*kv).unwrap();
                             (provenance, count)
                         } else {
                             (Provenance::dummy(s), 0)
@@ -806,9 +810,9 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         &mut self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
-        s: &Store<F>,
     ) -> Result<(), SynthesisError> {
-        self.ensure_transcript_finalized(s);
+        self.ensure_transcript_finalized();
+        let s = self.store.as_ref();
         // FIXME: Do we need to allocate a new GlobalAllocator here?
         // Is it okay for this memoset circuit to be shared between all CoroutineCircuits?
         let memoset_circuit = self.memoset.to_circuit(ns!(cs, "memoset_circuit"));
@@ -818,14 +822,15 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             g,
             s,
             memoset_circuit.clone(),
-            self.provenances(s),
+            self.provenances(),
         );
 
         circuit_scope.init(cs, g, s);
         {
-            circuit_scope.synthesize_insert_toplevel_queries(self, cs, g, s)?;
+            circuit_scope.synthesize_insert_toplevel_queries(self, cs, g)?;
 
             {
+                let s = self.store.as_ref();
                 let (memoset_acc, transcript, r_num) = circuit_scope.io();
                 let r = AllocatedPtr::from_parts(g.alloc_tag(cs, &ExprTag::Num).clone(), r_num);
                 let dummy = g.alloc_ptr(cs, &s.intern_nil(), s);
@@ -1141,9 +1146,9 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         scope: &mut Scope<Q, LogMemo<F>, F>,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
-        s: &Store<F>,
     ) -> Result<(), SynthesisError> {
         for (i, kv) in scope.toplevel_insertions.iter().enumerate() {
+            let s = scope.store.as_ref();
             let cs = ns!(cs, format!("toplevel_insertion-{i}"));
             let (key, value) = s.car_cdr(kv).expect("kv missing");
             // NOTE: This is an unconstrained allocation, but when actually hooked up to Lurk reduction, it must be
@@ -1493,8 +1498,7 @@ mod test {
         expected_aux_compound: Expect,
         circuit_query_rc: usize,
     ) {
-        let s = &Store::<F>::default();
-        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::new(circuit_query_rc);
+        let s = Arc::new(Store::<F>::default());
         let state = State::init_lurk_state();
 
         let fact_4 = s.read_with_default_state("(factorial . 4)").unwrap();
@@ -1504,12 +1508,13 @@ mod test {
             expected.assert_eq(&computed.to_string());
         };
 
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::new(circuit_query_rc, s.clone());
         {
-            scope.query(s, fact_4);
+            scope.query(fact_4);
 
             for (k, v) in scope.queries.iter() {
-                println!("k: {}", k.fmt_to_string(s, &state));
-                println!("v: {}", v.fmt_to_string(s, &state));
+                println!("k: {}", k.fmt_to_string(&s, &state));
+                println!("v: {}", v.fmt_to_string(&s, &state));
             }
             // Factorial 4 will memoize calls to:
             // fact(4), fact(3), fact(2), fact(1), and fact(0)
@@ -1517,12 +1522,12 @@ mod test {
             assert_eq!(1, scope.toplevel_insertions.len());
             assert_eq!(4, scope.internal_insertions.len());
 
-            scope.finalize_transcript(s);
+            scope.finalize_transcript();
 
             let cs = &mut TestConstraintSystem::new();
             let g = &GlobalAllocator::default();
 
-            scope.synthesize(cs, g, s).unwrap();
+            scope.synthesize(cs, g).unwrap();
 
             println!(
                 "transcript: {}",
@@ -1531,7 +1536,7 @@ mod test {
                     .transcript
                     .get()
                     .unwrap()
-                    .fmt_to_string_simple(s)
+                    .fmt_to_string_simple(&s)
             );
 
             expect_eq(cs.num_constraints(), expected_constraints_simple);
@@ -1546,9 +1551,10 @@ mod test {
         }
 
         {
-            let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::new(circuit_query_rc);
-            scope.query(s, fact_4);
-            scope.query(s, fact_3);
+            let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> =
+                Scope::new(circuit_query_rc, s.clone());
+            scope.query(fact_4);
+            scope.query(fact_3);
 
             // // No new queries.
             assert_eq!(5, scope.queries.len());
@@ -1557,12 +1563,12 @@ mod test {
             // // No new internal insertions.
             assert_eq!(4, scope.internal_insertions.len());
 
-            scope.finalize_transcript(s);
+            scope.finalize_transcript();
 
             let cs = &mut TestConstraintSystem::new();
             let g = &GlobalAllocator::default();
 
-            scope.synthesize(cs, g, s).unwrap();
+            scope.synthesize(cs, g).unwrap();
 
             println!(
                 "transcript: {}",
@@ -1571,7 +1577,7 @@ mod test {
                     .transcript
                     .get()
                     .unwrap()
-                    .fmt_to_string_simple(s)
+                    .fmt_to_string_simple(&s)
             );
 
             expect_eq(cs.num_constraints(), expected_constraints_compound);

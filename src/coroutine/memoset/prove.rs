@@ -254,8 +254,8 @@ fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
     prover: &MemosetProver<'a, F, Q>,
     pp: &PublicParams<F>,
     scope: &'a Scope<Q, LogMemo<F>, F>,
-    store: &'a Store<F>,
 ) -> Result<(Proof<F, Coroutine<'a, F, Q>>, Vec<F>, Vec<F>, usize), ProofError> {
+    let store = scope.store.as_ref();
     let mut steps = Vec::new();
     let mut iterator = scope.unique_inserted_keys.iter().peekable();
     while let Some((index, keys)) = iterator.next() {
@@ -284,8 +284,8 @@ fn prove_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
         store.dummy(),
         store.dummy(),
         store.dummy(),
-        scope.init_memoset(store),
-        scope.init_transcript(store),
+        scope.init_memoset(),
+        scope.init_transcript(),
         store.num(*scope.memoset.r().unwrap()),
     ]);
     steps[0].input = input_ptrs;
@@ -320,19 +320,20 @@ mod test {
     use bellpepper_core::{test_cs::TestConstraintSystem, Delta};
     use expect_test::{expect, Expect};
     use halo2curves::bn256::Fr;
+    use std::sync::Arc;
 
-    fn check_from_scope<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
-        scope: &'a Scope<Q, LogMemo<F>, F>,
-        store: &'a Store<F>,
+    fn check_from_scope<F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
+        scope: &Scope<Q, LogMemo<F>, F>,
         expected_constraints: &Expect,
         expected_aux: &Expect,
     ) {
+        let store = scope.store.as_ref();
         let mut input_ptrs = [
             store.dummy(),
             store.dummy(),
             store.dummy(),
-            scope.init_memoset(store),
-            scope.init_transcript(store),
+            scope.init_memoset(),
+            scope.init_transcript(),
             store.intern_atom(Tag::Expr(Cons), *scope.memoset.r().unwrap()),
         ]
         .iter()
@@ -384,28 +385,27 @@ mod test {
 
     #[test]
     fn coroutine_uniformity_test() {
-        let s = &Store::<Fr>::default();
+        let s = Arc::new(Store::<Fr>::default());
         let query = s.read_with_default_state("(factorial . 40)").unwrap();
         let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::new(1);
-        let mut scope = Scope::<DemoQuery<_>, _, _>::new(prover.reduction_count);
-        scope.query(s, query);
-        scope.finalize_transcript(s);
-        check_from_scope(&scope, s, &expect!["1772"], &expect!["1792"]);
+        let mut scope = Scope::<DemoQuery<_>, _, _>::new(prover.reduction_count, s);
+        scope.query(query);
+        scope.finalize_transcript();
+        check_from_scope(&scope, &expect!["1772"], &expect!["1792"]);
     }
 
     #[test]
     fn coroutine_prove_test() {
-        let s = &Store::<Fr>::default();
+        let s = Arc::new(Store::<Fr>::default());
         let query = s.read_with_default_state("(factorial . 40)").unwrap();
         let prover = MemosetProver::<'_, Fr, DemoQuery<Fr>>::new(10);
-        let mut scope = Scope::new(prover.reduction_count);
-        scope.query(s, query);
-        scope.finalize_transcript(s);
+        let mut scope = Scope::new(prover.reduction_count, s.clone());
+        scope.query(query);
+        scope.finalize_transcript();
 
-        let sc = CoroutineCircuit::<'_, _, _, DemoQuery<Fr>>::blank(0, s, prover.reduction_count);
+        let sc = CoroutineCircuit::<'_, _, _, DemoQuery<Fr>>::blank(0, &s, prover.reduction_count);
         let pp = public_params(&sc);
-        let (snark, input, output, _iterations) =
-            prove_from_scope(&prover, &pp, &scope, s).unwrap();
+        let (snark, input, output, _iterations) = prove_from_scope(&prover, &pp, &scope).unwrap();
         assert!(snark.verify(&pp, &input, &output).unwrap());
     }
 }
