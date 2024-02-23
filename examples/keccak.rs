@@ -19,14 +19,12 @@
 
 use circom_scotia::r1cs::CircomInput;
 use std::fmt::Debug;
-use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
 use lurk::circuit::gadgets::circom::{CircomGadget, CircomGadgetReference};
 use lurk::circuit::gadgets::pointer::AllocatedPtr;
-use lurk::lem::multiframe::MultiFrame;
 
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
@@ -36,20 +34,21 @@ use lurk::field::LurkField;
 use lurk::lem::eval::{
     evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig,
 };
-use lurk::lem::pointers::RawPtr;
+
 use lurk::lem::{pointers::Ptr, store::Store};
 use lurk::proof::supernova::SuperNovaProver;
-use lurk::proof::{nova::NovaProver, Prover, RecursiveSNARKTrait};
+use lurk::proof::RecursiveSNARKTrait;
 use lurk::public_parameters::{
     instance::{Instance, Kind},
-    public_params, supernova_public_params,
+    supernova_public_params,
 };
 use lurk::state::user_sym;
-use lurk::Symbol;
+
 use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
 use tiny_keccak::{Hasher, Keccak};
 
+#[allow(dead_code)]
 const REDUCTION_COUNT: usize = 1;
 
 #[derive(Debug, Clone)]
@@ -79,7 +78,7 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
     }
 
     fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<CircomInput<F>> {
-        dbg!(input.get(0).unwrap().hash().get_value());
+        dbg!(input.first().unwrap().hash().get_value());
         // TODO: actually use the lurk inputs
         let input_bytes = [
             116, 101, 115, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -125,7 +124,7 @@ enum KeccakCoproc<F: LurkField> {
 
 fn main() {
     let store = &Store::default();
-    let circom_sym = user_sym(&format!("circom_keccak"));
+    let circom_sym = user_sym("circom_keccak");
 
     let expr = "(circom_keccak \"test\")".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();

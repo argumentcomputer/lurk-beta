@@ -46,9 +46,9 @@ use lurk::public_parameters::{
     instance::{Instance, Kind},
     supernova_public_params,
 };
-use lurk::Symbol;
+
 use lurk_macros::Coproc;
-use pasta_curves::pallas::{Scalar as Fr, Scalar};
+use pasta_curves::pallas::Scalar as Fr;
 
 use anyhow::Result;
 use circom_scotia::r1cs::CircomInput;
@@ -60,6 +60,7 @@ use lurk::proof::supernova::SuperNovaProver;
 use lurk::state::user_sym;
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 const REDUCTION_COUNT: usize = 1;
 
 #[derive(Debug, Clone)]
@@ -111,40 +112,26 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
     fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<CircomInput<F>> {
         dbg!("------------------------------INTO CIRCOM INPUT--------------------------------");
         dbg!(input
-            .get(0)
+            .first()
             .unwrap()
             .hash()
             .get_value()
-            .or_else(|| Some(F::ZERO))
-            .unwrap()
+            .unwrap_or(F::ZERO)
             .to_bytes());
         dbg!(input
             .get(1)
             .unwrap()
             .hash()
             .get_value()
-            .or_else(|| Some(F::ZERO))
-            .unwrap()
+            .unwrap_or(F::ZERO)
             .to_bytes());
         let a = CircomInput::new(
             "a".into(),
-            vec![input
-                .get(0)
-                .unwrap()
-                .hash()
-                .get_value()
-                .or_else(|| Some(F::ZERO))
-                .unwrap()],
+            vec![input.first().unwrap().hash().get_value().unwrap_or(F::ZERO)],
         );
         let b = CircomInput::new(
             "b".into(),
-            vec![input
-                .get(1)
-                .unwrap()
-                .hash()
-                .get_value()
-                .or_else(|| Some(F::ZERO))
-                .unwrap()],
+            vec![input.get(1).unwrap().hash().get_value().unwrap_or(F::ZERO)],
         );
         vec![a, b]
     }
@@ -194,7 +181,7 @@ enum CircomCoproc<F: LurkField> {
 /// `cargo run --release --example circom`
 fn main() {
     let store = &Store::default();
-    let circom_sym = user_sym(&format!("circom_sha256_2"));
+    let circom_sym = user_sym("circom_sha256_2");
 
     let expr = "(circom_sha256_2 \"a\" \"b\")".to_string();
     let ptr = store.read_with_default_state(&expr).unwrap();

@@ -7,14 +7,16 @@ pub mod error;
 /// Some circom features require non WASM platform features, so we seal the API here.
 #[cfg(not(target_arch = "wasm32"))]
 pub mod non_wasm {
+    use bellpepper::gadgets::boolean::Boolean;
     use core::fmt::Debug;
     use std::fs;
-    use std::hash::Hash;
+
     use std::io::Write;
 
     use ansi_term::Colour::Red;
     use anyhow::Result;
     use bellpepper_core::{ConstraintSystem, SynthesisError};
+
     use camino::Utf8PathBuf;
     use circom_scotia::r1cs::CircomConfig;
 
@@ -65,7 +67,7 @@ pub mod non_wasm {
     fn get_remote_gadget<F: LurkField, C: CircomGadget<F>>(
         gadget: &C,
     ) -> Result<Option<(Utf8PathBuf, Utf8PathBuf)>, CircomCoprocessorError> {
-        let identifier_as_string = String::from(gadget.reference().identifier());
+        let identifier_as_string = gadget.reference().identifier();
 
         // Check that we have a proper version for a remote release. If not, look if gadget repo exist
         // and return error accordingly.
@@ -216,7 +218,7 @@ pub mod non_wasm {
             mut cs: &mut CS,
             g: &crate::lem::circuit::GlobalAllocator<F>,
             s: &Store<F>,
-            _not_dummy: &bellpepper_core::boolean::Boolean,
+            _not_dummy: &Boolean,
             args: &[AllocatedPtr<F>],
         ) -> std::result::Result<AllocatedPtr<F>, SynthesisError> {
             let input = self.gadget.clone().into_circom_input(args);
@@ -236,13 +238,7 @@ pub mod non_wasm {
                 vec_ptr.push(AllocatedPtr::from_parts(num_tag.clone(), output));
             }
 
-            let list_root_ptr = construct_list(
-                &mut cs,
-                g,
-                s,
-                vec_ptr.iter().collect::<Vec<&AllocatedPtr<F>>>().as_slice(),
-                None,
-            )?;
+            let list_root_ptr = construct_list(&mut cs, g, s, vec_ptr, None)?;
 
             Ok(list_root_ptr)
         }
