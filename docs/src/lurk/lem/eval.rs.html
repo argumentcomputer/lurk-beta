@@ -1765,6 +1765,9 @@
 <a href="#1764" id="1764">1764</a>
 <a href="#1765" id="1765">1765</a>
 <a href="#1766" id="1766">1766</a>
+<a href="#1767" id="1767">1767</a>
+<a href="#1768" id="1768">1768</a>
+<a href="#1769" id="1769">1769</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2556,13 +2559,16 @@
         <span class="kw">let </span>cons: Expr::Cons;
         <span class="kw">let </span>thunk: Expr::Thunk;
         <span class="kw">let </span>num: Expr::Num;
+        <span class="kw">let </span>comm: Expr::Comm;
         <span class="kw">let </span>head_is_fun = eq_tag(head, fun);
         <span class="kw">let </span>head_is_cons = eq_tag(head, cons);
         <span class="kw">let </span>head_is_thunk = eq_tag(head, thunk);
         <span class="kw">let </span>head_is_num = eq_tag(head, num);
+        <span class="kw">let </span>head_is_comm = eq_tag(head, comm);
         <span class="kw">let </span>acc = or(head_is_fun, head_is_cons);
         <span class="kw">let </span>acc = or(acc, head_is_thunk);
         <span class="kw">let </span>acc = or(acc, head_is_num);
+        <span class="kw">let </span>acc = or(acc, head_is_comm);
         <span class="kw">if </span>acc {
             <span class="kw">let </span>t = Symbol(<span class="string">"t"</span>);
             <span class="kw">return </span>(t)
@@ -3526,8 +3532,8 @@
         expect_eq(func.slots_count.commitment, <span class="macro">expect!</span>[<span class="string">"1"</span>]);
         expect_eq(func.slots_count.bit_decomp, <span class="macro">expect!</span>[<span class="string">"3"</span>]);
         expect_eq(cs.num_inputs(), <span class="macro">expect!</span>[<span class="string">"1"</span>]);
-        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"9107"</span>]);
-        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"11044"</span>]);
+        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"9110"</span>]);
+        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"11048"</span>]);
         <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), cs.num_constraints());
     }
 }
