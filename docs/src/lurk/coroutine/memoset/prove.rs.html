@@ -405,6 +405,9 @@
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 </span><span class="kw">use crate</span>::{
     circuit::gadgets::pointer::AllocatedPtr,
@@ -440,7 +443,7 @@
 <span class="doccomment">/// Number of arguments a coroutine takes: CEK arguments + memoset arguments
 </span><span class="kw">const </span>COROUTINE_ARITY: usize = <span class="number">12</span>;
 
-<span class="kw">type </span>Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt; = CoroutineCircuit&lt;<span class="lifetime">'a</span>, F, LogMemo&lt;F&gt;, Q&gt;;
+<span class="kw">type </span>Coroutine&lt;F, Q&gt; = CoroutineCircuit&lt;F, LogMemo&lt;F&gt;, Q&gt;;
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>MemosetProver&lt;<span class="lifetime">'a</span>, F, Q&gt; {
@@ -460,20 +463,20 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F, Q&gt; NonUniformCircuit&lt;E1&lt;F&gt;&gt; <span class="kw">for </span>Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;
+<span class="kw">impl</span>&lt;F, Q&gt; NonUniformCircuit&lt;E1&lt;F&gt;&gt; <span class="kw">for </span>Coroutine&lt;F, Q&gt;
 <span class="kw">where
     </span>F: CurveCycleEquipped + LurkField,
-    Q: Query&lt;F&gt; + <span class="lifetime">'a </span>+ Send + Sync,
+    Q: Query&lt;F&gt; + Send + Sync,
 {
-    <span class="kw">type </span>C1 = Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;;
+    <span class="kw">type </span>C1 = Coroutine&lt;F, Q&gt;;
     <span class="kw">type </span>C2 = C2&lt;F&gt;;
 
     <span class="kw">fn </span>num_circuits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         Q::count()
     }
 
-    <span class="kw">fn </span>primary_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>, circuit_index: usize) -&gt; Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt; {
-        Coroutine::blank(circuit_index, <span class="self">self</span>.store, <span class="self">self</span>.rc)
+    <span class="kw">fn </span>primary_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>, circuit_index: usize) -&gt; Coroutine&lt;F, Q&gt; {
+        Coroutine::blank(circuit_index, <span class="self">self</span>.store.clone(), <span class="self">self</span>.rc)
     }
 
     <span class="kw">fn </span>secondary_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; C2&lt;F&gt; {
@@ -481,7 +484,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, Q: Query&lt;F&gt; + Send + Sync&gt; StepCircuit&lt;F&gt; <span class="kw">for </span>Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, Q: Query&lt;F&gt; + Send + Sync&gt; StepCircuit&lt;F&gt; <span class="kw">for </span>Coroutine&lt;F, Q&gt; {
     <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         COROUTINE_ARITY
     }
@@ -517,8 +520,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, Q: Query&lt;F&gt; + Send + Sync&gt;
-    RecursiveSNARKTrait&lt;F, Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;&gt; <span class="kw">for </span>Proof&lt;F, Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;&gt;
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped, Q: Query&lt;F&gt; + Send + Sync&gt; RecursiveSNARKTrait&lt;F, Coroutine&lt;F, Q&gt;&gt;
+    <span class="kw">for </span>Proof&lt;F, Coroutine&lt;F, Q&gt;&gt;
 {
     <span class="kw">type </span>PublicParams = PublicParams&lt;F&gt;;
 
@@ -528,7 +531,7 @@
     </span><span class="kw">fn </span>prove_recursively(
         pp: <span class="kw-2">&amp;</span>PublicParams&lt;F&gt;,
         z0: <span class="kw-2">&amp;</span>[F],
-        steps: Vec&lt;Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;&gt;,
+        steps: Vec&lt;Coroutine&lt;F, Q&gt;&gt;,
         _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark_option: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;E1&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
@@ -536,7 +539,7 @@
         <span class="kw">let </span>z0_primary = z0;
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>prove_step = |i: usize, step: <span class="kw-2">&amp;</span>Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;| {
+        <span class="kw">let </span><span class="kw-2">mut </span>prove_step = |i: usize, step: <span class="kw-2">&amp;</span>Coroutine&lt;F, Q&gt;| {
             <span class="macro">info!</span>(<span class="string">"prove_recursively, step {i}"</span>);
 
             <span class="kw">let </span>secondary_circuit = step.secondary_circuit();
@@ -594,7 +597,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, Q: Query&lt;F&gt; + Send + Sync&gt; FrameLike&lt;Ptr&gt; <span class="kw">for </span>Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, Q: Query&lt;F&gt; + Send + Sync&gt; FrameLike&lt;Ptr&gt; <span class="kw">for </span>Coroutine&lt;F, Q&gt; {
     <span class="kw">type </span>FrameIO = Vec&lt;Ptr&gt;;
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>input(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;Ptr&gt; {
@@ -610,9 +613,9 @@
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, Q: Query&lt;F&gt; + Send + Sync&gt; Prover&lt;<span class="lifetime">'a</span>, F&gt;
     <span class="kw">for </span>MemosetProver&lt;<span class="lifetime">'a</span>, F, Q&gt;
 {
-    <span class="kw">type </span>Frame = Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;;
+    <span class="kw">type </span>Frame = Coroutine&lt;F, Q&gt;;
     <span class="kw">type </span>PublicParams = PublicParams&lt;F&gt;;
-    <span class="kw">type </span>RecursiveSnark = Proof&lt;F, Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;&gt;;
+    <span class="kw">type </span>RecursiveSnark = Proof&lt;F, Coroutine&lt;F, Q&gt;&gt;;
 
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
@@ -638,7 +641,7 @@
     <span class="kw">fn </span>prove(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicParams,
-        steps: Vec&lt;Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;&gt;,
+        steps: Vec&lt;Coroutine&lt;F, Q&gt;&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::RecursiveSnark, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         store.hydrate_z_cache();
@@ -657,12 +660,12 @@
     }
 }
 
-<span class="kw">fn </span>prove_from_scope&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, Q: Query&lt;F&gt; + Send + Sync&gt;(
-    prover: <span class="kw-2">&amp;</span>MemosetProver&lt;<span class="lifetime">'a</span>, F, Q&gt;,
+<span class="kw">fn </span>prove_from_scope&lt;F: CurveCycleEquipped, Q: Query&lt;F&gt; + Send + Sync&gt;(
+    prover: <span class="kw-2">&amp;</span>MemosetProver&lt;<span class="lifetime">'_</span>, F, Q&gt;,
     pp: <span class="kw-2">&amp;</span>PublicParams&lt;F&gt;,
-    scope: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt;,
-    store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;F, Coroutine&lt;<span class="lifetime">'a</span>, F, Q&gt;&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
+    scope: <span class="kw-2">&amp;</span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;F, Coroutine&lt;F, Q&gt;&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
+    <span class="kw">let </span>store = scope.store.as_ref();
     <span class="kw">let </span><span class="kw-2">mut </span>steps = Vec::new();
     <span class="kw">let </span><span class="kw-2">mut </span>iterator = scope.unique_inserted_keys.iter().peekable();
     <span class="kw">while let </span><span class="prelude-val">Some</span>((index, keys)) = iterator.next() {
@@ -674,14 +677,13 @@
             </span>} <span class="kw">else </span>{
                 <span class="kw-2">*</span>index
             };
-            <span class="kw">let </span>circuit: CoroutineCircuit&lt;<span class="lifetime">'_</span>, F, LogMemo&lt;F&gt;, Q&gt; = CoroutineCircuit::new(
+            <span class="kw">let </span>circuit: CoroutineCircuit&lt;F, LogMemo&lt;F&gt;, Q&gt; = CoroutineCircuit::new(
                 <span class="prelude-val">None</span>,
                 scope,
                 scope.memoset.clone(),
                 chunk.to_vec(),
                 <span class="kw-2">*</span>index,
                 next_query_index,
-                store,
                 rc,
             );
             steps.push(circuit);
@@ -691,8 +693,8 @@
         store.dummy(),
         store.dummy(),
         store.dummy(),
-        scope.init_memoset(store),
-        scope.init_transcript(store),
+        scope.init_memoset(),
+        scope.init_transcript(),
         store.num(<span class="kw-2">*</span>scope.memoset.r().unwrap()),
     ]);
     steps[<span class="number">0</span>].input = input_ptrs;
@@ -725,18 +727,22 @@
     <span class="kw">use crate</span>::{coroutine::memoset::demo::DemoQuery, lem::tag::Tag, tag::ExprTag::Cons};
     <span class="kw">use </span>bellpepper::util_cs::Comparable;
     <span class="kw">use </span>bellpepper_core::{test_cs::TestConstraintSystem, Delta};
+    <span class="kw">use </span>expect_test::{expect, Expect};
     <span class="kw">use </span>halo2curves::bn256::Fr;
+    <span class="kw">use </span>std::sync::Arc;
 
-    <span class="kw">fn </span>check_from_scope&lt;<span class="lifetime">'a</span>, F: CurveCycleEquipped, Q: Query&lt;F&gt; + Send + Sync&gt;(
-        scope: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt;,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
+    <span class="kw">fn </span>check_from_scope&lt;F: CurveCycleEquipped, Q: Query&lt;F&gt; + Send + Sync&gt;(
+        scope: <span class="kw-2">&amp;</span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt;,
+        expected_constraints: <span class="kw-2">&amp;</span>Expect,
+        expected_aux: <span class="kw-2">&amp;</span>Expect,
     ) {
+        <span class="kw">let </span>store = scope.store.as_ref();
         <span class="kw">let </span><span class="kw-2">mut </span>input_ptrs = [
             store.dummy(),
             store.dummy(),
             store.dummy(),
-            scope.init_memoset(store),
-            scope.init_transcript(store),
+            scope.init_memoset(),
+            scope.init_transcript(),
             store.intern_atom(Tag::Expr(Cons), <span class="kw-2">*</span>scope.memoset.r().unwrap()),
         ]
         .iter()
@@ -757,14 +763,13 @@
                         )
                     })
                     .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-                <span class="kw">let </span>circuit: CoroutineCircuit&lt;<span class="lifetime">'_</span>, F, LogMemo&lt;F&gt;, Q&gt; = CoroutineCircuit::new(
+                <span class="kw">let </span>circuit: CoroutineCircuit&lt;F, LogMemo&lt;F&gt;, Q&gt; = CoroutineCircuit::new(
                     <span class="prelude-val">None</span>,
                     scope,
                     scope.memoset.clone(),
                     chunk.to_vec(),
                     <span class="kw-2">*</span>index,
                     <span class="kw-2">*</span>index,
-                    store,
                     rc,
                 );
                 <span class="kw">let </span>(_next, out) = circuit.supernova_synthesize(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>alloc_ptr).unwrap();
@@ -773,6 +778,8 @@
                 <span class="kw">if </span>unsat.is_some() {
                     <span class="macro">eprintln!</span>(<span class="string">"{:?}"</span>, unsat);
                 }
+                expected_constraints.assert_eq(<span class="kw-2">&amp;</span>cs.num_constraints().to_string());
+                expected_aux.assert_eq(<span class="kw-2">&amp;</span>cs.aux().len().to_string());
                 <span class="macro">assert!</span>(cs.is_satisfied());
                 input_ptrs = out.into_iter().map(|x| x.get_value().unwrap()).collect();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(cs_prev) = cs_prev {
@@ -786,28 +793,27 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>coroutine_uniformity_test() {
-        <span class="kw">let </span>s = <span class="kw-2">&amp;</span>Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>s = Arc::new(Store::&lt;Fr&gt;::default());
         <span class="kw">let </span>query = s.read_with_default_state(<span class="string">"(factorial . 40)"</span>).unwrap();
-        <span class="kw">let </span>prover = MemosetProver::&lt;<span class="lifetime">'_</span>, Fr, DemoQuery&lt;Fr&gt;&gt;::new(<span class="number">10</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>scope = Scope::&lt;DemoQuery&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(prover.reduction_count);
-        scope.query(s, query);
-        scope.finalize_transcript(s);
-        check_from_scope(<span class="kw-2">&amp;</span>scope, s);
+        <span class="kw">let </span>prover = MemosetProver::&lt;<span class="lifetime">'_</span>, Fr, DemoQuery&lt;Fr&gt;&gt;::new(<span class="number">1</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>scope = Scope::&lt;DemoQuery&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(prover.reduction_count, s);
+        scope.query(query);
+        scope.finalize_transcript();
+        check_from_scope(<span class="kw-2">&amp;</span>scope, <span class="kw-2">&amp;</span><span class="macro">expect!</span>[<span class="string">"1772"</span>], <span class="kw-2">&amp;</span><span class="macro">expect!</span>[<span class="string">"1792"</span>]);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>coroutine_prove_test() {
-        <span class="kw">let </span>s = <span class="kw-2">&amp;</span>Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>s = Arc::new(Store::&lt;Fr&gt;::default());
         <span class="kw">let </span>query = s.read_with_default_state(<span class="string">"(factorial . 40)"</span>).unwrap();
         <span class="kw">let </span>prover = MemosetProver::&lt;<span class="lifetime">'_</span>, Fr, DemoQuery&lt;Fr&gt;&gt;::new(<span class="number">10</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>scope = Scope::new(prover.reduction_count);
-        scope.query(s, query);
-        scope.finalize_transcript(s);
+        <span class="kw">let </span><span class="kw-2">mut </span>scope = Scope::new(prover.reduction_count, s.clone());
+        scope.query(query);
+        scope.finalize_transcript();
 
-        <span class="kw">let </span>sc = CoroutineCircuit::&lt;<span class="lifetime">'_</span>, <span class="kw">_</span>, <span class="kw">_</span>, DemoQuery&lt;Fr&gt;&gt;::blank(<span class="number">0</span>, s, prover.reduction_count);
+        <span class="kw">let </span>sc = CoroutineCircuit::&lt;<span class="kw">_</span>, <span class="kw">_</span>, DemoQuery&lt;Fr&gt;&gt;::blank(<span class="number">0</span>, s, prover.reduction_count);
         <span class="kw">let </span>pp = public_params(<span class="kw-2">&amp;</span>sc);
-        <span class="kw">let </span>(snark, input, output, _iterations) =
-            prove_from_scope(<span class="kw-2">&amp;</span>prover, <span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span>scope, s).unwrap();
+        <span class="kw">let </span>(snark, input, output, _iterations) = prove_from_scope(<span class="kw-2">&amp;</span>prover, <span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span>scope).unwrap();
         <span class="macro">assert!</span>(snark.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>output).unwrap());
     }
 }

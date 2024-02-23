@@ -1586,6 +1586,10 @@
 <a href="#1585" id="1585">1585</a>
 <a href="#1586" id="1586">1586</a>
 <a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `memoset` module implements a `MemoSet`.
 //!
 //! A `MemoSet` is an abstraction we use to memoize deferred proof of (potentially mutually-recursive) query results.
@@ -1619,6 +1623,7 @@
 <span class="kw">use </span>std::collections::{HashMap, HashSet};
 <span class="kw">use </span>std::fmt::{Debug, Formatter};
 <span class="kw">use </span>std::marker::PhantomData;
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>bellpepper_core::{
     boolean::{AllocatedBit, Boolean},
@@ -1916,18 +1921,14 @@
     <span class="comment">// This may become an explicit map or something allowing more fine-grained control.
     </span>provenances: OnceCell&lt;HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt;&gt;,
     default_rc: usize,
+    store: Arc&lt;Store&lt;F&gt;&gt;,
 }
 
 <span class="kw">const </span>DEFAULT_RC_FOR_QUERY: usize = <span class="number">1</span>;
 
-<span class="kw">impl</span>&lt;F: LurkField, Q: Query&lt;F&gt;&gt; Default <span class="kw">for </span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt; {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::new(DEFAULT_RC_FOR_QUERY)
-    }
-}
-
 <span class="kw">impl</span>&lt;F: LurkField, Q: Query&lt;F&gt;&gt; Scope&lt;Q, LogMemo&lt;F&gt;, F&gt; {
-    <span class="kw">fn </span>new(default_rc: usize) -&gt; <span class="self">Self </span>{
+    <span class="attr">#[allow(dead_code)]
+    </span><span class="kw">fn </span>new(default_rc: usize, store: Arc&lt;Store&lt;F&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             memoset: Default::default(),
             queries: Default::default(),
@@ -1938,10 +1939,12 @@
             unique_inserted_keys: Default::default(),
             provenances: Default::default(),
             default_rc,
+            store,
         }
     }
 
-    <span class="kw">fn </span>provenance(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, query: Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;Provenance, MemoSetError&gt; {
+    <span class="kw">fn </span>provenance(<span class="kw-2">&amp;</span><span class="self">self</span>, query: Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;Provenance, MemoSetError&gt; {
+        <span class="kw">let </span>store = <span class="self">self</span>.store.as_ref();
         <span class="kw">let </span>query_dependencies = <span class="self">self</span>.dependencies.get(<span class="kw-2">&amp;</span>query);
         <span class="kw">let </span>result = <span class="self">self
             </span>.queries
@@ -1953,7 +1956,7 @@
                 .iter()
                 .map(|query| {
                     <span class="kw">let </span>ptr = query.to_ptr(store);
-                    <span class="kw-2">*</span><span class="self">self</span>.provenance(store, ptr).unwrap().to_ptr(store)
+                    <span class="kw-2">*</span><span class="self">self</span>.provenance(ptr).unwrap().to_ptr(store)
                 })
                 .collect())
         } <span class="kw">else </span>{
@@ -1963,7 +1966,8 @@
         <span class="prelude-val">Ok</span>(Provenance::new(query, <span class="kw-2">*</span>result, dependencies))
     }
 
-    <span class="kw">fn </span>provenance_from_kv(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, kv: Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;Provenance, MemoSetError&gt; {
+    <span class="kw">fn </span>provenance_from_kv(<span class="kw-2">&amp;</span><span class="self">self</span>, kv: Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;Provenance, MemoSetError&gt; {
+        <span class="kw">let </span>store = <span class="self">self</span>.store.as_ref();
         <span class="kw">let </span>(query, result) = store.car_cdr(<span class="kw-2">&amp;</span>kv).expect(<span class="string">"kv missing"</span>);
         <span class="kw">let </span>query_dependencies = <span class="self">self</span>.dependencies.get(<span class="kw-2">&amp;</span>query);
 
@@ -1972,7 +1976,7 @@
                 .iter()
                 .map(|query| {
                     <span class="kw">let </span>ptr = query.to_ptr(store);
-                    <span class="kw-2">*</span><span class="self">self</span>.provenance(store, ptr).unwrap().to_ptr(store)
+                    <span class="kw-2">*</span><span class="self">self</span>.provenance(ptr).unwrap().to_ptr(store)
                 })
                 .collect())
         } <span class="kw">else </span>{
@@ -1982,7 +1986,8 @@
         <span class="prelude-val">Ok</span>(Provenance::new(query, result, dependencies))
     }
 
-    <span class="kw">fn </span>init_memoset(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr {
+    <span class="kw">fn </span>init_memoset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
+        <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
         <span class="kw">let </span><span class="kw-2">mut </span>memoset = s.num(F::ZERO);
         <span class="kw">for </span>kv <span class="kw">in </span><span class="self">self</span>.toplevel_insertions.iter() {
             memoset = <span class="self">self</span>.memoset.acc_add(<span class="kw-2">&amp;</span>memoset, kv, s);
@@ -1990,7 +1995,8 @@
         memoset
     }
 
-    <span class="kw">fn </span>init_transcript(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr {
+    <span class="kw">fn </span>init_transcript(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr {
+        <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
         <span class="kw">let </span><span class="kw-2">mut </span>transcript = Transcript::new(s);
         <span class="kw">for </span>kv <span class="kw">in </span><span class="self">self</span>.toplevel_insertions.iter() {
             transcript.add(s, <span class="kw-2">*</span>kv);
@@ -2010,40 +2016,39 @@
 }
 
 <span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>CoroutineCircuit&lt;<span class="lifetime">'a</span>, F: LurkField, CM, Q&gt; {
+</span><span class="kw">pub struct </span>CoroutineCircuit&lt;F: LurkField, CM, Q&gt; {
     input: <span class="prelude-ty">Option</span>&lt;Vec&lt;Ptr&gt;&gt;,
     provenances: HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt;,
     memoset: CM,
     keys: Vec&lt;Ptr&gt;,
     query_index: usize,
     next_query_index: usize,
-    store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
+    store: Arc&lt;Store&lt;F&gt;&gt;,
     rc: usize,
     _p: PhantomData&lt;Q&gt;,
 }
 
 <span class="comment">// TODO: Make this generic rather than specialized to LogMemo.
 // That will require a CircuitScopeTrait.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: LurkField, Q: Query&lt;F&gt;&gt; CoroutineCircuit&lt;<span class="lifetime">'a</span>, F, LogMemo&lt;F&gt;, Q&gt; {
+</span><span class="kw">impl</span>&lt;F: LurkField, Q: Query&lt;F&gt;&gt; CoroutineCircuit&lt;F, LogMemo&lt;F&gt;, Q&gt; {
     <span class="kw">fn </span>new(
         input: <span class="prelude-ty">Option</span>&lt;Vec&lt;Ptr&gt;&gt;,
-        scope: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt;,
+        scope: <span class="kw-2">&amp;</span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt;,
         memoset: LogMemo&lt;F&gt;,
         keys: Vec&lt;Ptr&gt;,
         query_index: usize,
         next_query_index: usize,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
         rc: usize,
     ) -&gt; <span class="self">Self </span>{
         <span class="macro">assert!</span>(keys.len() &lt;= rc);
         <span class="self">Self </span>{
             input,
             memoset,
-            provenances: scope.provenances(store).clone(), <span class="comment">// FIXME
+            provenances: scope.provenances().clone(), <span class="comment">// FIXME
             </span>keys,
             query_index,
             next_query_index,
-            store,
+            store: scope.store.clone(),
             rc,
             _p: Default::default(),
         }
@@ -2051,9 +2056,9 @@
 
     <span class="kw">fn </span>blank(
         query_index: usize,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
+        store: Arc&lt;Store&lt;F&gt;&gt;,
         rc: usize,
-    ) -&gt; CoroutineCircuit&lt;<span class="lifetime">'a</span>, F, LogMemo&lt;F&gt;, Q&gt; {
+    ) -&gt; CoroutineCircuit&lt;F, LogMemo&lt;F&gt;, Q&gt; {
         <span class="self">Self </span>{
             input: <span class="prelude-val">None</span>,
             memoset: Default::default(),
@@ -2086,7 +2091,7 @@
             r: r.hash().clone(),
         };
         <span class="kw">let </span><span class="kw-2">mut </span>circuit_scope: CircuitScope&lt;F, LogMemoCircuit&lt;F&gt;&gt; =
-            CircuitScope::new(cs, g, <span class="self">self</span>.store, memoset, <span class="kw-2">&amp;</span><span class="self">self</span>.provenances);
+            CircuitScope::new(cs, g, <span class="kw-2">&amp;</span><span class="self">self</span>.store, memoset, <span class="kw-2">&amp;</span><span class="self">self</span>.provenances);
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
         <span class="kw">for </span>(i, key) <span class="kw">in </span><span class="self">self
@@ -2100,7 +2105,7 @@
             circuit_scope.synthesize_prove_key_query::&lt;<span class="kw">_</span>, Q&gt;(
                 cs,
                 g,
-                <span class="self">self</span>.store,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.store,
                 key,
                 <span class="self">self</span>.query_index,
             )<span class="question-mark">?</span>;
@@ -2119,26 +2124,28 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField, Q: Query&lt;F&gt;&gt; Scope&lt;Q, LogMemo&lt;F&gt;, F&gt; {
-    <span class="kw">pub fn </span>query(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, form: Ptr) -&gt; Ptr {
-        <span class="kw">let </span>(result, kv_ptr) = <span class="self">self</span>.query_aux(s, form);
+    <span class="kw">pub fn </span>query(<span class="kw-2">&amp;mut </span><span class="self">self</span>, form: Ptr) -&gt; Ptr {
+        <span class="kw">let </span>(result, kv_ptr) = <span class="self">self</span>.query_aux(form);
 
         <span class="self">self</span>.toplevel_insertions.push(kv_ptr);
 
         result
     }
 
-    <span class="kw">fn </span>query_recursively(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, parent: <span class="kw-2">&amp;</span>Q, child: Q) -&gt; Ptr {
+    <span class="kw">fn </span>query_recursively(<span class="kw-2">&amp;mut </span><span class="self">self</span>, parent: <span class="kw-2">&amp;</span>Q, child: Q) -&gt; Ptr {
+        <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
         <span class="kw">let </span>form = child.to_ptr(s);
 
         <span class="self">self</span>.internal_insertions.push(form);
 
-        <span class="kw">let </span>(result, <span class="kw">_</span>) = <span class="self">self</span>.query_aux(s, form);
+        <span class="kw">let </span>(result, <span class="kw">_</span>) = <span class="self">self</span>.query_aux(form);
 
-        <span class="self">self</span>.register_dependency(s, parent, child);
+        <span class="self">self</span>.register_dependency(parent, child);
         result
     }
 
-    <span class="kw">fn </span>register_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, parent: <span class="kw-2">&amp;</span>Q, child: Q) {
+    <span class="kw">fn </span>register_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, parent: <span class="kw-2">&amp;</span>Q, child: Q) {
+        <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
         <span class="kw">let </span>parent_ptr = parent.to_ptr(s);
 
         <span class="self">self</span>.dependents
@@ -2158,18 +2165,20 @@
             .or_insert_with(|| <span class="macro">vec!</span>[child]);
     }
 
-    <span class="kw">fn </span>query_aux(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, form: Ptr) -&gt; (Ptr, Ptr) {
+    <span class="kw">fn </span>query_aux(<span class="kw-2">&amp;mut </span><span class="self">self</span>, form: Ptr) -&gt; (Ptr, Ptr) {
         <span class="comment">// Ensure base-case queries explicitly contain no dependencies.
         </span><span class="self">self</span>.dependencies.entry(form).or_insert_with(|| Vec::new());
 
         <span class="kw">let </span>result = <span class="self">self</span>.queries.get(<span class="kw-2">&amp;</span>form).cloned().unwrap_or_else(|| {
+            <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
             <span class="kw">let </span>query = Q::from_ptr(s, <span class="kw-2">&amp;</span>form).expect(<span class="string">"invalid query"</span>);
 
-            <span class="kw">let </span>evaluated = query.eval(s, <span class="self">self</span>);
+            <span class="kw">let </span>evaluated = query.eval(<span class="self">self</span>);
 
             <span class="self">self</span>.queries.insert(form, evaluated);
             evaluated
         });
+        <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
 
         <span class="kw">let </span>kv = Transcript::make_kv(s, form, result);
 
@@ -2179,17 +2188,17 @@
         (result, kv)
     }
 
-    <span class="kw">fn </span>finalize_transcript(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Transcript&lt;F&gt; {
-        <span class="kw">let </span>(transcript, insertions) = <span class="self">self</span>.build_transcript(s);
+    <span class="kw">fn </span>finalize_transcript(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Transcript&lt;F&gt; {
+        <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
+        <span class="kw">let </span>(transcript, insertions) = <span class="self">self</span>.build_transcript();
         <span class="self">self</span>.memoset.finalize_transcript(s, transcript.clone());
         <span class="self">self</span>.unique_inserted_keys = insertions;
 
         transcript
     }
 
-    <span class="kw">fn </span>provenances(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt; {
-        <span class="self">self</span>.provenances
-            .get_or_init(|| <span class="self">self</span>.compute_provenances(store))
+    <span class="kw">fn </span>provenances(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt; {
+        <span class="self">self</span>.provenances.get_or_init(|| <span class="self">self</span>.compute_provenances())
     }
 
     <span class="comment">// Retain for use when debugging.
@@ -2213,7 +2222,7 @@
     //     }
     // }
 
-    </span><span class="kw">fn </span>compute_provenances(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt; {
+    </span><span class="kw">fn </span>compute_provenances(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;ZPtr&lt;Tag, F&gt;, ZPtr&lt;Tag, F&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>provenances = HashMap::default();
         <span class="kw">let </span><span class="kw-2">mut </span>ready = HashSet::new();
 
@@ -2233,12 +2242,8 @@
             .collect();
 
         <span class="kw">while </span>!ready.is_empty() {
-            ready = <span class="self">self</span>.extend_provenances(
-                store,
-                <span class="kw-2">&amp;mut </span>provenances,
-                ready,
-                <span class="kw-2">&amp;mut </span>missing_dependency_counts,
-            );
+            ready =
+                <span class="self">self</span>.extend_provenances(<span class="kw-2">&amp;mut </span>provenances, ready, <span class="kw-2">&amp;mut </span>missing_dependency_counts);
         }
 
         <span class="macro">assert_eq!</span>(
@@ -2247,6 +2252,7 @@
             <span class="string">"incomplete provenance computation (probably a forbidden cyclic query)"
         </span>);
 
+        <span class="kw">let </span>store = <span class="self">self</span>.store.as_ref();
         provenances
             .iter()
             .map(|(k, v)| (store.hash_ptr(k), store.hash_ptr(v)))
@@ -2255,7 +2261,6 @@
 
     <span class="kw">fn </span>extend_provenances&lt;<span class="lifetime">'a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         provenances: <span class="kw-2">&amp;mut </span>HashMap&lt;Ptr, Ptr&gt;,
         ready: HashSet&lt;<span class="kw-2">&amp;</span>Ptr&gt;,
         missing_dependency_counts: <span class="kw-2">&amp;mut </span>HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Ptr, usize&gt;,
@@ -2268,6 +2273,7 @@
                 </span><span class="kw">continue</span>;
             };
 
+            <span class="kw">let </span>store = <span class="self">self</span>.store.as_ref();
             <span class="kw">let </span>sub_provenances = <span class="self">self
                 </span>.dependencies
                 .get(query)
@@ -2308,13 +2314,14 @@
         next
     }
 
-    <span class="kw">fn </span>ensure_transcript_finalized(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) {
+    <span class="kw">fn </span>ensure_transcript_finalized(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">if </span>!<span class="self">self</span>.memoset.is_finalized() {
-            <span class="self">self</span>.finalize_transcript(s);
+            <span class="self">self</span>.finalize_transcript();
         }
     }
 
-    <span class="kw">fn </span>build_transcript(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; (Transcript&lt;F&gt;, HashMap&lt;usize, Vec&lt;Ptr&gt;&gt;) {
+    <span class="kw">fn </span>build_transcript(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (Transcript&lt;F&gt;, HashMap&lt;usize, Vec&lt;Ptr&gt;&gt;) {
+        <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
         <span class="kw">let </span><span class="kw-2">mut </span>transcript = Transcript::new(s);
 
         <span class="comment">// k -&gt; kv
@@ -2351,7 +2358,7 @@
         });
 
         <span class="kw">for </span>kv <span class="kw">in </span><span class="self">self</span>.toplevel_insertions.iter() {
-            <span class="kw">let </span>provenance = <span class="self">self</span>.provenance_from_kv(s, <span class="kw-2">*</span>kv).unwrap();
+            <span class="kw">let </span>provenance = <span class="self">self</span>.provenance_from_kv(<span class="kw-2">*</span>kv).unwrap();
             transcript.add(s, <span class="kw-2">*</span>provenance.to_ptr(s));
         }
 
@@ -2370,7 +2377,7 @@
                             // `unique_keys`.
                             </span><span class="kw">let </span>kv = kvs_by_key.get(key).expect(<span class="string">"kv missing"</span>);
                             <span class="kw">let </span>count = <span class="self">self</span>.memoset.count(kv);
-                            <span class="kw">let </span>provenance = <span class="self">self</span>.provenance_from_kv(s, <span class="kw-2">*</span>kv).unwrap();
+                            <span class="kw">let </span>provenance = <span class="self">self</span>.provenance_from_kv(<span class="kw-2">*</span>kv).unwrap();
                             (provenance, count)
                         } <span class="kw">else </span>{
                             (Provenance::dummy(s), <span class="number">0</span>)
@@ -2394,9 +2401,9 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
-        <span class="self">self</span>.ensure_transcript_finalized(s);
+        <span class="self">self</span>.ensure_transcript_finalized();
+        <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
         <span class="comment">// FIXME: Do we need to allocate a new GlobalAllocator here?
         // Is it okay for this memoset circuit to be shared between all CoroutineCircuits?
         </span><span class="kw">let </span>memoset_circuit = <span class="self">self</span>.memoset.to_circuit(<span class="macro">ns!</span>(cs, <span class="string">"memoset_circuit"</span>));
@@ -2406,14 +2413,15 @@
             g,
             s,
             memoset_circuit.clone(),
-            <span class="self">self</span>.provenances(s),
+            <span class="self">self</span>.provenances(),
         );
 
         circuit_scope.init(cs, g, s);
         {
-            circuit_scope.synthesize_insert_toplevel_queries(<span class="self">self</span>, cs, g, s)<span class="question-mark">?</span>;
+            circuit_scope.synthesize_insert_toplevel_queries(<span class="self">self</span>, cs, g)<span class="question-mark">?</span>;
 
             {
+                <span class="kw">let </span>s = <span class="self">self</span>.store.as_ref();
                 <span class="kw">let </span>(memoset_acc, transcript, r_num) = circuit_scope.io();
                 <span class="kw">let </span>r = AllocatedPtr::from_parts(g.alloc_tag(cs, <span class="kw-2">&amp;</span>ExprTag::Num).clone(), r_num);
                 <span class="kw">let </span>dummy = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.intern_nil(), s);
@@ -2437,14 +2445,13 @@
 
                         <span class="comment">// `next_query_index` is only relevant for SuperNova
                         </span><span class="kw">let </span>next_query_index = <span class="number">0</span>;
-                        <span class="kw">let </span>circuit: CoroutineCircuit&lt;<span class="lifetime">'_</span>, F, LogMemo&lt;F&gt;, Q&gt; = CoroutineCircuit::new(
+                        <span class="kw">let </span>circuit: CoroutineCircuit&lt;F, LogMemo&lt;F&gt;, Q&gt; = CoroutineCircuit::new(
                             <span class="prelude-val">None</span>,
                             <span class="self">self</span>,
                             <span class="self">self</span>.memoset.clone(),
                             chunk.to_vec(),
                             <span class="kw-2">*</span>index,
                             next_query_index,
-                            s,
                             rc,
                         );
 
@@ -2729,9 +2736,9 @@
         scope: <span class="kw-2">&amp;mut </span>Scope&lt;Q, LogMemo&lt;F&gt;, F&gt;,
         cs: <span class="kw-2">&amp;mut </span>CS,
         g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
-        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
         <span class="kw">for </span>(i, kv) <span class="kw">in </span>scope.toplevel_insertions.iter().enumerate() {
+            <span class="kw">let </span>s = scope.store.as_ref();
             <span class="kw">let </span>cs = <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"toplevel_insertion-{i}"</span>));
             <span class="kw">let </span>(key, value) = s.car_cdr(kv).expect(<span class="string">"kv missing"</span>);
             <span class="comment">// NOTE: This is an unconstrained allocation, but when actually hooked up to Lurk reduction, it must be
@@ -3081,8 +3088,7 @@
         expected_aux_compound: Expect,
         circuit_query_rc: usize,
     ) {
-        <span class="kw">let </span>s = <span class="kw-2">&amp;</span>Store::&lt;F&gt;::default();
-        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;, F&gt; = Scope::new(circuit_query_rc);
+        <span class="kw">let </span>s = Arc::new(Store::&lt;F&gt;::default());
         <span class="kw">let </span>state = State::init_lurk_state();
 
         <span class="kw">let </span>fact_4 = s.read_with_default_state(<span class="string">"(factorial . 4)"</span>).unwrap();
@@ -3092,12 +3098,13 @@
             expected.assert_eq(<span class="kw-2">&amp;</span>computed.to_string());
         };
 
+        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;, F&gt; = Scope::new(circuit_query_rc, s.clone());
         {
-            scope.query(s, fact_4);
+            scope.query(fact_4);
 
             <span class="kw">for </span>(k, v) <span class="kw">in </span>scope.queries.iter() {
-                <span class="macro">println!</span>(<span class="string">"k: {}"</span>, k.fmt_to_string(s, <span class="kw-2">&amp;</span>state));
-                <span class="macro">println!</span>(<span class="string">"v: {}"</span>, v.fmt_to_string(s, <span class="kw-2">&amp;</span>state));
+                <span class="macro">println!</span>(<span class="string">"k: {}"</span>, k.fmt_to_string(<span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;</span>state));
+                <span class="macro">println!</span>(<span class="string">"v: {}"</span>, v.fmt_to_string(<span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;</span>state));
             }
             <span class="comment">// Factorial 4 will memoize calls to:
             // fact(4), fact(3), fact(2), fact(1), and fact(0)
@@ -3105,12 +3112,12 @@
             <span class="macro">assert_eq!</span>(<span class="number">1</span>, scope.toplevel_insertions.len());
             <span class="macro">assert_eq!</span>(<span class="number">4</span>, scope.internal_insertions.len());
 
-            scope.finalize_transcript(s);
+            scope.finalize_transcript();
 
             <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>TestConstraintSystem::new();
             <span class="kw">let </span>g = <span class="kw-2">&amp;</span>GlobalAllocator::default();
 
-            scope.synthesize(cs, g, s).unwrap();
+            scope.synthesize(cs, g).unwrap();
 
             <span class="macro">println!</span>(
                 <span class="string">"transcript: {}"</span>,
@@ -3119,7 +3126,7 @@
                     .transcript
                     .get()
                     .unwrap()
-                    .fmt_to_string_simple(s)
+                    .fmt_to_string_simple(<span class="kw-2">&amp;</span>s)
             );
 
             expect_eq(cs.num_constraints(), expected_constraints_simple);
@@ -3134,9 +3141,10 @@
         }
 
         {
-            <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;, F&gt; = Scope::new(circuit_query_rc);
-            scope.query(s, fact_4);
-            scope.query(s, fact_3);
+            <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;, F&gt; =
+                Scope::new(circuit_query_rc, s.clone());
+            scope.query(fact_4);
+            scope.query(fact_3);
 
             <span class="comment">// // No new queries.
             </span><span class="macro">assert_eq!</span>(<span class="number">5</span>, scope.queries.len());
@@ -3145,12 +3153,12 @@
             <span class="comment">// // No new internal insertions.
             </span><span class="macro">assert_eq!</span>(<span class="number">4</span>, scope.internal_insertions.len());
 
-            scope.finalize_transcript(s);
+            scope.finalize_transcript();
 
             <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>TestConstraintSystem::new();
             <span class="kw">let </span>g = <span class="kw-2">&amp;</span>GlobalAllocator::default();
 
-            scope.synthesize(cs, g, s).unwrap();
+            scope.synthesize(cs, g).unwrap();
 
             <span class="macro">println!</span>(
                 <span class="string">"transcript: {}"</span>,
@@ -3159,7 +3167,7 @@
                     .transcript
                     .get()
                     .unwrap()
-                    .fmt_to_string_simple(s)
+                    .fmt_to_string_simple(<span class="kw-2">&amp;</span>s)
             );
 
             expect_eq(cs.num_constraints(), expected_constraints_compound);

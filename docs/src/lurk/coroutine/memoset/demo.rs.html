@@ -237,6 +237,8 @@
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 <span class="kw">use super</span>::{
@@ -266,20 +268,21 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; Query&lt;F&gt; <span class="kw">for </span>DemoQuery&lt;F&gt; {
     <span class="kw">type </span>CQ = DemoCircuitQuery&lt;F&gt;;
 
-    <span class="kw">fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, scope: <span class="kw-2">&amp;mut </span>Scope&lt;<span class="self">Self</span>, LogMemo&lt;F&gt;, F&gt;) -&gt; Ptr {
+    <span class="kw">fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>, scope: <span class="kw-2">&amp;mut </span>Scope&lt;<span class="self">Self</span>, LogMemo&lt;F&gt;, F&gt;) -&gt; Ptr {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Factorial(n) =&gt; {
-                <span class="kw">let </span>n_zptr = s.hash_ptr(n);
+                <span class="kw">let </span>n_zptr = scope.store.hash_ptr(n);
                 <span class="kw">let </span>n = n_zptr.value();
 
                 <span class="kw">if </span><span class="kw-2">*</span>n == F::ZERO {
-                    s.num(F::ONE)
+                    scope.store.num(F::ONE)
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span>m_ptr = <span class="self">self</span>.recursive_eval(scope, s, <span class="self">Self</span>::Factorial(s.num(<span class="kw-2">*</span>n - F::ONE)));
-                    <span class="kw">let </span>m_zptr = s.hash_ptr(<span class="kw-2">&amp;</span>m_ptr);
+                    <span class="kw">let </span>sub_query = <span class="self">Self</span>::Factorial(scope.store.num(<span class="kw-2">*</span>n - F::ONE));
+                    <span class="kw">let </span>m_ptr = <span class="self">self</span>.recursive_eval(scope, sub_query);
+                    <span class="kw">let </span>m_zptr = scope.store.hash_ptr(<span class="kw-2">&amp;</span>m_ptr);
                     <span class="kw">let </span>m = m_zptr.value();
 
-                    s.num(<span class="kw-2">*</span>n * m)
+                    scope.store.num(<span class="kw-2">*</span>n * m)
                 }
             }
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
@@ -456,11 +459,11 @@
 
     <span class="kw">use </span>ff::Field;
     <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>F;
+    <span class="kw">use </span>std::sync::Arc;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_factorial() {
-        <span class="kw">let </span>s = Store::default();
-        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;, F&gt; = Scope::default();
+        <span class="kw">let </span>s = Arc::new(Store::default());
         <span class="kw">let </span>zero = s.num(F::ZERO);
         <span class="kw">let </span>one = s.num(F::ONE);
         <span class="kw">let </span>two = s.num(F::from_u64(<span class="number">2</span>));
@@ -468,11 +471,12 @@
         <span class="kw">let </span>four = s.num(F::from_u64(<span class="number">4</span>));
         <span class="kw">let </span>six = s.num(F::from_u64(<span class="number">6</span>));
         <span class="kw">let </span>twenty_four = s.num(F::from_u64(<span class="number">24</span>));
-        <span class="macro">assert_eq!</span>(one, DemoQuery::Factorial(zero).eval(<span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;mut </span>scope));
-        <span class="macro">assert_eq!</span>(one, DemoQuery::Factorial(one).eval(<span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;mut </span>scope));
-        <span class="macro">assert_eq!</span>(two, DemoQuery::Factorial(two).eval(<span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;mut </span>scope));
-        <span class="macro">assert_eq!</span>(six, DemoQuery::Factorial(three).eval(<span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;mut </span>scope));
-        <span class="macro">assert_eq!</span>(twenty_four, DemoQuery::Factorial(four).eval(<span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;mut </span>scope));
+        <span class="kw">let </span><span class="kw-2">mut </span>scope: Scope&lt;DemoQuery&lt;F&gt;, LogMemo&lt;F&gt;, F&gt; = Scope::new(<span class="number">1</span>, s);
+        <span class="macro">assert_eq!</span>(one, DemoQuery::Factorial(zero).eval(<span class="kw-2">&amp;mut </span>scope));
+        <span class="macro">assert_eq!</span>(one, DemoQuery::Factorial(one).eval(<span class="kw-2">&amp;mut </span>scope));
+        <span class="macro">assert_eq!</span>(two, DemoQuery::Factorial(two).eval(<span class="kw-2">&amp;mut </span>scope));
+        <span class="macro">assert_eq!</span>(six, DemoQuery::Factorial(three).eval(<span class="kw-2">&amp;mut </span>scope));
+        <span class="macro">assert_eq!</span>(twenty_four, DemoQuery::Factorial(four).eval(<span class="kw-2">&amp;mut </span>scope));
     }
 }
 </code></pre></div></section></main></body></html>
