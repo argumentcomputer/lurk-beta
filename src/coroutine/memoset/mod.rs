@@ -424,29 +424,28 @@ pub struct CircuitScope<F: LurkField, CM> {
 }
 
 #[derive(Clone)]
-pub struct CoroutineCircuit<'a, F: LurkField, CM, Q> {
+pub struct CoroutineCircuit<F: LurkField, CM, Q> {
     input: Option<Vec<Ptr>>,
     provenances: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     memoset: CM,
     keys: Vec<Ptr>,
     query_index: usize,
     next_query_index: usize,
-    store: &'a Store<F>,
+    store: Arc<Store<F>>,
     rc: usize,
     _p: PhantomData<Q>,
 }
 
 // TODO: Make this generic rather than specialized to LogMemo.
 // That will require a CircuitScopeTrait.
-impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
+impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
     fn new(
         input: Option<Vec<Ptr>>,
-        scope: &'a Scope<Q, LogMemo<F>, F>,
+        scope: &Scope<Q, LogMemo<F>, F>,
         memoset: LogMemo<F>,
         keys: Vec<Ptr>,
         query_index: usize,
         next_query_index: usize,
-        store: &'a Store<F>,
         rc: usize,
     ) -> Self {
         assert!(keys.len() <= rc);
@@ -457,7 +456,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
             keys,
             query_index,
             next_query_index,
-            store,
+            store: scope.store.clone(),
             rc,
             _p: Default::default(),
         }
@@ -465,9 +464,9 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
 
     fn blank(
         query_index: usize,
-        store: &'a Store<F>,
+        store: Arc<Store<F>>,
         rc: usize,
-    ) -> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
+    ) -> CoroutineCircuit<F, LogMemo<F>, Q> {
         Self {
             input: None,
             memoset: Default::default(),
@@ -500,7 +499,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
             r: r.hash().clone(),
         };
         let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>> =
-            CircuitScope::new(cs, g, self.store, memoset, &self.provenances);
+            CircuitScope::new(cs, g, &self.store, memoset, &self.provenances);
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
         for (i, key) in self
@@ -514,7 +513,7 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
             circuit_scope.synthesize_prove_key_query::<_, Q>(
                 cs,
                 g,
-                self.store,
+                &self.store,
                 key,
                 self.query_index,
             )?;
@@ -854,14 +853,13 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
                         // `next_query_index` is only relevant for SuperNova
                         let next_query_index = 0;
-                        let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> = CoroutineCircuit::new(
+                        let circuit: CoroutineCircuit<F, LogMemo<F>, Q> = CoroutineCircuit::new(
                             None,
                             self,
                             self.memoset.clone(),
                             chunk.to_vec(),
                             *index,
                             next_query_index,
-                            s,
                             rc,
                         );
 
