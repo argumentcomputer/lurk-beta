@@ -184,33 +184,125 @@ pub fn parse_symbol<F: LurkField>(
     }
 }
 
-pub fn parse_uint<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+pub fn parse_numeric_suffix<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Span<'_>> {
     move |from: Span<'_>| {
+        let (upto, suffix) = alt((
+            tag("u8"),
+            tag("u16"),
+            tag("u32"),
+            tag("u64"),
+            tag("u128"),
+            tag("i8"),
+            tag("i16"),
+            tag("i32"),
+            tag("i64"),
+            tag("i128"),
+            tag("/"),
+        ))(from)?;
+        Ok((upto, suffix))
+    }
+}
+
+pub fn parse_numeric<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+    move |from: Span<'_>| {
+        let (i, neg) = opt(tag("-"))(from)?;
         let (i, base) = alt((
             preceded(tag("0"), base::parse_litbase_code()),
             success(base::LitBase::Dec),
-        ))(from)?;
+        ))(i)?;
         let (i, digits) = base::parse_litbase_digits(base)(i)?;
         // when more uint types are supported we can do:
-        // alt((tag("u8"), tag("u16"), tag("u32"), tag("u64"), tag("u128")))
-        let (upto, suffix) = tag("u64")(i)?;
-        match *suffix.fragment() {
-            "u64" => {
+        let (upto, suffix) = opt(parse_numeric_suffix())(i)?;
+        let suffix = suffix.map(|x| *x.fragment());
+        match suffix {
+            Some("u64") => {
+                if neg.is_some() {
+                    ParseError::throw(
+                        from,
+                        ParseErrorKind::Custom(format!("Negative u64 invalid")),
+                    )
+                } else {
+                    let (_, x) =
+                        ParseError::res(u64::from_str_radix(&digits, base.radix()), from, |e| {
+                            ParseErrorKind::ParseIntErr(e)
+                        })?;
+                    let pos = Pos::from_upto(from, upto);
+                    Ok((upto, Syntax::UInt(pos, UInt::U64(x))))
+                }
+            }
+            // when more uint types are supported we can do:
+            Some("i64") => {
+                let mut int_digits = match neg.map(|x| *x.fragment()) {
+                    Some("-") => String::from("-"),
+                    _ => String::from("+"),
+                };
+                int_digits.push_str(&digits);
                 let (_, x) =
-                    ParseError::res(u64::from_str_radix(&digits, base.radix()), from, |e| {
+                    ParseError::res(i64::from_str_radix(&int_digits, base.radix()), from, |e| {
                         ParseErrorKind::ParseIntErr(e)
                     })?;
                 let pos = Pos::from_upto(from, upto);
-                Ok((upto, Syntax::UInt(pos, UInt::U64(x))))
+                Ok((upto, Syntax::UInt(pos, UInt::U64(x as u64))))
+            }
+            // when more uint types are supported we can do:
+            Some("u8") | Some("u16") | Some("u32") | Some("u128") | Some("i8") | Some("i16")
+            | Some("i32") | Some("i128") => {
+                let suffix = suffix.unwrap();
+                ParseError::throw(
+                    from,
+                    ParseErrorKind::Custom(format!("Numeric suffix {suffix} not yet supported")),
+                )
+            }
+            None | Some("/") => {
+                let (_, be_bytes) = be_bytes_from_digits(base, digits, i)?;
+                let (upto, denom) = opt(base::parse_litbase_digits(base))(upto)?;
+                let f = f_from_be_bytes::<F>(&be_bytes);
+                let num = if let Some(x) = f.to_u64() {
+                    Num::U64(x)
+                } else {
+                    Num::Scalar(f)
+                };
+                let mut tmp = Num::<F>::U64(0);
+                if neg.is_some() {
+                    tmp -= num;
+                } else {
+                    tmp = num;
+                }
+                if let Some(denom) = denom {
+                    let (_, denom) = be_bytes_from_digits(base, denom, i)?;
+                    let denom_f = f_from_be_bytes::<F>(&denom);
+                    let denom = if let Some(x) = denom_f.to_u64() {
+                        Num::U64(x)
+                    } else {
+                        Num::Scalar(denom_f)
+                    };
+                    tmp /= denom;
+                }
+                let pos = Pos::from_upto(from, upto);
+                Ok((upto, Syntax::Num(pos, tmp)))
             }
             _ => unreachable!("implementation error in parse_nat"),
         }
     }
 }
 
-fn f_from_le_bytes<F: LurkField>(bs: &[u8]) -> F {
+fn be_bytes_from_digits<F: LurkField>(
+    base: base::LitBase,
+    digits: String,
+    i: Span,
+) -> ParseResult<'_, F, Vec<u8>> {
+    let (i, bytes) = match base_x::decode(base.base_digits(), &digits) {
+        Ok(bytes) => Ok((i, bytes)),
+        Err(_) => Err(nom::Err::Error(ParseError::new(
+            i,
+            ParseErrorKind::InvalidBaseEncoding(base),
+        ))),
+    }?;
+    Ok((i, bytes))
+}
+fn f_from_be_bytes<F: LurkField>(bs: &[u8]) -> F {
     let mut res = F::ZERO;
-    let mut bs = bs.iter().rev().peekable();
+    let mut bs = bs.iter().peekable();
     while let Some(b) = bs.next() {
         let b: F = u64::from(*b).into();
         if bs.peek().is_none() {
@@ -221,52 +313,6 @@ fn f_from_le_bytes<F: LurkField>(bs: &[u8]) -> F {
         }
     }
     res
-}
-
-pub fn parse_num_inner<F: LurkField>(
-    base: base::LitBase,
-) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Num<F>> {
-    move |from: Span<'_>| {
-        let (upto, bytes): (Span<'_>, Vec<u8>) = base::parse_litbase_le_bytes(base)(from)?;
-        let max_bytes = (F::ZERO - F::ONE).to_bytes();
-        let max_uint = num_bigint::BigUint::from_bytes_le(&max_bytes);
-        if num_bigint::BigUint::from_bytes_le(&bytes) > max_uint {
-            ParseError::throw(
-                from,
-                ParseErrorKind::NumLiteralTooBig(F::most_positive(), max_uint),
-            )
-        } else {
-            let f = f_from_le_bytes::<F>(&bytes);
-            if let Some(x) = f.to_u64() {
-                Ok((upto, Num::U64(x)))
-            } else {
-                Ok((upto, Num::Scalar(f)))
-            }
-        }
-    }
-}
-
-pub fn parse_num<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
-    move |from: Span<'_>| {
-        let (i, neg) = opt(tag("-"))(from)?;
-        let (i, base) = alt((
-            preceded(tag("0"), base::parse_litbase_code()),
-            success(base::LitBase::Dec),
-        ))(i)?;
-        let (i, num) = parse_num_inner(base)(i)?;
-        let (upto, denom) = opt(preceded(tag("/"), parse_num_inner(base)))(i)?;
-        let pos = Pos::from_upto(from, upto);
-        let mut tmp = Num::<F>::U64(0);
-        if neg.is_some() {
-            tmp -= num;
-        } else {
-            tmp = num;
-        }
-        if let Some(denom) = denom {
-            tmp /= denom;
-        }
-        Ok((upto, Syntax::Num(pos, tmp)))
-    }
 }
 
 pub fn parse_string<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
@@ -387,8 +433,7 @@ pub fn parse_syntax<F: LurkField>(
                 "list",
                 parse_list(state.clone(), meta, create_unknown_packages),
             ),
-            parse_uint(),
-            parse_num(),
+            parse_numeric(),
             context(
                 "symbol",
                 parse_symbol(state.clone(), create_unknown_packages),
@@ -431,10 +476,34 @@ pub mod tests {
         P: Parser<Span<'a>, R, ParseError<Span<'a>, Scalar>>,
         R: std::fmt::Display + std::fmt::Debug + Clone + Eq,
     {
+        // NOTE: Please do not try to refactor this match to make it simpler or
+        // or remove the commented printlns, which are to aid in debugging the parser
         match (expected, p.parse(Span::<'a>::new(i))) {
-            (Some(expected), Ok((_, x))) if x == expected => true,
-            (Some(_) | None, Ok(..)) | (Some(..), Err(_)) => false,
-            (None, Err(_e)) => true,
+            (Some(expected), Ok((_, x))) if x == expected => {
+                println!("Expected: {expected}");
+                println!("Detected: {x}");
+                true
+            }
+            (None, Ok((_, detected))) => {
+                println!("Expected: None");
+                println!("Detected: {detected}");
+                false
+            }
+            (Some(expected), Ok((_, detected))) => {
+                println!("Expected: {expected}");
+                println!("Detected: {detected}");
+                false
+            }
+            (Some(expected), Err(err)) => {
+                println!("Expected: {expected}");
+                println!("Detected: {err}");
+                false
+            }
+            (None, Err(e)) => {
+                println!("Expected: None");
+                println!("Detected: {e}");
+                true
+            }
         }
     }
 
@@ -817,34 +886,34 @@ pub mod tests {
     }
 
     #[test]
-    fn unit_parse_num() {
-        assert!(test(parse_num(), "0", Some(num!(0))));
-        assert!(test(parse_num(), "00", Some(num!(0))));
-        assert!(test(parse_num(), "001", Some(num!(1))));
-        assert!(test(parse_num(), "0b0", Some(num!(0))));
-        assert!(test(parse_num(), "0o0", Some(num!(0))));
-        assert!(test(parse_num(), "0d0", Some(num!(0))));
-        assert!(test(parse_num(), "0x0", Some(num!(0))));
-        assert!(test(parse_num(), "0xf", Some(num!(15))));
-        assert!(test(parse_num(), "0xF", Some(num!(15))));
-        assert!(test(parse_num(), "0x0f", Some(num!(15))));
+    fn unit_parse_numeric() {
+        assert!(test(parse_numeric(), "0", Some(num!(0))));
+        assert!(test(parse_numeric(), "00", Some(num!(0))));
+        assert!(test(parse_numeric(), "001", Some(num!(1))));
+        assert!(test(parse_numeric(), "0b0", Some(num!(0))));
+        assert!(test(parse_numeric(), "0o0", Some(num!(0))));
+        assert!(test(parse_numeric(), "0d0", Some(num!(0))));
+        assert!(test(parse_numeric(), "0x0", Some(num!(0))));
+        assert!(test(parse_numeric(), "0xf", Some(num!(15))));
+        assert!(test(parse_numeric(), "0xF", Some(num!(15))));
+        assert!(test(parse_numeric(), "0x0f", Some(num!(15))));
         assert!(test(
-            parse_num(),
+            parse_numeric(),
             "0xffff_ffff_ffff_ffff",
             Some(num!(0xffff_ffff_ffff_ffff))
         ));
         assert!(test(
-            parse_num(),
+            parse_numeric(),
             "0x1234_5678_9abc_def0",
             Some(num!(0x1234_5678_9abc_def0))
         ));
         assert!(test(
-            parse_num(),
+            parse_numeric(),
             &format!("0x{}", Scalar::most_positive().hex_digits()),
             Some(num!(Num::Scalar(Scalar::most_positive())))
         ));
         assert!(test(
-            parse_num(),
+            parse_numeric(),
             "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
             Some(Syntax::Num(
                 Pos::No,
@@ -852,18 +921,62 @@ pub mod tests {
             )),
         ));
         assert!(test(
-            parse_num(),
-            "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
-            None,
+            parse_numeric(),
+            "-1",
+            Some(Syntax::Num(
+                Pos::No,
+                Num::Scalar(<Scalar as ff::Field>::ZERO - Scalar::from(1u64))
+            )),
         ));
-        assert!(test(parse_num(), "-0", Some(num!(0))));
+        assert!(test(
+            parse_numeric(),
+            "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+            Some(Syntax::Num(Pos::No, Num::U64(0u64))),
+        ));
+        assert!(test(
+            parse_numeric(),
+            "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000002",
+            Some(Syntax::Num(Pos::No, Num::U64(1u64))),
+        ));
+        assert!(test(parse_numeric(), "-0", Some(num!(0))));
         let mut tmp = Num::U64(1u64);
+        println!("tmp = {tmp}");
         tmp /= Num::U64(2u64);
-        assert!(test(parse_num(), "1/2", Some(Syntax::Num(Pos::No, tmp))));
+        println!("tmp = {tmp}");
+        assert!(test(
+            parse_numeric(),
+            "1/2",
+            Some(Syntax::Num(Pos::No, tmp))
+        ));
         let mut tmp = Num::U64(0u64);
         tmp -= Num::U64(1u64);
         tmp /= Num::U64(2u64);
-        assert!(test(parse_num(), "-1/2", Some(Syntax::Num(Pos::No, tmp))));
+        assert!(test(
+            parse_numeric(),
+            "-1/2",
+            Some(Syntax::Num(Pos::No, tmp))
+        ));
+        // uint
+        assert!(test(
+            parse_numeric(),
+            "-1i64",
+            Some(Syntax::UInt(Pos::No, UInt::U64(u64::MAX))),
+        ));
+        assert!(test(
+            parse_numeric(),
+            "18446744073709551615u64",
+            Some(Syntax::UInt(Pos::No, UInt::U64(u64::MAX))),
+        ));
+        assert!(test(parse_numeric(), "-1u64", None,));
+        assert!(test(parse_numeric(), "18446744073709551616u64", None,));
+        assert!(test(parse_numeric(), "0u8", None,));
+        assert!(test(parse_numeric(), "0u16", None,));
+        assert!(test(parse_numeric(), "0u32", None,));
+        assert!(test(parse_numeric(), "0u128", None,));
+        assert!(test(parse_numeric(), "0i8", None,));
+        assert!(test(parse_numeric(), "0i16", None,));
+        assert!(test(parse_numeric(), "0i32", None,));
+        assert!(test(parse_numeric(), "0i128", None,));
     }
 
     #[test]
@@ -874,7 +987,6 @@ pub mod tests {
             0xcf, 0x24, 0xb9, 0x36,
         ]
         .into_iter()
-        .rev()
         .collect();
         let state_ = State::default().rccell();
         let state = || state_.clone();
@@ -887,7 +999,7 @@ pub mod tests {
         assert!(test(
             parse_syntax(state(), false, true),
             "(0x191d3d4743b4d1ce3936a0a668cf6f6450284579dbe266e3645b6764cf24b936)",
-            Some(list!([num!(Num::Scalar(f_from_le_bytes(&vec)))])),
+            Some(list!([num!(Num::Scalar(f_from_be_bytes(&vec)))])),
         ));
         assert!(test(
             parse_syntax(state(), false, true),
