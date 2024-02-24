@@ -219,7 +219,7 @@ pub fn parse_numeric<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, 
                 if neg.is_some() {
                     ParseError::throw(
                         from,
-                        ParseErrorKind::Custom(format!("Negative u64 invalid")),
+                        ParseErrorKind::Custom("Negative u64 invalid".to_string()),
                     )
                 } else {
                     let (_, x) =
