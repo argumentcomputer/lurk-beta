@@ -38,13 +38,17 @@ impl<F> Toplevel<F> {
         }
         Toplevel(toplevel)
     }
+
+    pub fn get(&self, name: &Symbol) -> Option<&Coroutine<F>> {
+        self.0.get(name)
+    }
 }
 
 #[derive(Clone)]
 pub struct ToplevelQuery<F> {
-    name: Symbol,
-    args: Vec<Ptr>,
-    _p: PhantomData<F>,
+    pub(crate) name: Symbol,
+    pub(crate) args: Vec<Ptr>,
+    pub(crate) _p: PhantomData<F>,
 }
 
 impl<F> ToplevelQuery<F> {
@@ -71,13 +75,13 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         todo!()
     }
+    fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ {
+        todo!()
+    }
     fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self> {
         todo!()
     }
     fn to_ptr(&self, s: &Store<F>) -> Ptr {
-        todo!()
-    }
-    fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ {
         todo!()
     }
     fn dummy_from_index(s: &Store<F>, index: usize) -> Self {

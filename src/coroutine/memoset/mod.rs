@@ -330,7 +330,7 @@ pub struct Scope<Q: Query<F>, M, F: LurkField> {
     provenances: OnceCell<HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
     default_rc: usize,
     store: Arc<Store<F>>,
-    content: Q::C,
+    pub(crate) content: Q::C,
 }
 
 const DEFAULT_RC_FOR_QUERY: usize = 1;
