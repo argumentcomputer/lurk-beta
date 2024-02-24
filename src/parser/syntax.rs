@@ -481,28 +481,28 @@ pub mod tests {
         // or remove the commented printlns, which are to aid in debugging the parser
         match (expected, p.parse(Span::<'a>::new(i))) {
             (Some(expected), Ok((_, x))) if x == expected => {
-                println!("Expected: {expected}");
-                println!("Detected: {x}");
+                //println!("Expected: {expected}");
+                //println!("Detected: {x}");
                 true
             }
-            (None, Ok((_, detected))) => {
-                println!("Expected: None");
-                println!("Detected: {detected}");
+            (None, Ok((_, _detected))) => {
+                //println!("Expected: None");
+                //println!("Detected: {detected}");
                 false
             }
-            (Some(expected), Ok((_, detected))) => {
-                println!("Expected: {expected}");
-                println!("Detected: {detected}");
+            (Some(_expected), Ok((_, _detected))) => {
+                //println!("Expected: {expected}");
+                //println!("Detected: {detected}");
                 false
             }
-            (Some(expected), Err(err)) => {
-                println!("Expected: {expected}");
-                println!("Detected: {err}");
+            (Some(_expected), Err(_err)) => {
+                //println!("Expected: {expected}");
+                //println!("Detected: {err}");
                 false
             }
-            (None, Err(e)) => {
-                println!("Expected: None");
-                println!("Detected: {e}");
+            (None, Err(_e)) => {
+                //println!("Expected: None");
+                //println!("Detected: {e}");
                 true
             }
         }
