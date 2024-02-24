@@ -245,6 +245,7 @@ pub fn parse_numeric<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, 
                 Ok((upto, Syntax::UInt(pos, UInt::U64(x as u64))))
             }
             // when more uint types are supported we can do:
+            #[allow(clippy::unnested_or_patterns)]
             Some("u8") | Some("u16") | Some("u32") | Some("u128") | Some("i8") | Some("i16")
             | Some("i32") | Some("i128") => {
                 let suffix = suffix.unwrap();
@@ -254,7 +255,7 @@ pub fn parse_numeric<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, 
                 )
             }
             None | Some("/") => {
-                let (_, be_bytes) = be_bytes_from_digits(base, digits, i)?;
+                let (_, be_bytes) = be_bytes_from_digits(base, &digits, i)?;
                 let (upto, denom) = opt(base::parse_litbase_digits(base))(upto)?;
                 let f = f_from_be_bytes::<F>(&be_bytes);
                 let num = if let Some(x) = f.to_u64() {
@@ -269,7 +270,7 @@ pub fn parse_numeric<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, 
                     tmp = num;
                 }
                 if let Some(denom) = denom {
-                    let (_, denom) = be_bytes_from_digits(base, denom, i)?;
+                    let (_, denom) = be_bytes_from_digits(base, &denom, i)?;
                     let denom_f = f_from_be_bytes::<F>(&denom);
                     let denom = if let Some(x) = denom_f.to_u64() {
                         Num::U64(x)
@@ -286,12 +287,12 @@ pub fn parse_numeric<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, 
     }
 }
 
-fn be_bytes_from_digits<F: LurkField>(
+fn be_bytes_from_digits<'a, F: LurkField>(
     base: base::LitBase,
-    digits: String,
-    i: Span,
-) -> ParseResult<'_, F, Vec<u8>> {
-    let (i, bytes) = match base_x::decode(base.base_digits(), &digits) {
+    digits: &str,
+    i: Span<'a>,
+) -> ParseResult<'a, F, Vec<u8>> {
+    let (i, bytes) = match base_x::decode(base.base_digits(), digits) {
         Ok(bytes) => Ok((i, bytes)),
         Err(_) => Err(nom::Err::Error(ParseError::new(
             i,
