@@ -16,6 +16,7 @@ pub enum ParseErrorKind<F: LurkField> {
     InvalidChar(String),
     Nom(ErrorKind),
     InterningError(String),
+    Custom(String),
 }
 
 impl<F: LurkField> fmt::Display for ParseErrorKind<F> {
@@ -26,6 +27,9 @@ impl<F: LurkField> fmt::Display for ParseErrorKind<F> {
             }
             Self::ParseIntErr(e) => {
                 write!(f, "Error parsing number: {e}")
+            }
+            Self::Custom(e) => {
+                write!(f, "Error: {e}")
             }
             e => write!(f, "internal parser error {e:?}"),
         }
