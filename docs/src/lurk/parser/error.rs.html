@@ -186,6 +186,10 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{cmp::Ordering, fmt, fmt::Write, num::ParseIntError, string::String};
 
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
@@ -204,6 +208,7 @@
     InvalidChar(String),
     Nom(ErrorKind),
     InterningError(String),
+    Custom(String),
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; fmt::Display <span class="kw">for </span>ParseErrorKind&lt;F&gt; {
@@ -214,6 +219,9 @@
             }
             <span class="self">Self</span>::ParseIntErr(e) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"Error parsing number: {e}"</span>)
+            }
+            <span class="self">Self</span>::Custom(e) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"Error: {e}"</span>)
             }
             e =&gt; <span class="macro">write!</span>(f, <span class="string">"internal parser error {e:?}"</span>),
         }
