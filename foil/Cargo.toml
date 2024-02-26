@@ -12,7 +12,7 @@ anyhow = { workspace = true }
 bellpepper = { workspace = true }
 bellpepper-core = { workspace = true }
 ff = { workspace = true }
-indexmap = { version = "1.9.3", features = ["rayon"] }
+indexmap = { version = "2.2.3", features = ["rayon"] }
 generic-array = "0.14.7"
 lurk = { path = "../" }
 lurk-macros = { path = "../lurk-macros" }
