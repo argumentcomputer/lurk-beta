@@ -22,7 +22,7 @@ where
     fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self>;
     fn to_ptr(&self, s: &Store<F>) -> Ptr;
     fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ;
-    fn dummy_from_index(s: &Store<F>, index: usize) -> Self;
+    fn dummy_from_index(c: &Self::C, s: &Store<F>, index: usize) -> Self;
 
     fn symbol(&self) -> Symbol;
     fn symbol_ptr(&self, s: &Store<F>) -> Ptr {

@@ -1224,7 +1224,8 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
             assert_eq!(index, query.index(content));
             query.to_circuit(ns!(cs, "circuit_query"), s)
         } else {
-            Q::CQ::dummy_from_index(ns!(cs, "circuit_query"), s, index)
+            let query = Q::dummy_from_index(content, s, index);
+            query.to_circuit(ns!(cs, "circuit_query"), s)
         };
 
         let allocated_key = circuit_query.synthesize_query(ns!(cs, "allocated_key"), g, s)?;

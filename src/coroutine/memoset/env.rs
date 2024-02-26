@@ -95,7 +95,7 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         }
     }
 
-    fn dummy_from_index(s: &Store<F>, index: usize) -> Self {
+    fn dummy_from_index(_: &Self::C, s: &Store<F>, index: usize) -> Self {
         match index {
             0 => Self::Lookup(s.num(0.into()), s.num(0.into())),
             _ => unreachable!(),
@@ -211,7 +211,7 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
     }
 
     fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self {
-        EnvQuery::dummy_from_index(s, index).to_circuit(cs, s)
+        EnvQuery::dummy_from_index(&(), s, index).to_circuit(cs, s)
     }
 
     fn symbol(&self) -> Symbol {
