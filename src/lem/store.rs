@@ -53,7 +53,7 @@ pub struct Store<F: LurkField> {
     ptr_string_cache: FrozenMap<Ptr, String>,
     ptr_symbol_cache: FrozenMap<Ptr, Box<Symbol>>,
 
-    comms: FrozenMap<FWrap<F>, Box<(F, Ptr)>>, // hash -> (secret, src)
+    pub comms: FrozenMap<FWrap<F>, Box<(F, Ptr)>>, // hash -> (secret, src)
 
     pub poseidon_cache: PoseidonCache<F>,
     pub inverse_poseidon_cache: InversePoseidonCache<F>,

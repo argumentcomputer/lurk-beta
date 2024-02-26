@@ -2,11 +2,11 @@ mod backend;
 mod circom;
 mod commitment;
 mod config;
-mod field_data;
+pub mod field_data;
 mod lurk_proof;
 pub mod paths;
-mod repl;
-mod zstore;
+pub mod repl;
+pub mod zstore;
 
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
