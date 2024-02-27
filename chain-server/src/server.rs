@@ -49,7 +49,7 @@ use chain_prover::{
     ChainRequest, ChainResponse, ConfigRequest, ConfigResponse,
 };
 
-use chain_server::ChainData;
+use chain_server::{ChainRequestData, ChainResponseData};
 
 struct ChainProverInner<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
     callable: Arc<Mutex<Ptr>>,
@@ -90,20 +90,24 @@ where
         &self,
         request: Request<ChainRequest>,
     ) -> Result<Response<ChainResponse>, Status> {
-        // deserialize and intern the argument
-        let ChainRequest { arg } = request.into_inner();
-        let LurkData { z_ptr, z_dag } =
-            de(&arg).map_err(|e| Status::invalid_argument(e.to_string()))?;
-        let arg = z_dag
-            .populate_store_simple(&z_ptr, &self.store)
+        // deserialize and intern the provided callable state and argument
+        let ChainRequest { chain_request_data } = request.into_inner();
+        let (callable, argument) = de::<ChainRequestData<F>>(&chain_request_data)
+            .and_then(|d| d.interned(&self.store))
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
 
-        // retrieve callable state and assemble call expression
-        let mut callable = self
+        // retrieve callable state
+        let mut callable_state = self
             .callable
             .lock()
             .map_err(|e| Status::aborted(e.to_string()))?;
-        let call_expr = self.store.list([*callable, arg]);
+
+        if !self.store.ptr_eq(&callable, &callable_state) {
+            return Err(Status::invalid_argument("Invalid callable state provided"));
+        }
+
+        // assemble call expression
+        let call_expr = self.store.list([*callable_state, argument]);
 
         // evaluate to produce the frames
         let frames = evaluate(
@@ -127,7 +131,7 @@ where
         match cont_out.tag() {
             Tag::Cont(ContTag::Terminal) => {
                 // car_cdr the result to retrieve the chain result and the next callable
-                let (result, next_callable_saved) = self.store.car_cdr(expr_out).map_err(|_e| {
+                let (result, next_callable) = self.store.car_cdr(expr_out).map_err(|_e| {
                     Status::failed_precondition("Call didn't result on a cons-like expression")
                 })?;
 
@@ -153,22 +157,26 @@ where
                 let proof = proof
                     .compress(pp)
                     .map_err(|e| Status::internal(e.to_string()))?;
-                let proof = ser(proof).map_err(|e| Status::internal(e.to_string()))?;
+                let proof = proof
+                    .get_compressed()
+                    .ok_or(Status::internal("Failed to retrieve the compressed SNARK"))?;
 
-                // produce the chain data for the response
-                let chain_data = ser(ChainData::new(
-                    &callable,
+                // produce the data for the response
+                let chain_response_data = ser(ChainResponseData::new(
                     &result,
-                    &next_callable_saved,
+                    &next_callable,
                     &self.store,
+                    proof,
                 ))
                 .map_err(|e| Status::internal(e.to_string()))?;
 
                 // now it's safe to set the new callable state since no error
                 // has occurred so far
-                *callable = next_callable_saved;
+                *callable_state = next_callable;
 
-                Ok(Response::new(ChainResponse { chain_data, proof }))
+                Ok(Response::new(ChainResponse {
+                    chain_response_data,
+                }))
             }
             Tag::Cont(ContTag::Error) => Err(Status::invalid_argument("Evaluation error")),
             Tag::Cont(_) => Err(Status::resource_exhausted("Unfinished evaluation")),
@@ -179,7 +187,13 @@ where
     async fn config(&self, _: Request<ConfigRequest>) -> Result<Response<ConfigResponse>, Status> {
         let rc = usize::try_into(self.prover.reduction_count())
             .map_err(|_e| Status::failed_precondition("Failed to convert rc to u32"))?;
-        Ok(Response::new(ConfigResponse { rc }))
+        let callable = self
+            .callable
+            .lock()
+            .map_err(|e| Status::aborted(e.to_string()))?;
+        let callable = ser(LurkData::new(&callable, &self.store))
+            .map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(ConfigResponse { rc, callable }))
     }
 }
 

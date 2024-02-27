@@ -3,21 +3,22 @@ syntax = "proto3";
 package chain_prover;
 
 service ChainProver {
-    rpc Chain (ChainRequest) returns (ChainResponse);
     rpc Config (ConfigRequest) returns (ConfigResponse);
-}
-
-message ChainRequest {
-  bytes arg = 1;
-}
-
-message ChainResponse {
-  bytes chain_data = 1;
-  bytes proof = 2;
+    rpc Chain (ChainRequest) returns (ChainResponse);
 }
 
 message ConfigRequest {}
 
 message ConfigResponse {
-  uint32 rc = 1;
+  uint64 rc = 1;
+  bytes callable = 2;
 }
+
+message ChainRequest {
+  bytes chain_request_data = 1;
+}
+
+message ChainResponse {
+  bytes chain_response_data = 1;
+}
+

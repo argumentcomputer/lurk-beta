@@ -24,6 +24,7 @@ clap = "4.3.17"
 ff = "0.13"
 lurk = { path = "../" }
 halo2curves = { version = "0.6.0", features = ["bits", "derive_serde"] }
+nova = { git = "https://github.com/lurk-lab/arecibo", branch = "dev", package = "arecibo", features = ["abomonate"]}
 once_cell = "1.18.0"
 prost = "0.12"
 serde = "1.0"

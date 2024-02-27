@@ -146,6 +146,18 @@ pub enum Proof<F: CurveCycleEquipped, S> {
     Compressed(Box<CompressedSNARK<E1<F>, SS1<F>, SS2<F>>>, PhantomData<S>),
 }
 
+impl<F: CurveCycleEquipped, S> Proof<F, S> {
+    /// todo
+    #[inline]
+    pub fn get_compressed(self) -> Option<CompressedSNARK<E1<F>, SS1<F>, SS2<F>>> {
+        if let Self::Compressed(proof, _) = self {
+            Some(*proof)
+        } else {
+            None
+        }
+    }
+}
+
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
 pub struct SuperNovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {

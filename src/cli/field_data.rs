@@ -96,6 +96,10 @@ impl<F: LurkField> LurkData<F> {
         let z_ptr = z_dag.populate_with_simple(ptr, store);
         Self { z_ptr, z_dag }
     }
+
+    pub fn interned(&self, store: &Store<F>) -> Result<Ptr> {
+        self.z_dag.populate_store_simple(&self.z_ptr, store)
+    }
 }
 
 impl<F: LurkField> HasFieldModulus for LurkData<F> {
