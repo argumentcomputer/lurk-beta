@@ -13,7 +13,7 @@ use indexmap::IndexMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::eval::call;
+use super::eval::{call, synthesize_query};
 
 #[derive(Clone)]
 pub struct Coroutine<F> {
@@ -142,17 +142,17 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
-    #[allow(unused_variables)]
+    type C = Arc<Toplevel<F>>;
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::C>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
-        todo!()
+        synthesize_query(self, cs, g, store, scope, acc, allocated_key)
     }
 
     fn symbol(&self) -> Symbol {

@@ -416,13 +416,14 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 }
 
 #[derive(Debug, Clone)]
-pub struct CircuitScope<F: LurkField, CM> {
+pub struct CircuitScope<F: LurkField, CM, C> {
     memoset: CM, // CircuitMemoSet
     /// k -> prov
     provenances: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     /// k -> allocated v
     transcript: CircuitTranscript<F>,
     acc: Option<AllocatedPtr<F>>,
+    pub(crate) content: C,
 }
 
 #[derive(Clone)]
@@ -505,8 +506,14 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
             multiset: self.memoset.multiset.clone(),
             r: r.hash().clone(),
         };
-        let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>> =
-            CircuitScope::new(cs, g, &self.store, memoset, &self.provenances);
+        let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>, Q::C> = CircuitScope::new(
+            cs,
+            g,
+            &self.store,
+            memoset,
+            &self.provenances,
+            self.content.clone(),
+        );
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
         for (i, key) in self
@@ -523,7 +530,6 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
                 &self.store,
                 key,
                 self.query_index,
-                &self.content,
             )?;
         }
 
@@ -832,6 +838,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             s,
             memoset_circuit.clone(),
             self.provenances(),
+            self.content.clone(),
         );
 
         circuit_scope.init(cs, g, s);
@@ -903,19 +910,21 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     }
 }
 
-impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
+impl<F: LurkField, C> CircuitScope<F, LogMemoCircuit<F>, C> {
     fn new<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         s: &Store<F>,
         memoset: LogMemoCircuit<F>,
         provenances: &HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
+        content: C,
     ) -> Self {
         Self {
             memoset,
             provenances: provenances.clone(), // FIXME
             transcript: CircuitTranscript::new(cs, g, s),
             acc: Default::default(),
+            content,
         }
     }
 
@@ -1205,14 +1214,13 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         Ok(val)
     }
 
-    fn synthesize_prove_key_query<CS: ConstraintSystem<F>, Q: Query<F>>(
+    fn synthesize_prove_key_query<CS: ConstraintSystem<F>, Q: Query<F, C = C>>(
         &mut self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         s: &Store<F>,
         key: Option<&Ptr>,
         index: usize,
-        content: &Q::C,
     ) -> Result<(), SynthesisError> {
         let not_dummy = Boolean::Is(AllocatedBit::alloc(
             cs.namespace(|| "not_dummy"),
@@ -1221,10 +1229,10 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
 
         let circuit_query = if let Some(key) = key {
             let query = Q::from_ptr(s, key).unwrap();
-            assert_eq!(index, query.index(content));
+            assert_eq!(index, query.index(&self.content));
             query.to_circuit(ns!(cs, "circuit_query"), s)
         } else {
-            let query = Q::dummy_from_index(content, s, index);
+            let query = Q::dummy_from_index(&self.content, s, index);
             query.to_circuit(ns!(cs, "circuit_query"), s)
         };
 
@@ -1241,7 +1249,7 @@ impl<F: LurkField> CircuitScope<F, LogMemoCircuit<F>> {
         Ok(())
     }
 
-    fn synthesize_prove_query<CS: ConstraintSystem<F>, CQ: CircuitQuery<F>>(
+    fn synthesize_prove_query<CS: ConstraintSystem<F>, CQ: CircuitQuery<F, C = C>>(
         &mut self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,

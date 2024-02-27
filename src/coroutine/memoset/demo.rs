@@ -132,6 +132,7 @@ impl<F: LurkField> RecursiveQuery<F> for DemoCircuitQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
+    type C = ();
     fn synthesize_args<CS: ConstraintSystem<F>>(
         &self,
         _cs: &mut CS,
@@ -148,7 +149,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::C>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {

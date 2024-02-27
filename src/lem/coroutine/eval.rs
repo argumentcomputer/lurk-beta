@@ -1,10 +1,14 @@
-use super::toplevel::ToplevelQuery;
+use std::sync::Arc;
 
-use crate::coroutine::memoset::{LogMemo, Query, Scope};
+use super::toplevel::{Toplevel, ToplevelCircuitQuery, ToplevelQuery};
+
+use crate::circuit::gadgets::pointer::AllocatedPtr;
+use crate::coroutine::memoset::{CircuitScope, LogMemo, LogMemoCircuit, Query, Scope};
 use crate::field::LurkField;
+use crate::lem::circuit::GlobalAllocator;
 use crate::lem::pointers::{Ptr, RawPtr};
 use crate::lem::slot::Val;
-use crate::lem::store::{fetch_ptrs, intern_ptrs};
+use crate::lem::store::{fetch_ptrs, intern_ptrs, Store};
 use crate::lem::tag::Tag;
 use crate::lem::var_map::VarMap;
 use crate::lem::{Block, Ctrl, Func, Op};
@@ -12,6 +16,7 @@ use crate::num::Num as BaseNum;
 use crate::tag::ExprTag::{Comm, Num, Sym};
 
 use anyhow::{bail, Context, Result};
+use bellpepper_core::{ConstraintSystem, SynthesisError};
 
 pub(crate) fn call<F: LurkField>(
     query: &ToplevelQuery<F>,
@@ -359,4 +364,21 @@ fn run<F: LurkField>(
             Ok(output)
         }
     }
+}
+
+#[allow(unused_variables)]
+pub(crate) fn synthesize_query<F: LurkField, CS: ConstraintSystem<F>>(
+    query: &ToplevelCircuitQuery<F>,
+    cs: &mut CS,
+    g: &GlobalAllocator<F>,
+    store: &Store<F>,
+    scope: &mut CircuitScope<F, LogMemoCircuit<F>, Arc<Toplevel<F>>>,
+    acc: &AllocatedPtr<F>,
+    allocated_key: &AllocatedPtr<F>,
+) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
+    let name = &query.name;
+    let args = &query.args;
+    let toplevel = scope.content.clone();
+    let coroutine = toplevel.get(name).unwrap();
+    todo!()
 }
