@@ -637,6 +637,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         }
 
         match op {
+            Op::Crout(..) => unimplemented!(),
             Op::Cproc(out, sym, inp) => {
                 let cproc = ctx
                     .lang
@@ -1509,6 +1510,7 @@ impl Func {
             let mut num_constraints = 0;
             for op in &block.ops {
                 match op {
+                    Op::Crout(..) => unimplemented!(),
                     Op::Call(_, func, _) => {
                         num_constraints += recurse(&func.body, globals, store, is_nested, false);
                     }

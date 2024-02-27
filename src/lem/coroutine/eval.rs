@@ -1,6 +1,6 @@
-use super::toplevel::{to_improper_list, ToplevelQuery};
+use super::toplevel::ToplevelQuery;
 
-use crate::coroutine::memoset::{LogMemo, Scope};
+use crate::coroutine::memoset::{LogMemo, Query, Scope};
 use crate::field::LurkField;
 use crate::lem::pointers::{Ptr, RawPtr};
 use crate::lem::slot::Val;
@@ -13,19 +13,8 @@ use crate::tag::ExprTag::{Comm, Num, Sym};
 
 use anyhow::{bail, Context, Result};
 
-pub(crate) fn eval<F: LurkField>(
+pub(crate) fn call<F: LurkField>(
     query: &ToplevelQuery<F>,
-    scope: &mut Scope<ToplevelQuery<F>, LogMemo<F>, F>,
-) -> Ptr {
-    let name = &query.name;
-    let args = &query.args;
-    let toplevel = scope.content.clone();
-    let coroutine = toplevel.get(name).unwrap();
-    let outputs = call(&coroutine.func, args, scope).unwrap();
-    to_improper_list(&outputs, scope.store.as_ref())
-}
-
-fn call<F: LurkField>(
     func: &Func,
     args: &[Ptr],
     scope: &mut Scope<ToplevelQuery<F>, LogMemo<F>, F>,
@@ -34,20 +23,27 @@ fn call<F: LurkField>(
     for (i, param) in func.input_params.iter().enumerate() {
         bindings.insert_ptr(param.clone(), args[i]);
     }
-    run(&func.body, scope, bindings)
+    run(query, &func.body, scope, bindings)
 }
 
 fn run<F: LurkField>(
+    query: &ToplevelQuery<F>,
     body: &Block,
     scope: &mut Scope<ToplevelQuery<F>, LogMemo<F>, F>,
     mut bindings: VarMap<Val>,
 ) -> Result<Vec<Ptr>> {
     for op in &body.ops {
         match op {
+            Op::Crout(out, name, inp) => {
+                let args = bindings.get_many_ptr(inp)?;
+                let sub_query = ToplevelQuery::new(name.clone(), args, &scope.content)?;
+                let out_ptr = query.recursive_eval(scope, sub_query);
+                bindings.insert_ptr(out.clone(), out_ptr);
+            }
             Op::Cproc(..) => unimplemented!(),
             Op::Call(out, func, inp) => {
                 let inp_ptrs = bindings.get_many_ptr(inp)?;
-                let output = call(func, &inp_ptrs, scope)?;
+                let output = call(query, func, &inp_ptrs, scope)?;
                 for (var, ptr) in out.iter().zip(output.into_iter()) {
                     bindings.insert_ptr(var.clone(), ptr);
                 }
@@ -322,12 +318,12 @@ fn run<F: LurkField>(
             let ptr = bindings.get_ptr(match_var)?;
             let tag = ptr.tag();
             if let Some(block) = cases.get(tag) {
-                run(block, scope, bindings)
+                run(query, block, scope, bindings)
             } else {
                 let Some(def) = def else {
                     bail!("No match for tag {}", tag)
                 };
-                run(def, scope, bindings)
+                run(query, def, scope, bindings)
             }
         }
         Ctrl::MatchSymbol(match_var, cases, def) => {
@@ -339,20 +335,20 @@ fn run<F: LurkField>(
                 bail!("Symbol bound to {match_var} wasn't interned");
             };
             if let Some(block) = cases.get(&sym) {
-                run(block, scope, bindings)
+                run(query, block, scope, bindings)
             } else {
                 let Some(def) = def else {
                     bail!("No match for symbol {sym}")
                 };
-                run(def, scope, bindings)
+                run(query, def, scope, bindings)
             }
         }
         Ctrl::If(b, true_block, false_block) => {
             let b = bindings.get_bool(b)?;
             if b {
-                run(true_block, scope, bindings)
+                run(query, true_block, scope, bindings)
             } else {
-                run(false_block, scope, bindings)
+                run(query, false_block, scope, bindings)
             }
         }
         Ctrl::Return(output_vars) => {

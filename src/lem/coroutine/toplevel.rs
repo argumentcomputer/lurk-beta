@@ -13,7 +13,7 @@ use indexmap::IndexMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::eval::eval;
+use super::eval::call;
 
 #[derive(Clone)]
 pub struct Coroutine<F> {
@@ -81,7 +81,12 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
     type CQ = ToplevelCircuitQuery<F>;
     type C = Arc<Toplevel<F>>;
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
-        eval(self, scope)
+        let name = &self.name;
+        let args = &self.args;
+        let toplevel = scope.content.clone();
+        let coroutine = toplevel.get(name).unwrap();
+        let outputs = call(self, &coroutine.func, args, scope).unwrap();
+        to_improper_list(&outputs, scope.store.as_ref())
     }
     fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ {
         let name = self.name.clone();

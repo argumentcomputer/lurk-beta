@@ -210,6 +210,8 @@ pub enum Ctrl {
 /// The atomic operations of LEMs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
+    /// `Crout(y, c, xs)` binds `y` to the results of coroutine `c` applied to `xs`
+    Crout(Var, Symbol, Vec<Var>),
     /// `Cproc(ys, c, xs)` binds `ys` to the results of coprocessor `c` applied to `xs`
     Cproc(Vec<Var>, Symbol, Vec<Var>),
     /// `Call(ys, f, xs)` binds `ys` to the results of `f` applied to `xs`
@@ -351,6 +353,10 @@ impl Func {
         fn recurse(block: &Block, return_size: usize, map: &mut HashMap<Var, bool>) -> Result<()> {
             for op in &block.ops {
                 match op {
+                    Op::Crout(out, _, inp) => {
+                        inp.iter().try_for_each(|arg| is_bound(arg, map))?;
+                        is_unique(out, map);
+                    }
                     Op::Cproc(out, _, inp) => {
                         inp.iter().try_for_each(|arg| is_bound(arg, map))?;
                         out.iter().for_each(|var| is_unique(var, map));
@@ -609,6 +615,11 @@ impl Block {
         let mut ops = Vec::with_capacity(self.ops.len());
         for op in self.ops {
             match op {
+                Op::Crout(out, sym, inp) => {
+                    let inp = map.get_many_cloned(&inp)?;
+                    let out = insert_one(map, uniq, &out);
+                    ops.push(Op::Crout(out, sym, inp))
+                }
                 Op::Cproc(out, sym, inp) => {
                     let inp = map.get_many_cloned(&inp)?;
                     let out = insert_many(map, uniq, &out);

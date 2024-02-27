@@ -143,6 +143,7 @@ impl Block {
     ) -> Result<Frame> {
         for op in &self.ops {
             match op {
+                Op::Crout(..) => unimplemented!(),
                 Op::Cproc(out, sym, inp) => {
                     let inp_ptrs = bindings.get_many_ptr(inp)?;
                     let cproc = lang
