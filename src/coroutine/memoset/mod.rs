@@ -1161,7 +1161,7 @@ impl<F: LurkField, C> CircuitScope<F, LogMemoCircuit<F>, C> {
 
     fn synthesize_insert_toplevel_queries<CS: ConstraintSystem<F>, Q: Query<F>>(
         &mut self,
-        scope: &mut Scope<Q, LogMemo<F>, F>,
+        scope: &Scope<Q, LogMemo<F>, F>,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
     ) -> Result<(), SynthesisError> {

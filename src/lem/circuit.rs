@@ -160,32 +160,51 @@ impl<F: LurkField> GlobalAllocator<F> {
     }
 }
 
-pub(crate) type BoundAllocations<F> = VarMap<AllocatedVal<F>>;
+pub struct BoundAllocations<F: LurkField>(VarMap<AllocatedVal<F>>);
+
+impl<F: LurkField> Default for BoundAllocations<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<F: LurkField> BoundAllocations<F> {
-    fn get_many_ptr(&self, args: &[Var]) -> Result<Vec<AllocatedPtr<F>>> {
+    pub fn new() -> Self {
+        BoundAllocations(VarMap::new())
+    }
+
+    pub fn insert(&mut self, var: Var, v: AllocatedVal<F>) -> Option<AllocatedVal<F>> {
+        self.0.insert(var, v)
+    }
+
+    /// Retrieves data from a `VarMap`. Errors if there's no data for the `Var`
+    pub fn get(&self, var: &Var) -> Result<&AllocatedVal<F>> {
+        self.0.get(var)
+    }
+
+    pub fn get_many_ptr(&self, args: &[Var]) -> Result<Vec<AllocatedPtr<F>>> {
         args.iter().map(|arg| self.get_ptr(arg).cloned()).collect()
     }
 
-    fn get_ptr(&self, var: &Var) -> Result<&AllocatedPtr<F>> {
+    pub fn get_ptr(&self, var: &Var) -> Result<&AllocatedPtr<F>> {
         if let AllocatedVal::Pointer(ptr) = self.get(var)? {
             return Ok(ptr);
         }
         bail!("Expected {var} to be a pointer")
     }
 
-    fn insert_ptr(&mut self, var: Var, ptr: AllocatedPtr<F>) -> Option<AllocatedVal<F>> {
+    pub fn insert_ptr(&mut self, var: Var, ptr: AllocatedPtr<F>) -> Option<AllocatedVal<F>> {
         self.insert(var, AllocatedVal::Pointer(ptr))
     }
 
-    fn get_bool(&self, var: &Var) -> Result<&Boolean> {
+    pub fn get_bool(&self, var: &Var) -> Result<&Boolean> {
         if let AllocatedVal::Boolean(b) = self.get(var)? {
             return Ok(b);
         }
         bail!("Expected {var} to be a boolean")
     }
 
-    fn insert_bool(&mut self, var: Var, b: Boolean) -> Option<AllocatedVal<F>> {
+    pub fn insert_bool(&mut self, var: Var, b: Boolean) -> Option<AllocatedVal<F>> {
         self.insert(var, AllocatedVal::Boolean(b))
     }
 }
@@ -827,7 +846,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 bound_allocations.insert_ptr(preimg[2].clone(), env_ptr);
             }
             Op::Copy(tgt, src) => {
-                bound_allocations.insert(tgt.clone(), bound_allocations.get_cloned(src)?);
+                bound_allocations.insert(tgt.clone(), bound_allocations.get(src).cloned()?);
             }
             Op::Zero(tgt, tag) => {
                 bound_allocations.insert_ptr(
@@ -1175,7 +1194,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     let mut synthesize_match = |matched: &AllocatedNum<F>,
                                 cases: &[(F, &Block)],
                                 def: &Option<Box<Block>>,
-                                bound_allocations: &mut VarMap<AllocatedVal<F>>,
+                                bound_allocations: &mut BoundAllocations<F>,
                                 ctx: &mut RecursiveContext<'_, F, C>|
      -> Result<Vec<SlotsCounter>> {
         // * One `Boolean` for each case

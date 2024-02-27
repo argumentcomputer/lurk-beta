@@ -5,7 +5,7 @@ use super::toplevel::{Toplevel, ToplevelCircuitQuery, ToplevelQuery};
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::coroutine::memoset::{CircuitScope, LogMemo, LogMemoCircuit, Query, Scope};
 use crate::field::LurkField;
-use crate::lem::circuit::GlobalAllocator;
+use crate::lem::circuit::{BoundAllocations, GlobalAllocator};
 use crate::lem::pointers::{Ptr, RawPtr};
 use crate::lem::slot::Val;
 use crate::lem::store::{fetch_ptrs, intern_ptrs, Store};
@@ -366,10 +366,9 @@ fn run<F: LurkField>(
     }
 }
 
-#[allow(unused_variables)]
 pub(crate) fn synthesize_query<F: LurkField, CS: ConstraintSystem<F>>(
-    query: &ToplevelCircuitQuery<F>,
     cs: &mut CS,
+    query: &ToplevelCircuitQuery<F>,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
     scope: &mut CircuitScope<F, LogMemoCircuit<F>, Arc<Toplevel<F>>>,
@@ -377,8 +376,39 @@ pub(crate) fn synthesize_query<F: LurkField, CS: ConstraintSystem<F>>(
     allocated_key: &AllocatedPtr<F>,
 ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
     let name = &query.name;
-    let args = &query.args;
     let toplevel = scope.content.clone();
     let coroutine = toplevel.get(name).unwrap();
+
+    let params = coroutine.func.input_params.iter().cloned();
+    let args = query.args.iter().cloned();
+    let bound_allocations = &mut BoundAllocations::new();
+    for (param, arg) in params.zip(args) {
+        bound_allocations.insert_ptr(param, arg).unwrap();
+    }
+    let body = &coroutine.func.body;
+    synthesize_run(
+        cs,
+        query,
+        body,
+        g,
+        store,
+        scope,
+        bound_allocations,
+        acc,
+        allocated_key,
+    )
+}
+
+fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    query: &ToplevelCircuitQuery<F>,
+    body: &Block,
+    g: &GlobalAllocator<F>,
+    store: &Store<F>,
+    scope: &mut CircuitScope<F, LogMemoCircuit<F>, Arc<Toplevel<F>>>,
+    bound_allocations: &mut BoundAllocations<F>,
+    acc: &AllocatedPtr<F>,
+    allocated_key: &AllocatedPtr<F>,
+) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
     todo!()
 }

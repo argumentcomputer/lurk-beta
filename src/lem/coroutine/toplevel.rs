@@ -152,7 +152,7 @@ impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
-        synthesize_query(self, cs, g, store, scope, acc, allocated_key)
+        synthesize_query(cs, self, g, store, scope, acc, allocated_key)
     }
 
     fn symbol(&self) -> Symbol {
