@@ -88,7 +88,7 @@ where
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
         let query = allocated_key.clone();
-        let p = AllocatedProvenance::new(query, result, dependency_provenances.clone());
+        let p = AllocatedProvenance::new(query, result, dependency_provenances);
 
         Ok(p.to_ptr(cs, g, store)?.clone())
     }

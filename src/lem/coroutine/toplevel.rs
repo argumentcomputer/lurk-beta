@@ -4,16 +4,18 @@ use crate::coroutine::memoset::{
     CircuitQuery, CircuitScope, LogMemo, LogMemoCircuit, Query, Scope,
 };
 use crate::field::LurkField;
+use crate::lem::circuit::BoundAllocations;
 use crate::lem::{circuit::GlobalAllocator, pointers::Ptr, store::Store, Func};
 use crate::symbol::Symbol;
 
 use anyhow::{bail, Context, Result};
+use bellpepper_core::boolean::Boolean;
 use bellpepper_core::{ConstraintSystem, SynthesisError};
 use indexmap::IndexMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::eval::{call, synthesize_query};
+use super::eval::{call, synthesize_run};
 
 #[derive(Clone)]
 pub struct Coroutine<F> {
@@ -73,6 +75,23 @@ impl<F> ToplevelQuery<F> {
         }
         let _p = PhantomData;
         let query = ToplevelQuery { name, args, _p };
+        Ok(query)
+    }
+}
+
+impl<F: LurkField> ToplevelCircuitQuery<F> {
+    pub fn new(name: Symbol, args: Vec<AllocatedPtr<F>>, toplevel: &Toplevel<F>) -> Result<Self> {
+        let msg = || format!("`{name}` not found in the toplevel");
+        let coroutine = toplevel.0.get(&name).with_context(msg)?;
+        let input_size = coroutine.func.input_params.len();
+        if args.len() != input_size {
+            bail!(
+                "Wrong number of arguments. Expected {}, found {}",
+                args.len(),
+                input_size
+            )
+        }
+        let query = ToplevelCircuitQuery { name, args };
         Ok(query)
     }
 }
@@ -152,7 +171,43 @@ impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
-        synthesize_query(cs, self, g, store, scope, acc, allocated_key)
+        let name = &self.name;
+        let toplevel = scope.content.clone();
+        let coroutine = toplevel.get(name).unwrap();
+
+        let params = coroutine.func.input_params.iter().cloned();
+        let args = self.args.iter().cloned();
+        let bound_allocations = &mut BoundAllocations::new();
+        for (param, arg) in params.zip(args) {
+            bound_allocations.insert_ptr(param, arg).unwrap();
+        }
+        let body = &coroutine.func.body;
+        let mut next_acc = acc.clone();
+        let mut sub_provenances = vec![];
+        // TODO in the case of blank circuits, this should be `false`
+        let not_dummy = &Boolean::Constant(true);
+        let res = synthesize_run(
+            cs,
+            not_dummy,
+            body,
+            g,
+            store,
+            scope,
+            bound_allocations,
+            &mut next_acc,
+            &mut sub_provenances,
+        )
+        .unwrap();
+        let value = to_allocated_improper_list(cs, &res, g, store)?;
+        let provenance = self.synthesize_provenance(
+            ns!(cs, "provenance"),
+            g,
+            store,
+            value.clone(),
+            sub_provenances,
+            allocated_key,
+        )?;
+        Ok(((value, provenance), next_acc))
     }
 
     fn symbol(&self) -> Symbol {
@@ -178,17 +233,27 @@ impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
         g: &GlobalAllocator<F>,
         store: &Store<F>,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        if self.args.is_empty() {
-            let nil = store.intern_nil();
-            let allocated_nil = g.alloc_ptr(cs, &nil, store);
-            return Ok(allocated_nil);
-        }
+        to_allocated_improper_list(cs, &self.args, g, store)
+    }
+}
+
+pub(crate) fn to_allocated_improper_list<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    args: &[AllocatedPtr<F>],
+    g: &GlobalAllocator<F>,
+    s: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    if args.is_empty() {
+        let nil = s.intern_nil();
+        let allocated_nil = g.alloc_ptr(cs, &nil, s);
+        Ok(allocated_nil)
+    } else {
         // Iterator from last to first. Enumerate indices used for namespaces
-        let mut iter = self.args.iter().rev();
+        let mut iter = args.iter().rev();
         let mut args = iter.next().unwrap().clone();
         for (i, arg) in iter.enumerate() {
             let cs = ns!(cs, format!("arg:{i}"));
-            args = construct_cons(cs, g, store, arg, &args)?;
+            args = construct_cons(cs, g, s, arg, &args)?;
         }
         Ok(args)
     }

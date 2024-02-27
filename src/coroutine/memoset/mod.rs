@@ -1086,7 +1086,7 @@ impl<F: LurkField, C> CircuitScope<F, LogMemoCircuit<F>, C> {
         ))
     }
 
-    fn synthesize_internal_query<CS: ConstraintSystem<F>>(
+    pub(crate) fn synthesize_internal_query<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,

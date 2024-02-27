@@ -1,9 +1,15 @@
+use anyhow::{bail, Context, Result};
+use bellpepper_core::boolean::Boolean;
+use bellpepper_core::ConstraintSystem;
 use std::sync::Arc;
 
 use super::toplevel::{Toplevel, ToplevelCircuitQuery, ToplevelQuery};
 
+use crate::circuit::gadgets::constraints::{alloc_equal, alloc_is_zero, div, mul, or, pick, sub};
 use crate::circuit::gadgets::pointer::AllocatedPtr;
-use crate::coroutine::memoset::{CircuitScope, LogMemo, LogMemoCircuit, Query, Scope};
+use crate::coroutine::memoset::{
+    CircuitQuery, CircuitScope, LogMemo, LogMemoCircuit, Query, Scope,
+};
 use crate::field::LurkField;
 use crate::lem::circuit::{BoundAllocations, GlobalAllocator};
 use crate::lem::pointers::{Ptr, RawPtr};
@@ -14,9 +20,6 @@ use crate::lem::var_map::VarMap;
 use crate::lem::{Block, Ctrl, Func, Op};
 use crate::num::Num as BaseNum;
 use crate::tag::ExprTag::{Comm, Num, Sym};
-
-use anyhow::{bail, Context, Result};
-use bellpepper_core::{ConstraintSystem, SynthesisError};
 
 pub(crate) fn call<F: LurkField>(
     query: &ToplevelQuery<F>,
@@ -366,49 +369,188 @@ fn run<F: LurkField>(
     }
 }
 
-pub(crate) fn synthesize_query<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    query: &ToplevelCircuitQuery<F>,
-    g: &GlobalAllocator<F>,
-    store: &Store<F>,
-    scope: &mut CircuitScope<F, LogMemoCircuit<F>, Arc<Toplevel<F>>>,
-    acc: &AllocatedPtr<F>,
-    allocated_key: &AllocatedPtr<F>,
-) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
-    let name = &query.name;
-    let toplevel = scope.content.clone();
-    let coroutine = toplevel.get(name).unwrap();
-
-    let params = coroutine.func.input_params.iter().cloned();
-    let args = query.args.iter().cloned();
-    let bound_allocations = &mut BoundAllocations::new();
-    for (param, arg) in params.zip(args) {
-        bound_allocations.insert_ptr(param, arg).unwrap();
-    }
-    let body = &coroutine.func.body;
-    synthesize_run(
-        cs,
-        query,
-        body,
-        g,
-        store,
-        scope,
-        bound_allocations,
-        acc,
-        allocated_key,
-    )
-}
-
-fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    query: &ToplevelCircuitQuery<F>,
-    body: &Block,
+    not_dummy: &Boolean,
+    block: &Block,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
     scope: &mut CircuitScope<F, LogMemoCircuit<F>, Arc<Toplevel<F>>>,
     bound_allocations: &mut BoundAllocations<F>,
-    acc: &AllocatedPtr<F>,
-    allocated_key: &AllocatedPtr<F>,
-) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
+    acc: &mut AllocatedPtr<F>,
+    sub_provenances: &mut Vec<AllocatedPtr<F>>,
+) -> Result<Vec<AllocatedPtr<F>>> {
+    for (op_idx, op) in block.ops.iter().enumerate() {
+        let mut cs = cs.namespace(|| format!("op:{op_idx}"));
+        match op {
+            Op::Crout(out, name, inp) => {
+                let args = bound_allocations.get_many_ptr(inp)?;
+                let sub_query = ToplevelCircuitQuery::new(name.clone(), args, &scope.content)?;
+                let alloc_query = sub_query.synthesize_query(&mut cs, g, store)?;
+                let ((sub_result, sub_provenance), next_acc) = scope
+                    .synthesize_internal_query(
+                        ns!(cs, "recursive query"),
+                        g,
+                        store,
+                        &alloc_query,
+                        acc,
+                        not_dummy,
+                    )
+                    .context("internal query failed")?;
+
+                *acc = AllocatedPtr::pick(ns!(cs, "pick acc"), not_dummy, acc, &next_acc)?;
+                let nil = g.alloc_ptr(ns!(cs, "nil"), &store.intern_nil(), store);
+                let sub_provenance = AllocatedPtr::pick(
+                    ns!(cs, "dependency provenance"),
+                    not_dummy,
+                    &nil,
+                    &sub_provenance,
+                )?;
+                sub_provenances.push(sub_provenance);
+                bound_allocations.insert_ptr(out.clone(), sub_result);
+            }
+            Op::Cproc(..) => unimplemented!(),
+            Op::Call(_out, _func, _inp) => todo!(),
+            Op::Cons2(_img, _tag, _preimg) => todo!(),
+            Op::Cons3(_img, _tag, _preimg) => todo!(),
+            Op::Cons4(_img, _tag, _preimg) => todo!(),
+            Op::Decons2(_preimg, _img) => todo!(),
+            Op::Decons3(_preimg, _img) => todo!(),
+            Op::Decons4(_preimg, _img) => todo!(),
+            Op::PushBinding(_img, _preimg) => todo!(),
+            Op::PopBinding(_preimg, _img) => todo!(),
+            Op::Copy(tgt, src) => {
+                bound_allocations.insert(tgt.clone(), bound_allocations.get(src).cloned()?);
+            }
+            Op::Zero(tgt, tag) => {
+                bound_allocations
+                    .insert_ptr(tgt.clone(), g.alloc_z_ptr_from_parts(&mut cs, tag, F::ZERO));
+            }
+            Op::Hash3Zeros(tgt, tag) => {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash3zeros()),
+                );
+            }
+            Op::Hash4Zeros(tgt, tag) => {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash4zeros()),
+                );
+            }
+            Op::Hash6Zeros(tgt, tag) => {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash6zeros()),
+                );
+            }
+            Op::Hash8Zeros(tgt, tag) => {
+                bound_allocations.insert_ptr(
+                    tgt.clone(),
+                    g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash8zeros()),
+                );
+            }
+            Op::Lit(tgt, lit) => {
+                let allocated_ptr = g.alloc_ptr(&mut cs, &lit.to_ptr(store), store);
+                bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
+            }
+            Op::Cast(tgt, tag, src) => {
+                let src = bound_allocations.get_ptr(src)?;
+                let tag = g.alloc_tag_cloned(&mut cs, tag);
+                let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
+                bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
+            }
+            Op::EqTag(tgt, a, b) => {
+                let a = bound_allocations.get_ptr(a)?;
+                let b = bound_allocations.get_ptr(b)?;
+                let a_num = a.tag();
+                let b_num = b.tag();
+                let eq = alloc_equal(cs.namespace(|| "equal_tag"), a_num, b_num)?;
+                bound_allocations.insert_bool(tgt.clone(), eq);
+            }
+            Op::EqVal(tgt, a, b) => {
+                let a = bound_allocations.get_ptr(a)?;
+                let b = bound_allocations.get_ptr(b)?;
+                let a_num = a.hash();
+                let b_num = b.hash();
+                let eq = alloc_equal(cs.namespace(|| "equal_val"), a_num, b_num)?;
+                bound_allocations.insert_bool(tgt.clone(), eq);
+            }
+            Op::Not(tgt, a) => {
+                let a = bound_allocations.get_bool(a)?;
+                bound_allocations.insert_bool(tgt.clone(), a.not());
+            }
+            Op::And(tgt, a, b) => {
+                let a = bound_allocations.get_bool(a)?;
+                let b = bound_allocations.get_bool(b)?;
+                let c = Boolean::and(ns!(cs, "and"), a, b)?;
+                bound_allocations.insert_bool(tgt.clone(), c);
+            }
+            Op::Or(tgt, a, b) => {
+                let a = bound_allocations.get_bool(a)?;
+                let b = bound_allocations.get_bool(b)?;
+                let c = or(cs.namespace(|| "or"), a, b)?;
+                bound_allocations.insert_bool(tgt.clone(), c);
+            }
+            Op::Add(tgt, a, b) => {
+                let a = bound_allocations.get_ptr(a)?;
+                let b = bound_allocations.get_ptr(b)?;
+                let a_num = a.hash();
+                let b_num = b.hash();
+                let c_num = a_num.add(cs.namespace(|| "add"), b_num)?;
+                let tag = g.alloc_tag_cloned(&mut cs, &Num);
+                let c = AllocatedPtr::from_parts(tag, c_num);
+                bound_allocations.insert_ptr(tgt.clone(), c);
+            }
+            Op::Sub(tgt, a, b) => {
+                let a = bound_allocations.get_ptr(a)?;
+                let b = bound_allocations.get_ptr(b)?;
+                let a_num = a.hash();
+                let b_num = b.hash();
+                let c_num = sub(cs.namespace(|| "sub"), a_num, b_num)?;
+                let tag = g.alloc_tag_cloned(&mut cs, &Num);
+                let c = AllocatedPtr::from_parts(tag, c_num);
+                bound_allocations.insert_ptr(tgt.clone(), c);
+            }
+            Op::Mul(tgt, a, b) => {
+                let a = bound_allocations.get_ptr(a)?;
+                let b = bound_allocations.get_ptr(b)?;
+                let a_num = a.hash();
+                let b_num = b.hash();
+                let c_num = mul(cs.namespace(|| "mul"), a_num, b_num)?;
+                let tag = g.alloc_tag_cloned(&mut cs, &Num);
+                let c = AllocatedPtr::from_parts(tag, c_num);
+                bound_allocations.insert_ptr(tgt.clone(), c);
+            }
+            Op::Div(tgt, a, b) => {
+                let a = bound_allocations.get_ptr(a)?;
+                let b = bound_allocations.get_ptr(b)?;
+                let a_num = a.hash();
+                let b_num = b.hash();
+
+                let b_is_zero = &alloc_is_zero(cs.namespace(|| "b_is_zero"), b_num)?;
+                let one = g.alloc_const(&mut cs, F::ONE);
+
+                let divisor = pick(
+                    cs.namespace(|| "maybe-dummy divisor"),
+                    b_is_zero,
+                    one,
+                    b_num,
+                )?;
+
+                let quotient = div(cs.namespace(|| "quotient"), a_num, &divisor)?;
+
+                let tag = g.alloc_tag_cloned(&mut cs, &Num);
+                let c = AllocatedPtr::from_parts(tag, quotient);
+                bound_allocations.insert_ptr(tgt.clone(), c);
+            }
+            Op::Lt(_tgt, _a, _b) => todo!(),
+            Op::Trunc(_tgt, _a, _n) => todo!(),
+            Op::DivRem64(_tgt, _a, _b) => todo!(),
+            Op::Emit(_) | Op::Unit(_) => (),
+            Op::Hide(_tgt, _sec, _pay) => todo!(),
+            Op::Open(_sec, _pay, _comm) => todo!(),
+        }
+    }
     todo!()
 }
