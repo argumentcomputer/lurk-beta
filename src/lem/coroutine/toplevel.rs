@@ -207,3 +207,68 @@ pub(crate) fn to_improper_list<F: LurkField>(args: &[Ptr], s: &Store<F>) -> Ptr 
         args
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{func, state::user_sym};
+
+    use super::*;
+    use halo2curves::bn256::Fr as F;
+
+    #[test]
+    fn lem_coroutine_eval_test() {
+        let s = Arc::new(Store::<F>::default());
+        let factorial = func!(factorial(n): 1 => {
+            let zero = Num(0);
+            let one = Num(1);
+            let n_is_zero = eq_val(n, zero);
+            if n_is_zero {
+                return (one)
+            }
+            let m = sub(n, one);
+            let p = QUERY(factorial, m);
+            let res = mul(n, p);
+            return (res)
+        });
+        let even = func!(even(n): 1 => {
+            let zero = Num(0);
+            let one = Num(1);
+            let n_is_zero = eq_val(n, zero);
+            if n_is_zero {
+                return (one)
+            }
+            let m = sub(n, one);
+            let res = QUERY(odd, m);
+            return (res)
+        });
+        let odd = func!(odd(n): 1 => {
+            let zero = Num(0);
+            let n_is_zero = eq_val(n, zero);
+            if n_is_zero {
+                return (zero)
+            }
+            let one = Num(1);
+            let m = sub(n, one);
+            let res = QUERY(even, m);
+            return (res)
+        });
+        let factorial_sym = user_sym("factorial");
+        let even_sym = user_sym("even");
+        let odd_sym = user_sym("odd");
+        let toplevel = Arc::new(Toplevel::<F>::new(vec![
+            (factorial_sym.clone(), factorial),
+            (even_sym.clone(), even),
+            (odd_sym.clone(), odd),
+        ]));
+        let query1 = ToplevelQuery::<F>::new(factorial_sym, vec![s.num_u64(5)], &toplevel).unwrap();
+        let query2 = ToplevelQuery::<F>::new(even_sym, vec![s.num_u64(5)], &toplevel).unwrap();
+        let query3 = ToplevelQuery::<F>::new(odd_sym, vec![s.num_u64(5)], &toplevel).unwrap();
+        let scope = &mut Scope::<ToplevelQuery<F>, LogMemo<F>, F>::new(1, s, toplevel);
+        let res1 = query1.eval(scope);
+        let res2 = query2.eval(scope);
+        let res3 = query3.eval(scope);
+        assert_eq!(res1, scope.store.num_u64(120));
+        assert_eq!(res2, scope.store.num_u64(0));
+        assert_eq!(res3, scope.store.num_u64(1));
+    }
+}

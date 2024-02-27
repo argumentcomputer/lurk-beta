@@ -210,6 +210,14 @@ macro_rules! op {
     ( let ($sec:ident, $src:ident) = open($hash:ident) ) => {
         $crate::lem::Op::Open($crate::var!($sec), $crate::var!($src), $crate::var!($hash))
     };
+    ( let $tgt:ident = QUERY($func:ident $(,$arg:ident)*) ) => {
+        {
+            let out = $crate::var!($tgt);
+            let func = $crate::state::user_sym(&stringify!($func));
+            let inp = vec!($($crate::var!($arg)),*);
+            $crate::lem::Op::Crout(out, func, inp)
+        }
+    };
     ( let ($($tgt:ident),*) = $func:ident($($arg:ident),*) ) => {
         {
             let out = vec!($($crate::var!($tgt)),*);
@@ -630,6 +638,16 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(unit($f))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = QUERY($func:ident $(,$arg:ident)*) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = QUERY($func $(,$arg)*))
             },
             $($tail)*
         )

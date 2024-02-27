@@ -337,7 +337,7 @@ const DEFAULT_RC_FOR_QUERY: usize = 1;
 
 impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     #[allow(dead_code)]
-    fn new(default_rc: usize, store: Arc<Store<F>>, content: Q::C) -> Self {
+    pub fn new(default_rc: usize, store: Arc<Store<F>>, content: Q::C) -> Self {
         Self {
             memoset: Default::default(),
             queries: Default::default(),
