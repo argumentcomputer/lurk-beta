@@ -34,9 +34,17 @@ jobs:
         run: |
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
-  # Wasm build, rustfmt, clippy, doctests, and MSRV
+  # Rustfmt, clippy, doctests
   code-quality:
     uses: lurk-lab/ci-workflows/.github/workflows/lints.yml@main
+
+  # Checks `cargo build --target wasm32-unknown-unknown`
+  wasm:
+    uses: lurk-lab/ci-workflows/.github/workflows/wasm.yml@main
+
+  # Checks MSRV specified by `rust-version` in `Cargo.toml`
+  msrv:
+    uses: lurk-lab/ci-workflows/.github/workflows/msrv.yml@main
 
   # Check documentation links aren't broken
   link-checker:
