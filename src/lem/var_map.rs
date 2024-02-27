@@ -35,7 +35,7 @@ impl<V> VarMap<V> {
             }
             Entry::Occupied(mut o) => {
                 let v = o.insert(v);
-                info!("Variable {} has been overwritten", o.key());
+                // info!("Variable {} has been overwritten", o.key());
                 Some(v)
             }
         }

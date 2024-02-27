@@ -139,6 +139,7 @@ where
         info!("generating public params");
 
         let pp = SuperNovaPublicParams::<F>::from_parts_unchecked(circuit_params_vec, aux_params);
+        pp.digest();
 
         supernova::PublicParams {
             pp,
@@ -160,6 +161,7 @@ where
         }
 
         let pp = SuperNovaPublicParams::<F>::from_parts_unchecked(circuit_params_vec, aux_params);
+        pp.digest();
 
         supernova::PublicParams {
             pp,
