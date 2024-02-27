@@ -37,6 +37,8 @@ jobs:
   # Rustfmt, clippy, doctests
   code-quality:
     uses: lurk-lab/ci-workflows/.github/workflows/lints.yml@main
+    with:
+      packages: 'protobuf-compiler libprotobuf-dev'
 
   # Checks `cargo build --target wasm32-unknown-unknown`
   wasm:
@@ -45,6 +47,8 @@ jobs:
   # Checks MSRV specified by `rust-version` in `Cargo.toml`
   msrv:
     uses: lurk-lab/ci-workflows/.github/workflows/msrv.yml@main
+    with:
+      packages: 'protobuf-compiler libprotobuf-dev'
 
   # Check documentation links aren't broken
   link-checker:
