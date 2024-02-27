@@ -1,4 +1,3 @@
-#![allow(unused_variables)]
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::coprocessor::gadgets::construct_cons;
 use crate::coroutine::memoset::{
@@ -13,6 +12,8 @@ use bellpepper_core::{ConstraintSystem, SynthesisError};
 use indexmap::IndexMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
+
+use super::eval::eval;
 
 #[derive(Clone)]
 pub struct Coroutine<F> {
@@ -80,7 +81,7 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
     type CQ = ToplevelCircuitQuery<F>;
     type C = Arc<Toplevel<F>>;
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
-        todo!()
+        eval(self, scope)
     }
     fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ {
         let name = self.name.clone();
@@ -112,17 +113,7 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
         Some(ToplevelQuery { name, args, _p })
     }
     fn to_ptr(&self, s: &Store<F>) -> Ptr {
-        let args = if self.args.is_empty() {
-            s.intern_nil()
-        } else {
-            // Iterator from last to first
-            let mut iter = self.args.iter().rev();
-            let mut args = *iter.next().unwrap();
-            for arg in iter {
-                args = s.cons(*arg, args);
-            }
-            args
-        };
+        let args = to_improper_list(&self.args, s);
         let name = s.intern_symbol(&self.name);
         s.cons(name, args)
     }
@@ -146,6 +137,7 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
+    #[allow(unused_variables)]
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -166,10 +158,15 @@ impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
         ToplevelQuery::from_ptr(s, ptr).map(|q| q.to_circuit(cs, s))
     }
 
-    fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self {
+    fn dummy_from_index<CS: ConstraintSystem<F>>(
+        _cs: &mut CS,
+        _s: &Store<F>,
+        _index: usize,
+    ) -> Self {
         unimplemented!()
     }
 
+    #[allow(unused_variables)]
     fn synthesize_args<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -189,5 +186,19 @@ impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
             args = construct_cons(cs, g, store, arg, &args)?;
         }
         Ok(args)
+    }
+}
+
+pub(crate) fn to_improper_list<F: LurkField>(args: &[Ptr], s: &Store<F>) -> Ptr {
+    if args.is_empty() {
+        s.intern_nil()
+    } else {
+        // Iterator from last to first
+        let mut iter = args.iter().rev();
+        let mut args = *iter.next().unwrap();
+        for arg in iter {
+            args = s.cons(*arg, args);
+        }
+        args
     }
 }

@@ -329,7 +329,7 @@ pub struct Scope<Q: Query<F>, M, F: LurkField> {
     // This may become an explicit map or something allowing more fine-grained control.
     provenances: OnceCell<HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
     default_rc: usize,
-    store: Arc<Store<F>>,
+    pub(crate) store: Arc<Store<F>>,
     pub(crate) content: Q::C,
 }
 
