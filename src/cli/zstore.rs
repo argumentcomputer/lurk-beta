@@ -138,6 +138,7 @@ impl<F: LurkField> ZDag<F> {
         recurse(ptr)
     }
 
+    #[inline]
     fn get_type(&self, z_ptr: &ZPtr<F>) -> Option<&ZPtrType<F>> {
         self.0.get(z_ptr)
     }
@@ -317,6 +318,7 @@ mod tests {
     use rand_core::SeedableRng;
     use rayon::prelude::{IntoParallelIterator, ParallelIterator};
     use std::collections::HashMap;
+    use strum::EnumCount;
 
     use crate::{
         field::LurkField,
@@ -325,26 +327,32 @@ mod tests {
             store::{intern_ptrs, Store},
             tag::Tag,
         },
-        tag::{ContTag, ExprTag, Op1, Op2},
+        tag::{
+            ContTag, ExprTag, Op1, Op2, CONT_TAG_INIT, EXPR_TAG_INIT, OP1_TAG_INIT, OP2_TAG_INIT,
+        },
     };
 
     use super::{ZDag, ZStore};
 
     /// helper function that interns random data into a store
     fn rng_interner(rng: &mut StdRng, max_depth: usize, store: &Store<Bn>) -> Ptr {
-        let rnd = rng.gen::<u64>();
+        let rnd = rng.gen::<usize>();
         let tag = match rnd % 4 {
-            0 => Tag::Expr(ExprTag::try_from((rnd % 11) as u16).unwrap()),
-            1 => Tag::Cont(ContTag::try_from((rnd % 17) as u16 + 4096).unwrap()),
-            2 => Tag::Op1(Op1::try_from((rnd % 12) as u16 + 8192).unwrap()),
-            3 => Tag::Op2(Op2::try_from((rnd % 16) as u16 + 12288).unwrap()),
+            0 => {
+                Tag::Expr(ExprTag::try_from((rnd % ExprTag::COUNT) as u16 + EXPR_TAG_INIT).unwrap())
+            }
+            1 => {
+                Tag::Cont(ContTag::try_from((rnd % ContTag::COUNT) as u16 + CONT_TAG_INIT).unwrap())
+            }
+            2 => Tag::Op1(Op1::try_from((rnd % Op1::COUNT) as u16 + OP1_TAG_INIT).unwrap()),
+            3 => Tag::Op2(Op2::try_from((rnd % Op2::COUNT) as u16 + OP2_TAG_INIT).unwrap()),
             _ => unreachable!(),
         };
         if max_depth == 0 {
-            store.intern_atom(tag, Bn::from_u64(rnd))
+            store.intern_atom(tag, Bn::from_u64(rnd.try_into().unwrap()))
         } else {
             match rnd % 4 {
-                0 => store.intern_atom(tag, Bn::from_u64(rnd)),
+                0 => store.intern_atom(tag, Bn::from_u64(rnd.try_into().unwrap())),
                 1 => intern_ptrs!(
                     store,
                     tag,
