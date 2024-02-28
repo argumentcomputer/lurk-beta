@@ -1762,8 +1762,8 @@ mod tests {
         expect_eq(func.slots_count.commitment, expect!["1"]);
         expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9110"]);
-        expect_eq(cs.num_constraints(), expect!["11048"]);
+        expect_eq(cs.aux().len(), expect!["9094"]);
+        expect_eq(cs.num_constraints(), expect!["11032"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }
