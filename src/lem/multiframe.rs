@@ -770,7 +770,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
             }
 
-            let g = self.lurk_step.alloc_consts(cs, store);
+            let g = self.lurk_step.alloc_consts(cs, store, self.get_lang());
 
             let allocated_output_result =
                 self.synthesize_frames(cs, store, allocated_input, frames, &g)?;
@@ -891,13 +891,13 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
             if self.pc != 0 {
                 assert_eq!(frames.len(), 1);
             }
-            let g = self.lurk_step.alloc_consts(cs, store);
+            let g = self.lurk_step.alloc_consts(cs, store, self.get_lang());
             self.synthesize_frames(cs, store, input, frames, &g)?
         } else {
             let store = Store::default();
             let blank_frame = Frame::blank(self.get_func(), self.pc, &store);
             let frames = vec![blank_frame; self.num_frames];
-            let g = self.lurk_step.alloc_consts(cs, &store);
+            let g = self.lurk_step.alloc_consts(cs, &store, self.get_lang());
             self.synthesize_frames(cs, &store, input, &frames, &g)?
         };
 
@@ -1066,7 +1066,10 @@ mod tests {
                 }
             }
         }
-        let g = lurk_step.alloc_consts(&mut cs, &store);
+
+        let lang = Lang::<Bn>::new();
+
+        let g = lurk_step.alloc_consts(&mut cs, &store, &lang);
 
         // asserting equality of frames witnesses
         let frame = frames.first().unwrap();
@@ -1081,8 +1084,6 @@ mod tests {
         }
 
         let mut cs_clone = cs.clone();
-
-        let lang = Lang::<Bn>::new();
 
         let output_sequential = synthesize_frames_sequential(
             &mut cs,

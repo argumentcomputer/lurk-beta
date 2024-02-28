@@ -106,10 +106,6 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
 }
 
 impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
-    fn eval_arity(&self) -> usize {
-        self.n
-    }
-
     fn has_circuit(&self) -> bool {
         true
     }

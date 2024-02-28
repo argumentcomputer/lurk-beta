@@ -63,10 +63,6 @@ pub struct NewCoprocessor<F> {
 }
 
 impl<F: LurkField> Coprocessor<F> for NewCoprocessor<F> {
-    fn eval_arity(&self) -> usize {
-        0
-    }
-
     fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
         let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
         // TODO: Use a custom type.
@@ -109,10 +105,6 @@ pub struct LookupCoprocessor<F> {
 }
 
 impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
-    fn eval_arity(&self) -> usize {
-        2
-    }
-
     fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
@@ -203,6 +195,15 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
             result_commitment_val,
         ))
     }
+
+    fn alloc_globals<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &lurk::lem::circuit::GlobalAllocator<F>,
+        _s: &Store<F>,
+    ) {
+        g.alloc_tag(cs, &ExprTag::Comm);
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Default, Deserialize)]
@@ -211,10 +212,6 @@ pub struct InsertCoprocessor<F> {
 }
 
 impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
-    fn eval_arity(&self) -> usize {
-        3
-    }
-
     fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
@@ -307,6 +304,15 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
 
         let num_tag = g.alloc_tag(cs, &ExprTag::Num);
         Ok(AllocatedPtr::from_parts(num_tag.clone(), new_root_val))
+    }
+
+    fn alloc_globals<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &lurk::lem::circuit::GlobalAllocator<F>,
+        _s: &Store<F>,
+    ) {
+        g.alloc_tag(cs, &ExprTag::Num);
     }
 }
 

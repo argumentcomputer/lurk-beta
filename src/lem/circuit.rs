@@ -379,15 +379,22 @@ pub fn build_slots_allocations<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 impl Block {
-    fn alloc_consts<F: LurkField, CS: ConstraintSystem<F>>(
+    fn alloc_consts<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         &self,
         cs: &mut CS,
         store: &Store<F>,
         g: &GlobalAllocator<F>,
+        lang: &Lang<F, C>,
     ) {
         for op in &self.ops {
             match op {
-                Op::Call(_, func, _) => func.body.alloc_consts(cs, store, g),
+                Op::Cproc(_, sym, _) => {
+                    let Some(c) = lang.lookup_by_sym(sym) else {
+                        panic!("No coprocessor is bound to {sym}")
+                    };
+                    c.alloc_globals(cs, g, store);
+                }
+                Op::Call(_, func, _) => func.body.alloc_consts(cs, store, g, lang),
                 Op::Cons2(_, tag, _)
                 | Op::Cons3(_, tag, _)
                 | Op::Cons4(_, tag, _)
@@ -446,24 +453,24 @@ impl Block {
         }
         match &self.ctrl {
             Ctrl::If(.., a, b) => {
-                a.alloc_consts(cs, store, g);
-                b.alloc_consts(cs, store, g);
+                a.alloc_consts(cs, store, g, lang);
+                b.alloc_consts(cs, store, g, lang);
             }
             Ctrl::MatchTag(_, cases, def) => {
                 for block in cases.values() {
-                    block.alloc_consts(cs, store, g);
+                    block.alloc_consts(cs, store, g, lang);
                 }
                 if let Some(def) = def {
-                    def.alloc_consts(cs, store, g);
+                    def.alloc_consts(cs, store, g, lang);
                 }
             }
             Ctrl::MatchSymbol(_, cases, def) => {
                 g.alloc_tag(cs, &Sym);
                 for block in cases.values() {
-                    block.alloc_consts(cs, store, g);
+                    block.alloc_consts(cs, store, g, lang);
                 }
                 if let Some(def) = def {
-                    def.alloc_consts(cs, store, g);
+                    def.alloc_consts(cs, store, g, lang);
                 }
             }
             Ctrl::Return(..) => (),
@@ -1373,13 +1380,14 @@ impl Func {
         }
     }
 
-    pub fn alloc_consts<F: LurkField, CS: ConstraintSystem<F>>(
+    pub fn alloc_consts<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         &self,
         cs: &mut CS,
         store: &Store<F>,
+        lang: &Lang<F, C>,
     ) -> GlobalAllocator<F> {
         let g = GlobalAllocator::default();
-        self.body.alloc_consts(cs, store, &g);
+        self.body.alloc_consts(cs, store, &g, lang);
         g
     }
 
@@ -1483,7 +1491,7 @@ impl Func {
         lang: &Lang<F, C>,
     ) -> Result<()> {
         let bound_allocations = &mut BoundAllocations::new();
-        let global_allocator = self.alloc_consts(cs, store);
+        let global_allocator = self.alloc_consts(cs, store, lang);
         self.allocate_input(cs, store, frame, bound_allocations);
         self.synthesize_frame(
             cs,

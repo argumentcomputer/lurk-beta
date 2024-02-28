@@ -24,11 +24,6 @@ pub struct DummyCoprocessor<F> {
 }
 
 impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
-    /// Dummy Coprocessor takes no arguments.
-    fn eval_arity(&self) -> usize {
-        0
-    }
-
     /// And does nothing but return nil. It should probably never be used and can perhaps be eliminated,
     /// but for now it exists as an exemplar demonstrating the intended shape of enums like the default, `Coproc`.
     fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
@@ -36,7 +31,11 @@ impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
     }
 }
 
-impl<F: LurkField> CoCircuit<F> for DummyCoprocessor<F> {}
+impl<F: LurkField> CoCircuit<F> for DummyCoprocessor<F> {
+    fn arity(&self) -> usize {
+        0
+    }
+}
 
 impl<F> DummyCoprocessor<F> {
     #[allow(dead_code)]

@@ -123,14 +123,18 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
 
             Ok(res)
         }
+
+        fn alloc_globals<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            g: &crate::lem::circuit::GlobalAllocator<F>,
+            _s: &Store<F>,
+        ) {
+            g.alloc_tag(cs, &crate::tag::ExprTag::Num);
+        }
     }
 
     impl<F: LurkField, C: CircomGadget<F> + Debug> Coprocessor<F> for CircomCoprocessor<F, C> {
-        /// TODO: Generalize
-        fn eval_arity(&self) -> usize {
-            0
-        }
-
         fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
             self.gadget.evaluate_simple(s, args)
         }

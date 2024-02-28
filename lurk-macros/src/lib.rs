@@ -31,7 +31,6 @@ pub fn derive_enum_coproc(input: TokenStream) -> TokenStream {
 }
 
 fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
-    let eval_arity_arms = eval_arity_match_arms(name, variants);
     let evaluate_internal_arms = evaluate_internal_match_arms(name, variants);
     let evaluate_arms = evaluate_match_arms(name, variants);
     let evaluate_simple_arms = evaluate_simple_match_arms(name, variants);
@@ -46,12 +45,6 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
 
     let res = quote! {
         impl <F: lurk::field::LurkField> lurk::coprocessor::Coprocessor<F> for #name<F> {
-            fn eval_arity(&self) -> usize {
-                match self {
-                    #eval_arity_arms
-                }
-            }
-
             fn evaluate_internal(&self, s: &lurk::lem::store::Store<F>, ptrs: &[lurk::lem::pointers::Ptr]) -> Vec<lurk::lem::pointers::Ptr> {
                 match self {
                     #evaluate_internal_arms
@@ -129,18 +122,6 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
         #from_impls
     };
     res.into()
-}
-
-fn eval_arity_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
-    let mut match_arms = quote! {};
-    for variant in variants.variants.iter() {
-        let variant_ident = &variant.ident;
-
-        match_arms.extend(quote! {
-            #name::#variant_ident(coprocessor) => coprocessor.eval_arity(),
-        });
-    }
-    match_arms
 }
 
 fn evaluate_internal_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
