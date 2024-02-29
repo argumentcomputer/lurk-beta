@@ -15,7 +15,7 @@ use indexmap::IndexMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::eval::{call, synthesize_run};
+use super::eval::{call, synthesize_call};
 
 #[derive(Clone)]
 pub struct Coroutine<F> {
@@ -181,15 +181,15 @@ impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
         for (param, arg) in params.zip(args) {
             bound_allocations.insert_ptr(param, arg).unwrap();
         }
-        let body = &coroutine.func.body;
+        let func = &coroutine.func;
         let mut next_acc = acc.clone();
         let mut sub_provenances = vec![];
         // TODO in the case of blank circuits, this should be `false`
         let not_dummy = &Boolean::Constant(true);
-        let res = synthesize_run(
+        let res = synthesize_call(
             cs,
+            func,
             not_dummy,
-            body,
             g,
             store,
             scope,
