@@ -27,8 +27,6 @@ pub mod trie;
 /// - An enum such as [`crate::eval::lang::Coproc`], which "closes" the hierarchy of possible coprocessor
 ///   implementations we want to instantiate at a particular point in the code.
 pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> {
-    fn eval_arity(&self) -> usize;
-
     /// Returns true if this Coprocessor actually implements a circuit.
     fn has_circuit(&self) -> bool {
         false
@@ -57,9 +55,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
 ///
 /// The trait is implemented by concrete coprocessor types, such as `DumbCoprocessor`.
 pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
-    fn arity(&self) -> usize {
-        todo!()
-    }
+    fn arity(&self) -> usize;
 
     /// Function for internal plumbing. Reimplementing is not recommended
     fn synthesize_internal<CS: ConstraintSystem<F>>(
@@ -103,6 +99,15 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         _args: &[AllocatedPtr<F>],
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
         unimplemented!()
+    }
+
+    /// Perform global allocations needed for synthesis
+    fn alloc_globals<CS: ConstraintSystem<F>>(
+        &self,
+        _cs: &mut CS,
+        _g: &GlobalAllocator<F>,
+        _s: &Store<F>,
+    ) {
     }
 }
 
@@ -165,6 +170,7 @@ pub(crate) mod test {
     }
 
     impl<F: LurkField> CoCircuit<F> for DumbCoprocessor<F> {
+        /// Dumb Coprocessor takes two arguments.
         fn arity(&self) -> usize {
             2
         }
@@ -188,14 +194,19 @@ pub(crate) mod test {
 
             Ok(vec![expr, env, cont])
         }
+
+        fn alloc_globals<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            g: &GlobalAllocator<F>,
+            s: &Store<F>,
+        ) {
+            g.alloc_tag(cs, &ExprTag::Num);
+            g.alloc_ptr(cs, &s.cont_error(), s);
+        }
     }
 
     impl<F: LurkField> Coprocessor<F> for DumbCoprocessor<F> {
-        /// Dumb Coprocessor takes two arguments.
-        fn eval_arity(&self) -> usize {
-            2
-        }
-
         fn has_circuit(&self) -> bool {
             true
         }
@@ -250,13 +261,19 @@ pub(crate) mod test {
             let term = g.alloc_ptr(cs, &s.cont_terminal(), s);
             Ok(vec![nil, env.clone(), term])
         }
+
+        fn alloc_globals<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            g: &GlobalAllocator<F>,
+            s: &Store<F>,
+        ) {
+            g.alloc_ptr(cs, &s.intern_nil(), s);
+            g.alloc_ptr(cs, &s.cont_terminal(), s);
+        }
     }
 
     impl<F: LurkField> Coprocessor<F> for Terminator<F> {
-        fn eval_arity(&self) -> usize {
-            0
-        }
-
         fn evaluate(&self, s: &Store<F>, _args: &[Ptr], env: &Ptr, _cont: &Ptr) -> Vec<Ptr> {
             vec![s.intern_nil(), *env, s.cont_terminal()]
         }
@@ -275,6 +292,60 @@ pub(crate) mod test {
             Self {
                 _p: Default::default(),
             }
+        }
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub(crate) struct HelloWorld<F> {
+        _p: PhantomData<F>,
+    }
+
+    impl<F: LurkField> HelloWorld<F> {
+        pub(crate) fn new() -> Self {
+            Self {
+                _p: Default::default(),
+            }
+        }
+
+        #[inline]
+        pub(crate) fn intern_hello_world(s: &Store<F>) -> Ptr {
+            s.intern_string("Hello, world!")
+        }
+    }
+
+    impl<F: LurkField> CoCircuit<F> for HelloWorld<F> {
+        fn arity(&self) -> usize {
+            0
+        }
+
+        fn synthesize_simple<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            g: &GlobalAllocator<F>,
+            s: &Store<F>,
+            _not_dummy: &Boolean,
+            _args: &[AllocatedPtr<F>],
+        ) -> Result<AllocatedPtr<F>, SynthesisError> {
+            Ok(g.alloc_ptr(cs, &Self::intern_hello_world(s), s))
+        }
+
+        fn alloc_globals<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            g: &GlobalAllocator<F>,
+            s: &Store<F>,
+        ) {
+            g.alloc_ptr(cs, &Self::intern_hello_world(s), s);
+        }
+    }
+
+    impl<F: LurkField> Coprocessor<F> for HelloWorld<F> {
+        fn has_circuit(&self) -> bool {
+            true
+        }
+
+        fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
+            Self::intern_hello_world(s)
         }
     }
 }

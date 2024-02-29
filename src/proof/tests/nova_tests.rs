@@ -9,8 +9,7 @@ use crate::{
         tag::Tag,
     },
     num::Num,
-    state::user_sym,
-    state::State,
+    state::{user_sym, State},
     tag::{ExprTag, Op, Op1, Op2},
 };
 
@@ -4047,7 +4046,7 @@ fn test_dumb_lang() {
 
 #[test]
 fn test_terminator_lang() {
-    use crate::{coprocessor::test::Terminator, state::user_sym};
+    use crate::coprocessor::test::Terminator;
 
     let mut lang = Lang::<Fr, Terminator<Fr>>::new();
     let dumb = Terminator::new();
@@ -4064,6 +4063,32 @@ fn test_terminator_lang() {
     test_aux::<_, Terminator<_>>(
         s,
         expr,
+        Some(res),
+        None,
+        Some(terminal),
+        None,
+        &expect!["1"],
+        &Some(lang.into()),
+    );
+}
+
+#[test]
+fn test_hello_world_lang() {
+    use crate::coprocessor::test::HelloWorld;
+
+    let mut lang = Lang::<Fr, HelloWorld<Fr>>::new();
+    let hello_world = HelloWorld::new();
+    let name = user_sym("hello-world");
+
+    let s = &Store::default();
+    lang.add_coprocessor(name, hello_world);
+
+    let res = HelloWorld::intern_hello_world(s);
+    let terminal = s.cont_terminal();
+
+    test_aux::<_, HelloWorld<_>>(
+        s,
+        "(hello-world)",
         Some(res),
         None,
         Some(terminal),
