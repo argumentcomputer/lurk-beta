@@ -279,6 +279,77 @@
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper::gadgets::boolean::Boolean;
 <span class="kw">use </span>bellpepper_core::{ConstraintSystem, SynthesisError};
 <span class="kw">use </span>std::fmt::Debug;
@@ -308,8 +379,6 @@
 /// - An enum such as [`crate::eval::lang::Coproc`], which "closes" the hierarchy of possible coprocessor
 ///   implementations we want to instantiate at a particular point in the code.
 </span><span class="kw">pub trait </span>Coprocessor&lt;F: LurkField&gt;: Clone + Debug + Sync + Send + CoCircuit&lt;F&gt; {
-    <span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
-
     <span class="doccomment">/// Returns true if this Coprocessor actually implements a circuit.
     </span><span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="bool-val">false
@@ -338,9 +407,7 @@
 ///
 /// The trait is implemented by concrete coprocessor types, such as `DumbCoprocessor`.
 </span><span class="kw">pub trait </span>CoCircuit&lt;F: LurkField&gt;: Send + Sync + Clone {
-    <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="macro">todo!</span>()
-    }
+    <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
     <span class="doccomment">/// Function for internal plumbing. Reimplementing is not recommended
     </span><span class="kw">fn </span>synthesize_internal&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -384,6 +451,15 @@
         _args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
         <span class="macro">unimplemented!</span>()
+    }
+
+    <span class="doccomment">/// Perform global allocations needed for synthesis
+    </span><span class="kw">fn </span>alloc_globals&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _cs: <span class="kw-2">&amp;mut </span>CS,
+        _g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+        _s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+    ) {
     }
 }
 
@@ -446,7 +522,8 @@
     }
 
     <span class="kw">impl</span>&lt;F: LurkField&gt; CoCircuit&lt;F&gt; <span class="kw">for </span>DumbCoprocessor&lt;F&gt; {
-        <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="doccomment">/// Dumb Coprocessor takes two arguments.
+        </span><span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
             <span class="number">2
         </span>}
 
@@ -469,14 +546,19 @@
 
             <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[expr, env, cont])
         }
+
+        <span class="kw">fn </span>alloc_globals&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            cs: <span class="kw-2">&amp;mut </span>CS,
+            g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+            s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        ) {
+            g.alloc_tag(cs, <span class="kw-2">&amp;</span>ExprTag::Num);
+            g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.cont_error(), s);
+        }
     }
 
     <span class="kw">impl</span>&lt;F: LurkField&gt; Coprocessor&lt;F&gt; <span class="kw">for </span>DumbCoprocessor&lt;F&gt; {
-        <span class="doccomment">/// Dumb Coprocessor takes two arguments.
-        </span><span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-            <span class="number">2
-        </span>}
-
         <span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
             <span class="bool-val">true
         </span>}
@@ -531,13 +613,19 @@
             <span class="kw">let </span>term = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.cont_terminal(), s);
             <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[nil, env.clone(), term])
         }
+
+        <span class="kw">fn </span>alloc_globals&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            cs: <span class="kw-2">&amp;mut </span>CS,
+            g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+            s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        ) {
+            g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.intern_nil(), s);
+            g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.cont_terminal(), s);
+        }
     }
 
     <span class="kw">impl</span>&lt;F: LurkField&gt; Coprocessor&lt;F&gt; <span class="kw">for </span>Terminator&lt;F&gt; {
-        <span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-            <span class="number">0
-        </span>}
-
         <span class="kw">fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr], env: <span class="kw-2">&amp;</span>Ptr, _cont: <span class="kw-2">&amp;</span>Ptr) -&gt; Vec&lt;Ptr&gt; {
             <span class="macro">vec!</span>[s.intern_nil(), <span class="kw-2">*</span>env, s.cont_terminal()]
         }
@@ -556,6 +644,60 @@
             <span class="self">Self </span>{
                 _p: Default::default(),
             }
+        }
+    }
+
+    <span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>HelloWorld&lt;F&gt; {
+        _p: PhantomData&lt;F&gt;,
+    }
+
+    <span class="kw">impl</span>&lt;F: LurkField&gt; HelloWorld&lt;F&gt; {
+        <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+            <span class="self">Self </span>{
+                _p: Default::default(),
+            }
+        }
+
+        <span class="attr">#[inline]
+        </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>intern_hello_world(s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr {
+            s.intern_string(<span class="string">"Hello, world!"</span>)
+        }
+    }
+
+    <span class="kw">impl</span>&lt;F: LurkField&gt; CoCircuit&lt;F&gt; <span class="kw">for </span>HelloWorld&lt;F&gt; {
+        <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+            <span class="number">0
+        </span>}
+
+        <span class="kw">fn </span>synthesize_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            cs: <span class="kw-2">&amp;mut </span>CS,
+            g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+            s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+            _not_dummy: <span class="kw-2">&amp;</span>Boolean,
+            _args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
+        ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
+            <span class="prelude-val">Ok</span>(g.alloc_ptr(cs, <span class="kw-2">&amp;</span><span class="self">Self</span>::intern_hello_world(s), s))
+        }
+
+        <span class="kw">fn </span>alloc_globals&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            cs: <span class="kw-2">&amp;mut </span>CS,
+            g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+            s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        ) {
+            g.alloc_ptr(cs, <span class="kw-2">&amp;</span><span class="self">Self</span>::intern_hello_world(s), s);
+        }
+    }
+
+    <span class="kw">impl</span>&lt;F: LurkField&gt; Coprocessor&lt;F&gt; <span class="kw">for </span>HelloWorld&lt;F&gt; {
+        <span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+            <span class="bool-val">true
+        </span>}
+
+        <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr]) -&gt; Ptr {
+            <span class="self">Self</span>::intern_hello_world(s)
         }
     }
 }

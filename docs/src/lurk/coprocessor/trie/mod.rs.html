@@ -1186,6 +1186,12 @@
 <a href="#1185" id="1185">1185</a>
 <a href="#1186" id="1186">1186</a>
 <a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `trie` module implements a Trie with the following properties:
 //! Big-endian bits of the (field element) key are taken N at a time, where the underlying hash has arity 2^N. This
 //! forms a fixed-length path whose final element is either zero or some non-zero payload. If the payload is assumed to
@@ -1251,10 +1257,6 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Coprocessor&lt;F&gt; <span class="kw">for </span>NewCoprocessor&lt;F&gt; {
-    <span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="number">0
-    </span>}
-
     <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr]) -&gt; Ptr {
         <span class="kw">let </span>trie: StandardTrie&lt;<span class="lifetime">'_</span>, F&gt; = Trie::new(<span class="kw-2">&amp;</span>s.poseidon_cache, <span class="kw-2">&amp;</span>s.inverse_poseidon_cache);
         <span class="comment">// TODO: Use a custom type.
@@ -1297,10 +1299,6 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Coprocessor&lt;F&gt; <span class="kw">for </span>LookupCoprocessor&lt;F&gt; {
-    <span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="number">2
-    </span>}
-
     <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr]) -&gt; Ptr {
         <span class="kw">let </span>root_ptr = <span class="kw-2">&amp;</span>args[<span class="number">0</span>];
         <span class="kw">let </span>key_ptr = <span class="kw-2">&amp;</span>args[<span class="number">1</span>];
@@ -1391,6 +1389,15 @@
             result_commitment_val,
         ))
     }
+
+    <span class="kw">fn </span>alloc_globals&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        g: <span class="kw-2">&amp;</span>lurk::lem::circuit::GlobalAllocator&lt;F&gt;,
+        _s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+    ) {
+        g.alloc_tag(cs, <span class="kw-2">&amp;</span>ExprTag::Comm);
+    }
 }
 
 <span class="attr">#[derive(Clone, Debug, Serialize, Default, Deserialize)]
@@ -1399,10 +1406,6 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Coprocessor&lt;F&gt; <span class="kw">for </span>InsertCoprocessor&lt;F&gt; {
-    <span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="number">3
-    </span>}
-
     <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr]) -&gt; Ptr {
         <span class="kw">let </span>root_ptr = <span class="kw-2">&amp;</span>args[<span class="number">0</span>];
         <span class="kw">let </span>key_ptr = <span class="kw-2">&amp;</span>args[<span class="number">1</span>];
@@ -1495,6 +1498,15 @@
 
         <span class="kw">let </span>num_tag = g.alloc_tag(cs, <span class="kw-2">&amp;</span>ExprTag::Num);
         <span class="prelude-val">Ok</span>(AllocatedPtr::from_parts(num_tag.clone(), new_root_val))
+    }
+
+    <span class="kw">fn </span>alloc_globals&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        g: <span class="kw-2">&amp;</span>lurk::lem::circuit::GlobalAllocator&lt;F&gt;,
+        _s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+    ) {
+        g.alloc_tag(cs, <span class="kw-2">&amp;</span>ExprTag::Num);
     }
 }
 

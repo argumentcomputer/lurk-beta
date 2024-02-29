@@ -1146,6 +1146,7 @@
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
 <a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
 <span class="kw">use </span>bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
@@ -1918,7 +1919,7 @@
                 allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
             }
 
-            <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_consts(cs, store);
+            <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_consts(cs, store, <span class="self">self</span>.get_lang());
 
             <span class="kw">let </span>allocated_output_result =
                 <span class="self">self</span>.synthesize_frames(cs, store, allocated_input, frames, <span class="kw-2">&amp;</span>g)<span class="question-mark">?</span>;
@@ -2039,13 +2040,13 @@
             <span class="kw">if </span><span class="self">self</span>.pc != <span class="number">0 </span>{
                 <span class="macro">assert_eq!</span>(frames.len(), <span class="number">1</span>);
             }
-            <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_consts(cs, store);
+            <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_consts(cs, store, <span class="self">self</span>.get_lang());
             <span class="self">self</span>.synthesize_frames(cs, store, input, frames, <span class="kw-2">&amp;</span>g)<span class="question-mark">?
         </span>} <span class="kw">else </span>{
             <span class="kw">let </span>store = Store::default();
             <span class="kw">let </span>blank_frame = Frame::blank(<span class="self">self</span>.get_func(), <span class="self">self</span>.pc, <span class="kw-2">&amp;</span>store);
             <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; <span class="self">self</span>.num_frames];
-            <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_consts(cs, <span class="kw-2">&amp;</span>store);
+            <span class="kw">let </span>g = <span class="self">self</span>.lurk_step.alloc_consts(cs, <span class="kw-2">&amp;</span>store, <span class="self">self</span>.get_lang());
             <span class="self">self</span>.synthesize_frames(cs, <span class="kw-2">&amp;</span>store, input, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>g)<span class="question-mark">?
         </span>};
 
@@ -2214,7 +2215,10 @@
                 }
             }
         }
-        <span class="kw">let </span>g = lurk_step.alloc_consts(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>store);
+
+        <span class="kw">let </span>lang = Lang::&lt;Bn&gt;::new();
+
+        <span class="kw">let </span>g = lurk_step.alloc_consts(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>lang);
 
         <span class="comment">// asserting equality of frames witnesses
         </span><span class="kw">let </span>frame = frames.first().unwrap();
@@ -2229,8 +2233,6 @@
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>cs_clone = cs.clone();
-
-        <span class="kw">let </span>lang = Lang::&lt;Bn&gt;::new();
 
         <span class="kw">let </span>output_sequential = synthesize_frames_sequential(
             <span class="kw-2">&amp;mut </span>cs,
