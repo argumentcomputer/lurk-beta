@@ -353,6 +353,7 @@ fn car_cdr() -> Func {
 ///                             // there must be no remaining arguments
 ///                             if is_nil {
 ///                                 Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
+///                                 let expr: Expr::Thunk = cons2(expr, cont);
 ///                                 return (expr, env, cont);
 ///                             }
 ///                             return (evaluated_args_cp, env, err);
@@ -390,7 +391,10 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     cproc_inp.push(env.clone());
     cproc_inp.push(cont.clone());
     let mut block = Block {
-        ops: vec![Op::Cproc(cproc_out, cproc_sym.clone(), cproc_inp.clone())],
+        ops: vec![
+            Op::Cproc(cproc_out, cproc_sym.clone(), cproc_inp.clone()),
+            op!(let expr: Expr::Thunk = cons2(expr, cont)),
+        ],
         ctrl: Ctrl::Return(func_out),
     };
     for (i, cproc_arg) in cproc_inp[0..arity].iter().enumerate() {
