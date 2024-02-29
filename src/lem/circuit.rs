@@ -516,28 +516,37 @@ fn synthesize_call<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     Ok(allocate_return(cs, selected_branch))
 }
 
+/// The collection of all return values and `not_dummy`s of all
+/// branches in a block and the index of the uniquely selected
+/// return value, i.e. the one where the `not_dummy` is true.
+/// This index is only used to copy the correct values when
+/// allocating return variables, so that the constrains are
+/// satisfied.
 struct SelectedBranch<F: LurkField> {
     selected_index: Option<usize>,
     branches: Vec<(Boolean, Vec<AllocatedPtr<F>>)>,
 }
 
+/// Allocates variables for the return values and constrains them
+/// properly, given the collection of all return values for each
+/// branch. In the case where there is a unique branch, there is
+/// no need to allocate new variables.
 fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected_branch: SelectedBranch<F>,
 ) -> Vec<AllocatedPtr<F>> {
-    let len = selected_branch.branches.len();
-    assert!(len > 0);
     let SelectedBranch {
         selected_index,
         mut branches,
     } = selected_branch;
-    if len == 1 {
+    assert!(!branches.is_empty());
+    if branches.len() == 1 {
         let (_, output) = branches.pop().unwrap();
         return output;
     }
     // If there is no selected branch, just choose whichever branch
-    let (_, selected_branch) = &branches[selected_index.unwrap_or(0)];
-    let output = selected_branch
+    let (_, selected_branch_output) = &branches[selected_index.unwrap_or(0)];
+    let output = selected_branch_output
         .iter()
         .enumerate()
         .map(|(i, z)| {
@@ -547,18 +556,7 @@ fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
         .collect::<Vec<_>>();
     for (branch_idx, (select, ptrs)) in branches.into_iter().enumerate() {
         for (ptr_idx, (ptr, ret_ptr)) in ptrs.into_iter().zip(output.iter()).enumerate() {
-            implies_equal(
-                ns!(cs, format!("{branch_idx}:{ptr_idx}:out:tag")),
-                &select,
-                ptr.tag(),
-                ret_ptr.tag(),
-            );
-            implies_equal(
-                ns!(cs, format!("{branch_idx}:{ptr_idx}:out:hash")),
-                &select,
-                ptr.hash(),
-                ret_ptr.hash(),
-            );
+            ptr.implies_ptr_equal(ns!(cs, format!("{branch_idx}:{ptr_idx}")), &select, ret_ptr);
         }
     }
     output
@@ -700,7 +698,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     // just move on with the data that was collected from interpretation
                     for ((i, var), z_ptr) in out.iter().enumerate().zip(collected_z_ptrs) {
                         let ptr = AllocatedPtr::alloc_infallible(
-                            ns!(cs, format!("cproc out {i}")),
+                            ns!(cs, format!("cproc {sym} out {var} (index {i})")),
                             || z_ptr,
                         );
                         bound_allocations.insert(var.clone(), AllocatedVal::Pointer(ptr));
@@ -1283,12 +1281,14 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     match &block.ctrl {
         Ctrl::Return(return_vars) => {
             let output = bound_allocations.get_many_ptr(return_vars)?;
+            // If `not_dummy` is true, then this is the uniquely selected
+            // branch. The values from `output` will be copied if there is
+            // a need to allocate return variables.
             if not_dummy.get_value() == Some(true) {
                 let index = selected_branch.branches.len();
                 selected_branch.selected_index = Some(index);
             }
             selected_branch.branches.push((not_dummy.clone(), output));
-            Ok(())
         }
         Ctrl::If(b, true_block, false_block) => {
             let b = bound_allocations.get_bool(b)?;
@@ -1315,7 +1315,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 ctx,
             )?;
             *next_slot = next_slot.cmp_max(branch_slot);
-            Ok(())
         }
         Ctrl::MatchTag(match_var, cases, def) => {
             let matched = bound_allocations.get_ptr(match_var)?.tag().clone();
@@ -1327,7 +1326,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
             // The number of slots the match used is the max number of slots of each branch
             *next_slot = next_slot.fold_max(branch_slots);
-            Ok(())
         }
         Ctrl::MatchSymbol(match_var, cases, def) => {
             let match_var_ptr = bound_allocations.get_ptr(match_var)?.clone();
@@ -1358,9 +1356,9 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
             // The number of slots the match used is the max number of slots of each branch
             *next_slot = next_slot.fold_max(branch_slots);
-            Ok(())
         }
     }
+    Ok(())
 }
 
 impl Func {
