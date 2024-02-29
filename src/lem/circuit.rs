@@ -24,7 +24,8 @@
 use anyhow::{anyhow, bail, Result};
 use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{
-    ConstraintSystem, SynthesisError,
+    ConstraintSystem,
+    SynthesisError::AssignmentMissing,
     {
         boolean::{AllocatedBit, Boolean},
         num::AllocatedNum,
@@ -249,29 +250,24 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
             .enumerate()
             .for_each(|(component_idx, val)| match val {
                 Val::Pointer(ptr) => {
-                    let z_ptr = store.hash_ptr(ptr);
-                    // allocate pointer tag
-                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} tag slot {slot}")),
-                        || z_ptr.tag_field(),
-                    ));
-                    // allocate pointer hash
-                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} hash slot {slot}")),
-                        || *z_ptr.value(),
-                    ));
+                    let alloc_ptr = AllocatedPtr::alloc_infallible(
+                        &mut ns!(cs, format!("component {component_idx} slot {slot}")),
+                        || store.hash_ptr(ptr),
+                    );
+                    preallocated_preimg.push(alloc_ptr.tag().clone());
+                    preallocated_preimg.push(alloc_ptr.hash().clone());
                 }
                 Val::Num(raw) => {
                     let f = store.hash_raw_ptr(raw).0;
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        ns!(cs, format!("component {component_idx} slot {slot}")),
                         || f,
                     ));
                 }
                 Val::Boolean(b) => {
                     let f = if *b { F::ONE } else { F::ZERO };
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        ns!(cs, format!("component {component_idx} slot {slot}")),
                         || f,
                     ));
                 }
@@ -513,7 +509,7 @@ fn synthesize_call<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         bound_allocations,
         ctx,
     )?;
-    Ok(allocate_return(cs, selected_branch))
+    allocate_return(cs, selected_branch)
 }
 
 /// The collection of all return values and `not_dummy`s of all
@@ -534,7 +530,7 @@ struct SelectedBranch<F: LurkField> {
 fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected_branch: SelectedBranch<F>,
-) -> Vec<AllocatedPtr<F>> {
+) -> Result<Vec<AllocatedPtr<F>>> {
     let SelectedBranch {
         selected_index,
         mut branches,
@@ -542,24 +538,22 @@ fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
     assert!(!branches.is_empty());
     if branches.len() == 1 {
         let (_, output) = branches.pop().unwrap();
-        return output;
+        return Ok(output);
     }
     // If there is no selected branch, just choose whichever branch
     let (_, selected_branch_output) = &branches[selected_index.unwrap_or(0)];
-    let output = selected_branch_output
-        .iter()
-        .enumerate()
-        .map(|(i, z)| {
-            let cs = ns!(cs, format!("matched output {i}"));
-            AllocatedPtr::alloc_infallible(cs, || z.get_value::<PtrTag>().unwrap())
-        })
-        .collect::<Vec<_>>();
+    let mut output = Vec::with_capacity(selected_branch_output.len());
+    for (i, z) in selected_branch_output.iter().enumerate() {
+        let z_ptr = || z.get_value::<PtrTag>().ok_or(AssignmentMissing);
+        let ptr = AllocatedPtr::alloc(ns!(cs, format!("matched output {i}")), z_ptr)?;
+        output.push(ptr);
+    }
     for (branch_idx, (select, ptrs)) in branches.into_iter().enumerate() {
         for (ptr_idx, (ptr, ret_ptr)) in ptrs.into_iter().zip(output.iter()).enumerate() {
             ptr.implies_ptr_equal(ns!(cs, format!("{branch_idx}:{ptr_idx}")), &select, ret_ptr);
         }
     }
-    output
+    Ok(output)
 }
 
 fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
@@ -1068,7 +1062,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     a.hash()
                         .get_value()
                         .map(|a| F::from_u64(a.to_u64_unchecked() & b))
-                        .ok_or(SynthesisError::AssignmentMissing)
+                        .ok_or(AssignmentMissing)
                 })?;
                 implies_pack(
                     cs.namespace(|| "implies_trunc"),
