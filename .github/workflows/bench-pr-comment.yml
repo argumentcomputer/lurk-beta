@@ -14,7 +14,7 @@ jobs:
     if:
       github.event.issue.pull_request
       && github.event.issue.state == 'open'
-      && contains(github.event.comment.body, '!benchmark')
+      && (contains(github.event.comment.body, '!benchmark') || contains(github.event.comment.body, '!gpu-benchmark'))
       && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
     uses: lurk-lab/ci-workflows/.github/workflows/bench-pr-comment.yml@main
     with:
