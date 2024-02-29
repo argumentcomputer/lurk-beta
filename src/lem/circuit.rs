@@ -548,9 +548,9 @@ fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
         let ptr = AllocatedPtr::alloc(ns!(cs, format!("matched output {i}")), z_ptr)?;
         output.push(ptr);
     }
-    for (branch_idx, (select, ptrs)) in branches.into_iter().enumerate() {
-        for (ptr_idx, (ptr, ret_ptr)) in ptrs.into_iter().zip(output.iter()).enumerate() {
-            ptr.implies_ptr_equal(ns!(cs, format!("{branch_idx}:{ptr_idx}")), &select, ret_ptr);
+    for (branch_idx, (select, ptrs)) in branches.iter().enumerate() {
+        for (ptr_idx, (ptr, ret_ptr)) in ptrs.iter().zip(output.iter()).enumerate() {
+            ptr.implies_ptr_equal(ns!(cs, format!("{branch_idx}:{ptr_idx}")), select, ret_ptr);
         }
     }
     Ok(output)
