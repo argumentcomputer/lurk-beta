@@ -24,8 +24,7 @@
 use anyhow::{anyhow, bail, Result};
 use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{
-    ConstraintSystem,
-    SynthesisError::AssignmentMissing,
+    ConstraintSystem, SynthesisError,
     {
         boolean::{AllocatedBit, Boolean},
         num::AllocatedNum,
@@ -58,7 +57,6 @@ use super::{
     pointers::{Ptr, ZPtr},
     slot::*,
     store::Store,
-    tag::Tag as PtrTag,
     var_map::VarMap,
     Block, Ctrl, Func, Op, Var,
 };
@@ -494,34 +492,26 @@ fn synthesize_call<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     not_dummy: &Boolean,
     next_slot: &mut SlotsCounter,
     bound_allocations: &mut BoundAllocations<F>,
+    output_hints: &[Ptr],
     ctx: &mut RecursiveContext<'_, F, C>,
 ) -> Result<Vec<AllocatedPtr<F>>> {
-    let mut selected_branch = SelectedBranch {
-        selected_index: None,
-        branches: vec![],
-    };
+    let mut branch_outputs = BranchOutputs(vec![]);
     synthesize_block(
         cs,
         &func.body,
-        &mut selected_branch,
+        &mut branch_outputs,
         not_dummy,
         next_slot,
         bound_allocations,
         ctx,
     )?;
-    allocate_return(cs, selected_branch)
+    let output = allocate_return(cs, branch_outputs, ctx.store, output_hints);
+    Ok(output)
 }
 
 /// The collection of all return values and `not_dummy`s of all
-/// branches in a block and the index of the uniquely selected
-/// return value, i.e. the one where the `not_dummy` is true.
-/// This index is only used to copy the correct values when
-/// allocating return variables, so that the constrains are
-/// satisfied.
-struct SelectedBranch<F: LurkField> {
-    selected_index: Option<usize>,
-    branches: Vec<(Boolean, Vec<AllocatedPtr<F>>)>,
-}
+/// branches in a block.
+struct BranchOutputs<F: LurkField>(Vec<(Boolean, Vec<AllocatedPtr<F>>)>);
 
 /// Allocates variables for the return values and constrains them
 /// properly, given the collection of all return values for each
@@ -529,23 +519,20 @@ struct SelectedBranch<F: LurkField> {
 /// no need to allocate new variables.
 fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    selected_branch: SelectedBranch<F>,
-) -> Result<Vec<AllocatedPtr<F>>> {
-    let SelectedBranch {
-        selected_index,
-        mut branches,
-    } = selected_branch;
+    branch_outputs: BranchOutputs<F>,
+    store: &Store<F>,
+    output_hints: &[Ptr],
+) -> Vec<AllocatedPtr<F>> {
+    let BranchOutputs(mut branches) = branch_outputs;
     assert!(!branches.is_empty());
     if branches.len() == 1 {
         let (_, output) = branches.pop().unwrap();
-        return Ok(output);
+        return output;
     }
-    // If there is no selected branch, just choose whichever branch
-    let (_, selected_branch_output) = &branches[selected_index.unwrap_or(0)];
-    let mut output = Vec::with_capacity(selected_branch_output.len());
-    for (i, z) in selected_branch_output.iter().enumerate() {
-        let z_ptr = || z.get_value::<PtrTag>().ok_or(AssignmentMissing);
-        let ptr = AllocatedPtr::alloc(ns!(cs, format!("matched output {i}")), z_ptr)?;
+    let mut output = Vec::with_capacity(output_hints.len());
+    for (i, ptr) in output_hints.iter().enumerate() {
+        let z_ptr = || store.hash_ptr(ptr);
+        let ptr = AllocatedPtr::alloc_infallible(ns!(cs, format!("matched output {i}")), z_ptr);
         output.push(ptr);
     }
     for (branch_idx, (select, ptrs)) in branches.iter().enumerate() {
@@ -553,13 +540,13 @@ fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
             ptr.implies_ptr_equal(ns!(cs, format!("{branch_idx}:{ptr_idx}")), select, ret_ptr);
         }
     }
-    Ok(output)
+    output
 }
 
 fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     cs: &mut CS,
     block: &Block,
-    selected_branch: &mut SelectedBranch<F>,
+    branch_outputs: &mut BranchOutputs<F>,
     not_dummy: &Boolean,
     next_slot: &mut SlotsCounter,
     bound_allocations: &mut BoundAllocations<F>,
@@ -700,6 +687,11 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 }
             }
             Op::Call(out, func, inp) => {
+                let output_hints = if !ctx.blank && not_dummy.get_value() == Some(true) {
+                    ctx.bindings.get_many_ptr(out)?
+                } else {
+                    vec![ctx.store.dummy(); out.len()]
+                };
                 // Get the pointers for the input, i.e. the arguments
                 let args = bound_allocations.get_many_ptr(inp)?;
                 // Now we bind the `Func`'s input parameters to the arguments in the call.
@@ -711,6 +703,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     not_dummy,
                     next_slot,
                     bound_allocations,
+                    &output_hints,
                     ctx,
                 )?;
                 // and bind the outputs
@@ -1062,7 +1055,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     a.hash()
                         .get_value()
                         .map(|a| F::from_u64(a.to_u64_unchecked() & b))
-                        .ok_or(AssignmentMissing)
+                        .ok_or(SynthesisError::AssignmentMissing)
                 })?;
                 implies_pack(
                     cs.namespace(|| "implies_trunc"),
@@ -1214,7 +1207,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             synthesize_block(
                 ns!(cs, format!("{i}")),
                 block,
-                selected_branch,
+                branch_outputs,
                 &not_dummy_and_has_match,
                 &mut branch_slot,
                 bound_allocations,
@@ -1249,7 +1242,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             synthesize_block(
                 ns!(cs, "_"),
                 def,
-                selected_branch,
+                branch_outputs,
                 &is_default,
                 next_slot,
                 bound_allocations,
@@ -1275,14 +1268,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     match &block.ctrl {
         Ctrl::Return(return_vars) => {
             let output = bound_allocations.get_many_ptr(return_vars)?;
-            // If `not_dummy` is true, then this is the uniquely selected
-            // branch. The values from `output` will be copied if there is
-            // a need to allocate return variables.
-            if not_dummy.get_value() == Some(true) {
-                let index = selected_branch.branches.len();
-                selected_branch.selected_index = Some(index);
-            }
-            selected_branch.branches.push((not_dummy.clone(), output));
+            branch_outputs.0.push((not_dummy.clone(), output));
         }
         Ctrl::If(b, true_block, false_block) => {
             let b = bound_allocations.get_bool(b)?;
@@ -1293,7 +1279,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             synthesize_block(
                 ns!(cs, "if_eq.true"),
                 true_block,
-                selected_branch,
+                branch_outputs,
                 &b_not_dummy,
                 &mut branch_slot,
                 bound_allocations,
@@ -1302,7 +1288,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             synthesize_block(
                 ns!(cs, "if_eq.false"),
                 false_block,
-                selected_branch,
+                branch_outputs,
                 &not_b_not_dummy,
                 next_slot,
                 bound_allocations,
@@ -1436,6 +1422,7 @@ impl Func {
                 &Boolean::Constant(true),
                 &mut SlotsCounter::default(),
                 bound_allocations,
+                &frame.output,
                 &mut RecursiveContext {
                     lang,
                     store,
@@ -1464,6 +1451,7 @@ impl Func {
                 &Boolean::Constant(true),
                 &mut SlotsCounter::default(),
                 bound_allocations,
+                &frame.output,
                 &mut RecursiveContext {
                     lang,
                     store,

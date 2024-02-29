@@ -167,6 +167,7 @@ impl Block {
                     hints = frame.hints;
                     for (var, ptr) in out.iter().zip(frame.output.into_iter()) {
                         bindings.insert_ptr(var.clone(), ptr);
+                        hints.bindings.insert_ptr(var.clone(), ptr);
                     }
                 }
                 Op::Copy(tgt, src) => {
