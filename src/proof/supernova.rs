@@ -183,7 +183,8 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
     }
 
     #[inline]
-    fn lang(&self) -> &Arc<Lang<F, C>> {
+    /// Returns the `Lang` wrapped with `Arc` for cheap cloning
+    pub fn lang(&self) -> &Arc<Lang<F, C>> {
         &self.lang
     }
 }

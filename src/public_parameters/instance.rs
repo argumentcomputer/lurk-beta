@@ -50,8 +50,9 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
     proof::{
-        nova::{self, CurveCycleEquipped},
-        supernova::{self},
+        nova::{self, CurveCycleEquipped, NovaProver},
+        supernova::{self, SuperNovaProver},
+        Prover,
     },
 };
 
@@ -132,6 +133,30 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
             cache_key,
             kind,
         }
+    }
+
+    /// Returns an `Instance` for Nova public parameters with the prover's
+    /// reduction count and lang
+    #[inline]
+    pub fn new_nova(prover: &NovaProver<'_, F, C>, abomonated: bool) -> Self {
+        Self::new(
+            prover.reduction_count(),
+            prover.lang().clone(),
+            abomonated,
+            Kind::NovaPublicParams,
+        )
+    }
+
+    /// Returns an `Instance` for SuperNova public parameters with the prover's
+    /// reduction count and lang
+    #[inline]
+    pub fn new_supernova(prover: &SuperNovaProver<'_, F, C>, abomonated: bool) -> Self {
+        Self::new(
+            prover.reduction_count(),
+            prover.lang().clone(),
+            abomonated,
+            Kind::SuperNovaAuxParams,
+        )
     }
 
     /// If this [Instance] is of [Kind::SuperNovaAuxParams], then generate the `num_circuits + 1`
