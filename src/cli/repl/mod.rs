@@ -43,10 +43,7 @@ use crate::{
         supernova::SuperNovaProver,
         RecursiveSNARKTrait,
     },
-    public_parameters::{
-        instance::{Instance, Kind},
-        public_params, supernova_public_params,
-    },
+    public_parameters::{instance::Instance, public_params, supernova_public_params},
     state::State,
     tag::{ContTag, ExprTag},
     Symbol,
@@ -338,12 +335,11 @@ where
             info!("Proof not cached");
             let (proof, public_inputs, public_outputs) = match self.backend {
                 Backend::Nova => {
+                    let prover = NovaProver::<_, C>::new(self.rc, self.lang.clone());
                     info!("Loading Nova public parameters");
-                    let instance =
-                        Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
+                    let instance = Instance::new_nova(&prover, true);
                     let pp = public_params(&instance)?;
 
-                    let prover = NovaProver::<_, C>::new(self.rc, self.lang.clone());
                     info!("Proving with NovaProver");
                     let (proof, public_inputs, public_outputs, num_steps) =
                         prover.prove_from_frames(&pp, frames, &self.store)?;
@@ -354,12 +350,11 @@ where
                     (LurkProofWrapper::Nova(proof), public_inputs, public_outputs)
                 }
                 Backend::SuperNova => {
+                    let prover = SuperNovaProver::<_, C>::new(self.rc, self.lang.clone());
                     info!("Loading SuperNova public parameters");
-                    let instance =
-                        Instance::new(self.rc, self.lang.clone(), true, Kind::SuperNovaAuxParams);
+                    let instance = Instance::new_supernova(&prover, true);
                     let pp = supernova_public_params(&instance)?;
 
-                    let prover = SuperNovaProver::<_, C>::new(self.rc, self.lang.clone());
                     info!("Proving with SuperNovaProver");
                     let (proof, public_inputs, public_outputs, _num_steps) =
                         prover.prove_from_frames(&pp, frames, &self.store)?;

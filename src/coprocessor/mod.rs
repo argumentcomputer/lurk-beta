@@ -116,6 +116,8 @@ pub(crate) mod test {
     use bellpepper_core::num::AllocatedNum;
     use serde::{Deserialize, Serialize};
 
+    use self::gadgets::construct_cons;
+
     use super::*;
     use crate::circuit::gadgets::constraints::{alloc_equal, mul};
     use crate::lem::{pointers::RawPtr, tag::Tag as LEMTag};
@@ -346,6 +348,59 @@ pub(crate) mod test {
 
         fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
             Self::intern_hello_world(s)
+        }
+    }
+
+    /// A coprocessor that simply returns the pair (nil . nil)
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub(crate) struct NilNil<F> {
+        _p: PhantomData<F>,
+    }
+
+    impl<F: LurkField> NilNil<F> {
+        pub(crate) fn new() -> Self {
+            Self {
+                _p: Default::default(),
+            }
+        }
+    }
+
+    impl<F: LurkField> CoCircuit<F> for NilNil<F> {
+        fn arity(&self) -> usize {
+            0
+        }
+
+        fn synthesize_simple<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            g: &GlobalAllocator<F>,
+            s: &Store<F>,
+            _not_dummy: &Boolean,
+            _args: &[AllocatedPtr<F>],
+        ) -> Result<AllocatedPtr<F>, SynthesisError> {
+            let nil = g.alloc_ptr(cs, &s.intern_nil(), s);
+            construct_cons(cs, g, s, &nil, &nil)
+        }
+
+        fn alloc_globals<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            g: &GlobalAllocator<F>,
+            s: &Store<F>,
+        ) {
+            g.alloc_ptr(cs, &s.intern_nil(), s);
+            g.alloc_tag(cs, &ExprTag::Cons);
+        }
+    }
+
+    impl<F: LurkField> Coprocessor<F> for NilNil<F> {
+        fn has_circuit(&self) -> bool {
+            true
+        }
+
+        fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
+            let nil = s.intern_nil();
+            s.cons(nil, nil)
         }
     }
 }

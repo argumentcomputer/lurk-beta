@@ -1,4 +1,6 @@
 mod nova_tests;
+mod supernova_tests;
+
 use bellpepper::util_cs::{metric_cs::MetricCS, witness_cs::WitnessCS, Comparable};
 use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, Delta};
 use expect_test::Expect;
