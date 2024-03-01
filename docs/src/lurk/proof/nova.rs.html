@@ -433,6 +433,7 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Bn256Scalar;
 <span class="kw">use </span>nova::{
@@ -834,7 +835,8 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt; {
+    </span><span class="doccomment">/// Returns the `Lang` wrapped with `Arc` for cheap cloning
+    </span><span class="kw">pub fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.lang
     }
 }

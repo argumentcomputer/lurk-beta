@@ -1768,6 +1768,10 @@
 <a href="#1767" id="1767">1767</a>
 <a href="#1768" id="1768">1768</a>
 <a href="#1769" id="1769">1769</a>
+<a href="#1770" id="1770">1770</a>
+<a href="#1771" id="1771">1771</a>
+<a href="#1772" id="1772">1772</a>
+<a href="#1773" id="1773">1773</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2123,6 +2127,7 @@
 ///                             // there must be no remaining arguments
 ///                             if is_nil {
 ///                                 Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
+///                                 let expr: Expr::Thunk = cons2(expr, cont);
 ///                                 return (expr, env, cont);
 ///                             }
 ///                             return (evaluated_args_cp, env, err);
@@ -2160,7 +2165,10 @@
     cproc_inp.push(env.clone());
     cproc_inp.push(cont.clone());
     <span class="kw">let </span><span class="kw-2">mut </span>block = Block {
-        ops: <span class="macro">vec!</span>[Op::Cproc(cproc_out, cproc_sym.clone(), cproc_inp.clone())],
+        ops: <span class="macro">vec!</span>[
+            Op::Cproc(cproc_out, cproc_sym.clone(), cproc_inp.clone()),
+            <span class="macro">op!</span>(<span class="kw">let </span>expr: Expr::Thunk = cons2(expr, cont)),
+        ],
         ctrl: Ctrl::Return(func_out),
     };
     <span class="kw">for </span>(i, cproc_arg) <span class="kw">in </span>cproc_inp[<span class="number">0</span>..arity].iter().enumerate() {

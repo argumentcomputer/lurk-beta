@@ -350,6 +350,61 @@
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper::gadgets::boolean::Boolean;
 <span class="kw">use </span>bellpepper_core::{ConstraintSystem, SynthesisError};
 <span class="kw">use </span>std::fmt::Debug;
@@ -467,6 +522,8 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>test {
     <span class="kw">use </span>bellpepper_core::num::AllocatedNum;
     <span class="kw">use </span>serde::{Deserialize, Serialize};
+
+    <span class="kw">use </span><span class="self">self</span>::gadgets::construct_cons;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::constraints::{alloc_equal, mul};
@@ -698,6 +755,59 @@
 
         <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr]) -&gt; Ptr {
             <span class="self">Self</span>::intern_hello_world(s)
+        }
+    }
+
+    <span class="doccomment">/// A coprocessor that simply returns the pair (nil . nil)
+    </span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>NilNil&lt;F&gt; {
+        _p: PhantomData&lt;F&gt;,
+    }
+
+    <span class="kw">impl</span>&lt;F: LurkField&gt; NilNil&lt;F&gt; {
+        <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+            <span class="self">Self </span>{
+                _p: Default::default(),
+            }
+        }
+    }
+
+    <span class="kw">impl</span>&lt;F: LurkField&gt; CoCircuit&lt;F&gt; <span class="kw">for </span>NilNil&lt;F&gt; {
+        <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+            <span class="number">0
+        </span>}
+
+        <span class="kw">fn </span>synthesize_simple&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            cs: <span class="kw-2">&amp;mut </span>CS,
+            g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+            s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+            _not_dummy: <span class="kw-2">&amp;</span>Boolean,
+            _args: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
+        ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
+            <span class="kw">let </span>nil = g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.intern_nil(), s);
+            construct_cons(cs, g, s, <span class="kw-2">&amp;</span>nil, <span class="kw-2">&amp;</span>nil)
+        }
+
+        <span class="kw">fn </span>alloc_globals&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            cs: <span class="kw-2">&amp;mut </span>CS,
+            g: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
+            s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        ) {
+            g.alloc_ptr(cs, <span class="kw-2">&amp;</span>s.intern_nil(), s);
+            g.alloc_tag(cs, <span class="kw-2">&amp;</span>ExprTag::Cons);
+        }
+    }
+
+    <span class="kw">impl</span>&lt;F: LurkField&gt; Coprocessor&lt;F&gt; <span class="kw">for </span>NilNil&lt;F&gt; {
+        <span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+            <span class="bool-val">true
+        </span>}
+
+        <span class="kw">fn </span>evaluate_simple(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, _args: <span class="kw-2">&amp;</span>[Ptr]) -&gt; Ptr {
+            <span class="kw">let </span>nil = s.intern_nil();
+            s.cons(nil, nil)
         }
     }
 }
