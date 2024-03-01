@@ -18,10 +18,13 @@ pub struct State {
     symbol_packages: HashMap<SymbolRef, Package>,
 }
 
+/// Alias for `Rc<RefCell<State>>`
+pub type StateRcCell = Rc<RefCell<State>>;
+
 impl State {
     /// Wraps a state with `Rc<RefCell<...>>`
     #[inline]
-    pub fn rccell(self) -> Rc<RefCell<Self>> {
+    pub fn rccell(self) -> StateRcCell {
         Rc::new(RefCell::new(self))
     }
 
@@ -130,6 +133,16 @@ impl State {
         create_unknown_packges: bool,
     ) -> Result<SymbolRef> {
         self.intern_fold(Symbol::root(keyword).into(), path, create_unknown_packges)
+    }
+
+    /// Call `intern_path` with the symbol's path and keyword flag
+    #[inline]
+    pub fn intern_symbol(
+        &mut self,
+        symbol: &Symbol,
+        create_unknown_packges: bool,
+    ) -> Result<SymbolRef> {
+        self.intern_path(symbol.path(), symbol.is_keyword(), create_unknown_packges)
     }
 
     /// Call `intern_fold` w.r.t. the current package

@@ -2,7 +2,7 @@ use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode,
 };
 use halo2curves::bn256::Fr as Bn;
-use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use lurk::{
     eval::lang::{Coproc, Lang},
@@ -17,7 +17,7 @@ use lurk::{
         self,
         instance::{Instance, Kind},
     },
-    state::State,
+    state::{State, StateRcCell},
 };
 
 mod common;
@@ -25,7 +25,7 @@ use common::set_bench_config;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
-fn go_base<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64, b: u64) -> Ptr {
+fn go_base<F: LurkField>(store: &Store<F>, state: StateRcCell, a: u64, b: u64) -> Ptr {
     let program = format!(
         r#"
 (let ((foo (lambda (a b)

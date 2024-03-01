@@ -9,14 +9,14 @@ use indexmap::IndexSet;
 use neptune::Poseidon;
 use nom::{sequence::preceded, Parser};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     field::{FWrap, LurkField},
     hash::{InversePoseidonCache, PoseidonCache},
     lem::Tag,
     parser::{syntax, Error, Span},
-    state::{lurk_sym, user_sym, State},
+    state::{lurk_sym, user_sym, State, StateRcCell},
     symbol::Symbol,
     syntax::Syntax,
     tag::ContTag::{
@@ -945,7 +945,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn read(&self, state: Rc<RefCell<State>>, input: &str) -> Result<Ptr> {
+    pub fn read(&self, state: StateRcCell, input: &str) -> Result<Ptr> {
         match preceded(
             syntax::parse_space,
             syntax::parse_syntax(state, false, false),
@@ -959,7 +959,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn read_maybe_meta<'a>(
         &self,
-        state: Rc<RefCell<State>>,
+        state: StateRcCell,
         input: &'a str,
     ) -> Result<(usize, Span<'a>, Ptr, bool), Error> {
         match preceded(syntax::parse_space, syntax::parse_maybe_meta(state, false))

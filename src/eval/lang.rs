@@ -1,3 +1,4 @@
+use anyhow::Result;
 use indexmap::IndexMap;
 use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,7 @@ use crate::{
     coprocessor::{CoCircuit, Coprocessor},
     field::LurkField,
     lem::{pointers::Ptr, store::Store},
+    state::StateRcCell,
     symbol::Symbol,
 };
 
@@ -87,13 +89,14 @@ impl<F: LurkField, C> Lang<F, C> {
         }
     }
 
-    pub fn new_with_bindings<B: Into<Binding<F, C>>>(bindings: Vec<B>) -> Self {
-        let mut new = Self::new();
-        for b in bindings {
-            new.add_binding(b.into());
-        }
-
-        new
+    #[inline]
+    pub fn new_with_bindings<B: Into<Binding<F, C>>, I: IntoIterator<Item = B>>(
+        bindings: I,
+    ) -> Self {
+        bindings.into_iter().fold(Self::new(), |mut acc, b| {
+            acc.add_binding(b.into());
+            acc
+        })
     }
 
     pub fn key(&self) -> String {
@@ -109,9 +112,9 @@ impl<F: LurkField, C> Lang<F, C> {
         key
     }
 
+    #[inline]
     pub fn add_coprocessor<T: Into<C>, S: Into<Symbol>>(&mut self, name: S, cproc: T) {
-        let name = name.into();
-        self.coprocessors.insert(name, cproc.into());
+        self.coprocessors.insert(name.into(), cproc.into());
     }
 
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B) {
@@ -147,6 +150,18 @@ impl<F: LurkField, C> Lang<F, C> {
     #[inline]
     pub fn get_index_by_symbol(&self, sym: &Symbol) -> Option<usize> {
         self.coprocessors.get_index_of(sym)
+    }
+
+    /// Interns the symbols from the `Lang`'s bindings w.r.t. the root package,
+    /// creating new (unknown) packages if necessary
+    #[inline]
+    pub fn intern_symbols(&self, state: &StateRcCell) {
+        self.coprocessors.keys().for_each(|sym| {
+            state
+                .borrow_mut()
+                .intern_symbol(sym, true)
+                .expect("Unknown packages should be created automatically");
+        })
     }
 }
 

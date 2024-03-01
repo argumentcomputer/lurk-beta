@@ -10,23 +10,20 @@
 //! proof, will actually be a proof *verifying* that the vanilla operation was correctly performed. Therefore, the
 //! vanilla operation needs to provide such a proof so the circuit can verify it.
 
-use std::cell::RefCell;
 // TODO:
 //  - Implement circuit (https://github.com/lurk-lab/lurk-rs/issues/421).
 //  - Adapt to ongoing changes to general coprocessor API, most importantly, absorb
 //    https://github.com/lurk-lab/lurk-rs/issues/398. - If #398 is smooth enough, no actual implementation changes
 //    should be required here, but the test in src/eval/tests/trie.rs can and should be updated.
 use std::marker::PhantomData;
-use std::rc::Rc;
 
 use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
 
-use crate::package::Package;
-use crate::state::State;
-use crate::{self as lurk, Symbol};
+use crate::state::StateRcCell;
+use crate::{self as lurk};
 
 use crate::circuit::gadgets::constraints::{enforce_equal, implies_equal, select};
 use crate::circuit::gadgets::pointer::AllocatedPtr;
@@ -318,17 +315,18 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
 
 /// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 // TODO: define standard patterns for such modularity.
-pub fn install<F: LurkField>(state: &Rc<RefCell<State>>, lang: &mut Lang<F, TrieCoproc<F>>) {
+pub fn install<F: LurkField>(state: &StateRcCell, lang: &mut Lang<F, TrieCoproc<F>>) {
     lang.add_coprocessor(".lurk.trie.new", NewCoprocessor::default());
     lang.add_coprocessor(".lurk.trie.lookup", LookupCoprocessor::default());
     lang.add_coprocessor(".lurk.trie.insert", InsertCoprocessor::default());
+    lang.intern_symbols(state);
+}
 
-    let trie_package_name: Symbol = ".lurk.trie".into();
-    let mut package = Package::new(trie_package_name.into());
-    for name in ["new", "lookup", "insert"].into_iter() {
-        package.intern(name);
-    }
-    state.borrow_mut().add_package(package);
+/// Creates a `Lang` using the `Trie`-associated functions with standard bindings
+pub fn mk_lang<F: LurkField>(state: &StateRcCell) -> Lang<F, TrieCoproc<F>> {
+    let mut lang = Lang::new();
+    install(state, &mut lang);
+    lang
 }
 
 pub type ChildMap<F, const ARITY: usize> = InversePoseidonCache<F>;

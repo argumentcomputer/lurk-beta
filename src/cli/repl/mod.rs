@@ -12,14 +12,7 @@ use rustyline::{
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{
-    cell::{OnceCell, RefCell},
-    collections::HashMap,
-    fs::read_to_string,
-    io::Write,
-    rc::Rc,
-    sync::Arc,
-};
+use std::{cell::OnceCell, collections::HashMap, fs::read_to_string, io::Write, sync::Arc};
 use tracing::info;
 
 use crate::{
@@ -44,7 +37,7 @@ use crate::{
         RecursiveSNARKTrait,
     },
     public_parameters::{instance::Instance, public_params, supernova_public_params},
-    state::State,
+    state::{State, StateRcCell},
     tag::{ContTag, ExprTag},
     Symbol,
 };
@@ -87,7 +80,7 @@ impl Evaluation {
 #[allow(dead_code)]
 pub(crate) struct Repl<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> {
     store: Store<F>,
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     lang: Arc<Lang<F, C>>,
     lurk_step: Func,
     cprocs: Vec<Func>,
@@ -189,9 +182,11 @@ where
         };
         let lurk_step = make_eval_step_from_config(&eval_config);
         let cprocs = make_cprocs_funcs_from_lang(&lang);
+        let state = State::init_lurk_state().rccell();
+        lang.intern_symbols(&state);
         Repl {
             store,
-            state: State::init_lurk_state().rccell(),
+            state,
             lang: Arc::new(lang),
             lurk_step,
             cprocs,
