@@ -248,29 +248,24 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
             .enumerate()
             .for_each(|(component_idx, val)| match val {
                 Val::Pointer(ptr) => {
-                    let z_ptr = store.hash_ptr(ptr);
-                    // allocate pointer tag
-                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} tag slot {slot}")),
-                        || z_ptr.tag_field(),
-                    ));
-                    // allocate pointer hash
-                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} hash slot {slot}")),
-                        || *z_ptr.value(),
-                    ));
+                    let alloc_ptr = AllocatedPtr::alloc_infallible(
+                        &mut ns!(cs, format!("component {component_idx} slot {slot}")),
+                        || store.hash_ptr(ptr),
+                    );
+                    preallocated_preimg.push(alloc_ptr.tag().clone());
+                    preallocated_preimg.push(alloc_ptr.hash().clone());
                 }
                 Val::Num(raw) => {
                     let f = store.hash_raw_ptr(raw).0;
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        ns!(cs, format!("component {component_idx} slot {slot}")),
                         || f,
                     ));
                 }
                 Val::Boolean(b) => {
                     let f = if *b { F::ONE } else { F::ZERO };
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        ns!(cs, format!("component {component_idx} slot {slot}")),
                         || f,
                     ));
                 }
@@ -491,13 +486,70 @@ struct RecursiveContext<'a, F: LurkField, C> {
     bindings: &'a VarMap<Val>,
 }
 
-fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
+fn synthesize_call<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     cs: &mut CS,
-    block: &Block,
+    func: &Func,
     not_dummy: &Boolean,
     next_slot: &mut SlotsCounter,
     bound_allocations: &mut BoundAllocations<F>,
-    preallocated_outputs: &Vec<AllocatedPtr<F>>,
+    output_hints: &[Ptr],
+    ctx: &mut RecursiveContext<'_, F, C>,
+) -> Result<Vec<AllocatedPtr<F>>> {
+    let mut branch_outputs = BranchOutputs(vec![]);
+    synthesize_block(
+        cs,
+        &func.body,
+        &mut branch_outputs,
+        not_dummy,
+        next_slot,
+        bound_allocations,
+        ctx,
+    )?;
+    let output = allocate_return(cs, branch_outputs, ctx.store, output_hints);
+    Ok(output)
+}
+
+/// The collection of all return values and `not_dummy`s of all
+/// branches in a block.
+struct BranchOutputs<F: LurkField>(Vec<(Boolean, Vec<AllocatedPtr<F>>)>);
+
+/// Allocates variables for the return values and constrains them
+/// properly, given the collection of all return values for each
+/// branch. In the case where there is a unique branch, there is
+/// no need to allocate new variables.
+fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    branch_outputs: BranchOutputs<F>,
+    store: &Store<F>,
+    output_hints: &[Ptr],
+) -> Vec<AllocatedPtr<F>> {
+    let BranchOutputs(mut branches) = branch_outputs;
+    assert!(!branches.is_empty());
+    if branches.len() == 1 {
+        let (_, output) = branches.pop().unwrap();
+        return output;
+    }
+    let mut output = Vec::with_capacity(output_hints.len());
+    for (i, ptr) in output_hints.iter().enumerate() {
+        let z_ptr = || store.hash_ptr(ptr);
+        let ptr = AllocatedPtr::alloc_infallible(ns!(cs, format!("matched output {i}")), z_ptr);
+        output.push(ptr);
+    }
+    for (branch_idx, (select, ptrs)) in branches.iter().enumerate() {
+        for (ptr_idx, (ptr, ret_ptr)) in ptrs.iter().zip(output.iter()).enumerate() {
+            ptr.implies_ptr_equal(ns!(cs, format!("{branch_idx}:{ptr_idx}")), select, ret_ptr);
+        }
+    }
+    output
+}
+
+fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
+    cs: &mut CS,
+    block: &Block,
+    branch_outputs: &mut BranchOutputs<F>,
+    not_dummy: &Boolean,
+    next_slot: &mut SlotsCounter,
+    bound_allocations: &mut BoundAllocations<F>,
     ctx: &mut RecursiveContext<'_, F, C>,
 ) -> Result<()> {
     for (op_idx, op) in block.ops.iter().enumerate() {
@@ -591,9 +643,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 let not_dummy_and_not_blank = not_dummy.get_value() == Some(true) && !ctx.blank;
                 let collected_z_ptrs = if not_dummy_and_not_blank {
                     let collected_ptrs = ctx.bindings.get_many_ptr(out)?;
-                    if out.len() != collected_ptrs.len() {
-                        bail!("Incompatible output length for coprocessor {sym}")
-                    }
                     collected_ptrs
                         .iter()
                         .map(|ptr| ctx.store.hash_ptr(ptr))
@@ -629,68 +678,38 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 } else {
                     // just move on with the data that was collected from interpretation
                     for ((i, var), z_ptr) in out.iter().enumerate().zip(collected_z_ptrs) {
-                        let allocated_tag = AllocatedNum::alloc_infallible(
-                            ns!(cs, format!("tag for pointer {i} from cproc {sym}")),
-                            || z_ptr.tag_field(),
+                        let ptr = AllocatedPtr::alloc_infallible(
+                            ns!(cs, format!("cproc {sym} out {var} (index {i})")),
+                            || z_ptr,
                         );
-                        let allocated_hash = AllocatedNum::alloc_infallible(
-                            ns!(cs, format!("hash for pointer {i} from cproc {sym}")),
-                            || *z_ptr.value(),
-                        );
-                        bound_allocations.insert(
-                            var.clone(),
-                            AllocatedVal::Pointer(AllocatedPtr::from_parts(
-                                allocated_tag,
-                                allocated_hash,
-                            )),
-                        );
+                        bound_allocations.insert(var.clone(), AllocatedVal::Pointer(ptr));
                     }
                 }
             }
             Op::Call(out, func, inp) => {
-                // Allocate the output pointers that the `func` will return to.
-                // These should be unconstrained as of yet, and will be constrained
-                // by the return statements inside `func`.
-                // Note that, because there's currently no way of deferring giving
-                // a value to the allocated nums to be filled later, we must either
-                // add the results of the call to the witness, or recompute them.
-                let not_dummy_and_not_blank = not_dummy.get_value() == Some(true) && !ctx.blank;
-                let output_z_ptrs = if not_dummy_and_not_blank {
-                    let ptrs = ctx.bindings.get_many_ptr(out)?;
-                    let z_ptrs = ptrs
-                        .iter()
-                        .map(|ptr| ctx.store.hash_ptr(ptr))
-                        .collect::<Vec<_>>();
-                    assert_eq!(z_ptrs.len(), out.len());
-                    z_ptrs
+                let output_hints = if !ctx.blank && not_dummy.get_value() == Some(true) {
+                    ctx.bindings.get_many_ptr(out)?
                 } else {
-                    vec![ZPtr::dummy(); out.len()]
+                    vec![ctx.store.dummy(); out.len()]
                 };
-                let mut output_ptrs = Vec::with_capacity(out.len());
-                for (z_ptr, var) in output_z_ptrs.into_iter().zip(out.iter()) {
-                    let ptr =
-                        AllocatedPtr::alloc_infallible(ns!(cs, format!("var: {var}")), || z_ptr);
-                    bound_allocations.insert_ptr(var.clone(), ptr.clone());
-                    output_ptrs.push(ptr);
-                }
                 // Get the pointers for the input, i.e. the arguments
                 let args = bound_allocations.get_many_ptr(inp)?;
-                // These are the input parameters (formal variables)
-                let param_list = func.input_params.iter();
                 // Now we bind the `Func`'s input parameters to the arguments in the call.
-                param_list.zip(args.into_iter()).for_each(|(param, arg)| {
-                    bound_allocations.insert_ptr(param.clone(), arg);
-                });
-                // Finally, we synthesize the circuit for the function body
-                synthesize_block(
+                func.bind_input(&args, bound_allocations);
+                // Finally, we synthesize the call
+                let output_ptrs = synthesize_call(
                     ns!(cs, "call"),
-                    &func.body,
+                    func,
                     not_dummy,
                     next_slot,
                     bound_allocations,
-                    &output_ptrs,
+                    &output_hints,
                     ctx,
                 )?;
+                // and bind the outputs
+                for (var, ptr) in out.iter().zip(output_ptrs.into_iter()) {
+                    bound_allocations.insert_ptr(var.clone(), ptr);
+                }
             }
             Op::Cons2(img, tag, preimg) => {
                 cons_helper!(img.clone(), tag, preimg, SlotType::Hash4);
@@ -1188,10 +1207,10 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             synthesize_block(
                 ns!(cs, format!("{i}")),
                 block,
+                branch_outputs,
                 &not_dummy_and_has_match,
                 &mut branch_slot,
                 bound_allocations,
-                preallocated_outputs,
                 ctx,
             )?;
             branch_slots.push(branch_slot);
@@ -1223,10 +1242,10 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             synthesize_block(
                 ns!(cs, "_"),
                 def,
+                branch_outputs,
                 &is_default,
                 next_slot,
                 bound_allocations,
-                preallocated_outputs,
                 ctx,
             )?;
 
@@ -1248,16 +1267,8 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
     match &block.ctrl {
         Ctrl::Return(return_vars) => {
-            for (i, return_var) in return_vars.iter().enumerate() {
-                let allocated_ptr = bound_allocations.get_ptr(return_var)?;
-
-                allocated_ptr.implies_ptr_equal(
-                    ns!(cs, format!("implies_ptr_equal {return_var} pos {i}")),
-                    not_dummy,
-                    &preallocated_outputs[i],
-                );
-            }
-            Ok(())
+            let output = bound_allocations.get_many_ptr(return_vars)?;
+            branch_outputs.0.push((not_dummy.clone(), output));
         }
         Ctrl::If(b, true_block, false_block) => {
             let b = bound_allocations.get_bool(b)?;
@@ -1268,23 +1279,22 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             synthesize_block(
                 ns!(cs, "if_eq.true"),
                 true_block,
+                branch_outputs,
                 &b_not_dummy,
                 &mut branch_slot,
                 bound_allocations,
-                preallocated_outputs,
                 ctx,
             )?;
             synthesize_block(
                 ns!(cs, "if_eq.false"),
                 false_block,
+                branch_outputs,
                 &not_b_not_dummy,
                 next_slot,
                 bound_allocations,
-                preallocated_outputs,
                 ctx,
             )?;
             *next_slot = next_slot.cmp_max(branch_slot);
-            Ok(())
         }
         Ctrl::MatchTag(match_var, cases, def) => {
             let matched = bound_allocations.get_ptr(match_var)?.tag().clone();
@@ -1296,7 +1306,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
             // The number of slots the match used is the max number of slots of each branch
             *next_slot = next_slot.fold_max(branch_slots);
-            Ok(())
         }
         Ctrl::MatchSymbol(match_var, cases, def) => {
             let match_var_ptr = bound_allocations.get_ptr(match_var)?.clone();
@@ -1327,9 +1336,9 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
             // The number of slots the match used is the max number of slots of each branch
             *next_slot = next_slot.fold_max(branch_slots);
-            Ok(())
         }
     }
+    Ok(())
 }
 
 impl Func {
@@ -1343,25 +1352,6 @@ impl Func {
         for (var, ptr) in self.input_params.iter().zip(input) {
             bound_allocations.insert_ptr(var.clone(), ptr.clone());
         }
-    }
-
-    /// Allocates an unconstrained pointer for each output of the frame
-    fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-        frame: &Frame,
-    ) -> Vec<AllocatedPtr<F>> {
-        assert_eq!(self.output_size, frame.output.len());
-        let mut output = Vec::with_capacity(frame.output.len());
-        for (i, ptr) in frame.output.iter().enumerate() {
-            let zptr = store.hash_ptr(ptr);
-            output.push(AllocatedPtr::alloc_infallible(
-                ns!(cs, format!("var: output[{}]", i)),
-                || zptr,
-            ));
-        }
-        output
     }
 
     /// Allocates an unconstrained pointer for each input of the frame
@@ -1403,9 +1393,6 @@ impl Func {
         lang: &Lang<F, C>,
         slots_witness: Option<&[Arc<SlotWitness<F>>]>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
-        // Outputs are constrained by the return statement. All functions return
-        let preallocated_outputs = self.allocate_output(cs, store, frame);
-
         if let Some(slots_witness) = slots_witness {
             assert!(cs.is_witness_generator());
             slots_witness
@@ -1429,13 +1416,13 @@ impl Func {
             let hash8_slots = &collect(hash6_upper, hash8_upper);
             let commitment_slots = &collect(hash8_upper, commitment_upper);
             let bit_decomp_slots = &collect(commitment_upper, bit_decomp_upper);
-            synthesize_block(
+            let output = synthesize_call(
                 cs,
-                &self.body,
+                self,
                 &Boolean::Constant(true),
                 &mut SlotsCounter::default(),
                 bound_allocations,
-                &preallocated_outputs,
+                &frame.output,
                 &mut RecursiveContext {
                     lang,
                     store,
@@ -1449,6 +1436,7 @@ impl Func {
                     bindings: &frame.hints.bindings,
                 },
             )?;
+            Ok(output)
         } else {
             assert!(!cs.is_witness_generator());
             let slots_allocations = build_slots_allocations(cs, store, frame, &self.slots_count)?;
@@ -1457,13 +1445,13 @@ impl Func {
             let hash8_slots = &slots_allocations.hash8.iter().collect::<Vec<_>>();
             let commitment_slots = &slots_allocations.commitment.iter().collect::<Vec<_>>();
             let bit_decomp_slots = &slots_allocations.bit_decomp.iter().collect::<Vec<_>>();
-            synthesize_block(
+            let output = synthesize_call(
                 cs,
-                &self.body,
+                self,
                 &Boolean::Constant(true),
                 &mut SlotsCounter::default(),
                 bound_allocations,
-                &preallocated_outputs,
+                &frame.output,
                 &mut RecursiveContext {
                     lang,
                     store,
@@ -1477,9 +1465,8 @@ impl Func {
                     bindings: &frame.hints.bindings,
                 },
             )?;
+            Ok(output)
         }
-
-        Ok(preallocated_outputs)
     }
 
     /// Helper API for tests
@@ -1514,12 +1501,13 @@ impl Func {
             globals: &mut HashSet<FWrap<F>>,
             store: &Store<F>,
             is_nested: bool,
+            branches: bool,
         ) -> usize {
             let mut num_constraints = 0;
             for op in &block.ops {
                 match op {
                     Op::Call(_, func, _) => {
-                        num_constraints += recurse(&func.body, globals, store, is_nested);
+                        num_constraints += recurse(&func.body, globals, store, is_nested, false);
                     }
                     Op::Zero(_, tag) => {
                         // constrain tag and hash
@@ -1626,12 +1614,18 @@ impl Func {
                 }
             }
             match &block.ctrl {
-                Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
+                Ctrl::Return(vars) => {
+                    if branches {
+                        num_constraints + 2 * vars.len()
+                    } else {
+                        num_constraints
+                    }
+                }
                 Ctrl::If(_, true_block, false_block) => {
                     num_constraints
                         + if is_nested { 2 } else { 0 }
-                        + recurse(true_block, globals, store, true)
-                        + recurse(false_block, globals, store, true)
+                        + recurse(true_block, globals, store, true, true)
+                        + recurse(false_block, globals, store, true, true)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
                     // We allocate one boolean per case and constrain it once
@@ -1640,12 +1634,12 @@ impl Func {
                     num_constraints += 2 * cases.len() + 1;
 
                     for block in cases.values() {
-                        num_constraints += recurse(block, globals, store, true);
+                        num_constraints += recurse(block, globals, store, true, true);
                     }
                     if let Some(def) = def {
                         // constraints for the boolean, the inequalities and the default case
                         num_constraints += 1 + cases.len();
-                        num_constraints += recurse(def, globals, store, true);
+                        num_constraints += recurse(def, globals, store, true, true);
                     }
                     num_constraints
                 }
@@ -1660,12 +1654,12 @@ impl Func {
                     num_constraints += 2 * cases.len() + 1;
 
                     for block in cases.values() {
-                        num_constraints += recurse(block, globals, store, true);
+                        num_constraints += recurse(block, globals, store, true, true);
                     }
                     if let Some(def) = def {
                         // constraints for the boolean, the inequalities and the default case
                         num_constraints += 1 + cases.len();
-                        num_constraints += recurse(def, globals, store, true);
+                        num_constraints += recurse(def, globals, store, true, true);
                     }
                     num_constraints
                 }
@@ -1686,7 +1680,7 @@ impl Func {
             + store.hash8_cost() * self.slots_count.hash8
             + store.hash3_cost() * self.slots_count.commitment
             + bit_decomp_cost * self.slots_count.bit_decomp;
-        let num_constraints = recurse(&self.body, globals, store, false);
+        let num_constraints = recurse(&self.body, globals, store, false, false);
         slot_constraints + num_constraints + globals.len()
     }
 }

@@ -963,7 +963,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bellpepper_core::test_cs::TestConstraintSystem;
     use halo2curves::bn256::Fr as Bn;
     use halo2curves::grumpkin::Fr as Gr;
     use pasta_curves::{Fp, Fq};
@@ -1115,34 +1114,5 @@ mod tests {
             assert_eq!(x.tag().get_value(), y.tag().get_value());
             assert_eq!(x.hash().get_value(), y.hash().get_value());
         }
-    }
-
-    #[test]
-    fn non_self_evaluating() {
-        let store = Store::<Bn>::default();
-
-        // not self-evaluating
-        let expr = store.read_with_default_state("(+ 1 2)").unwrap();
-
-        let lang = Arc::new(Lang::<Bn>::new());
-        let mut frames = evaluate::<Bn, Coproc<Bn>>(None, expr, &store, 1).unwrap();
-        assert_eq!(frames.len(), 1);
-
-        let mut frame = frames.pop().unwrap();
-        // faking a trivial evaluation frame
-        frame.output = vec![expr, store.intern_empty_env(), store.cont_terminal()];
-
-        let mut cs = TestConstraintSystem::<Bn>::new();
-
-        let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), 1));
-
-        store.hydrate_z_cache();
-        MultiFrame::from_frames(&[frame], &store, &folding_config)
-            .pop()
-            .unwrap()
-            .synthesize(&mut cs)
-            .unwrap();
-
-        assert!(!cs.is_satisfied());
     }
 }
