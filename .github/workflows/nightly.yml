@@ -8,25 +8,41 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
-  linux_exhaustive:
-    runs-on: buildjet-16vcpu-ubuntu-2204
+  # TODO: Reusify
+  exhaustive-tests:
+    strategy:
+      matrix:
+        os: [buildjet-16vcpu-ubuntu-2204, macos-latest-xlarge]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           repository: lurk-lab/ci-workflows
       - uses: ./.github/actions/ci-env
+      - uses: ./.github/actions/install-deps
+        if: ${{ matrix.os == "buildjet-16vcpu-ubuntu-2204" }}
+        with:
+          packages: "pkg-config libssl-dev"
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install dependencies
-        run: sudo apt-get install -y pkg-config libssl-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
-      - name: Linux Tests
+      - name: Tests
         id: tests
         run: |
-          cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored all
+          cargo nextest run --profile ci --workspace --cargo-profile dev-ci
+        continue-on-error: true
+      - name: Gadget Tests w/o debug assertions
+        id: gadget-tests
+        run: |
+          cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
+        continue-on-error: true
+      - name: Exhaustive Tests
+        id: ignored-tests
+        run: |
+          cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored ignored-only
         continue-on-error: true
       - name: Benches build successfully
         id: benches
@@ -40,18 +56,28 @@ jobs:
         continue-on-error: true
 
       - name: Gather status in a single variable
-        if: steps.tests.outcome == 'success' && steps.benches.outcome == 'success' && steps.doctests.outcome == 'success'
+        if: steps.tests.outcome == 'success' && steps.gadget-tests.outcome == 'success' && steps.ignored-tests.outcome == 'success' && steps.benches.outcome == 'success' && steps.doctests.outcome == 'success'
         run: echo "status=true" >> $GITHUB_ENV
 
       - name: Debug
         run: |
           echo ${{ steps.tests.outcome }}
+          echo ${{ steps.gadget-tests.outcome }}
+          echo ${{ steps.ignored-tests.outcome }}
           echo ${{ steps.benches.outcome  }}
           echo ${{ steps.doctests.outcome }}
           echo ${{ env.status }}
 
       - name: Amend MESSAGE for tests
         if: steps.tests.outcome != 'success'
+        run: echo "MESSAGE=${{ env.MESSAGE }} Exhaustive test run failed in https://github.com/lurk-lab/lurk-rs/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+
+      - name: Amend MESSAGE for gadget-tests
+        if: steps.gadget-tests.outcome != 'success'
+        run: echo "MESSAGE=${{ env.MESSAGE }} Exhaustive test run failed in https://github.com/lurk-lab/lurk-rs/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+
+      - name: Amend MESSAGE for ignored tests
+        if: steps.ignored-tests.outcome != 'success'
         run: echo "MESSAGE=${{ env.MESSAGE }} Exhaustive test run failed in https://github.com/lurk-lab/lurk-rs/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: Amend MESSAGE for benches

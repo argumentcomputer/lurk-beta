@@ -46,20 +46,3 @@ jobs:
       - name: Linux Gadget Tests w/o debug assertions
         run: |
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
-
-  mac-m1:
-    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
-    runs-on: macos-latest-xlarge
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@nextest
-      - uses: Swatinem/rust-cache@v2
-      - name: Linux Tests
-        run: |
-          cargo nextest run --profile ci --workspace --cargo-profile dev-ci
-      - name: Linux Gadget Tests w/o debug assertions
-        run: |
-          cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
