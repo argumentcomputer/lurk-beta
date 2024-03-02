@@ -179,7 +179,7 @@ impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
         let args = self.args.iter().cloned();
         let bound_allocations = &mut BoundAllocations::new();
         for (param, arg) in params.zip(args) {
-            bound_allocations.insert_ptr(param, arg).unwrap();
+            bound_allocations.insert_ptr(param, arg);
         }
         let func = &coroutine.func;
         let mut next_acc = acc.clone();
@@ -275,14 +275,15 @@ pub(crate) fn to_improper_list<F: LurkField>(args: &[Ptr], s: &Store<F>) -> Ptr 
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use crate::coroutine::memoset::prove::MemosetProver;
+    use crate::proof::{Prover, RecursiveSNARKTrait};
     use crate::{func, state::user_sym};
 
-    use super::*;
     use halo2curves::bn256::Fr as F;
 
-    #[test]
-    fn lem_coroutine_eval_test() {
-        let s = Arc::new(Store::<F>::default());
+    fn sample_toplevel() -> (Arc<Toplevel<F>>, [Symbol; 4]) {
+        let id = func!(id(x): 1 => { return (x) });
         let factorial = func!(factorial(n): 1 => {
             let zero = Num(0);
             let one = Num(1);
@@ -317,14 +318,25 @@ mod test {
             let res = QUERY(even, m);
             return (res)
         });
+        let id_sym = user_sym("id");
         let factorial_sym = user_sym("factorial");
         let even_sym = user_sym("even");
         let odd_sym = user_sym("odd");
         let toplevel = Arc::new(Toplevel::<F>::new(vec![
+            (id_sym.clone(), id),
             (factorial_sym.clone(), factorial),
             (even_sym.clone(), even),
             (odd_sym.clone(), odd),
         ]));
+        let symbols = [id_sym, factorial_sym, even_sym, odd_sym];
+        (toplevel, symbols)
+    }
+
+    #[test]
+    fn lem_coroutine_eval_test() {
+        let (toplevel, [_, factorial_sym, even_sym, odd_sym]) = sample_toplevel();
+        let s = Arc::new(Store::<F>::default());
+
         let query1 = ToplevelQuery::<F>::new(factorial_sym, vec![s.num_u64(5)], &toplevel).unwrap();
         let query2 = ToplevelQuery::<F>::new(even_sym, vec![s.num_u64(5)], &toplevel).unwrap();
         let query3 = ToplevelQuery::<F>::new(odd_sym, vec![s.num_u64(5)], &toplevel).unwrap();
@@ -335,5 +347,34 @@ mod test {
         assert_eq!(res1, scope.store.num_u64(120));
         assert_eq!(res2, scope.store.num_u64(0));
         assert_eq!(res3, scope.store.num_u64(1));
+    }
+
+    #[test]
+    fn lem_coroutine_prove_test() {
+        let (toplevel, _) = sample_toplevel();
+        let s = Arc::new(Store::<F>::default());
+
+        let prover = MemosetProver::<'_, F, ToplevelQuery<F>>::new(10);
+        let pp = prover.public_params(toplevel.clone(), s.clone());
+
+        // This query is only necessary because Arecibo assumes that the first circuit
+        // to run is 0. Eventually, this will be replaced by the coroutine prologue
+        let id_query = s.read_with_default_state("(id . 0)").unwrap();
+
+        let query = s.read_with_default_state("(factorial . 5)").unwrap();
+        let mut scope = Scope::new(prover.reduction_count(), s.clone(), toplevel.clone());
+        scope.query(id_query);
+        scope.query(query);
+        scope.finalize_transcript();
+        let (snark, input, output, _iterations) = prover.prove_from_scope(&pp, &scope).unwrap();
+        assert!(snark.verify(&pp, &input, &output).unwrap());
+
+        let query = s.read_with_default_state("(even . 5)").unwrap();
+        let mut scope = Scope::new(prover.reduction_count(), s, toplevel);
+        scope.query(id_query);
+        scope.query(query);
+        scope.finalize_transcript();
+        let (snark, input, output, _iterations) = prover.prove_from_scope(&pp, &scope).unwrap();
+        assert!(snark.verify(&pp, &input, &output).unwrap());
     }
 }

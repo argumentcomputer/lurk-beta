@@ -27,8 +27,9 @@
 //! results computed 'naturally' during evaluation. We then separate and sort in an order matching that which the NIVC
 //! prover will follow when provably maintaining the multiset accumulator and Fiat-Shamir transcript in the circuit.
 
+use indexmap::IndexMap;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -64,7 +65,7 @@ pub use query::{CircuitQuery, Query};
 mod demo;
 mod env;
 mod multiset;
-mod prove;
+pub mod prove;
 mod query;
 
 #[derive(Debug)]
@@ -315,19 +316,19 @@ impl<'a, F: LurkField> Debug for PW<'a, F> {
 pub struct Scope<Q: Query<F>, M, F: LurkField> {
     memoset: M,
     /// k => v
-    queries: HashMap<Ptr, Ptr>,
+    queries: IndexMap<Ptr, Ptr>,
     /// k => ordered subqueries
-    dependencies: HashMap<Ptr, Vec<Q>>,
+    dependencies: IndexMap<Ptr, Vec<Q>>,
     /// inverse of dependencies
-    dependents: HashMap<Ptr, HashSet<Ptr>>,
+    dependents: IndexMap<Ptr, HashSet<Ptr>>,
     /// kv pairs
     toplevel_insertions: Vec<Ptr>,
     /// internally-inserted keys
     internal_insertions: Vec<Ptr>,
     /// unique keys: query-index -> [key]
-    unique_inserted_keys: HashMap<usize, Vec<Ptr>>,
+    unique_inserted_keys: IndexMap<usize, Vec<Ptr>>,
     // This may become an explicit map or something allowing more fine-grained control.
-    provenances: OnceCell<HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
+    provenances: OnceCell<IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
     default_rc: usize,
     pub(crate) store: Arc<Store<F>>,
     pub(crate) content: Q::C,
@@ -419,7 +420,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 pub struct CircuitScope<F: LurkField, CM, C> {
     memoset: CM, // CircuitMemoSet
     /// k -> prov
-    provenances: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
+    provenances: IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     /// k -> allocated v
     transcript: CircuitTranscript<F>,
     acc: Option<AllocatedPtr<F>>,
@@ -429,7 +430,7 @@ pub struct CircuitScope<F: LurkField, CM, C> {
 #[derive(Clone)]
 pub struct CoroutineCircuit<F: LurkField, CM, Q: Query<F>> {
     input: Option<Vec<Ptr>>,
-    provenances: HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
+    provenances: IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     memoset: CM,
     keys: Vec<Ptr>,
     query_index: usize,
@@ -610,7 +611,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         (result, kv)
     }
 
-    fn finalize_transcript(&mut self) -> Transcript<F> {
+    pub(crate) fn finalize_transcript(&mut self) -> Transcript<F> {
         let s = self.store.as_ref();
         let (transcript, insertions) = self.build_transcript();
         self.memoset.finalize_transcript(s, transcript.clone());
@@ -619,7 +620,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         transcript
     }
 
-    fn provenances(&self) -> &HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
+    fn provenances(&self) -> &IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
         self.provenances.get_or_init(|| self.compute_provenances())
     }
 
@@ -629,13 +630,13 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     //     Self::dbg_provenances_zptrs(store, self.provenances(store));
     // }
 
-    // fn dbg_provenances_ptrs(store: &Store<F>, provenances: &HashMap<Ptr, Ptr>) {
+    // fn dbg_provenances_ptrs(store: &Store<F>, provenances: &IndexMap<Ptr, Ptr>) {
     //     for provenance in provenances.values() {
     //         dbg!(provenance.fmt_to_string_simple(store));
     //     }
     // }
 
-    // fn dbg_provenances_zptrs(store: &Store<F>, provenances: &HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>) {
+    // fn dbg_provenances_zptrs(store: &Store<F>, provenances: &IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>) {
     //     for (q, provenance) in provenances {
     //         dbg!(
     //             store.to_ptr(q).fmt_to_string_simple(store),
@@ -644,11 +645,11 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     //     }
     // }
 
-    fn compute_provenances(&self) -> HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
-        let mut provenances = HashMap::default();
+    fn compute_provenances(&self) -> IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
+        let mut provenances = IndexMap::default();
         let mut ready = HashSet::new();
 
-        let mut missing_dependency_counts: HashMap<&Ptr, usize> = self
+        let mut missing_dependency_counts: IndexMap<&Ptr, usize> = self
             .queries
             .keys()
             .map(|key| {
@@ -683,9 +684,9 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
     fn extend_provenances<'a>(
         &'a self,
-        provenances: &mut HashMap<Ptr, Ptr>,
+        provenances: &mut IndexMap<Ptr, Ptr>,
         ready: HashSet<&Ptr>,
-        missing_dependency_counts: &mut HashMap<&'a Ptr, usize>,
+        missing_dependency_counts: &mut IndexMap<&'a Ptr, usize>,
     ) -> HashSet<&Ptr> {
         let mut next = HashSet::new();
         for query in ready.into_iter() {
@@ -742,13 +743,13 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         }
     }
 
-    fn build_transcript(&self) -> (Transcript<F>, HashMap<usize, Vec<Ptr>>) {
+    fn build_transcript(&self) -> (Transcript<F>, IndexMap<usize, Vec<Ptr>>) {
         let s = self.store.as_ref();
         let mut transcript = Transcript::new(s);
 
         // k -> kv
-        let mut kvs_by_key: HashMap<Ptr, Ptr> = HashMap::new();
-        let mut unique_keys: HashMap<usize, Vec<Ptr>> = Default::default();
+        let mut kvs_by_key: IndexMap<Ptr, Ptr> = IndexMap::new();
+        let mut unique_keys: IndexMap<usize, Vec<Ptr>> = Default::default();
 
         let mut record_kv = |kv: &Ptr| {
             let key = s.car_cdr(kv).unwrap().0;
@@ -916,7 +917,7 @@ impl<F: LurkField, C> CircuitScope<F, LogMemoCircuit<F>, C> {
         g: &GlobalAllocator<F>,
         s: &Store<F>,
         memoset: LogMemoCircuit<F>,
-        provenances: &HashMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
+        provenances: &IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
         content: C,
     ) -> Self {
         Self {
