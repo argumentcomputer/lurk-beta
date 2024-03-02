@@ -1685,12 +1685,6 @@
 <a href="#1684" id="1684">1684</a>
 <a href="#1685" id="1685">1685</a>
 <a href="#1686" id="1686">1686</a>
-<a href="#1687" id="1687">1687</a>
-<a href="#1688" id="1688">1688</a>
-<a href="#1689" id="1689">1689</a>
-<a href="#1690" id="1690">1690</a>
-<a href="#1691" id="1691">1691</a>
-<a href="#1692" id="1692">1692</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -1941,29 +1935,24 @@
             .enumerate()
             .for_each(|(component_idx, val)| <span class="kw">match </span>val {
                 Val::Pointer(ptr) =&gt; {
-                    <span class="kw">let </span>z_ptr = store.hash_ptr(ptr);
-                    <span class="comment">// allocate pointer tag
-                    </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">"component {component_idx} tag slot {slot}"</span>)),
-                        || z_ptr.tag_field(),
-                    ));
-                    <span class="comment">// allocate pointer hash
-                    </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">"component {component_idx} hash slot {slot}"</span>)),
-                        || <span class="kw-2">*</span>z_ptr.value(),
-                    ));
+                    <span class="kw">let </span>alloc_ptr = AllocatedPtr::alloc_infallible(
+                        <span class="kw-2">&amp;mut </span><span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"component {component_idx} slot {slot}"</span>)),
+                        || store.hash_ptr(ptr),
+                    );
+                    preallocated_preimg.push(alloc_ptr.tag().clone());
+                    preallocated_preimg.push(alloc_ptr.hash().clone());
                 }
                 Val::Num(raw) =&gt; {
                     <span class="kw">let </span>f = store.hash_raw_ptr(raw).<span class="number">0</span>;
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">"component {component_idx} slot {slot}"</span>)),
+                        <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"component {component_idx} slot {slot}"</span>)),
                         || f,
                     ));
                 }
                 Val::Boolean(b) =&gt; {
                     <span class="kw">let </span>f = <span class="kw">if </span><span class="kw-2">*</span>b { F::ONE } <span class="kw">else </span>{ F::ZERO };
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">"component {component_idx} slot {slot}"</span>)),
+                        <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"component {component_idx} slot {slot}"</span>)),
                         || f,
                     ));
                 }
@@ -2184,13 +2173,70 @@
     bindings: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VarMap&lt;Val&gt;,
 }
 
-<span class="kw">fn </span>synthesize_block&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, C: Coprocessor&lt;F&gt;&gt;(
+<span class="kw">fn </span>synthesize_call&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, C: Coprocessor&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
-    block: <span class="kw-2">&amp;</span>Block,
+    func: <span class="kw-2">&amp;</span>Func,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
     next_slot: <span class="kw-2">&amp;mut </span>SlotsCounter,
     bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
-    preallocated_outputs: <span class="kw-2">&amp;</span>Vec&lt;AllocatedPtr&lt;F&gt;&gt;,
+    output_hints: <span class="kw-2">&amp;</span>[Ptr],
+    ctx: <span class="kw-2">&amp;mut </span>RecursiveContext&lt;<span class="lifetime">'_</span>, F, C&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>branch_outputs = BranchOutputs(<span class="macro">vec!</span>[]);
+    synthesize_block(
+        cs,
+        <span class="kw-2">&amp;</span>func.body,
+        <span class="kw-2">&amp;mut </span>branch_outputs,
+        not_dummy,
+        next_slot,
+        bound_allocations,
+        ctx,
+    )<span class="question-mark">?</span>;
+    <span class="kw">let </span>output = allocate_return(cs, branch_outputs, ctx.store, output_hints);
+    <span class="prelude-val">Ok</span>(output)
+}
+
+<span class="doccomment">/// The collection of all return values and `not_dummy`s of all
+/// branches in a block.
+</span><span class="kw">struct </span>BranchOutputs&lt;F: LurkField&gt;(Vec&lt;(Boolean, Vec&lt;AllocatedPtr&lt;F&gt;&gt;)&gt;);
+
+<span class="doccomment">/// Allocates variables for the return values and constrains them
+/// properly, given the collection of all return values for each
+/// branch. In the case where there is a unique branch, there is
+/// no need to allocate new variables.
+</span><span class="kw">fn </span>allocate_return&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    branch_outputs: BranchOutputs&lt;F&gt;,
+    store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+    output_hints: <span class="kw-2">&amp;</span>[Ptr],
+) -&gt; Vec&lt;AllocatedPtr&lt;F&gt;&gt; {
+    <span class="kw">let </span>BranchOutputs(<span class="kw-2">mut </span>branches) = branch_outputs;
+    <span class="macro">assert!</span>(!branches.is_empty());
+    <span class="kw">if </span>branches.len() == <span class="number">1 </span>{
+        <span class="kw">let </span>(<span class="kw">_</span>, output) = branches.pop().unwrap();
+        <span class="kw">return </span>output;
+    }
+    <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::with_capacity(output_hints.len());
+    <span class="kw">for </span>(i, ptr) <span class="kw">in </span>output_hints.iter().enumerate() {
+        <span class="kw">let </span>z_ptr = || store.hash_ptr(ptr);
+        <span class="kw">let </span>ptr = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"matched output {i}"</span>)), z_ptr);
+        output.push(ptr);
+    }
+    <span class="kw">for </span>(branch_idx, (select, ptrs)) <span class="kw">in </span>branches.iter().enumerate() {
+        <span class="kw">for </span>(ptr_idx, (ptr, ret_ptr)) <span class="kw">in </span>ptrs.iter().zip(output.iter()).enumerate() {
+            ptr.implies_ptr_equal(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"{branch_idx}:{ptr_idx}"</span>)), select, ret_ptr);
+        }
+    }
+    output
+}
+
+<span class="kw">fn </span>synthesize_block&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, C: Coprocessor&lt;F&gt;&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    block: <span class="kw-2">&amp;</span>Block,
+    branch_outputs: <span class="kw-2">&amp;mut </span>BranchOutputs&lt;F&gt;,
+    not_dummy: <span class="kw-2">&amp;</span>Boolean,
+    next_slot: <span class="kw-2">&amp;mut </span>SlotsCounter,
+    bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
     ctx: <span class="kw-2">&amp;mut </span>RecursiveContext&lt;<span class="lifetime">'_</span>, F, C&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">for </span>(op_idx, op) <span class="kw">in </span>block.ops.iter().enumerate() {
@@ -2284,9 +2330,6 @@
                 <span class="kw">let </span>not_dummy_and_not_blank = not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) &amp;&amp; !ctx.blank;
                 <span class="kw">let </span>collected_z_ptrs = <span class="kw">if </span>not_dummy_and_not_blank {
                     <span class="kw">let </span>collected_ptrs = ctx.bindings.get_many_ptr(out)<span class="question-mark">?</span>;
-                    <span class="kw">if </span>out.len() != collected_ptrs.len() {
-                        <span class="macro">bail!</span>(<span class="string">"Incompatible output length for coprocessor {sym}"</span>)
-                    }
                     collected_ptrs
                         .iter()
                         .map(|ptr| ctx.store.hash_ptr(ptr))
@@ -2322,68 +2365,38 @@
                 } <span class="kw">else </span>{
                     <span class="comment">// just move on with the data that was collected from interpretation
                     </span><span class="kw">for </span>((i, var), z_ptr) <span class="kw">in </span>out.iter().enumerate().zip(collected_z_ptrs) {
-                        <span class="kw">let </span>allocated_tag = AllocatedNum::alloc_infallible(
-                            <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"tag for pointer {i} from cproc {sym}"</span>)),
-                            || z_ptr.tag_field(),
+                        <span class="kw">let </span>ptr = AllocatedPtr::alloc_infallible(
+                            <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"cproc {sym} out {var} (index {i})"</span>)),
+                            || z_ptr,
                         );
-                        <span class="kw">let </span>allocated_hash = AllocatedNum::alloc_infallible(
-                            <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"hash for pointer {i} from cproc {sym}"</span>)),
-                            || <span class="kw-2">*</span>z_ptr.value(),
-                        );
-                        bound_allocations.insert(
-                            var.clone(),
-                            AllocatedVal::Pointer(AllocatedPtr::from_parts(
-                                allocated_tag,
-                                allocated_hash,
-                            )),
-                        );
+                        bound_allocations.insert(var.clone(), AllocatedVal::Pointer(ptr));
                     }
                 }
             }
             Op::Call(out, func, inp) =&gt; {
-                <span class="comment">// Allocate the output pointers that the `func` will return to.
-                // These should be unconstrained as of yet, and will be constrained
-                // by the return statements inside `func`.
-                // Note that, because there's currently no way of deferring giving
-                // a value to the allocated nums to be filled later, we must either
-                // add the results of the call to the witness, or recompute them.
-                </span><span class="kw">let </span>not_dummy_and_not_blank = not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) &amp;&amp; !ctx.blank;
-                <span class="kw">let </span>output_z_ptrs = <span class="kw">if </span>not_dummy_and_not_blank {
-                    <span class="kw">let </span>ptrs = ctx.bindings.get_many_ptr(out)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>z_ptrs = ptrs
-                        .iter()
-                        .map(|ptr| ctx.store.hash_ptr(ptr))
-                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-                    <span class="macro">assert_eq!</span>(z_ptrs.len(), out.len());
-                    z_ptrs
-                } <span class="kw">else </span>{
-                    <span class="macro">vec!</span>[ZPtr::dummy(); out.len()]
+                <span class="kw">let </span>output_hints = <span class="kw">if </span>!ctx.blank &amp;&amp; not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
+                    ctx.bindings.get_many_ptr(out)<span class="question-mark">?
+                </span>} <span class="kw">else </span>{
+                    <span class="macro">vec!</span>[ctx.store.dummy(); out.len()]
                 };
-                <span class="kw">let </span><span class="kw-2">mut </span>output_ptrs = Vec::with_capacity(out.len());
-                <span class="kw">for </span>(z_ptr, var) <span class="kw">in </span>output_z_ptrs.into_iter().zip(out.iter()) {
-                    <span class="kw">let </span>ptr =
-                        AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"var: {var}"</span>)), || z_ptr);
-                    bound_allocations.insert_ptr(var.clone(), ptr.clone());
-                    output_ptrs.push(ptr);
-                }
                 <span class="comment">// Get the pointers for the input, i.e. the arguments
                 </span><span class="kw">let </span>args = bound_allocations.get_many_ptr(inp)<span class="question-mark">?</span>;
-                <span class="comment">// These are the input parameters (formal variables)
-                </span><span class="kw">let </span>param_list = func.input_params.iter();
                 <span class="comment">// Now we bind the `Func`'s input parameters to the arguments in the call.
-                </span>param_list.zip(args.into_iter()).for_each(|(param, arg)| {
-                    bound_allocations.insert_ptr(param.clone(), arg);
-                });
-                <span class="comment">// Finally, we synthesize the circuit for the function body
-                </span>synthesize_block(
+                </span>func.bind_input(<span class="kw-2">&amp;</span>args, bound_allocations);
+                <span class="comment">// Finally, we synthesize the call
+                </span><span class="kw">let </span>output_ptrs = synthesize_call(
                     <span class="macro">ns!</span>(cs, <span class="string">"call"</span>),
-                    <span class="kw-2">&amp;</span>func.body,
+                    func,
                     not_dummy,
                     next_slot,
                     bound_allocations,
-                    <span class="kw-2">&amp;</span>output_ptrs,
+                    <span class="kw-2">&amp;</span>output_hints,
                     ctx,
                 )<span class="question-mark">?</span>;
+                <span class="comment">// and bind the outputs
+                </span><span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(output_ptrs.into_iter()) {
+                    bound_allocations.insert_ptr(var.clone(), ptr);
+                }
             }
             Op::Cons2(img, tag, preimg) =&gt; {
                 <span class="macro">cons_helper!</span>(img.clone(), tag, preimg, SlotType::Hash4);
@@ -2881,10 +2894,10 @@
             synthesize_block(
                 <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"{i}"</span>)),
                 block,
+                branch_outputs,
                 <span class="kw-2">&amp;</span>not_dummy_and_has_match,
                 <span class="kw-2">&amp;mut </span>branch_slot,
                 bound_allocations,
-                preallocated_outputs,
                 ctx,
             )<span class="question-mark">?</span>;
             branch_slots.push(branch_slot);
@@ -2916,10 +2929,10 @@
             synthesize_block(
                 <span class="macro">ns!</span>(cs, <span class="string">"_"</span>),
                 def,
+                branch_outputs,
                 <span class="kw-2">&amp;</span>is_default,
                 next_slot,
                 bound_allocations,
-                preallocated_outputs,
                 ctx,
             )<span class="question-mark">?</span>;
 
@@ -2941,16 +2954,8 @@
 
     <span class="kw">match </span><span class="kw-2">&amp;</span>block.ctrl {
         Ctrl::Return(return_vars) =&gt; {
-            <span class="kw">for </span>(i, return_var) <span class="kw">in </span>return_vars.iter().enumerate() {
-                <span class="kw">let </span>allocated_ptr = bound_allocations.get_ptr(return_var)<span class="question-mark">?</span>;
-
-                allocated_ptr.implies_ptr_equal(
-                    <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"implies_ptr_equal {return_var} pos {i}"</span>)),
-                    not_dummy,
-                    <span class="kw-2">&amp;</span>preallocated_outputs[i],
-                );
-            }
-            <span class="prelude-val">Ok</span>(())
+            <span class="kw">let </span>output = bound_allocations.get_many_ptr(return_vars)<span class="question-mark">?</span>;
+            branch_outputs.<span class="number">0</span>.push((not_dummy.clone(), output));
         }
         Ctrl::If(b, true_block, false_block) =&gt; {
             <span class="kw">let </span>b = bound_allocations.get_bool(b)<span class="question-mark">?</span>;
@@ -2961,23 +2966,22 @@
             synthesize_block(
                 <span class="macro">ns!</span>(cs, <span class="string">"if_eq.true"</span>),
                 true_block,
+                branch_outputs,
                 <span class="kw-2">&amp;</span>b_not_dummy,
                 <span class="kw-2">&amp;mut </span>branch_slot,
                 bound_allocations,
-                preallocated_outputs,
                 ctx,
             )<span class="question-mark">?</span>;
             synthesize_block(
                 <span class="macro">ns!</span>(cs, <span class="string">"if_eq.false"</span>),
                 false_block,
+                branch_outputs,
                 <span class="kw-2">&amp;</span>not_b_not_dummy,
                 next_slot,
                 bound_allocations,
-                preallocated_outputs,
                 ctx,
             )<span class="question-mark">?</span>;
             <span class="kw-2">*</span>next_slot = next_slot.cmp_max(branch_slot);
-            <span class="prelude-val">Ok</span>(())
         }
         Ctrl::MatchTag(match_var, cases, def) =&gt; {
             <span class="kw">let </span>matched = bound_allocations.get_ptr(match_var)<span class="question-mark">?</span>.tag().clone();
@@ -2989,7 +2993,6 @@
 
             <span class="comment">// The number of slots the match used is the max number of slots of each branch
             </span><span class="kw-2">*</span>next_slot = next_slot.fold_max(branch_slots);
-            <span class="prelude-val">Ok</span>(())
         }
         Ctrl::MatchSymbol(match_var, cases, def) =&gt; {
             <span class="kw">let </span>match_var_ptr = bound_allocations.get_ptr(match_var)<span class="question-mark">?</span>.clone();
@@ -3020,9 +3023,9 @@
 
             <span class="comment">// The number of slots the match used is the max number of slots of each branch
             </span><span class="kw-2">*</span>next_slot = next_slot.fold_max(branch_slots);
-            <span class="prelude-val">Ok</span>(())
         }
     }
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="kw">impl </span>Func {
@@ -3036,25 +3039,6 @@
         <span class="kw">for </span>(var, ptr) <span class="kw">in </span><span class="self">self</span>.input_params.iter().zip(input) {
             bound_allocations.insert_ptr(var.clone(), ptr.clone());
         }
-    }
-
-    <span class="doccomment">/// Allocates an unconstrained pointer for each output of the frame
-    </span><span class="kw">fn </span>allocate_output&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        cs: <span class="kw-2">&amp;mut </span>CS,
-        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        frame: <span class="kw-2">&amp;</span>Frame,
-    ) -&gt; Vec&lt;AllocatedPtr&lt;F&gt;&gt; {
-        <span class="macro">assert_eq!</span>(<span class="self">self</span>.output_size, frame.output.len());
-        <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::with_capacity(frame.output.len());
-        <span class="kw">for </span>(i, ptr) <span class="kw">in </span>frame.output.iter().enumerate() {
-            <span class="kw">let </span>zptr = store.hash_ptr(ptr);
-            output.push(AllocatedPtr::alloc_infallible(
-                <span class="macro">ns!</span>(cs, <span class="macro">format!</span>(<span class="string">"var: output[{}]"</span>, i)),
-                || zptr,
-            ));
-        }
-        output
     }
 
     <span class="doccomment">/// Allocates an unconstrained pointer for each input of the frame
@@ -3096,9 +3080,6 @@
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         slots_witness: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[Arc&lt;SlotWitness&lt;F&gt;&gt;]&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;&gt; {
-        <span class="comment">// Outputs are constrained by the return statement. All functions return
-        </span><span class="kw">let </span>preallocated_outputs = <span class="self">self</span>.allocate_output(cs, store, frame);
-
         <span class="kw">if let </span><span class="prelude-val">Some</span>(slots_witness) = slots_witness {
             <span class="macro">assert!</span>(cs.is_witness_generator());
             slots_witness
@@ -3122,13 +3103,13 @@
             <span class="kw">let </span>hash8_slots = <span class="kw-2">&amp;</span>collect(hash6_upper, hash8_upper);
             <span class="kw">let </span>commitment_slots = <span class="kw-2">&amp;</span>collect(hash8_upper, commitment_upper);
             <span class="kw">let </span>bit_decomp_slots = <span class="kw-2">&amp;</span>collect(commitment_upper, bit_decomp_upper);
-            synthesize_block(
+            <span class="kw">let </span>output = synthesize_call(
                 cs,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.body,
+                <span class="self">self</span>,
                 <span class="kw-2">&amp;</span>Boolean::Constant(<span class="bool-val">true</span>),
                 <span class="kw-2">&amp;mut </span>SlotsCounter::default(),
                 bound_allocations,
-                <span class="kw-2">&amp;</span>preallocated_outputs,
+                <span class="kw-2">&amp;</span>frame.output,
                 <span class="kw-2">&amp;mut </span>RecursiveContext {
                     lang,
                     store,
@@ -3142,6 +3123,7 @@
                     bindings: <span class="kw-2">&amp;</span>frame.hints.bindings,
                 },
             )<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(output)
         } <span class="kw">else </span>{
             <span class="macro">assert!</span>(!cs.is_witness_generator());
             <span class="kw">let </span>slots_allocations = build_slots_allocations(cs, store, frame, <span class="kw-2">&amp;</span><span class="self">self</span>.slots_count)<span class="question-mark">?</span>;
@@ -3150,13 +3132,13 @@
             <span class="kw">let </span>hash8_slots = <span class="kw-2">&amp;</span>slots_allocations.hash8.iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
             <span class="kw">let </span>commitment_slots = <span class="kw-2">&amp;</span>slots_allocations.commitment.iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
             <span class="kw">let </span>bit_decomp_slots = <span class="kw-2">&amp;</span>slots_allocations.bit_decomp.iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-            synthesize_block(
+            <span class="kw">let </span>output = synthesize_call(
                 cs,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.body,
+                <span class="self">self</span>,
                 <span class="kw-2">&amp;</span>Boolean::Constant(<span class="bool-val">true</span>),
                 <span class="kw-2">&amp;mut </span>SlotsCounter::default(),
                 bound_allocations,
-                <span class="kw-2">&amp;</span>preallocated_outputs,
+                <span class="kw-2">&amp;</span>frame.output,
                 <span class="kw-2">&amp;mut </span>RecursiveContext {
                     lang,
                     store,
@@ -3170,9 +3152,8 @@
                     bindings: <span class="kw-2">&amp;</span>frame.hints.bindings,
                 },
             )<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(output)
         }
-
-        <span class="prelude-val">Ok</span>(preallocated_outputs)
     }
 
     <span class="doccomment">/// Helper API for tests
@@ -3207,12 +3188,13 @@
             globals: <span class="kw-2">&amp;mut </span>HashSet&lt;FWrap&lt;F&gt;&gt;,
             store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
             is_nested: bool,
+            branches: bool,
         ) -&gt; usize {
             <span class="kw">let </span><span class="kw-2">mut </span>num_constraints = <span class="number">0</span>;
             <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span>block.ops {
                 <span class="kw">match </span>op {
                     Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) =&gt; {
-                        num_constraints += recurse(<span class="kw-2">&amp;</span>func.body, globals, store, is_nested);
+                        num_constraints += recurse(<span class="kw-2">&amp;</span>func.body, globals, store, is_nested, <span class="bool-val">false</span>);
                     }
                     Op::Zero(<span class="kw">_</span>, tag) =&gt; {
                         <span class="comment">// constrain tag and hash
@@ -3319,12 +3301,18 @@
                 }
             }
             <span class="kw">match </span><span class="kw-2">&amp;</span>block.ctrl {
-                Ctrl::Return(vars) =&gt; num_constraints + <span class="number">2 </span>* vars.len(),
+                Ctrl::Return(vars) =&gt; {
+                    <span class="kw">if </span>branches {
+                        num_constraints + <span class="number">2 </span>* vars.len()
+                    } <span class="kw">else </span>{
+                        num_constraints
+                    }
+                }
                 Ctrl::If(<span class="kw">_</span>, true_block, false_block) =&gt; {
                     num_constraints
                         + <span class="kw">if </span>is_nested { <span class="number">2 </span>} <span class="kw">else </span>{ <span class="number">0 </span>}
-                        + recurse(true_block, globals, store, <span class="bool-val">true</span>)
-                        + recurse(false_block, globals, store, <span class="bool-val">true</span>)
+                        + recurse(true_block, globals, store, <span class="bool-val">true</span>, <span class="bool-val">true</span>)
+                        + recurse(false_block, globals, store, <span class="bool-val">true</span>, <span class="bool-val">true</span>)
                 }
                 Ctrl::MatchTag(<span class="kw">_</span>, cases, def) =&gt; {
                     <span class="comment">// We allocate one boolean per case and constrain it once
@@ -3333,12 +3321,12 @@
                     </span>num_constraints += <span class="number">2 </span>* cases.len() + <span class="number">1</span>;
 
                     <span class="kw">for </span>block <span class="kw">in </span>cases.values() {
-                        num_constraints += recurse(block, globals, store, <span class="bool-val">true</span>);
+                        num_constraints += recurse(block, globals, store, <span class="bool-val">true</span>, <span class="bool-val">true</span>);
                     }
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = def {
                         <span class="comment">// constraints for the boolean, the inequalities and the default case
                         </span>num_constraints += <span class="number">1 </span>+ cases.len();
-                        num_constraints += recurse(def, globals, store, <span class="bool-val">true</span>);
+                        num_constraints += recurse(def, globals, store, <span class="bool-val">true</span>, <span class="bool-val">true</span>);
                     }
                     num_constraints
                 }
@@ -3353,12 +3341,12 @@
                     </span>num_constraints += <span class="number">2 </span>* cases.len() + <span class="number">1</span>;
 
                     <span class="kw">for </span>block <span class="kw">in </span>cases.values() {
-                        num_constraints += recurse(block, globals, store, <span class="bool-val">true</span>);
+                        num_constraints += recurse(block, globals, store, <span class="bool-val">true</span>, <span class="bool-val">true</span>);
                     }
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = def {
                         <span class="comment">// constraints for the boolean, the inequalities and the default case
                         </span>num_constraints += <span class="number">1 </span>+ cases.len();
-                        num_constraints += recurse(def, globals, store, <span class="bool-val">true</span>);
+                        num_constraints += recurse(def, globals, store, <span class="bool-val">true</span>, <span class="bool-val">true</span>);
                     }
                     num_constraints
                 }
@@ -3379,7 +3367,7 @@
             + store.hash8_cost() * <span class="self">self</span>.slots_count.hash8
             + store.hash3_cost() * <span class="self">self</span>.slots_count.commitment
             + bit_decomp_cost * <span class="self">self</span>.slots_count.bit_decomp;
-        <span class="kw">let </span>num_constraints = recurse(<span class="kw-2">&amp;</span><span class="self">self</span>.body, globals, store, <span class="bool-val">false</span>);
+        <span class="kw">let </span>num_constraints = recurse(<span class="kw-2">&amp;</span><span class="self">self</span>.body, globals, store, <span class="bool-val">false</span>, <span class="bool-val">false</span>);
         slot_constraints + num_constraints + globals.len()
     }
 }

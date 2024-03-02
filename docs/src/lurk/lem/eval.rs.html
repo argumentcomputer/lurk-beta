@@ -3540,8 +3540,8 @@
         expect_eq(func.slots_count.commitment, <span class="macro">expect!</span>[<span class="string">"1"</span>]);
         expect_eq(func.slots_count.bit_decomp, <span class="macro">expect!</span>[<span class="string">"3"</span>]);
         expect_eq(cs.num_inputs(), <span class="macro">expect!</span>[<span class="string">"1"</span>]);
-        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"9110"</span>]);
-        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"11048"</span>]);
+        expect_eq(cs.aux().len(), <span class="macro">expect!</span>[<span class="string">"9094"</span>]);
+        expect_eq(cs.num_constraints(), <span class="macro">expect!</span>[<span class="string">"11032"</span>]);
         <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), cs.num_constraints());
     }
 }
