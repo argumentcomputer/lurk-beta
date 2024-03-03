@@ -1,6 +1,6 @@
 use expect_test::expect;
 use halo2curves::bn256::Fr;
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     eval::lang::{Coproc, Lang},
@@ -9,7 +9,7 @@ use crate::{
         tag::Tag,
     },
     num::Num,
-    state::{user_sym, State},
+    state::{user_sym, State, StateRcCell},
     tag::{ExprTag, Op, Op1, Op2},
 };
 
@@ -3877,7 +3877,7 @@ fn test_prove_head_with_sym_mimicking_value() {
     let s = &Store::<Fr>::default();
     let error = s.cont_error();
 
-    let mk_expr = |s: &Store<Fr>, state: Rc<RefCell<State>>, name, args| {
+    let mk_expr = |s: &Store<Fr>, state: StateRcCell, name, args| {
         let sym_as_char = s.intern_lurk_symbol(name).cast(Tag::Expr(ExprTag::Char));
         let args = s.read(state.clone(), args).unwrap();
         s.cons(sym_as_char, args)
@@ -4104,10 +4104,8 @@ fn test_trie_lang() {
 
     let s = &Store::<Fr>::default();
     let state = State::init_lurk_state().rccell();
-    let mut lang = Lang::<Fr, TrieCoproc<Fr>>::new();
-
+    let mut lang = Lang::new();
     install(&state, &mut lang);
-
     let lang = Arc::new(lang);
 
     let terminal = s.cont_terminal();

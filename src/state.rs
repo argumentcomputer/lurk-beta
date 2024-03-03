@@ -18,10 +18,13 @@ pub struct State {
     symbol_packages: HashMap<SymbolRef, Package>,
 }
 
+/// Alias for `Rc<RefCell<State>>`
+pub type StateRcCell = Rc<RefCell<State>>;
+
 impl State {
     /// Wraps a state with `Rc<RefCell<...>>`
     #[inline]
-    pub fn rccell(self) -> Rc<RefCell<Self>> {
+    pub fn rccell(self) -> StateRcCell {
         Rc::new(RefCell::new(self))
     }
 
@@ -99,17 +102,17 @@ impl State {
 
     /// Sequentially intern a symbol into the potentially nested packages according
     /// to its path
-    fn intern_fold<A: AsRef<str>>(
+    fn intern_fold<A: AsRef<str>, I: IntoIterator<Item = A>>(
         &mut self,
         init: SymbolRef,
-        path: &[A],
-        create_unknown_packges: bool,
+        path: I,
+        create_unknown_packages: bool,
     ) -> Result<SymbolRef> {
-        path.iter()
+        path.into_iter()
             .try_fold(init, |acc, s| match self.symbol_packages.get_mut(&acc) {
                 Some(package) => Ok(package.intern(String::from(s.as_ref()))),
                 None => {
-                    if create_unknown_packges {
+                    if create_unknown_packages {
                         let mut package = Package::new(acc);
                         let symbol = package.intern(String::from(s.as_ref()));
                         self.add_package(package);
@@ -123,23 +126,44 @@ impl State {
 
     /// Call `intern_fold` w.r.t. the root package
     #[inline]
-    pub fn intern_path<A: AsRef<str>>(
+    pub fn intern_path<A: AsRef<str>, I: IntoIterator<Item = A>>(
         &mut self,
-        path: &[A],
+        path: I,
         keyword: bool,
-        create_unknown_packges: bool,
+        create_unknown_packages: bool,
     ) -> Result<SymbolRef> {
-        self.intern_fold(Symbol::root(keyword).into(), path, create_unknown_packges)
+        self.intern_fold(Symbol::root(keyword).into(), path, create_unknown_packages)
+    }
+
+    /// Call `intern_path` with `create_unknown_packages = true`
+    #[inline]
+    pub fn intern_path_infallible<A: AsRef<str>, I: IntoIterator<Item = A>>(
+        &mut self,
+        path: I,
+        keyword: bool,
+    ) -> SymbolRef {
+        self.intern_path(path, keyword, true)
+            .expect("Can't fail if unknown packages are created")
     }
 
     /// Call `intern_fold` w.r.t. the current package
     #[inline]
-    pub fn intern_relative_path<A: AsRef<str>>(
+    pub fn intern_relative_path<A: AsRef<str>, I: IntoIterator<Item = A>>(
         &mut self,
-        path: &[A],
-        create_unknown_packges: bool,
+        path: I,
+        create_unknown_packages: bool,
     ) -> Result<SymbolRef> {
-        self.intern_fold(self.current_package.clone(), path, create_unknown_packges)
+        self.intern_fold(self.current_package.clone(), path, create_unknown_packages)
+    }
+
+    /// Call `intern_relative_path` with `create_unknown_packages = true`
+    #[inline]
+    pub fn intern_relative_path_infallible<A: AsRef<str>, I: IntoIterator<Item = A>>(
+        &mut self,
+        path: I,
+    ) -> SymbolRef {
+        self.intern_relative_path(path, true)
+            .expect("Can't fail if unknown packages are created")
     }
 
     /// Initiates the Lurk state with the appropriate structure of packages
@@ -329,7 +353,7 @@ pub mod test {
         test_printing_helper(&state, &user_sym, ".lurk.user.user-sym");
 
         let path = ["my-package", "my-other-symbol"];
-        state.intern_path(&path, false, false).unwrap();
+        state.intern_path(path, false, false).unwrap();
         test_printing_helper(
             &state,
             &SymbolRef::new(Symbol::sym(&path)),

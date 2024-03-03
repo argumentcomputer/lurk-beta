@@ -87,13 +87,14 @@ impl<F: LurkField, C> Lang<F, C> {
         }
     }
 
-    pub fn new_with_bindings<B: Into<Binding<F, C>>>(bindings: Vec<B>) -> Self {
-        let mut new = Self::new();
-        for b in bindings {
-            new.add_binding(b.into());
-        }
-
-        new
+    #[inline]
+    pub fn new_with_bindings<B: Into<Binding<F, C>>, I: IntoIterator<Item = B>>(
+        bindings: I,
+    ) -> Self {
+        bindings.into_iter().fold(Self::new(), |mut acc, b| {
+            acc.add_binding(b.into());
+            acc
+        })
     }
 
     pub fn key(&self) -> String {
@@ -109,9 +110,9 @@ impl<F: LurkField, C> Lang<F, C> {
         key
     }
 
+    #[inline]
     pub fn add_coprocessor<T: Into<C>, S: Into<Symbol>>(&mut self, name: S, cproc: T) {
-        let name = name.into();
-        self.coprocessors.insert(name, cproc.into());
+        self.coprocessors.insert(name.into(), cproc.into());
     }
 
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B) {
@@ -150,8 +151,8 @@ impl<F: LurkField, C> Lang<F, C> {
     }
 }
 
-/// A `Binding` associates a name (`Sym`) and `Coprocessor`. It facilitates modular construction of `Lang`s using
-/// `Coprocessor`s.
+/// A `Binding` associates a name (`Symbol`) and `Coprocessor`. It facilitates
+/// modular construction of `Lang`s using `Coprocessor`s.
 #[derive(Debug)]
 pub struct Binding<F, C> {
     name: Symbol,

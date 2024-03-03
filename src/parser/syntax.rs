@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
@@ -21,7 +19,7 @@ use crate::{
         position::Pos,
         string, ParseResult, Span,
     },
-    state::{meta_package_symbol, State},
+    state::{meta_package_symbol, StateRcCell},
     symbol,
     syntax::Syntax,
     uint::UInt,
@@ -90,7 +88,7 @@ pub fn parse_symbol_limbs<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_
 }
 
 fn intern_path<'a, F: LurkField>(
-    state: &Rc<RefCell<State>>,
+    state: &StateRcCell,
     upto: LocatedSpan<&'a str>,
     path: &[String],
     keyword: Option<bool>,
@@ -115,7 +113,7 @@ fn intern_path<'a, F: LurkField>(
 }
 
 pub fn parse_absolute_symbol<F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, SymbolRef> {
     move |from: Span<'_>| {
@@ -129,7 +127,7 @@ pub fn parse_absolute_symbol<F: LurkField>(
 }
 
 pub fn parse_relative_symbol<F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, SymbolRef> {
     move |from: Span<'_>| {
@@ -140,7 +138,7 @@ pub fn parse_relative_symbol<F: LurkField>(
 }
 
 pub fn parse_raw_symbol<F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, SymbolRef> {
     move |from: Span<'_>| {
@@ -153,7 +151,7 @@ pub fn parse_raw_symbol<F: LurkField>(
 }
 
 pub fn parse_raw_keyword<F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, SymbolRef> {
     move |from: Span<'_>| {
@@ -170,7 +168,7 @@ pub fn parse_raw_keyword<F: LurkField>(
 /// raw: ~(foo bar baz) = .baz.bar.foo
 /// raw keyword: ~:(foo bar) = :bar.foo
 pub fn parse_symbol<F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
@@ -351,7 +349,7 @@ pub fn parse_char<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syn
 }
 
 pub fn parse_list<F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     meta: bool,
     create_unknown_packages: bool,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
@@ -405,7 +403,7 @@ pub fn parse_list<F: LurkField>(
 }
 
 pub fn parse_quote<F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
@@ -423,7 +421,7 @@ pub fn parse_quote<F: LurkField>(
 
 // top-level syntax parser
 pub fn parse_syntax<F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     meta: bool,
     // this parameter triggers a less strict mode for testing purposes
     create_unknown_packages: bool,
@@ -447,7 +445,7 @@ pub fn parse_syntax<F: LurkField>(
 }
 
 pub fn parse_maybe_meta<F: LurkField>(
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Option<(bool, Syntax<F>)>> {
     move |from: Span<'_>| {
@@ -470,7 +468,7 @@ pub mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::{char, keyword, list, num, str, symbol, uint};
+    use crate::{char, keyword, list, num, state::State, str, symbol, uint};
 
     fn test<'a, P, R>(mut p: P, i: &'a str, expected: Option<R>) -> bool
     where
