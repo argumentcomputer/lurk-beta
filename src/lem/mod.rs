@@ -195,10 +195,6 @@ pub enum Ctrl {
     /// among the ones provided in `cases`. If so, run the corresponding `Block`.
     /// Run `def` otherwise
     MatchTag(Var, IndexMap<Tag, Block>, Option<Box<Block>>),
-    /// `MatchSymbol(x, cases, def)` requires that `x` is a symbol and checks
-    /// whether `x` matches some symbol among the ones provided in `cases`. If so,
-    /// run the corresponding `Block`. Run `def` otherwise
-    MatchSymbol(Var, IndexMap<Symbol, Block>, Option<Box<Block>>),
     /// `MatchValue(x, cases, def)` requires that `x` is a literal and checks
     /// whether `x` matches some literal among the ones provided in `cases`. If so,
     /// run the corresponding `Block`. Run `def` otherwise
@@ -511,15 +507,6 @@ impl Func {
                         None => (),
                     }
                 }
-                Ctrl::MatchSymbol(var, cases, def) => {
-                    is_bound(var, map)?;
-                    for block in cases.values() {
-                        recurse(block, return_size, map)?;
-                    }
-                    if let Some(def) = def {
-                        recurse(def, return_size, map)?;
-                    }
-                }
                 Ctrl::MatchValue(var, lit_typ, cases, def) => {
                     is_bound(var, map)?;
                     for (lit, block) in cases.iter() {
@@ -800,19 +787,6 @@ impl Block {
                 };
                 Ctrl::MatchTag(var, IndexMap::from_iter(new_cases), new_def)
             }
-            Ctrl::MatchSymbol(var, cases, def) => {
-                let var = map.get_cloned(&var)?;
-                let mut new_cases = Vec::with_capacity(cases.len());
-                for (sym, case) in cases {
-                    let new_case = case.deconflict(&mut map.clone(), uniq)?;
-                    new_cases.push((sym.clone(), new_case));
-                }
-                let new_def = match def {
-                    Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
-                    None => None,
-                };
-                Ctrl::MatchSymbol(var, IndexMap::from_iter(new_cases), new_def)
-            }
             Ctrl::MatchValue(var, lit_type, cases, def) => {
                 let var = map.get_cloned(&var)?;
                 let mut new_cases = Vec::with_capacity(cases.len());
@@ -856,7 +830,12 @@ impl Ctrl {
     }
 
     #[inline]
-    fn match_symbol(v: Var, cases: Vec<(Symbol, Block)>, def: Option<Block>) -> Ctrl {
-        Ctrl::MatchSymbol(v, IndexMap::from_iter(cases), def.map(|b| b.into()))
+    fn match_symbol(v: Var, cases: Vec<(Lit, Block)>, def: Option<Block>) -> Ctrl {
+        Ctrl::MatchValue(
+            v,
+            LitType::Symbol,
+            IndexMap::from_iter(cases),
+            def.map(|b| b.into()),
+        )
     }
 }

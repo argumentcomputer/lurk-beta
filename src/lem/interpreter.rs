@@ -15,7 +15,7 @@ use crate::{
     field::LurkField,
     num::Num as BaseNum,
     state::initial_lurk_state,
-    tag::ExprTag::{Comm, Num, Sym},
+    tag::ExprTag::{Comm, Num},
 };
 
 impl VarMap<Val> {
@@ -475,23 +475,6 @@ impl Block {
                 } else {
                     let Some(def) = def else {
                         bail!("No match for tag {}", tag)
-                    };
-                    def.run(input, store, bindings, hints, emitted, lang, pc)
-                }
-            }
-            Ctrl::MatchSymbol(match_var, cases, def) => {
-                let ptr = bindings.get_ptr(match_var)?;
-                if ptr.tag() != &Tag::Expr(Sym) {
-                    bail!("{match_var} is not a symbol");
-                }
-                let Some(sym) = store.fetch_symbol(&ptr) else {
-                    bail!("Symbol bound to {match_var} wasn't interned");
-                };
-                if let Some(block) = cases.get(&sym) {
-                    block.run(input, store, bindings, hints, emitted, lang, pc)
-                } else {
-                    let Some(def) = def else {
-                        bail!("No match for symbol {sym}")
                     };
                     def.run(input, store, bindings, hints, emitted, lang, pc)
                 }

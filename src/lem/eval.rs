@@ -24,7 +24,7 @@ use super::{
     interpreter::{Frame, Hints},
     pointers::{Ptr, RawPtr},
     store::{fetch_ptrs, Store},
-    Ctrl, Func, Op, Tag, Var,
+    Ctrl, Func, Lit, LitType, Op, Tag, Var,
 };
 
 static EVAL_STEP: OnceCell<Func> = OnceCell::new();
@@ -426,13 +426,13 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
         }
     }
 
-    // MatchSymbol
+    // MatchValue
     block = Block {
         ops: vec![Op::Decons2(
             [cproc_name.clone(), evaluated_args],
             cproc.clone(),
         )],
-        ctrl: Ctrl::match_symbol(cproc_name, vec![(cproc_sym, block)], None),
+        ctrl: Ctrl::match_symbol(cproc_name, vec![(Lit::Symbol(cproc_sym), block)], None),
     };
 
     // MatchTag
@@ -498,7 +498,12 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
         ];
         let match_symbol_cases = cprocs
             .iter()
-            .map(|(cproc, _)| ((*cproc).clone(), Block::ctrl(ctrl!(return (t)))))
+            .map(|(cproc, _)| {
+                (
+                    Lit::Symbol((*cproc).clone()),
+                    Block::ctrl(ctrl!(return (t))),
+                )
+            })
             .collect();
         let def = Some(Block::ctrl(ctrl!(return (nil))));
         let ctrl = Ctrl::match_symbol(head.clone(), match_symbol_cases, def);
@@ -632,9 +637,9 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
                 ctrl: Ctrl::if_(is_nil.clone(), err_block.clone(), block),
             }
         }
-        match_symbol_map.insert(cproc.clone(), block);
+        match_symbol_map.insert(Lit::Symbol(cproc.clone()), block);
     }
-    let ctrl = Ctrl::MatchSymbol(cproc_name.clone(), match_symbol_map, None);
+    let ctrl = Ctrl::MatchValue(cproc_name.clone(), LitType::Symbol, match_symbol_map, None);
     let func_inp = vec![cproc_name, evaluated_args, env, cont];
     let ops = if max_arity == 0 {
         vec![

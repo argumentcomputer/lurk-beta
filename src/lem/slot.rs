@@ -220,14 +220,6 @@ impl Block {
                     .values()
                     .fold(init, |acc, block| acc.cmp_max(block.count_slots()))
             }
-            Ctrl::MatchSymbol(_, cases, def) => {
-                let init = def
-                    .as_ref()
-                    .map_or(SlotsCounter::default(), |def| def.count_slots());
-                cases
-                    .values()
-                    .fold(init, |acc, block| acc.cmp_max(block.count_slots()))
-            }
             Ctrl::MatchValue(_, _, cases, def) => {
                 let init = def
                     .as_ref()
