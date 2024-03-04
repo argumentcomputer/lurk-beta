@@ -9,16 +9,18 @@ use super::toplevel::{Toplevel, ToplevelCircuitQuery};
 use crate::field::LurkField;
 
 use crate::circuit::gadgets::constraints::{
-    alloc_equal, alloc_is_zero, div, enforce_selector_with_premise, implies_equal,
-    implies_equal_const, implies_unequal_const, mul, or, pick, sub,
+    alloc_equal, alloc_is_zero, div, enforce_product_and_sum, enforce_selector_with_premise,
+    implies_equal, implies_equal_const, implies_pack, implies_u64, implies_unequal_const, mul, or,
+    pick, sub,
 };
+use crate::circuit::gadgets::data::hash_poseidon;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::coroutine::memoset::{CircuitQuery, CircuitScope, LogMemoCircuit};
 use crate::lem::circuit::{BoundAllocations, GlobalAllocator};
 use crate::lem::store::Store;
 use crate::lem::tag::Tag;
-use crate::lem::{Block, Ctrl, Func, Op};
-use crate::tag::ExprTag::{Num, Sym};
+use crate::lem::{Block, Ctrl, Func, Op, Var};
+use crate::tag::ExprTag::{Comm, Env, Num, Sym};
 
 /// The collection of all return values and `not_dummy`s of all
 /// branches in a block and the index of the uniquely selected
@@ -158,13 +160,64 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                     bound_allocations.insert_ptr(var.clone(), ptr);
                 }
             }
-            Op::Cons2(_img, _tag, _preimg) => todo!(),
-            Op::Cons3(_img, _tag, _preimg) => todo!(),
-            Op::Cons4(_img, _tag, _preimg) => todo!(),
+            // TODO: Slot allocation for hashes and bit decompositions
+            Op::Cons2(img, tag, preimg) => {
+                let preimg = retrieve_nums(preimg, bound_allocations)?;
+                let res = hash_poseidon(
+                    ns!(cs, "cons2"),
+                    preimg,
+                    store.poseidon_cache.constants.c4(),
+                )?;
+                let tag = g.alloc_tag_cloned(&mut cs, tag);
+                let ptr = AllocatedPtr::from_parts(tag, res);
+                bound_allocations.insert_ptr(img.clone(), ptr);
+            }
+            Op::Cons3(img, tag, preimg) => {
+                let preimg = retrieve_nums(preimg, bound_allocations)?;
+                let res = hash_poseidon(
+                    ns!(cs, "cons3"),
+                    preimg,
+                    store.poseidon_cache.constants.c6(),
+                )?;
+                let tag = g.alloc_tag_cloned(&mut cs, tag);
+                let ptr = AllocatedPtr::from_parts(tag, res);
+                bound_allocations.insert_ptr(img.clone(), ptr);
+            }
+            Op::Cons4(img, tag, preimg) => {
+                let preimg = retrieve_nums(preimg, bound_allocations)?;
+                let res = hash_poseidon(
+                    ns!(cs, "cons4"),
+                    preimg,
+                    store.poseidon_cache.constants.c8(),
+                )?;
+                let tag = g.alloc_tag_cloned(&mut cs, tag);
+                let ptr = AllocatedPtr::from_parts(tag, res);
+                bound_allocations.insert_ptr(img.clone(), ptr);
+            }
             Op::Decons2(_preimg, _img) => todo!(),
             Op::Decons3(_preimg, _img) => todo!(),
             Op::Decons4(_preimg, _img) => todo!(),
-            Op::PushBinding(_img, _preimg) => todo!(),
+            Op::PushBinding(img, [var, val, env]) => {
+                let var = bound_allocations.get_ptr(var)?;
+                let val = bound_allocations.get_ptr(val)?;
+                let env = bound_allocations.get_ptr(env)?;
+                let preimg = vec![
+                    var.hash().clone(),
+                    val.tag().clone(),
+                    val.hash().clone(),
+                    env.hash().clone(),
+                ];
+                let env_tag = g.alloc_tag_cloned(&mut cs, &Env);
+                implies_equal(ns!(cs, format!("env_tag")), not_dummy, env.tag(), &env_tag);
+                let res = hash_poseidon(
+                    ns!(cs, "push_binding"),
+                    preimg,
+                    store.poseidon_cache.constants.c4(),
+                )?;
+                let tag = g.alloc_tag_cloned(&mut cs, &Env);
+                let ptr = AllocatedPtr::from_parts(tag, res);
+                bound_allocations.insert_ptr(img.clone(), ptr);
+            }
             Op::PopBinding(_preimg, _img) => todo!(),
             Op::Copy(tgt, src) => {
                 bound_allocations.insert(tgt.clone(), bound_allocations.get(src).cloned()?);
@@ -291,11 +344,115 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                 let c = AllocatedPtr::from_parts(tag, quotient);
                 bound_allocations.insert_ptr(tgt.clone(), c);
             }
-            Op::Lt(_tgt, _a, _b) => todo!(),
-            Op::Trunc(_tgt, _a, _n) => todo!(),
-            Op::DivRem64(_tgt, _a, _b) => todo!(),
+            Op::Lt(tgt, a, b) => {
+                // To find out whether a < b, we will use the following reasoning:
+                // 1) when a and b have the same sign, a < b iff a - b is negative
+                // 2) when a and b have different signs, a < b iff a is negative
+                // 3) a number is negative iff its double is odd
+                // 4) a number is odd iff its least significant bit is 1
+
+                // Retrieve a, b, a-b
+                let a_num = bound_allocations.get_ptr(a)?.hash();
+                let b_num = bound_allocations.get_ptr(b)?.hash();
+                let diff = sub(cs.namespace(|| "diff"), a_num, b_num)?;
+                // Double a, b, a-b
+                let double_a = a_num.add(cs.namespace(|| "double_a"), a_num)?;
+                let double_b = b_num.add(cs.namespace(|| "double_b"), b_num)?;
+                let double_diff = diff.add(cs.namespace(|| "double_diff"), &diff)?;
+
+                let double_a_bits = double_a.to_bits_le_strict(ns!(cs, "double_a_bits"))?;
+                let double_b_bits = double_b.to_bits_le_strict(ns!(cs, "double_b_bits"))?;
+                let double_diff_bits =
+                    double_diff.to_bits_le_strict(ns!(cs, "double_diff_bits"))?;
+
+                // The number is negative if the least significant bit of its double is 1
+                let a_is_negative = double_a_bits.first().unwrap();
+                let b_is_negative = double_b_bits.first().unwrap();
+                let diff_is_negative = double_diff_bits.first().unwrap();
+
+                // Two numbers have the same sign if both are negative or both are positive, i.e.
+                let same_sign =
+                    Boolean::xor(cs.namespace(|| "same_sign"), a_is_negative, b_is_negative)?.not();
+
+                // Finally, a < b iff (same_sign && diff < 0) || (!same_sign && a < 0)
+                let and1 = Boolean::and(ns!(cs, "and1"), &same_sign, diff_is_negative)?;
+                let and2 = Boolean::and(ns!(cs, "and2"), &same_sign.not(), a_is_negative)?;
+                let lt = or(ns!(cs, "or"), &and1, &and2)?;
+                bound_allocations.insert_bool(tgt.clone(), lt.clone());
+            }
+            Op::Trunc(tgt, a, n) => {
+                assert!(*n <= 64);
+                let a = bound_allocations.get_ptr(a)?;
+                let trunc_bits = a.hash().to_bits_le_strict(ns!(cs, "trunc_bits"))?;
+                let trunc_bits = &trunc_bits[0..*n as usize];
+                let trunc = AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
+                    let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
+                    a.hash()
+                        .get_value()
+                        .map(|a| F::from_u64(a.to_u64_unchecked() & b))
+                        .ok_or(AssignmentMissing)
+                })?;
+                implies_pack(
+                    cs.namespace(|| "implies_trunc"),
+                    not_dummy,
+                    trunc_bits,
+                    &trunc,
+                );
+                let tag = g.alloc_tag_cloned(&mut cs, &Num);
+                let c = AllocatedPtr::from_parts(tag, trunc);
+                bound_allocations.insert_ptr(tgt.clone(), c);
+            }
+            Op::DivRem64(tgt, a, b) => {
+                let a = bound_allocations.get_ptr(a)?.hash();
+                let b = bound_allocations.get_ptr(b)?.hash();
+                let div_rem = a.get_value().and_then(|a| {
+                    b.get_value().map(|b| {
+                        if not_dummy.get_value().unwrap() {
+                            let a = a.to_u64_unchecked();
+                            let b = b.to_u64_unchecked();
+                            (F::from_u64(a / b), F::from_u64(a % b))
+                        } else {
+                            (F::ZERO, a)
+                        }
+                    })
+                });
+                let div =
+                    AllocatedNum::alloc_infallible(cs.namespace(|| "div"), || div_rem.unwrap().0);
+                let rem =
+                    AllocatedNum::alloc_infallible(cs.namespace(|| "rem"), || div_rem.unwrap().1);
+
+                let diff = sub(cs.namespace(|| "diff for slot {slot}"), b, &rem)?;
+                implies_u64(cs.namespace(|| "div_u64"), not_dummy, &div)?;
+                implies_u64(cs.namespace(|| "rem_u64"), not_dummy, &rem)?;
+                implies_u64(cs.namespace(|| "diff_u64"), not_dummy, &diff)?;
+
+                enforce_product_and_sum(&mut cs, || "enforce a = b * div + rem", b, &div, &rem, a);
+                let tag = g.alloc_tag_cloned(&mut cs, &Num);
+                let div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
+                let rem_ptr = AllocatedPtr::from_parts(tag, rem);
+                bound_allocations.insert_ptr(tgt[0].clone(), div_ptr);
+                bound_allocations.insert_ptr(tgt[1].clone(), rem_ptr);
+            }
             Op::Emit(_) | Op::Unit(_) => (),
-            Op::Hide(_tgt, _sec, _pay) => todo!(),
+            Op::Hide(tgt, sec, pay) => {
+                let sec = bound_allocations.get_ptr(sec)?;
+                let pay = bound_allocations.get_ptr(pay)?;
+                let sec_tag = g.alloc_tag(&mut cs, &Num);
+
+                let preimg = vec![sec.hash().clone(), pay.tag().clone(), pay.hash().clone()];
+                let hash =
+                    hash_poseidon(ns!(cs, "hide"), preimg, store.poseidon_cache.constants.c3())?;
+
+                implies_equal(
+                    ns!(cs, "implies equal secret.tag"),
+                    not_dummy,
+                    sec.tag(),
+                    sec_tag,
+                );
+                let tag = g.alloc_tag_cloned(&mut cs, &Comm);
+                let allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
+                bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
+            }
             Op::Open(_sec, _pay, _comm) => todo!(),
         }
     }
@@ -469,4 +626,17 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
         }
     }
     Ok(())
+}
+
+fn retrieve_nums<F: LurkField>(
+    vars: &[Var],
+    bound_allocations: &BoundAllocations<F>,
+) -> Result<Vec<AllocatedNum<F>>> {
+    let mut nums = Vec::with_capacity(vars.len() * 2);
+    for var in vars {
+        let p = bound_allocations.get_ptr(var)?;
+        nums.push(p.tag().clone());
+        nums.push(p.hash().clone());
+    }
+    Ok(nums)
 }
