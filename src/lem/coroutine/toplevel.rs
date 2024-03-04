@@ -277,9 +277,13 @@ pub(crate) fn to_improper_list<F: LurkField>(args: &[Ptr], s: &Store<F>) -> Ptr 
 mod test {
     use super::*;
     use crate::coroutine::memoset::prove::MemosetProver;
+    use crate::coroutine::memoset::CoroutineCircuit;
+    use crate::lem::tag::Tag;
     use crate::proof::{Prover, RecursiveSNARKTrait};
     use crate::{func, state::user_sym};
 
+    use bellpepper::util_cs::bench_cs::BenchCS;
+    use expect_test::expect;
     use halo2curves::bn256::Fr as F;
 
     fn sample_toplevel() -> (Arc<Toplevel<F>>, [Symbol; 4]) {
@@ -382,5 +386,50 @@ mod test {
         assert_eq!(output[7], F::zero());
         assert_eq!(output[9], output[11]);
         assert!(snark.verify(&pp, &input, &output).unwrap());
+    }
+
+    #[test]
+    fn lem_coroutine_size_test() {
+        let (toplevel, [_, factorial, even, _]) = sample_toplevel();
+        let s = Arc::new(Store::<F>::default());
+        let index = toplevel.0.get_index_of(&factorial).unwrap();
+        let factorial_circuit = CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(
+            index,
+            s.clone(),
+            1,
+            toplevel.clone(),
+        );
+        let mut cs = BenchCS::new();
+        let dummy = [
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+        ];
+        factorial_circuit
+            .supernova_synthesize(&mut cs, &dummy)
+            .unwrap();
+        expect!("1772").assert_eq(&cs.num_constraints().to_string());
+
+        let index = toplevel.0.get_index_of(&even).unwrap();
+        let even_circuit = CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(
+            index,
+            s.clone(),
+            1,
+            toplevel.clone(),
+        );
+        let mut cs = BenchCS::new();
+        let dummy = [
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+        ];
+        even_circuit.supernova_synthesize(&mut cs, &dummy).unwrap();
+        expect!("1772").assert_eq(&cs.num_constraints().to_string());
     }
 }

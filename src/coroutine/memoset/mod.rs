@@ -446,7 +446,7 @@ pub struct CoroutineCircuit<F: LurkField, CM, Q: Query<F>> {
 // TODO: Make this generic rather than specialized to LogMemo.
 // That will require a CircuitScopeTrait.
 impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
-    fn new(
+    pub fn new(
         input: Option<Vec<Ptr>>,
         scope: &Scope<Q, LogMemo<F>, F>,
         memoset: LogMemo<F>,
@@ -471,7 +471,7 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
         }
     }
 
-    fn blank(
+    pub fn blank(
         query_index: usize,
         store: Arc<Store<F>>,
         rc: usize,
@@ -493,7 +493,7 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
 
     // This is a supernova::StepCircuit method.
     // // TODO: we need to create a supernova::StepCircuit that will prove up to a fixed number of queries of a given type.
-    fn supernova_synthesize<CS: ConstraintSystem<F>>(
+    pub(crate) fn supernova_synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         z: &[AllocatedPtr<F>],
