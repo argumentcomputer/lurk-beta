@@ -15,7 +15,8 @@ use indexmap::IndexMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::eval::{call, synthesize_call};
+use super::eval::call;
+use super::synthesis::synthesize_call;
 
 #[derive(Clone)]
 pub struct Coroutine<F> {
