@@ -367,6 +367,10 @@ mod test {
         scope.query(query);
         scope.finalize_transcript();
         let (snark, input, output, _iterations) = prover.prove_from_scope(&pp, &scope).unwrap();
+        // Memoset acc is 0
+        assert_eq!(output[7], F::zero());
+        // Transcript is correct
+        assert_eq!(output[9], output[11]);
         assert!(snark.verify(&pp, &input, &output).unwrap());
 
         let query = s.read_with_default_state("(even . 5)").unwrap();
@@ -375,6 +379,8 @@ mod test {
         scope.query(query);
         scope.finalize_transcript();
         let (snark, input, output, _iterations) = prover.prove_from_scope(&pp, &scope).unwrap();
+        assert_eq!(output[7], F::zero());
+        assert_eq!(output[9], output[11]);
         assert!(snark.verify(&pp, &input, &output).unwrap());
     }
 }

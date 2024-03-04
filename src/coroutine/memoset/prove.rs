@@ -411,6 +411,10 @@ mod test {
 
         let pp = prover.public_params((), s);
         let (snark, input, output, _iterations) = prover.prove_from_scope(&pp, &scope).unwrap();
+        // Memoset acc is 0
+        assert_eq!(output[7], Fr::zero());
+        // Transcript is correct
+        assert_eq!(output[9], output[11]);
         assert!(snark.verify(&pp, &input, &output).unwrap());
     }
 }

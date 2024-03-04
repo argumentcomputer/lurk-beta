@@ -401,7 +401,8 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         let s = self.store.as_ref();
         let mut memoset = s.num(F::ZERO);
         for kv in self.toplevel_insertions.iter() {
-            memoset = self.memoset.acc_add(&memoset, kv, s);
+            let provenance = self.provenance_from_kv(*kv).unwrap();
+            memoset = self.memoset.acc_add(&memoset, provenance.to_ptr(s), s);
         }
         memoset
     }
@@ -410,7 +411,8 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         let s = self.store.as_ref();
         let mut transcript = Transcript::new(s);
         for kv in self.toplevel_insertions.iter() {
-            transcript.add(s, *kv);
+            let provenance = self.provenance_from_kv(*kv).unwrap();
+            transcript.add(s, *provenance.to_ptr(s));
         }
         transcript.acc
     }

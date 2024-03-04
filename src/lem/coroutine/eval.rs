@@ -477,13 +477,13 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                     )
                     .context("internal query failed")?;
 
-                *acc = AllocatedPtr::pick(ns!(cs, "pick acc"), not_dummy, acc, &next_acc)?;
+                *acc = AllocatedPtr::pick(ns!(cs, "pick acc"), not_dummy, &next_acc, acc)?;
                 let nil = g.alloc_ptr(ns!(cs, "nil"), &store.intern_nil(), store);
                 let sub_provenance = AllocatedPtr::pick(
                     ns!(cs, "dependency provenance"),
                     not_dummy,
-                    &nil,
                     &sub_provenance,
+                    &nil,
                 )?;
                 sub_provenances.push(sub_provenance);
                 bound_allocations.insert_ptr(out.clone(), sub_result);
