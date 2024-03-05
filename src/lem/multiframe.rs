@@ -12,8 +12,8 @@ use crate::{
     config::lurk_config,
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
-    eval::lang::Lang,
     field::{LanguageField, LurkField},
+    lang::Lang,
     proof::{
         nova::{CurveCycleEquipped, E1},
         supernova::{FoldingConfig, C2},
@@ -968,7 +968,7 @@ mod tests {
     use pasta_curves::{Fp, Fq};
 
     use crate::{
-        eval::lang::Coproc,
+        lang::Coproc,
         lem::{
             circuit::AllocatedVal,
             eval::{eval_step, evaluate},

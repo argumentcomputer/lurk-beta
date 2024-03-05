@@ -11,8 +11,8 @@ use super::{
 
 use crate::{
     coprocessor::Coprocessor,
-    eval::lang::Lang,
     field::LurkField,
+    lang::Lang,
     num::Num as BaseNum,
     state::initial_lurk_state,
     tag::ExprTag::{Comm, Num},

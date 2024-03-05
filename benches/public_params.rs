@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, SamplingMode};
-use lurk::{eval::lang::Lang, proof::nova};
+use lurk::{lang::Lang, proof::nova};
 use std::sync::Arc;
 use std::time::Duration;
 

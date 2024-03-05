@@ -48,7 +48,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     coprocessor::Coprocessor,
-    eval::lang::Lang,
+    lang::Lang,
     proof::{
         nova::{self, CurveCycleEquipped, NovaProver},
         supernova::{self, SuperNovaProver},

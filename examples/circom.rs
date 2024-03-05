@@ -39,8 +39,8 @@ use lurk::circuit::gadgets::pointer::AllocatedPtr;
 use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 
 use halo2curves::bn256::Fr as Bn;
-use lurk::eval::lang::Lang;
 use lurk::field::LurkField;
+use lurk::lang::Lang;
 use lurk::lem::{pointers::Ptr, store::Store};
 use lurk::proof::{nova::NovaProver, Prover, RecursiveSNARKTrait};
 use lurk::public_parameters::{

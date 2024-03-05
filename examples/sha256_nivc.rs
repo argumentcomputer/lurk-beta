@@ -5,8 +5,8 @@ use tracing_texray::TeXRayLayer;
 
 use lurk::{
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
-    eval::lang::Lang,
     field::LurkField,
+    lang::Lang,
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
         pointers::Ptr,

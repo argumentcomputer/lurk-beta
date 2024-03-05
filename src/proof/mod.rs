@@ -21,8 +21,8 @@ use std::sync::Arc;
 use crate::{
     coprocessor::Coprocessor,
     error::ProofError,
-    eval::lang::Lang,
     field::LurkField,
+    lang::Lang,
     lem::{eval::EvalConfig, pointers::Ptr, store::Store},
     proof::nova::Dual,
 };
