@@ -459,8 +459,9 @@ impl Block {
                     def.alloc_consts(cs, store, g, lang);
                 }
             }
-            Ctrl::MatchSymbol(_, cases, def) => {
-                g.alloc_tag(cs, &Sym);
+            Ctrl::MatchValue(_, lit_type, cases, def) => {
+                let tag = lit_type.tag();
+                g.alloc_tag(cs, &tag);
                 for block in cases.values() {
                     block.alloc_consts(cs, store, g, lang);
                 }
@@ -1307,14 +1308,15 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             // The number of slots the match used is the max number of slots of each branch
             *next_slot = next_slot.fold_max(branch_slots);
         }
-        Ctrl::MatchSymbol(match_var, cases, def) => {
+        Ctrl::MatchValue(match_var, lit_type, cases, def) => {
+            let tag = lit_type.tag();
             let match_var_ptr = bound_allocations.get_ptr(match_var)?.clone();
 
             let mut cases_vec = Vec::with_capacity(cases.len());
-            for (sym, block) in cases {
-                let sym_ptr = ctx.store.intern_symbol(sym);
-                let sym_hash = *ctx.store.hash_ptr(&sym_ptr).value();
-                cases_vec.push((sym_hash, block));
+            for (lit, block) in cases {
+                let lit_ptr = lit.to_ptr(ctx.store);
+                let lit_hash = *ctx.store.hash_ptr(&lit_ptr).value();
+                cases_vec.push((lit_hash, block));
             }
 
             let branch_slots = synthesize_match(
@@ -1325,13 +1327,13 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 ctx,
             )?;
 
-            // Now we enforce `MatchSymbol`'s tag
-            let sym_tag = ctx.global_allocator.alloc_tag(cs, &Sym);
+            // Now we enforce `MatchValue`'s tag
+            let lit_tag = ctx.global_allocator.alloc_tag(cs, &tag);
             implies_equal(
                 ns!(cs, format!("implies equal {match_var}.tag")),
                 not_dummy,
                 match_var_ptr.tag(),
-                sym_tag,
+                lit_tag,
             );
 
             // The number of slots the match used is the max number of slots of each branch
@@ -1643,11 +1645,11 @@ impl Func {
                     }
                     num_constraints
                 }
-                Ctrl::MatchSymbol(_, cases, def) => {
-                    // First we enforce that the tag of the pointer being matched on
-                    // is Sym
+                Ctrl::MatchValue(_, lit_type, cases, def) => {
+                    let tag = lit_type.tag();
+                    // First we enforce the tag of the pointer being matched
                     num_constraints += 1;
-                    globals.insert(FWrap(Sym.to_field()));
+                    globals.insert(FWrap(tag.to_field()));
                     // We allocate one boolean per case and constrain it once
                     // per case. Then we add 1 constraint to enforce only one
                     // case was selected

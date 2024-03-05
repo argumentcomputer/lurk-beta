@@ -248,27 +248,28 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match symbol $sii:ident { $( $sym:expr $(, $other_sym:expr)* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
+    ( match $sii:ident.value { $( $lit:ident($val:literal) $(| $other_lit:ident($other_val:literal))* => $case_ops:tt )+ } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
+                let _lit_type = $crate::lem::LitType::$lit;
                 if cases.insert(
-                    $crate::state::lurk_sym($sym),
+                    $crate::lit!($lit($val)),
                     $crate::block!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated value on `match`");
                 };
                 $(
                     if cases.insert(
-                        $crate::state::lurk_sym($other_sym),
+                        $crate::lit!($other_lit($other_val)),
                         $crate::block!( $case_ops ),
                     ).is_some() {
                         panic!("Repeated value on `match`");
                     };
                 )*
-            )*
+            )+
             let default = None $( .or (Some(Box::new($crate::block!( @seq {}, $($def)* )))) )?;
-            $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
+            $crate::lem::Ctrl::MatchValue($crate::var!($sii), _lit_type, cases, default)
         }
     };
     ( if $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -653,13 +654,14 @@ macro_rules! block {
             $crate::ctrl!( match $sii.tag { $( $kind::$tag $(| $other_kind::$other_tag)* => $case_ops )* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, match symbol $sii:ident { $( $sym:expr $(, $other_sym:expr)* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
+    (@seq {$($limbs:expr)*},
+     match $sii:ident.value { $( $lit:ident($val:literal) $(| $other_lit:ident($other_val:literal))* => $case_ops:tt )+ } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match symbol $sii { $( $sym $(, $other_sym)* => $case_ops )* } $(; $($def)*)? )
+            $crate::ctrl!( match $sii.value { $( $lit($val) $(| $other_lit($other_val))* => $case_ops )+ } $(; $($def)*)? )
         )
     };
     (@seq {$($limbs:expr)*}, if $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -732,7 +734,7 @@ macro_rules! aux_func {
 #[cfg(test)]
 mod tests {
     use crate::{
-        lem::{Block, Ctrl, Op, Tag, Var},
+        lem::{Block, Ctrl, Lit, Op, Tag, Var},
         state::lurk_sym,
         tag::ExprTag::{Char, Num, Str},
     };
@@ -847,11 +849,11 @@ mod tests {
         );
 
         let moo = ctrl!(
-            match symbol www {
-                "nil" => {
+            match www.value {
+                Symbol("nil") => {
                     return (foo, foo, foo); // a single Ctrl will not turn into a Seq
                 }
-                "cons" => {
+                Symbol("cons") => {
                     let foo: Expr::Num;
                     let goo: Expr::Char;
                     return (foo, goo, goo);
@@ -866,14 +868,14 @@ mod tests {
                 var("www"),
                 vec![
                     (
-                        lurk_sym("nil"),
+                        Lit::Symbol(lurk_sym("nil")),
                         Block {
                             ops: vec![],
                             ctrl: Ctrl::Return(vec![var("foo"), var("foo"), var("foo")]),
                         }
                     ),
                     (
-                        lurk_sym("cons"),
+                        Lit::Symbol(lurk_sym("cons")),
                         Block {
                             ops: vec![
                                 Op::Zero(var("foo"), Tag::Expr(Num)),
