@@ -9,9 +9,9 @@ use crate::lem::slot::Val;
 use crate::lem::store::{fetch_ptrs, intern_ptrs};
 use crate::lem::tag::Tag;
 use crate::lem::var_map::VarMap;
-use crate::lem::{Block, Ctrl, Func, Op};
+use crate::lem::{Block, Ctrl, Func, Lit, Op};
 use crate::num::Num as BaseNum;
-use crate::tag::ExprTag::{Comm, Num, Sym};
+use crate::tag::ExprTag::{Comm, Num};
 
 pub(crate) fn call<F: LurkField>(
     query: &ToplevelQuery<F>,
@@ -326,19 +326,20 @@ fn run<F: LurkField>(
                 run(query, def, scope, bindings)
             }
         }
-        Ctrl::MatchSymbol(match_var, cases, def) => {
+        Ctrl::MatchValue(match_var, lit_type, cases, def) => {
+            let tag = lit_type.tag();
             let ptr = bindings.get_ptr(match_var)?;
-            if ptr.tag() != &Tag::Expr(Sym) {
-                bail!("{match_var} is not a symbol");
+            if ptr.tag() != &tag {
+                bail!("{match_var} is not a value of type {:?}", lit_type);
             }
-            let Some(sym) = scope.store.fetch_symbol(&ptr) else {
-                bail!("Symbol bound to {match_var} wasn't interned");
-            };
-            if let Some(block) = cases.get(&sym) {
+            let lit = Lit::from_ptr(&ptr, &scope.store);
+
+            if let Some(block) = lit.and_then(|lit| cases.get(&lit)) {
                 run(query, block, scope, bindings)
             } else {
                 let Some(def) = def else {
-                    bail!("No match for symbol {sym}")
+                    let val = ptr.fmt_to_string_simple(&scope.store);
+                    bail!("No match for value {:?}", val)
                 };
                 run(query, def, scope, bindings)
             }

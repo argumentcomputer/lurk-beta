@@ -683,24 +683,25 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                 .collect::<Vec<_>>();
             synthesize_match(&matched, &cases_vec, def, bound_allocations)?;
         }
-        Ctrl::MatchSymbol(match_var, cases, def) => {
+        Ctrl::MatchValue(match_var, lit_type, cases, def) => {
+            let tag = lit_type.tag();
             let match_var_ptr = bound_allocations.get_ptr(match_var)?.clone();
 
             let mut cases_vec = Vec::with_capacity(cases.len());
-            for (sym, block) in cases {
-                let sym_ptr = store.intern_symbol(sym);
-                let sym_hash = *store.hash_ptr(&sym_ptr).value();
-                cases_vec.push((sym_hash, block));
+            for (lit, block) in cases {
+                let lit_ptr = lit.to_ptr(store);
+                let lit_hash = *store.hash_ptr(&lit_ptr).value();
+                cases_vec.push((lit_hash, block));
             }
 
             synthesize_match(match_var_ptr.hash(), &cases_vec, def, bound_allocations)?;
 
-            let sym_tag = g.alloc_tag(cs, &Sym);
+            let lit_tag = g.alloc_tag(cs, &tag);
             implies_equal(
                 ns!(cs, format!("implies equal {match_var}.tag")),
                 not_dummy,
                 match_var_ptr.tag(),
-                sym_tag,
+                lit_tag,
             );
         }
     }
