@@ -431,7 +431,7 @@
 /// We use a type class (trait) pattern to provide extensibility for the coprocessor implementations.
 /// The pattern involves:
 /// - A trait [`crate::coprocessor::Coprocessor`], which defines the methods and behavior for all coprocessors.
-/// - An enum such as [`crate::eval::lang::Coproc`], which "closes" the hierarchy of possible coprocessor
+/// - An enum such as [`crate::lang::Coproc`], which "closes" the hierarchy of possible coprocessor
 ///   implementations we want to instantiate at a particular point in the code.
 </span><span class="kw">pub trait </span>Coprocessor&lt;F: LurkField&gt;: Clone + Debug + Sync + Send + CoCircuit&lt;F&gt; {
     <span class="doccomment">/// Returns true if this Coprocessor actually implements a circuit.

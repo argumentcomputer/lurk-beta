@@ -901,17 +901,15 @@
 <a href="#900" id="900">900</a>
 <a href="#901" id="901">901</a>
 <a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper gadgets for synthesis
 
-</span><span class="kw">use </span>std::borrow::Borrow;
-
-<span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+</span><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+<span class="kw">use </span>neptune::circuit2::poseidon_hash_allocated <span class="kw">as </span>poseidon_hash;
+<span class="kw">use </span>std::borrow::Borrow;
 
 <span class="kw">use crate</span>::{
     circuit::gadgets::{
         constraints::{boolean_to_num, implies_equal},
-        data::hash_poseidon,
         pointer::AllocatedPtr,
     },
     field::LurkField,
@@ -936,7 +934,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
     <span class="kw">let </span>tag = g.alloc_tag_cloned(cs, tag);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         cs,
         <span class="macro">vec!</span>[
             a.tag().clone(),
@@ -963,7 +961,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
     <span class="kw">let </span>tag = g.alloc_tag_cloned(cs, tag);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         cs,
         <span class="macro">vec!</span>[
             a.tag().clone(),
@@ -993,7 +991,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
     <span class="kw">let </span>tag = g.alloc_tag_cloned(cs, tag);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         cs,
         <span class="macro">vec!</span>[
             a.tag().clone(),
@@ -1067,7 +1065,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
     <span class="kw">let </span>tag = g.alloc_tag_cloned(cs, <span class="kw-2">&amp;</span>ExprTag::Env);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         cs,
         <span class="macro">vec!</span>[
             var_hash.clone(),
@@ -1092,7 +1090,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
     <span class="kw">let </span>tag = g.alloc_tag_cloned(cs, <span class="kw-2">&amp;</span>ExprTag::Prov);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         cs,
         <span class="macro">vec!</span>[
             query_hash.clone(),
@@ -1140,7 +1138,7 @@
     <span class="kw">let </span>val_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"val_hash"</span>), || c);
     <span class="kw">let </span>new_env_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"new_env_hash"</span>), || d);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             key_sym_hash.clone(),
@@ -1192,7 +1190,7 @@
     <span class="kw">let </span>res_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"res_hash"</span>), || c);
     <span class="kw">let </span>deps_tuple_hash = AllocatedNum::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"deps_tuple_hash"</span>), || d);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             query_cons_hash.clone(),
@@ -1252,7 +1250,7 @@
     <span class="kw">let </span>a = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"a"</span>), || a);
     <span class="kw">let </span>b = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"b"</span>), || b);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             a.tag().clone(),
@@ -1291,7 +1289,7 @@
     <span class="kw">let </span>b = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"b"</span>), || b);
     <span class="kw">let </span>c = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"c"</span>), || c);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             a.tag().clone(),
@@ -1346,7 +1344,7 @@
     <span class="kw">let </span>c = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"c"</span>), || c);
     <span class="kw">let </span>d = AllocatedPtr::alloc_infallible(<span class="macro">ns!</span>(cs, <span class="string">"d"</span>), || d);
 
-    <span class="kw">let </span>hash = hash_poseidon(
+    <span class="kw">let </span>hash = poseidon_hash(
         <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
         <span class="macro">vec!</span>[
             a.tag().clone(),
@@ -1451,7 +1449,7 @@
             <span class="kw-2">&amp;</span>data_is_not_empty,
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>hash = hash_poseidon(
+        <span class="kw">let </span>hash = poseidon_hash(
             <span class="macro">ns!</span>(cs, <span class="string">"hash"</span>),
             <span class="macro">vec!</span>[
                 car.tag().clone(),

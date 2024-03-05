@@ -1131,8 +1131,8 @@
     config::lurk_config,
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
-    eval::lang::Lang,
     field::{LanguageField, LurkField},
+    lang::Lang,
     proof::{
         nova::{CurveCycleEquipped, E1},
         supernova::{FoldingConfig, C2},
@@ -2087,7 +2087,7 @@
     <span class="kw">use </span>pasta_curves::{Fp, Fq};
 
     <span class="kw">use crate</span>::{
-        eval::lang::Coproc,
+        lang::Coproc,
         lem::{
             circuit::AllocatedVal,
             eval::{eval_step, evaluate},

@@ -1785,9 +1785,9 @@
     aux_func,
     coprocessor::Coprocessor,
     ctrl,
-    eval::lang::Lang,
     field::LurkField,
     func,
+    lang::Lang,
     lem::Block,
     op,
     proof::FoldingMode,
@@ -3528,7 +3528,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use crate</span>::{eval::lang::Lang, lem::store::Store};
+    <span class="kw">use crate</span>::{lang::Lang, lem::store::Store};
     <span class="kw">use </span>bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     <span class="kw">use </span>expect_test::{expect, Expect};
     <span class="kw">use </span>halo2curves::bn256::Fr;

@@ -1687,6 +1687,7 @@
 <a href="#1686" id="1686">1686</a>
 <a href="#1687" id="1687">1687</a>
 <a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellpepper constraints for LEM, such
@@ -1720,6 +1721,7 @@
     },
 };
 <span class="kw">use </span>elsa::sync::FrozenMap;
+<span class="kw">use </span>neptune::circuit2::poseidon_hash_allocated <span class="kw">as </span>poseidon_hash;
 <span class="kw">use </span>std::{collections::HashSet, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -1729,12 +1731,12 @@
             enforce_selector_with_premise, implies_equal, implies_equal_const, implies_pack,
             implies_u64, implies_unequal_const, mul, or, pick, sub,
         },
-        data::{allocate_constant, hash_poseidon},
+        data::allocate_constant,
         pointer::AllocatedPtr,
     },
     coprocessor::Coprocessor,
-    eval::lang::Lang,
     field::{FWrap, LanguageField, LurkField},
+    lang::Lang,
     tag::{
         ExprTag::{Comm, Env, Num, Sym},
         Tag,
@@ -1887,22 +1889,22 @@
     <span class="kw">let </span>cs = cs.namespace(|| <span class="macro">format!</span>(<span class="string">"image for slot {slot}"</span>));
     <span class="kw">let </span>preallocated_img = {
         <span class="kw">match </span>slot.typ {
-            SlotType::Hash4 =&gt; AllocatedVal::Number(hash_poseidon(
+            SlotType::Hash4 =&gt; AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
                 store.poseidon_cache.constants.c4(),
             )<span class="question-mark">?</span>),
-            SlotType::Hash6 =&gt; AllocatedVal::Number(hash_poseidon(
+            SlotType::Hash6 =&gt; AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
                 store.poseidon_cache.constants.c6(),
             )<span class="question-mark">?</span>),
-            SlotType::Hash8 =&gt; AllocatedVal::Number(hash_poseidon(
+            SlotType::Hash8 =&gt; AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
                 store.poseidon_cache.constants.c8(),
             )<span class="question-mark">?</span>),
-            SlotType::Commitment =&gt; AllocatedVal::Number(hash_poseidon(
+            SlotType::Commitment =&gt; AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
                 store.poseidon_cache.constants.c3(),
