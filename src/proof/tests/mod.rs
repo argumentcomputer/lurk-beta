@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use crate::{
     coprocessor::Coprocessor,
-    eval::lang::Lang,
+    lang::Lang,
     lem::{eval::EvalConfig, pointers::Ptr, store::Store},
     proof::{
         nova::{public_params, CurveCycleEquipped, NovaProver, C1LEM},

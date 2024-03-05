@@ -17,8 +17,8 @@ use tracing::info;
 
 use crate::{
     coprocessor::Coprocessor,
-    eval::lang::Lang,
     field::LurkField,
+    lang::Lang,
     lem::{
         eval::{
             evaluate_simple_with_env, evaluate_with_env, make_cprocs_funcs_from_lang,

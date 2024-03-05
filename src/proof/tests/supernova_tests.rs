@@ -2,7 +2,7 @@ use halo2curves::bn256::Fr;
 use std::sync::Arc;
 
 use crate::{
-    eval::lang::Lang,
+    lang::Lang,
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
         store::Store,

@@ -3,9 +3,9 @@ use bellpepper_core::{test_cs::TestConstraintSystem, Delta};
 use halo2curves::bn256::Fr;
 
 use crate::{
-    eval::lang::{DummyCoprocessor, Lang},
     field::LurkField,
     func,
+    lang::{DummyCoprocessor, Lang},
     lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Func},
 };
 

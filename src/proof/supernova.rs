@@ -24,8 +24,8 @@ use crate::{
     config::lurk_config,
     coprocessor::Coprocessor,
     error::ProofError,
-    eval::lang::Lang,
     field::LurkField,
+    lang::Lang,
     lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{
         nova::{debug_step, CurveCycleEquipped, Dual, NovaCircuitShape, E1},

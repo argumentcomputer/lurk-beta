@@ -44,8 +44,8 @@ use crate::{
         pointer::AllocatedPtr,
     },
     coprocessor::Coprocessor,
-    eval::lang::Lang,
     field::{FWrap, LanguageField, LurkField},
+    lang::Lang,
     tag::{
         ExprTag::{Comm, Env, Num, Sym},
         Tag,

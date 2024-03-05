@@ -3,7 +3,7 @@ use halo2curves::bn256::Fr;
 
 use crate::{
     coprocessor::Coprocessor,
-    eval::lang::{Coproc, Lang},
+    lang::{Coproc, Lang},
     lem::{
         eval::{
             evaluate_simple, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig,

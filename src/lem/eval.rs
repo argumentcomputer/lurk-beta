@@ -6,9 +6,9 @@ use crate::{
     aux_func,
     coprocessor::Coprocessor,
     ctrl,
-    eval::lang::Lang,
     field::LurkField,
     func,
+    lang::Lang,
     lem::Block,
     op,
     proof::FoldingMode,
@@ -1744,7 +1744,7 @@ fn make_thunk() -> Func {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{eval::lang::Lang, lem::store::Store};
+    use crate::{lang::Lang, lem::store::Store};
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     use expect_test::{expect, Expect};
     use halo2curves::bn256::Fr;

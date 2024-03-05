@@ -5,8 +5,8 @@ use halo2curves::bn256::Fr as Bn;
 use std::{sync::Arc, time::Duration};
 
 use lurk::{
-    eval::lang::{Coproc, Lang},
     field::LurkField,
+    lang::{Coproc, Lang},
     lem::{
         eval::{evaluate, evaluate_simple},
         pointers::Ptr,

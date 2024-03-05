@@ -3,7 +3,7 @@ use halo2curves::bn256::Fr;
 use std::sync::Arc;
 
 use crate::{
-    eval::lang::{Coproc, Lang},
+    lang::{Coproc, Lang},
     lem::{
         store::{intern_ptrs, Store},
         tag::Tag,

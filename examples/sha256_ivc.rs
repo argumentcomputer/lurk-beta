@@ -5,8 +5,8 @@ use tracing_texray::TeXRayLayer;
 
 use lurk::{
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
-    eval::lang::Lang,
     field::LurkField,
+    lang::Lang,
     lem::{pointers::Ptr, store::Store},
     proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{

@@ -173,7 +173,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{instance::Kind, *};
-    use crate::eval::lang::{Coproc, Lang};
+    use crate::lang::{Coproc, Lang};
     use halo2curves::bn256::Fr as S1;
     use std::sync::Arc;
     use tempfile::Builder;

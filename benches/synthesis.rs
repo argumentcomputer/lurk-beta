@@ -9,8 +9,8 @@ use criterion::{
 use halo2curves::bn256::Fr as Bn;
 
 use lurk::{
-    eval::lang::{Coproc, Lang},
     field::LurkField,
+    lang::{Coproc, Lang},
     lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
     proof::supernova::FoldingConfig,
     state::{State, StateRcCell},

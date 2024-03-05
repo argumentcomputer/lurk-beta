@@ -23,9 +23,9 @@ use crate::{self as lurk};
 use crate::circuit::gadgets::constraints::{enforce_equal, implies_equal, select};
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::coprocessor::{CoCircuit, Coprocessor};
-use crate::eval::lang::Lang;
 use crate::field::{FWrap, LurkField};
 use crate::hash::{HashArity, HashConstants, InversePoseidonCache, PoseidonCache};
+use crate::lang::Lang;
 use crate::lem::{pointers::Ptr, store::Store};
 use crate::tag::ExprTag;
 

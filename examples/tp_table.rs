@@ -3,7 +3,7 @@ use ascii_table::{Align, AsciiTable};
 use criterion::black_box;
 use halo2curves::bn256::Fr as Bn;
 use lurk::{
-    eval::lang::{Coproc, Lang},
+    lang::{Coproc, Lang},
     lem::{eval::evaluate, store::Store},
     proof::nova::{public_params, NovaProver, PublicParams},
 };

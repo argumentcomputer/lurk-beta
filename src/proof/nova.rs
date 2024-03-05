@@ -24,8 +24,8 @@ use crate::{
     config::lurk_config,
     coprocessor::Coprocessor,
     error::ProofError,
-    eval::lang::Lang,
     field::LurkField,
+    lang::Lang,
     lem::{interpreter::Frame, multiframe::MultiFrame, pointers::Ptr, store::Store},
     proof::{supernova::FoldingConfig, FrameLike, Prover},
 };

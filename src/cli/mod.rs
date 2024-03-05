@@ -22,8 +22,8 @@ use std::{
 };
 
 use crate::{
-    eval::lang::{Coproc, Lang},
     field::{LanguageField, LurkField},
+    lang::{Coproc, Lang},
     lem::store::Store,
     public_parameters::disk_cache::public_params_dir,
     public_parameters::instance::Metadata,

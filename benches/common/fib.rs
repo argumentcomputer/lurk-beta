@@ -2,8 +2,8 @@
 #![allow(dead_code)]
 
 use lurk::{
-    eval::lang::{Coproc, Lang},
     field::LurkField,
+    lang::{Coproc, Lang},
     lem::{
         eval::{eval_step, evaluate_simple},
         pointers::Ptr,

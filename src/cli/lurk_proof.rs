@@ -6,8 +6,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     coprocessor::Coprocessor,
-    eval::lang::Lang,
     field::LurkField,
+    lang::Lang,
     lem::{pointers::ZPtr, store::Store},
     proof::{
         nova::{self, CurveCycleEquipped, Dual, C1LEM},
