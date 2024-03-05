@@ -373,7 +373,7 @@ mod test {
                 assert!(cs.is_satisfied());
                 input_ptrs = out.into_iter().map(|x| x.get_value().unwrap()).collect();
                 if let Some(cs_prev) = cs_prev {
-                    // Check for all input expresssions that all frames are uniform.
+                    // Check for all input expressions that all frames are uniform.
                     assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
                 }
                 cs_prev = Some(cs);
