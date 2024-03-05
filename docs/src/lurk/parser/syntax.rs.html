@@ -1117,11 +1117,7 @@
 <a href="#1116" id="1116">1116</a>
 <a href="#1117" id="1117">1117</a>
 <a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{cell::RefCell, rc::Rc};
-
-<span class="kw">use </span>nom::{
+</pre></div><pre class="rust"><code><span class="kw">use </span>nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
     character::complete::{anychar, char, multispace0, multispace1, none_of},
@@ -1142,7 +1138,7 @@
         position::Pos,
         string, ParseResult, Span,
     },
-    state::{meta_package_symbol, State},
+    state::{meta_package_symbol, StateRcCell},
     symbol,
     syntax::Syntax,
     uint::UInt,
@@ -1211,7 +1207,7 @@
 }
 
 <span class="kw">fn </span>intern_path&lt;<span class="lifetime">'a</span>, F: LurkField&gt;(
-    state: <span class="kw-2">&amp;</span>Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: <span class="kw-2">&amp;</span>StateRcCell,
     upto: LocatedSpan&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
     path: <span class="kw-2">&amp;</span>[String],
     keyword: <span class="prelude-ty">Option</span>&lt;bool&gt;,
@@ -1236,7 +1232,7 @@
 }
 
 <span class="kw">pub fn </span>parse_absolute_symbol&lt;F: LurkField&gt;(
-    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, SymbolRef&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
@@ -1250,7 +1246,7 @@
 }
 
 <span class="kw">pub fn </span>parse_relative_symbol&lt;F: LurkField&gt;(
-    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, SymbolRef&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
@@ -1261,7 +1257,7 @@
 }
 
 <span class="kw">pub fn </span>parse_raw_symbol&lt;F: LurkField&gt;(
-    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, SymbolRef&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
@@ -1274,7 +1270,7 @@
 }
 
 <span class="kw">pub fn </span>parse_raw_keyword&lt;F: LurkField&gt;(
-    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, SymbolRef&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
@@ -1291,7 +1287,7 @@
 /// raw: ~(foo bar baz) = .baz.bar.foo
 /// raw keyword: ~:(foo bar) = :bar.foo
 </span><span class="kw">pub fn </span>parse_symbol&lt;F: LurkField&gt;(
-    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, Syntax&lt;F&gt;&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
@@ -1472,7 +1468,7 @@
 }
 
 <span class="kw">pub fn </span>parse_list&lt;F: LurkField&gt;(
-    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: StateRcCell,
     meta: bool,
     create_unknown_packages: bool,
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, Syntax&lt;F&gt;&gt; {
@@ -1526,7 +1522,7 @@
 }
 
 <span class="kw">pub fn </span>parse_quote&lt;F: LurkField&gt;(
-    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, Syntax&lt;F&gt;&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
@@ -1544,7 +1540,7 @@
 
 <span class="comment">// top-level syntax parser
 </span><span class="kw">pub fn </span>parse_syntax&lt;F: LurkField&gt;(
-    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: StateRcCell,
     meta: bool,
     <span class="comment">// this parameter triggers a less strict mode for testing purposes
     </span>create_unknown_packages: bool,
@@ -1568,7 +1564,7 @@
 }
 
 <span class="kw">pub fn </span>parse_maybe_meta&lt;F: LurkField&gt;(
-    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    state: StateRcCell,
     create_unknown_packages: bool,
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">'_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">'_</span>, F, <span class="prelude-ty">Option</span>&lt;(bool, Syntax&lt;F&gt;)&gt;&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">'_</span>&gt;| {
@@ -1591,7 +1587,7 @@
     </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use crate</span>::{char, keyword, list, num, str, symbol, uint};
+    <span class="kw">use crate</span>::{char, keyword, list, num, state::State, str, symbol, uint};
 
     <span class="kw">fn </span>test&lt;<span class="lifetime">'a</span>, P, R&gt;(<span class="kw-2">mut </span>p: P, i: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, expected: <span class="prelude-ty">Option</span>&lt;R&gt;) -&gt; bool
     <span class="kw">where

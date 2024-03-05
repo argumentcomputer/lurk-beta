@@ -1185,13 +1185,6 @@
 <a href="#1184" id="1184">1184</a>
 <a href="#1185" id="1185">1185</a>
 <a href="#1186" id="1186">1186</a>
-<a href="#1187" id="1187">1187</a>
-<a href="#1188" id="1188">1188</a>
-<a href="#1189" id="1189">1189</a>
-<a href="#1190" id="1190">1190</a>
-<a href="#1191" id="1191">1191</a>
-<a href="#1192" id="1192">1192</a>
-<a href="#1193" id="1193">1193</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `trie` module implements a Trie with the following properties:
 //! Big-endian bits of the (field element) key are taken N at a time, where the underlying hash has arity 2^N. This
 //! forms a fixed-length path whose final element is either zero or some non-zero payload. If the payload is assumed to
@@ -1204,23 +1197,15 @@
 //! proof, will actually be a proof *verifying* that the vanilla operation was correctly performed. Therefore, the
 //! vanilla operation needs to provide such a proof so the circuit can verify it.
 
-</span><span class="kw">use </span>std::cell::RefCell;
-<span class="comment">// TODO:
-//  - Implement circuit (https://github.com/lurk-lab/lurk-rs/issues/421).
-//  - Adapt to ongoing changes to general coprocessor API, most importantly, absorb
-//    https://github.com/lurk-lab/lurk-rs/issues/398. - If #398 is smooth enough, no actual implementation changes
-//    should be required here, but the test in src/eval/tests/trie.rs can and should be updated.
-</span><span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::rc::Rc;
-
-<span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+</span><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use </span>lurk_macros::Coproc;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span><span class="kw">crate</span>::package::Package;
-<span class="kw">use </span><span class="kw">crate</span>::state::State;
-<span class="kw">use crate</span>::{<span class="self">self </span><span class="kw">as </span>lurk, Symbol};
+<span class="kw">use </span><span class="kw">crate</span>::state::StateRcCell;
+<span class="kw">use crate</span>::{<span class="self">self </span><span class="kw">as </span>lurk};
 
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::constraints::{enforce_equal, implies_equal, select};
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr;
@@ -1512,17 +1497,18 @@
 
 <span class="doccomment">/// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 </span><span class="comment">// TODO: define standard patterns for such modularity.
-</span><span class="kw">pub fn </span>install&lt;F: LurkField&gt;(state: <span class="kw-2">&amp;</span>Rc&lt;RefCell&lt;State&gt;&gt;, lang: <span class="kw-2">&amp;mut </span>Lang&lt;F, TrieCoproc&lt;F&gt;&gt;) {
-    lang.add_coprocessor(<span class="string">".lurk.trie.new"</span>, NewCoprocessor::default());
-    lang.add_coprocessor(<span class="string">".lurk.trie.lookup"</span>, LookupCoprocessor::default());
-    lang.add_coprocessor(<span class="string">".lurk.trie.insert"</span>, InsertCoprocessor::default());
-
-    <span class="kw">let </span>trie_package_name: Symbol = <span class="string">".lurk.trie"</span>.into();
-    <span class="kw">let </span><span class="kw-2">mut </span>package = Package::new(trie_package_name.into());
-    <span class="kw">for </span>name <span class="kw">in </span>[<span class="string">"new"</span>, <span class="string">"lookup"</span>, <span class="string">"insert"</span>].into_iter() {
-        package.intern(name);
-    }
-    state.borrow_mut().add_package(package);
+</span><span class="kw">pub fn </span>install&lt;F: LurkField&gt;(state: <span class="kw-2">&amp;</span>StateRcCell, lang: <span class="kw-2">&amp;mut </span>Lang&lt;F, TrieCoproc&lt;F&gt;&gt;) {
+    <span class="kw">let </span><span class="kw-2">mut </span>state_mut = state.borrow_mut();
+    <span class="kw">let </span>package_name = state_mut.intern_path_infallible([<span class="string">"lurk"</span>, <span class="string">"trie"</span>], <span class="bool-val">false</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>package = Package::new(package_name);
+    <span class="kw">let </span>new_sym = package.intern(<span class="string">"new"</span>);
+    <span class="kw">let </span>lookup_sym = package.intern(<span class="string">"lookup"</span>);
+    <span class="kw">let </span>insert_sym = package.intern(<span class="string">"insert"</span>);
+    state_mut.add_package(package);
+    <span class="comment">// TODO: should `Lang` hold `Arc&lt;Symbol&gt;` instead?
+    </span>lang.add_coprocessor((<span class="kw-2">*</span>new_sym).clone(), NewCoprocessor::default());
+    lang.add_coprocessor((<span class="kw-2">*</span>lookup_sym).clone(), LookupCoprocessor::default());
+    lang.add_coprocessor((<span class="kw-2">*</span>insert_sym).clone(), InsertCoprocessor::default());
 }
 
 <span class="kw">pub type </span>ChildMap&lt;F, <span class="kw">const </span>ARITY: usize&gt; = InversePoseidonCache&lt;F&gt;;

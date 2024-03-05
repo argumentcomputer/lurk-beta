@@ -1738,14 +1738,14 @@
 <span class="kw">use </span>neptune::Poseidon;
 <span class="kw">use </span>nom::{sequence::preceded, Parser};
 <span class="kw">use </span>rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-<span class="kw">use </span>std::{cell::RefCell, rc::Rc, sync::Arc};
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use crate</span>::{
     field::{FWrap, LurkField},
     hash::{InversePoseidonCache, PoseidonCache},
     lem::Tag,
     parser::{syntax, Error, Span},
-    state::{lurk_sym, user_sym, State},
+    state::{lurk_sym, user_sym, State, StateRcCell},
     symbol::Symbol,
     syntax::Syntax,
     tag::ContTag::{
@@ -2674,7 +2674,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, state: Rc&lt;RefCell&lt;State&gt;&gt;, input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&gt; {
+    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, state: StateRcCell, input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&gt; {
         <span class="kw">match </span>preceded(
             syntax::parse_space,
             syntax::parse_syntax(state, <span class="bool-val">false</span>, <span class="bool-val">false</span>),
@@ -2688,7 +2688,7 @@
 
     <span class="kw">pub fn </span>read_maybe_meta&lt;<span class="lifetime">'a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        state: Rc&lt;RefCell&lt;State&gt;&gt;,
+        state: StateRcCell,
         input: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, Span&lt;<span class="lifetime">'a</span>&gt;, Ptr, bool), Error&gt; {
         <span class="kw">match </span>preceded(syntax::parse_space, syntax::parse_maybe_meta(state, <span class="bool-val">false</span>))

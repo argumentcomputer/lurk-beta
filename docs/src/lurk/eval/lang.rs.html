@@ -196,6 +196,7 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>lurk_macros::Coproc;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -285,13 +286,14 @@
         }
     }
 
-    <span class="kw">pub fn </span>new_with_bindings&lt;B: Into&lt;Binding&lt;F, C&gt;&gt;&gt;(bindings: Vec&lt;B&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span><span class="kw-2">mut </span>new = <span class="self">Self</span>::new();
-        <span class="kw">for </span>b <span class="kw">in </span>bindings {
-            new.add_binding(b.into());
-        }
-
-        new
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>new_with_bindings&lt;B: Into&lt;Binding&lt;F, C&gt;&gt;, I: IntoIterator&lt;Item = B&gt;&gt;(
+        bindings: I,
+    ) -&gt; <span class="self">Self </span>{
+        bindings.into_iter().fold(<span class="self">Self</span>::new(), |<span class="kw-2">mut </span>acc, b| {
+            acc.add_binding(b.into());
+            acc
+        })
     }
 
     <span class="kw">pub fn </span>key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
@@ -307,9 +309,9 @@
         key
     }
 
-    <span class="kw">pub fn </span>add_coprocessor&lt;T: Into&lt;C&gt;, S: Into&lt;Symbol&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: S, cproc: T) {
-        <span class="kw">let </span>name = name.into();
-        <span class="self">self</span>.coprocessors.insert(name, cproc.into());
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>add_coprocessor&lt;T: Into&lt;C&gt;, S: Into&lt;Symbol&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: S, cproc: T) {
+        <span class="self">self</span>.coprocessors.insert(name.into(), cproc.into());
     }
 
     <span class="kw">pub fn </span>add_binding&lt;B: Into&lt;Binding&lt;F, C&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, binding: B) {
@@ -348,8 +350,8 @@
     }
 }
 
-<span class="doccomment">/// A `Binding` associates a name (`Sym`) and `Coprocessor`. It facilitates modular construction of `Lang`s using
-/// `Coprocessor`s.
+<span class="doccomment">/// A `Binding` associates a name (`Symbol`) and `Coprocessor`. It facilitates
+/// modular construction of `Lang`s using `Coprocessor`s.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Binding&lt;F, C&gt; {
     name: Symbol,

@@ -416,34 +416,15 @@
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::fmt;
 
-<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
-
-<span class="kw">use crate</span>::{parser::LURK_WHITESPACE, state::State};
+<span class="kw">use crate</span>::{package::SymbolRef, parser::LURK_WHITESPACE, state::StateRcCell};
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>lurk_macros::serde_test;
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>proptest_derive::Arbitrary;
-
-<span class="doccomment">/// Module for symbol type, Sym.
-</span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>KEYWORD_MARKER: char = <span class="string">':'</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SYM_SEPARATOR: char = <span class="string">'.'</span>;
@@ -702,29 +683,16 @@
         }
     }
 
-    <span class="kw">pub fn </span>from_str_impl(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">use </span><span class="kw">crate</span>::parser::{
-            syntax::{parse_space, parse_symbol},
-            Span,
-        };
-        <span class="kw">use </span><span class="kw">crate</span>::syntax::Syntax;
-        <span class="kw">use </span>halo2curves::bn256::Fr <span class="kw">as </span>Scalar;
-        <span class="kw">use </span>nom::{sequence::preceded, Parser};
-        <span class="kw">match </span>preceded(
-            parse_space::&lt;Scalar&gt;,
-            parse_symbol(State::default().rccell(), <span class="bool-val">true</span>),
-        )
-        .parse(Span::new(name))
-        {
-            <span class="prelude-val">Ok</span>((<span class="kw">_</span>, Syntax::Symbol(<span class="kw">_</span>, symbol))) =&gt; <span class="prelude-val">Some</span>((<span class="kw-2">*</span>symbol).clone()),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+    <span class="doccomment">/// Attempts to parse and intern a `Symbol` from a string
+    </span><span class="kw">pub fn </span>interned&lt;A: AsRef&lt;str&gt;&gt;(input: A, state: StateRcCell) -&gt; <span class="prelude-ty">Result</span>&lt;SymbolRef&gt; {
+        <span class="kw">use crate</span>::{parser::syntax::parse_symbol, syntax::Syntax};
+        <span class="kw">use </span>halo2curves::bn256::Fr; <span class="comment">// could be any other field
+        </span><span class="kw">use </span>nom::Parser;
+        <span class="kw">match </span>parse_symbol::&lt;Fr&gt;(state, <span class="bool-val">true</span>).parse(input.as_ref().into()) {
+            <span class="prelude-val">Ok</span>((<span class="kw">_</span>, Syntax::Symbol(<span class="kw">_</span>, symbol))) =&gt; <span class="prelude-val">Ok</span>(symbol),
+            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"Input didn't parse to a symbol"</span>)),
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(e.to_string())),
         }
-    }
-}
-
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; <span class="kw">for </span>Symbol {
-    <span class="kw">fn </span>from(value: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="self">Self </span>{
-        Symbol::from_str_impl(value).unwrap()
     }
 }
 
