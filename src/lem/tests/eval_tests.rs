@@ -1,6 +1,5 @@
 use expect_test::{expect, Expect};
 use halo2curves::bn256::Fr;
-use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     coprocessor::Coprocessor,
@@ -13,7 +12,7 @@ use crate::{
         store::Store,
         Tag,
     },
-    state::State,
+    state::{State, StateRcCell},
     tag::Op,
 };
 
@@ -42,7 +41,7 @@ fn test_aux<C: Coprocessor<Fr>>(
 
 fn test_aux_with_state<C: Coprocessor<Fr>>(
     s: &Store<Fr>,
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     expr: &str,
     expected_result: Option<Ptr>,
     expected_env: Option<Ptr>,
@@ -3390,14 +3389,14 @@ fn test_sym_hash_values() {
 
     let asdf_sym_package_name = state
         .borrow_mut()
-        .intern_path(&["asdf"], false, false)
+        .intern_path(["asdf"], false, false)
         .unwrap();
     let asdf_sym_package = Package::new(asdf_sym_package_name);
     state.borrow_mut().add_package(asdf_sym_package);
 
     let asdf_key_package_name = state
         .borrow_mut()
-        .intern_path(&["asdf"], true, false)
+        .intern_path(["asdf"], true, false)
         .unwrap();
     let asdf_key_package = Package::new(asdf_key_package_name);
     state.borrow_mut().add_package(asdf_key_package);
@@ -3847,12 +3846,11 @@ fn test_dumb_lang() {
 
 #[test]
 fn test_trie_lang() {
-    use crate::coprocessor::trie::{install, TrieCoproc};
+    use crate::coprocessor::trie::install;
 
     let s = &Store::<Fr>::default();
     let state = State::init_lurk_state().rccell();
-    let mut lang = Lang::<Fr, TrieCoproc<Fr>>::new();
-
+    let mut lang = Lang::new();
     install(&state, &mut lang);
 
     let expr = "(let ((trie (.lurk.trie.new)))

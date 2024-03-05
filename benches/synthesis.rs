@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{Circuit, ConstraintSystem};
@@ -13,10 +13,10 @@ use lurk::{
     field::LurkField,
     lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
     proof::supernova::FoldingConfig,
-    state::State,
+    state::{State, StateRcCell},
 };
 
-fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr {
+fn fib<F: LurkField>(store: &Store<F>, state: StateRcCell, a: u64) -> Ptr {
     let program = format!(
         r#"
 (let ((fib (lambda (target)

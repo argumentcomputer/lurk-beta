@@ -1,15 +1,12 @@
+use anyhow::{anyhow, bail, Result};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use anyhow::{bail, Result};
-
-use crate::{parser::LURK_WHITESPACE, state::State};
+use crate::{package::SymbolRef, parser::LURK_WHITESPACE, state::StateRcCell};
 #[cfg(not(target_arch = "wasm32"))]
 use lurk_macros::serde_test;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
-
-/// Module for symbol type, Sym.
-use serde::{Deserialize, Serialize};
 
 pub(crate) const KEYWORD_MARKER: char = ':';
 pub(crate) const SYM_SEPARATOR: char = '.';
@@ -268,29 +265,16 @@ impl Symbol {
         }
     }
 
-    pub fn from_str_impl(name: &str) -> Option<Self> {
-        use crate::parser::{
-            syntax::{parse_space, parse_symbol},
-            Span,
-        };
-        use crate::syntax::Syntax;
-        use halo2curves::bn256::Fr as Scalar;
-        use nom::{sequence::preceded, Parser};
-        match preceded(
-            parse_space::<Scalar>,
-            parse_symbol(State::default().rccell(), true),
-        )
-        .parse(Span::new(name))
-        {
-            Ok((_, Syntax::Symbol(_, symbol))) => Some((*symbol).clone()),
-            _ => None,
+    /// Attempts to parse and intern a `Symbol` from a string
+    pub fn interned<A: AsRef<str>>(input: A, state: StateRcCell) -> Result<SymbolRef> {
+        use crate::{parser::syntax::parse_symbol, syntax::Syntax};
+        use halo2curves::bn256::Fr; // could be any other field
+        use nom::Parser;
+        match parse_symbol::<Fr>(state, true).parse(input.as_ref().into()) {
+            Ok((_, Syntax::Symbol(_, symbol))) => Ok(symbol),
+            Ok(_) => Err(anyhow!("Input didn't parse to a symbol")),
+            Err(e) => Err(anyhow!(e.to_string())),
         }
-    }
-}
-
-impl From<&'static str> for Symbol {
-    fn from(value: &'static str) -> Self {
-        Symbol::from_str_impl(value).unwrap()
     }
 }
 

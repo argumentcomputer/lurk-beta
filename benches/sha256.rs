@@ -11,7 +11,7 @@ use criterion::{
     BenchmarkId, Criterion, SamplingMode,
 };
 use halo2curves::bn256::Fr as Bn;
-use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use lurk::{
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
@@ -27,7 +27,7 @@ use lurk::{
         instance::{Instance, Kind},
         public_params, supernova_public_params,
     },
-    state::{user_sym, State},
+    state::{user_sym, State, StateRcCell},
 };
 
 mod common;
@@ -35,7 +35,7 @@ use common::set_bench_config;
 
 fn sha256_ivc<F: LurkField>(
     store: &Store<F>,
-    state: Rc<RefCell<State>>,
+    state: StateRcCell,
     arity: usize,
     n: usize,
     input: &[usize],
@@ -91,7 +91,7 @@ impl ProveParams {
 fn sha256_ivc_prove<M: measurement::Measurement>(
     prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
-    state: &Rc<RefCell<State>>,
+    state: &StateRcCell,
 ) {
     let ProveParams {
         arity,
@@ -172,7 +172,7 @@ fn ivc_prove_benchmarks(c: &mut Criterion) {
 fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
-    state: &Rc<RefCell<State>>,
+    state: &StateRcCell,
 ) {
     let ProveParams {
         arity,
@@ -255,7 +255,7 @@ fn ivc_prove_compressed_benchmarks(c: &mut Criterion) {
 fn sha256_nivc_prove<M: measurement::Measurement>(
     prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
-    state: &Rc<RefCell<State>>,
+    state: &StateRcCell,
 ) {
     let ProveParams {
         arity,
