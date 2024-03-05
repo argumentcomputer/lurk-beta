@@ -596,7 +596,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
         let result = self.queries.get(&form).cloned().unwrap_or_else(|| {
             let s = self.store.as_ref();
-            let query = Q::from_ptr(s, &form).expect("invalid query");
+            let query = Q::from_ptr(&self.content, s, &form).expect("invalid query");
 
             let evaluated = query.eval(self);
 
@@ -756,7 +756,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         let mut record_kv = |kv: &Ptr| {
             let key = s.car_cdr(kv).unwrap().0;
             let kv1 = kvs_by_key.entry(key).or_insert_with(|| {
-                let index = Q::from_ptr(s, &key)
+                let index = Q::from_ptr(&self.content, s, &key)
                     .expect("bad query")
                     .index(&self.content);
 
@@ -1231,7 +1231,7 @@ impl<F: LurkField, C> CircuitScope<F, LogMemoCircuit<F>, C> {
         )?);
 
         let circuit_query = if let Some(key) = key {
-            let query = Q::from_ptr(s, key).unwrap();
+            let query = Q::from_ptr(&self.content, s, key).unwrap();
             assert_eq!(index, query.index(&self.content));
             query.to_circuit(ns!(cs, "circuit_query"), s)
         } else {

@@ -118,23 +118,22 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
         }
         ToplevelCircuitQuery { name, args }
     }
-    fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self> {
+    fn from_ptr(toplevel: &Arc<Toplevel<F>>, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
         let (head, mut acc) = s.car_cdr(ptr).expect("query should be cons");
         let name = s.fetch_sym(&head).expect("head should be sym");
+        let num_args = toplevel.get(&name).unwrap().func.input_params.len();
+        assert!(num_args > 0, "cannot yet make 0 argument queries");
         let mut args = vec![];
         let _p = PhantomData;
-        if acc.is_nil() {
-            return Some(ToplevelQuery { name, args, _p });
-        }
-        // TODO: we must do this destructuring until we have exactly the number of
-        // arguments the query needs, otherwise we might run into the problem of
-        // destructuring too much (the last argument might be a cons)
-        while acc.is_cons() {
-            let (arg, rest) = s.car_cdr(&acc).expect("can't find image for cons");
-            args.push(arg);
-            acc = rest;
+        if !acc.is_nil() {
+            while args.len() < num_args - 1 {
+                let (arg, rest) = s.car_cdr(&acc).expect("can't find image for cons");
+                args.push(arg);
+                acc = rest;
+            }
         }
         args.push(acc);
+        assert_eq!(args.len(), num_args);
         Some(ToplevelQuery { name, args, _p })
     }
     fn to_ptr(&self, s: &Store<F>) -> Ptr {
@@ -215,15 +214,11 @@ impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
         self.name.clone()
     }
 
-    fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
-        ToplevelQuery::from_ptr(s, ptr).map(|q| q.to_circuit(cs, s))
+    fn from_ptr<CS: ConstraintSystem<F>>(_: &mut CS, _: &Store<F>, _: &Ptr) -> Option<Self> {
+        unimplemented!()
     }
 
-    fn dummy_from_index<CS: ConstraintSystem<F>>(
-        _cs: &mut CS,
-        _s: &Store<F>,
-        _index: usize,
-    ) -> Self {
+    fn dummy_from_index<CS: ConstraintSystem<F>>(_: &mut CS, _: &Store<F>, _: usize) -> Self {
         unimplemented!()
     }
 

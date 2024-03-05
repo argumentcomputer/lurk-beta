@@ -19,7 +19,7 @@ where
     fn recursive_eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>, subquery: Self) -> Ptr {
         scope.query_recursively(self, subquery)
     }
-    fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self>;
+    fn from_ptr(c: &Self::C, s: &Store<F>, ptr: &Ptr) -> Option<Self>;
     fn to_ptr(&self, s: &Store<F>) -> Ptr;
     fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ;
     fn dummy_from_index(c: &Self::C, s: &Store<F>, index: usize) -> Self;

@@ -56,7 +56,7 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
         }
     }
 
-    fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self> {
+    fn from_ptr(_: &Self::C, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
         let (head, body) = s.car_cdr(ptr).expect("query should be cons");
         let sym = s.fetch_sym(&head).expect("head should be sym");
 
@@ -200,7 +200,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
     }
 
     fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
-        DemoQuery::from_ptr(s, ptr).map(|q| q.to_circuit(cs, s))
+        DemoQuery::from_ptr(&(), s, ptr).map(|q| q.to_circuit(cs, s))
     }
 
     fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self {
