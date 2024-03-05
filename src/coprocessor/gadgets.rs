@@ -1,13 +1,12 @@
 //! Helper gadgets for synthesis
 
-use std::borrow::Borrow;
-
 use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
+use std::borrow::Borrow;
 
 use crate::{
     circuit::gadgets::{
         constraints::{boolean_to_num, implies_equal},
-        data::hash_poseidon,
         pointer::AllocatedPtr,
     },
     field::LurkField,
@@ -32,7 +31,7 @@ pub(crate) fn construct_tuple2<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let tag = g.alloc_tag_cloned(cs, tag);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         cs,
         vec![
             a.tag().clone(),
@@ -59,7 +58,7 @@ pub(crate) fn construct_tuple3<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let tag = g.alloc_tag_cloned(cs, tag);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         cs,
         vec![
             a.tag().clone(),
@@ -89,7 +88,7 @@ pub(crate) fn construct_tuple4<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let tag = g.alloc_tag_cloned(cs, tag);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         cs,
         vec![
             a.tag().clone(),
@@ -163,7 +162,7 @@ pub(crate) fn construct_env<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let tag = g.alloc_tag_cloned(cs, &ExprTag::Env);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         cs,
         vec![
             var_hash.clone(),
@@ -188,7 +187,7 @@ pub(crate) fn construct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let tag = g.alloc_tag_cloned(cs, &ExprTag::Prov);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         cs,
         vec![
             query_hash.clone(),
@@ -236,7 +235,7 @@ pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
     let val_hash = AllocatedNum::alloc_infallible(ns!(cs, "val_hash"), || c);
     let new_env_hash = AllocatedNum::alloc_infallible(ns!(cs, "new_env_hash"), || d);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         ns!(cs, "hash"),
         vec![
             key_sym_hash.clone(),
@@ -288,7 +287,7 @@ pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
     let res_hash = AllocatedNum::alloc_infallible(ns!(cs, "res_hash"), || c);
     let deps_tuple_hash = AllocatedNum::alloc_infallible(ns!(cs, "deps_tuple_hash"), || d);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         ns!(cs, "hash"),
         vec![
             query_cons_hash.clone(),
@@ -348,7 +347,7 @@ pub(crate) fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
     let a = AllocatedPtr::alloc_infallible(ns!(cs, "a"), || a);
     let b = AllocatedPtr::alloc_infallible(ns!(cs, "b"), || b);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         ns!(cs, "hash"),
         vec![
             a.tag().clone(),
@@ -387,7 +386,7 @@ pub(crate) fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
     let b = AllocatedPtr::alloc_infallible(ns!(cs, "b"), || b);
     let c = AllocatedPtr::alloc_infallible(ns!(cs, "c"), || c);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         ns!(cs, "hash"),
         vec![
             a.tag().clone(),
@@ -442,7 +441,7 @@ pub(crate) fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
     let c = AllocatedPtr::alloc_infallible(ns!(cs, "c"), || c);
     let d = AllocatedPtr::alloc_infallible(ns!(cs, "d"), || d);
 
-    let hash = hash_poseidon(
+    let hash = poseidon_hash(
         ns!(cs, "hash"),
         vec![
             a.tag().clone(),
@@ -547,7 +546,7 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
             &data_is_not_empty,
         )?;
 
-        let hash = hash_poseidon(
+        let hash = poseidon_hash(
             ns!(cs, "hash"),
             vec![
                 car.tag().clone(),
