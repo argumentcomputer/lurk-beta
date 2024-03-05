@@ -28,7 +28,8 @@ use lurk::{
         instance::{Instance, Kind},
         public_params, supernova_public_params,
     },
-    state::{user_sym, State, StateRcCell},
+    state::{State, StateRcCell},
+    Symbol,
 };
 
 mod common;
@@ -103,7 +104,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     let limit = 10000;
 
     let store = &Store::<Bn>::default();
-    let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
+    let cproc_sym = Symbol::interned(format!("sha256_ivc_{arity}"), state.clone()).unwrap();
 
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
@@ -191,7 +192,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     let limit = 10000;
 
     let store = &Store::<Bn>::default();
-    let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
+    let cproc_sym = Symbol::interned(format!("sha256_ivc_{arity}"), state.clone()).unwrap();
 
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));
@@ -281,7 +282,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
     let limit = 10000;
 
     let store = &Store::<Bn>::default();
-    let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
+    let cproc_sym = Symbol::interned(format!("sha256_ivc_{arity}"), state.clone()).unwrap();
 
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(arity));

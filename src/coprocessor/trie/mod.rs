@@ -318,10 +318,9 @@ pub fn install<F: LurkField>(state: &StateRcCell, lang: &mut Lang<F, TrieCoproc<
     let lookup_sym = package.intern("lookup");
     let insert_sym = package.intern("insert");
     state_mut.add_package(package);
-    // TODO: should `Lang` hold `Arc<Symbol>` instead?
-    lang.add_coprocessor((*new_sym).clone(), NewCoprocessor::default());
-    lang.add_coprocessor((*lookup_sym).clone(), LookupCoprocessor::default());
-    lang.add_coprocessor((*insert_sym).clone(), InsertCoprocessor::default());
+    lang.add_coprocessor(new_sym, NewCoprocessor::default());
+    lang.add_coprocessor(lookup_sym, LookupCoprocessor::default());
+    lang.add_coprocessor(insert_sym, InsertCoprocessor::default());
 }
 
 pub type ChildMap<F, const ARITY: usize> = InversePoseidonCache<F>;

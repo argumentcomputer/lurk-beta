@@ -9,8 +9,9 @@ use crate::{
         tag::Tag,
     },
     num::Num,
-    state::{user_sym, State, StateRcCell},
+    state::{State, StateRcCell},
     tag::{ExprTag, Op, Op1, Op2},
+    Symbol,
 };
 
 use super::{
@@ -3926,31 +3927,36 @@ fn test_dumb_lang() {
     use crate::coprocessor::test::DumbCoprocessor;
 
     let s = &Store::<Fr>::default();
+    let state = State::init_lurk_state().rccell();
 
     let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
-    let name = user_sym("cproc-dumb");
+    let name = Symbol::interned("cproc-dumb", state.clone()).unwrap();
     let dumb = DumbCoprocessor::new();
 
     lang.add_coprocessor(name, dumb);
 
+    let get_ptr = |input| s.read(state.clone(), input).unwrap();
+
     // 9^2 + 8 = 89
-    let expr = "(cproc-dumb 9 8)";
+    let expr = get_ptr("(cproc-dumb 9 8)");
 
     // coprocessors cannot be shadowed
-    let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
-                   (cproc-dumb 9 8))";
+    let expr2 = get_ptr(
+        "(let ((cproc-dumb (lambda (a b) (* a b))))
+                   (cproc-dumb 9 8))",
+    );
 
     // arguments for coprocessors are evaluated
-    let expr3 = "(cproc-dumb (+ 1 8) (+ 1 7))";
+    let expr3 = get_ptr("(cproc-dumb (+ 1 8) (+ 1 7))");
 
     // wrong number of parameters
-    let expr4 = "(cproc-dumb 9 8 123)";
-    let expr5 = "(cproc-dumb 9)";
+    let expr4 = get_ptr("(cproc-dumb 9 8 123)");
+    let expr5 = get_ptr("(cproc-dumb 9)");
 
     // wrong parameter type
-    let expr6 = "(cproc-dumb 'x' 0)";
-    let expr6_ = "(cproc-dumb 'x' 'y')";
-    let expr7 = "(cproc-dumb 0 'y')";
+    let expr6 = get_ptr("(cproc-dumb 'x' 0)");
+    let expr6_ = get_ptr("(cproc-dumb 'x' 'y')");
+    let expr7 = get_ptr("(cproc-dumb 0 'y')");
 
     let res = s.num_u64(89);
     let error4 = s.list(vec![s.num_u64(123), s.num_u64(8), s.num_u64(9)]);
@@ -3962,7 +3968,7 @@ fn test_dumb_lang() {
     let terminal = s.cont_terminal();
     let lang = Arc::new(lang);
 
-    test_aux::<_, DumbCoprocessor<_>>(
+    test_aux_ptr::<_, DumbCoprocessor<_>>(
         s,
         expr,
         Some(res),
@@ -3972,7 +3978,7 @@ fn test_dumb_lang() {
         &expect!["3"],
         &Some(lang.clone()),
     );
-    test_aux::<_, DumbCoprocessor<_>>(
+    test_aux_ptr::<_, DumbCoprocessor<_>>(
         s,
         expr2,
         Some(res),
@@ -3982,7 +3988,7 @@ fn test_dumb_lang() {
         &expect!["5"],
         &Some(lang.clone()),
     );
-    test_aux::<_, DumbCoprocessor<_>>(
+    test_aux_ptr::<_, DumbCoprocessor<_>>(
         s,
         expr3,
         Some(res),
@@ -3992,7 +3998,7 @@ fn test_dumb_lang() {
         &expect!["9"],
         &Some(lang.clone()),
     );
-    test_aux::<_, DumbCoprocessor<_>>(
+    test_aux_ptr::<_, DumbCoprocessor<_>>(
         s,
         expr4,
         Some(error4),
@@ -4002,7 +4008,7 @@ fn test_dumb_lang() {
         &expect!["4"],
         &Some(lang.clone()),
     );
-    test_aux::<_, DumbCoprocessor<_>>(
+    test_aux_ptr::<_, DumbCoprocessor<_>>(
         s,
         expr5,
         Some(error5),
@@ -4012,7 +4018,7 @@ fn test_dumb_lang() {
         &expect!["2"],
         &Some(lang.clone()),
     );
-    test_aux::<_, DumbCoprocessor<_>>(
+    test_aux_ptr::<_, DumbCoprocessor<_>>(
         s,
         expr6,
         Some(error6),
@@ -4022,7 +4028,7 @@ fn test_dumb_lang() {
         &expect!["3"],
         &Some(lang.clone()),
     );
-    test_aux::<_, DumbCoprocessor<_>>(
+    test_aux_ptr::<_, DumbCoprocessor<_>>(
         s,
         expr6_,
         Some(error6),
@@ -4032,7 +4038,7 @@ fn test_dumb_lang() {
         &expect!["3"],
         &Some(lang.clone()),
     );
-    test_aux::<_, DumbCoprocessor<_>>(
+    test_aux_ptr::<_, DumbCoprocessor<_>>(
         s,
         expr7,
         Some(error7),
@@ -4048,19 +4054,19 @@ fn test_dumb_lang() {
 fn test_terminator_lang() {
     use crate::coprocessor::test::Terminator;
 
+    let state = State::init_lurk_state().rccell();
     let mut lang = Lang::<Fr, Terminator<Fr>>::new();
-    let dumb = Terminator::new();
-    let name = user_sym("terminate");
+    let name = Symbol::interned("terminate", state.clone()).unwrap();
 
     let s = &Store::default();
-    lang.add_coprocessor(name, dumb);
+    lang.add_coprocessor(name, Terminator::new());
 
-    let expr = "(terminate)";
+    let expr = s.read(state, "(terminate)").unwrap();
 
     let res = s.intern_nil();
     let terminal = s.cont_terminal();
 
-    test_aux::<_, Terminator<_>>(
+    test_aux_ptr::<_, Terminator<_>>(
         s,
         expr,
         Some(res),
@@ -4076,9 +4082,10 @@ fn test_terminator_lang() {
 fn test_hello_world_lang() {
     use crate::coprocessor::test::HelloWorld;
 
+    let state = State::init_lurk_state().rccell();
     let mut lang = Lang::<Fr, HelloWorld<Fr>>::new();
     let hello_world = HelloWorld::new();
-    let name = user_sym("hello-world");
+    let name = Symbol::interned("hello-world", state.clone()).unwrap();
 
     let s = &Store::default();
     lang.add_coprocessor(name, hello_world);
@@ -4086,9 +4093,11 @@ fn test_hello_world_lang() {
     let res = HelloWorld::intern_hello_world(s);
     let terminal = s.cont_terminal();
 
-    test_aux::<_, HelloWorld<_>>(
+    let expr = s.read(state, "(hello-world)").unwrap();
+
+    test_aux_ptr::<_, HelloWorld<_>>(
         s,
-        "(hello-world)",
+        expr,
         Some(res),
         None,
         Some(terminal),
