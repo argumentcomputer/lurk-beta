@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use super::toplevel::{Toplevel, ToplevelCircuitQuery};
 
-use crate::field::LurkField;
+use crate::field::{FWrap, LurkField};
 
 use crate::circuit::gadgets::constraints::{
     alloc_equal, alloc_is_zero, div, enforce_product_and_sum, enforce_selector_with_premise,
@@ -162,41 +162,23 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
             }
             // TODO: Slot allocation for hashes and bit decompositions
             Op::Cons2(img, tag, preimg) => {
-                let preimg = retrieve_nums(preimg, bound_allocations)?;
-                let res = hash_poseidon(
-                    ns!(cs, "cons2"),
-                    preimg,
-                    store.poseidon_cache.constants.c4(),
-                )?;
-                let tag = g.alloc_tag_cloned(&mut cs, tag);
-                let ptr = AllocatedPtr::from_parts(tag, res);
-                bound_allocations.insert_ptr(img.clone(), ptr);
+                synthesize_cons(&mut cs, img, tag, preimg, store, bound_allocations, g)?;
             }
             Op::Cons3(img, tag, preimg) => {
-                let preimg = retrieve_nums(preimg, bound_allocations)?;
-                let res = hash_poseidon(
-                    ns!(cs, "cons3"),
-                    preimg,
-                    store.poseidon_cache.constants.c6(),
-                )?;
-                let tag = g.alloc_tag_cloned(&mut cs, tag);
-                let ptr = AllocatedPtr::from_parts(tag, res);
-                bound_allocations.insert_ptr(img.clone(), ptr);
+                synthesize_cons(&mut cs, img, tag, preimg, store, bound_allocations, g)?;
             }
             Op::Cons4(img, tag, preimg) => {
-                let preimg = retrieve_nums(preimg, bound_allocations)?;
-                let res = hash_poseidon(
-                    ns!(cs, "cons4"),
-                    preimg,
-                    store.poseidon_cache.constants.c8(),
-                )?;
-                let tag = g.alloc_tag_cloned(&mut cs, tag);
-                let ptr = AllocatedPtr::from_parts(tag, res);
-                bound_allocations.insert_ptr(img.clone(), ptr);
+                synthesize_cons(&mut cs, img, tag, preimg, store, bound_allocations, g)?;
             }
-            Op::Decons2(_preimg, _img) => todo!(),
-            Op::Decons3(_preimg, _img) => todo!(),
-            Op::Decons4(_preimg, _img) => todo!(),
+            Op::Decons2(preimg, img) => {
+                synthesize_decons(&mut cs, not_dummy, preimg, img, store, bound_allocations)?
+            }
+            Op::Decons3(preimg, img) => {
+                synthesize_decons(&mut cs, not_dummy, preimg, img, store, bound_allocations)?
+            }
+            Op::Decons4(preimg, img) => {
+                synthesize_decons(&mut cs, not_dummy, preimg, img, store, bound_allocations)?
+            }
             Op::PushBinding(img, [var, val, env]) => {
                 let var = bound_allocations.get_ptr(var)?;
                 let val = bound_allocations.get_ptr(val)?;
@@ -210,7 +192,7 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                 let env_tag = g.alloc_tag_cloned(&mut cs, &Env);
                 implies_equal(ns!(cs, format!("env_tag")), not_dummy, env.tag(), &env_tag);
                 let res = hash_poseidon(
-                    ns!(cs, "push_binding"),
+                    ns!(cs, "hash_poseidon"),
                     preimg,
                     store.poseidon_cache.constants.c4(),
                 )?;
@@ -218,37 +200,79 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                 let ptr = AllocatedPtr::from_parts(tag, res);
                 bound_allocations.insert_ptr(img.clone(), ptr);
             }
-            Op::PopBinding(_preimg, _img) => todo!(),
+            Op::PopBinding(preimg, img) => {
+                let img = bound_allocations.get_ptr(img)?;
+                let preimg_alloc_nums = if let Some(img_val) = img.get_value::<Tag>() {
+                    let raw_ptr = store.to_raw_ptr(&FWrap(*img_val.value()));
+                    let idx = raw_ptr.get_hash4().unwrap();
+                    store
+                        .expect_raw_ptrs::<4>(idx)
+                        .iter()
+                        .enumerate()
+                        .map(|(i, raw)| {
+                            let cs = ns!(cs, format!("preimg {i}"));
+                            let z = store.hash_raw_ptr(raw).0;
+                            AllocatedNum::alloc_infallible(cs, || z)
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    (0..4)
+                        .map(|i| {
+                            let cs = ns!(cs, format!("preimg {i}"));
+                            AllocatedNum::alloc_infallible(cs, || F::ZERO)
+                        })
+                        .collect::<Vec<_>>()
+                };
+
+                let hash = hash_poseidon(
+                    ns!(cs, "hash_poseidon"),
+                    preimg_alloc_nums.clone(),
+                    store.poseidon_cache.constants.c6(),
+                )?;
+
+                implies_equal(
+                    ns!(cs, format!("implies equal img.hash")),
+                    not_dummy,
+                    &hash,
+                    img.hash(),
+                );
+
+                let sym_tag = g.alloc_tag_cloned(&mut cs, &Sym);
+                let sym_hash = &preimg_alloc_nums[0];
+                let sym_ptr = AllocatedPtr::from_parts(sym_tag, sym_hash.clone());
+                bound_allocations.insert_ptr(preimg[0].clone(), sym_ptr);
+                let val_tag = &preimg_alloc_nums[1];
+                let val_hash = &preimg_alloc_nums[2];
+                let val_ptr = AllocatedPtr::from_parts(val_tag.clone(), val_hash.clone());
+                bound_allocations.insert_ptr(preimg[1].clone(), val_ptr);
+                let env_tag = g.alloc_tag_cloned(&mut cs, &Env);
+                let env_hash = &preimg_alloc_nums[3];
+                let env_ptr = AllocatedPtr::from_parts(env_tag, env_hash.clone());
+                bound_allocations.insert_ptr(preimg[2].clone(), env_ptr);
+            }
             Op::Copy(tgt, src) => {
-                bound_allocations.insert(tgt.clone(), bound_allocations.get(src).cloned()?);
+                let ptr = bound_allocations.get(src).cloned()?;
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Zero(tgt, tag) => {
-                bound_allocations
-                    .insert_ptr(tgt.clone(), g.alloc_z_ptr_from_parts(&mut cs, tag, F::ZERO));
+                let ptr = g.alloc_z_ptr_from_parts(&mut cs, tag, F::ZERO);
+                bound_allocations.insert_ptr(tgt.clone(), ptr);
             }
             Op::Hash3Zeros(tgt, tag) => {
-                bound_allocations.insert_ptr(
-                    tgt.clone(),
-                    g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash3zeros()),
-                );
+                let ptr = g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash3zeros());
+                bound_allocations.insert_ptr(tgt.clone(), ptr);
             }
             Op::Hash4Zeros(tgt, tag) => {
-                bound_allocations.insert_ptr(
-                    tgt.clone(),
-                    g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash4zeros()),
-                );
+                let ptr = g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash4zeros());
+                bound_allocations.insert_ptr(tgt.clone(), ptr);
             }
             Op::Hash6Zeros(tgt, tag) => {
-                bound_allocations.insert_ptr(
-                    tgt.clone(),
-                    g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash6zeros()),
-                );
+                let ptr = g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash6zeros());
+                bound_allocations.insert_ptr(tgt.clone(), ptr);
             }
             Op::Hash8Zeros(tgt, tag) => {
-                bound_allocations.insert_ptr(
-                    tgt.clone(),
-                    g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash8zeros()),
-                );
+                let ptr = g.alloc_z_ptr_from_parts(&mut cs, tag, *store.hash8zeros());
+                bound_allocations.insert_ptr(tgt.clone(), ptr);
             }
             Op::Lit(tgt, lit) => {
                 let allocated_ptr = g.alloc_ptr(&mut cs, &lit.to_ptr(store), store);
@@ -440,8 +464,11 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                 let sec_tag = g.alloc_tag(&mut cs, &Num);
 
                 let preimg = vec![sec.hash().clone(), pay.tag().clone(), pay.hash().clone()];
-                let hash =
-                    hash_poseidon(ns!(cs, "hide"), preimg, store.poseidon_cache.constants.c3())?;
+                let hash = hash_poseidon(
+                    ns!(cs, "hash_poseidon"),
+                    preimg,
+                    store.poseidon_cache.constants.c3(),
+                )?;
 
                 implies_equal(
                     ns!(cs, "implies equal secret.tag"),
@@ -453,7 +480,59 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                 let allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                 bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
             }
-            Op::Open(_sec, _pay, _comm) => todo!(),
+            Op::Open(sec, pay, comm) => {
+                let comm = bound_allocations.get_ptr(comm)?;
+                let comm_tag = g.alloc_tag(&mut cs, &Comm);
+                let preimg_alloc_nums = if let Some(comm_val) = comm.get_value::<Tag>() {
+                    let raw_ptr = store.to_raw_ptr(&FWrap(*comm_val.value()));
+                    let idx = raw_ptr.get_hash4().unwrap();
+                    store
+                        .expect_raw_ptrs::<4>(idx)
+                        .iter()
+                        .enumerate()
+                        .map(|(i, raw)| {
+                            let cs = ns!(cs, format!("preimg {i}"));
+                            let z = store.hash_raw_ptr(raw).0;
+                            AllocatedNum::alloc_infallible(cs, || z)
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    (0..4)
+                        .map(|i| {
+                            let cs = ns!(cs, format!("preimg {i}"));
+                            AllocatedNum::alloc_infallible(cs, || F::ZERO)
+                        })
+                        .collect::<Vec<_>>()
+                };
+
+                let hash = hash_poseidon(
+                    ns!(cs, "hash_poseidon"),
+                    preimg_alloc_nums.clone(),
+                    store.poseidon_cache.constants.c6(),
+                )?;
+
+                implies_equal(
+                    ns!(cs, "implies equal comm.tag"),
+                    not_dummy,
+                    comm.tag(),
+                    comm_tag,
+                );
+                implies_equal(
+                    ns!(cs, "implies equal comm.hash"),
+                    not_dummy,
+                    &hash,
+                    comm.hash(),
+                );
+                let sec_tag = g.alloc_tag_cloned(&mut cs, &Num);
+                let allocated_sec_ptr =
+                    AllocatedPtr::from_parts(sec_tag, preimg_alloc_nums[0].clone());
+                let allocated_pay_ptr = AllocatedPtr::from_parts(
+                    preimg_alloc_nums[1].clone(),
+                    preimg_alloc_nums[2].clone(),
+                );
+                bound_allocations.insert_ptr(sec.clone(), allocated_sec_ptr);
+                bound_allocations.insert_ptr(pay.clone(), allocated_pay_ptr);
+            }
         }
     }
 
@@ -639,4 +718,84 @@ fn retrieve_nums<F: LurkField>(
         nums.push(p.hash().clone());
     }
     Ok(nums)
+}
+
+fn synthesize_cons<const N: usize, F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    img: &Var,
+    tag: &Tag,
+    preimg: &[Var; N],
+    store: &Store<F>,
+    bound_allocations: &mut BoundAllocations<F>,
+    g: &GlobalAllocator<F>,
+) -> Result<()> {
+    let preimg = retrieve_nums(preimg, bound_allocations)?;
+    let constants = &store.poseidon_cache.constants;
+    let hash = match N {
+        2 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg, constants.c4())?,
+        3 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg, constants.c6())?,
+        4 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg, constants.c8())?,
+        _ => unimplemented!(),
+    };
+    let tag = g.alloc_tag_cloned(cs, tag);
+    let ptr = AllocatedPtr::from_parts(tag, hash);
+    bound_allocations.insert_ptr(img.clone(), ptr);
+    Ok(())
+}
+
+fn synthesize_decons<const N: usize, F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    not_dummy: &Boolean,
+    preimg: &[Var; N],
+    img: &Var,
+    store: &Store<F>,
+    bound_allocations: &mut BoundAllocations<F>,
+) -> Result<()> {
+    let img = bound_allocations.get_ptr(img)?;
+    let preimg_alloc_nums = if Some(true) == not_dummy.get_value() {
+        let img_val = img.get_value::<Tag>().unwrap();
+        let raw_ptr = store.to_raw_ptr(&FWrap(*img_val.value()));
+        let idx = raw_ptr.get_hash4().unwrap();
+        store
+            .expect_raw_ptrs::<4>(idx)
+            .iter()
+            .enumerate()
+            .map(|(i, raw)| {
+                let cs = ns!(cs, format!("preimg {i}"));
+                let z = store.hash_raw_ptr(raw).0;
+                AllocatedNum::alloc_infallible(cs, || z)
+            })
+            .collect::<Vec<_>>()
+    } else {
+        (0..4)
+            .map(|i| {
+                let cs = ns!(cs, format!("preimg {i}"));
+                AllocatedNum::alloc_infallible(cs, || F::ZERO)
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let preimg_clone = preimg_alloc_nums.clone();
+    let constants = &store.poseidon_cache.constants;
+    let hash = match N {
+        2 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg_clone, constants.c4())?,
+        3 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg_clone, constants.c6())?,
+        4 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg_clone, constants.c8())?,
+        _ => unimplemented!(),
+    };
+
+    implies_equal(
+        ns!(cs, "implies equal img.hash"),
+        not_dummy,
+        img.hash(),
+        &hash,
+    );
+
+    for (i, var) in preimg.iter().enumerate() {
+        let tag = preimg_alloc_nums[2 * i].clone();
+        let hash = preimg_alloc_nums[2 * i + 1].clone();
+        let alloc_ptr = AllocatedPtr::from_parts(tag, hash);
+        bound_allocations.insert_ptr(var.clone(), alloc_ptr);
+    }
+    Ok(())
 }
