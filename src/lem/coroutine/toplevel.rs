@@ -428,4 +428,67 @@ mod test {
         even_circuit.supernova_synthesize(&mut cs, &dummy).unwrap();
         expect!("1772").assert_eq(&cs.num_constraints().to_string());
     }
+
+    #[test]
+    fn prove_sum_list_coroutine() {
+        let build_list = func!(build_list(n): 1 => {
+            let zero = Num(0);
+            let n_is_zero = eq_val(n, zero);
+            if n_is_zero {
+                let nil: Expr::Nil;
+                return (nil)
+            }
+            let one = Num(1);
+            let m = sub(n, one);
+            let ys = QUERY(build_list, m);
+            let xs: Expr::Cons = cons2(n, ys);
+            return (xs)
+        });
+        let sum_list = func!(sum_list(xs): 1 => {
+            match xs.tag {
+                Expr::Nil => {
+                    let zero = Num(0);
+                    return (zero)
+                }
+                Expr::Cons => {
+                    let (n, ys) = decons2(xs);
+                    let m = QUERY(sum_list, ys);
+                    let res = add(n, m);
+                    return (res)
+                }
+            }
+        });
+        let main = func!(main(n): 1 => {
+            let xs = QUERY(build_list, n);
+            let n = QUERY(sum_list, xs);
+            return (n)
+        });
+        let main_sym = user_sym("main");
+        let build_list_sym = user_sym("build_list");
+        let sum_list_sym = user_sym("sum_list");
+        let toplevel = Arc::new(Toplevel::<F>::new(vec![
+            (main_sym.clone(), main),
+            (build_list_sym.clone(), build_list),
+            (sum_list_sym.clone(), sum_list),
+        ]));
+        let s = Arc::new(Store::<F>::default());
+
+        let query = ToplevelQuery::<F>::new(main_sym, vec![s.num_u64(10)], &toplevel).unwrap();
+        let scope =
+            &mut Scope::<ToplevelQuery<F>, LogMemo<F>, F>::new(1, s.clone(), toplevel.clone());
+        let res = query.eval(scope);
+        assert_eq!(res, scope.store.num_u64(55));
+
+        let prover = MemosetProver::<'_, F, ToplevelQuery<F>>::new(1);
+        let query = s.read_with_default_state("(main . 10)").unwrap();
+        let mut scope = Scope::new(prover.reduction_count(), s.clone(), toplevel.clone());
+        scope.query(query);
+        scope.finalize_transcript();
+        let pp = prover.public_params(toplevel, s);
+        let (snark, input, output, iterations) = prover.prove_from_scope(&pp, &scope).unwrap();
+        assert_eq!(iterations, 23);
+        assert_eq!(output[7], F::zero());
+        assert_eq!(output[9], output[11]);
+        assert!(snark.verify(&pp, &input, &output).unwrap());
+    }
 }
