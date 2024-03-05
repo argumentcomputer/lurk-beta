@@ -926,7 +926,7 @@
         <span class="comment">// The bindings each inhabit singleton equivalence classes and can be removed.
         </span><span class="kw">let </span>actual_classes = <span class="macro">dbg!</span>(g.class_info(<span class="prelude-val">None</span>));
         <span class="kw">let </span>expected_classes = <span class="kw-2">&amp;</span>[
-            <span class="comment">// Notice that variable a has been labeld as a cons.
+            <span class="comment">// Notice that variable a has been labeled as a cons.
             </span>(<span class="number">0</span>, <span class="macro">vec!</span>[<span class="string">"Var(a): 0"</span>, <span class="string">"Cons: 8"</span>], <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">11</span>, <span class="number">12</span>])),
             <span class="comment">// Notice that now the bindings point to identical vertices. That is because their potentially distinct
             // successors have been merged, by virtue of `Binding` having been specified as an 'equivalence' in the schema.

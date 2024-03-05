@@ -783,7 +783,7 @@
                 <span class="macro">assert!</span>(cs.is_satisfied());
                 input_ptrs = out.into_iter().map(|x| x.get_value().unwrap()).collect();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(cs_prev) = cs_prev {
-                    <span class="comment">// Check for all input expresssions that all frames are uniform.
+                    <span class="comment">// Check for all input expressions that all frames are uniform.
                     </span><span class="macro">assert_eq!</span>(cs.delta(<span class="kw-2">&amp;</span>cs_prev, <span class="bool-val">true</span>), Delta::Equal);
                 }
                 cs_prev = <span class="prelude-val">Some</span>(cs);
