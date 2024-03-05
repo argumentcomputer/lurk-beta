@@ -223,7 +223,7 @@ impl<'a, T: MetaData, L: LabelTrait> Graph<T, L> {
         self.into()
     }
 
-    /// Returns a vector of triples, each represnting the following per equivalence class:
+    /// Returns a vector of triples, each representing the following per equivalence class:
     /// - The `Id` of its representative member.
     /// - A vector of its members' Vertex's descriptive strings.
     /// - An optional vector of its ordered successors, if any.
@@ -311,7 +311,7 @@ impl<'a, T: MetaData, L: LabelTrait> Graph<T, L> {
         for x in p_u.iter() {
             for y in p_v.iter() {
                 info!(
-                    "checking predecesor congruence: {} and {}",
+                    "checking predecessor congruence: {} and {}",
                     self.vertex(*x),
                     self.vertex(*y)
                 );

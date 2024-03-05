@@ -228,7 +228,7 @@ mod test {
         // The bindings each inhabit singleton equivalence classes and can be removed.
         let actual_classes = dbg!(g.class_info(None));
         let expected_classes = &[
-            // Notice that variable a has been labeld as a cons.
+            // Notice that variable a has been labeled as a cons.
             (0, vec!["Var(a): 0", "Cons: 8"], Some(vec![11, 12])),
             // Notice that now the bindings point to identical vertices. That is because their potentially distinct
             // successors have been merged, by virtue of `Binding` having been specified as an 'equivalence' in the schema.
