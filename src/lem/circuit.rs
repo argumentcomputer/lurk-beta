@@ -31,6 +31,7 @@ use bellpepper_core::{
     },
 };
 use elsa::sync::FrozenMap;
+use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 use std::{collections::HashSet, sync::Arc};
 
 use crate::{
@@ -40,7 +41,7 @@ use crate::{
             enforce_selector_with_premise, implies_equal, implies_equal_const, implies_pack,
             implies_u64, implies_unequal_const, mul, or, pick, sub,
         },
-        data::{allocate_constant, hash_poseidon},
+        data::allocate_constant,
         pointer::AllocatedPtr,
     },
     coprocessor::Coprocessor,
@@ -198,22 +199,22 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
     let cs = cs.namespace(|| format!("image for slot {slot}"));
     let preallocated_img = {
         match slot.typ {
-            SlotType::Hash4 => AllocatedVal::Number(hash_poseidon(
+            SlotType::Hash4 => AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
                 store.poseidon_cache.constants.c4(),
             )?),
-            SlotType::Hash6 => AllocatedVal::Number(hash_poseidon(
+            SlotType::Hash6 => AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
                 store.poseidon_cache.constants.c6(),
             )?),
-            SlotType::Hash8 => AllocatedVal::Number(hash_poseidon(
+            SlotType::Hash8 => AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
                 store.poseidon_cache.constants.c8(),
             )?),
-            SlotType::Commitment => AllocatedVal::Number(hash_poseidon(
+            SlotType::Commitment => AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
                 store.poseidon_cache.constants.c3(),
