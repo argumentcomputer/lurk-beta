@@ -603,7 +603,7 @@
     store::{fetch_ptrs, intern_ptrs, Store},
     tag::Tag,
     var_map::VarMap,
-    Block, Ctrl, Func, Op, Var,
+    Block, Ctrl, Func, Lit, Op, Var,
 };
 
 <span class="kw">use crate</span>::{
@@ -612,7 +612,7 @@
     field::LurkField,
     num::Num <span class="kw">as </span>BaseNum,
     state::initial_lurk_state,
-    tag::ExprTag::{Comm, Num, Sym},
+    tag::ExprTag::{Comm, Num},
 };
 
 <span class="kw">impl </span>VarMap&lt;Val&gt; {
@@ -1076,19 +1076,19 @@
                     def.run(input, store, bindings, hints, emitted, lang, pc)
                 }
             }
-            Ctrl::MatchSymbol(match_var, cases, def) =&gt; {
+            Ctrl::MatchValue(match_var, lit_type, cases, def) =&gt; {
+                <span class="kw">let </span>tag = lit_type.tag();
                 <span class="kw">let </span>ptr = bindings.get_ptr(match_var)<span class="question-mark">?</span>;
-                <span class="kw">if </span>ptr.tag() != <span class="kw-2">&amp;</span>Tag::Expr(Sym) {
-                    <span class="macro">bail!</span>(<span class="string">"{match_var} is not a symbol"</span>);
+                <span class="kw">if </span>ptr.tag() != <span class="kw-2">&amp;</span>tag {
+                    <span class="macro">bail!</span>(<span class="string">"{match_var} is not a value of type {:?}"</span>, lit_type);
                 }
-                <span class="kw">let </span><span class="prelude-val">Some</span>(sym) = store.fetch_symbol(<span class="kw-2">&amp;</span>ptr) <span class="kw">else </span>{
-                    <span class="macro">bail!</span>(<span class="string">"Symbol bound to {match_var} wasn't interned"</span>);
-                };
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = cases.get(<span class="kw-2">&amp;</span>sym) {
+                <span class="kw">let </span>lit = Lit::from_ptr(<span class="kw-2">&amp;</span>ptr, store);
+
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = lit.and_then(|lit| cases.get(<span class="kw-2">&amp;</span>lit)) {
                     block.run(input, store, bindings, hints, emitted, lang, pc)
                 } <span class="kw">else </span>{
                     <span class="kw">let </span><span class="prelude-val">Some</span>(def) = def <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">"No match for symbol {sym}"</span>)
+                        <span class="macro">bail!</span>(<span class="string">"No match for value {:?}"</span>, ptr.fmt_to_string_simple(store))
                     };
                     def.run(input, store, bindings, hints, emitted, lang, pc)
                 }

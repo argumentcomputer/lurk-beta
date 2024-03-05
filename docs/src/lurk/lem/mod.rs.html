@@ -788,6 +788,58 @@
 <a href="#787" id="787">787</a>
 <a href="#788" id="788">788</a>
 <a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Lurk Evaluation Model (LEM)
 //!
 //! LEM is a simple, first order, referentially transparent language, designed to
@@ -867,7 +919,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">use crate</span>::{field::LurkField, symbol::Symbol};
+<span class="kw">use crate</span>::{field::LurkField, symbol::Symbol, tag::ExprTag};
 
 <span class="kw">use </span><span class="self">self</span>::{pointers::Ptr, slot::SlotsCounter, store::Store, tag::Tag, var_map::VarMap};
 
@@ -902,6 +954,46 @@
             <span class="self">Self</span>::Symbol(s) =&gt; store.intern_symbol(s),
             <span class="self">Self</span>::String(s) =&gt; store.intern_string(s),
             <span class="self">Self</span>::Num(num) =&gt; store.num(F::from_u128(<span class="kw-2">*</span>num)),
+        }
+    }
+
+    <span class="kw">pub fn </span>from_ptr&lt;F: LurkField&gt;(ptr: <span class="kw-2">&amp;</span>Ptr, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">use </span>ExprTag::{Num, Str, Sym};
+        <span class="kw">match </span>ptr.tag() {
+            Tag::Expr(Num) =&gt; {
+                <span class="kw">let </span>f = store.fetch_num(ptr).expect(<span class="string">"Pointer is not interned"</span>);
+                <span class="kw">let </span>num = LurkField::to_u128(f)<span class="question-mark">?</span>;
+                <span class="prelude-val">Some</span>(<span class="self">Self</span>::Num(num))
+            }
+            Tag::Expr(Str) =&gt; store.fetch_string(ptr).map(Lit::String),
+            Tag::Expr(Sym) =&gt; store.fetch_symbol(ptr).map(Lit::Symbol),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="kw">pub fn </span>lit_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LitType {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Symbol(..) =&gt; LitType::Symbol,
+            <span class="self">Self</span>::String(..) =&gt; LitType::String,
+            <span class="self">Self</span>::Num(..) =&gt; LitType::Num,
+        }
+    }
+}
+
+<span class="doccomment">/// LEM literals
+</span><span class="attr">#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
+</span><span class="kw">pub enum </span>LitType {
+    Num,
+    String,
+    Symbol,
+}
+
+<span class="kw">impl </span>LitType {
+    <span class="kw">pub fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Tag {
+        <span class="kw">match </span><span class="self">self </span>{
+            LitType::Num =&gt; Tag::Expr(ExprTag::Num),
+            LitType::String =&gt; Tag::Expr(ExprTag::Str),
+            LitType::Symbol =&gt; Tag::Expr(ExprTag::Sym),
         }
     }
 }
@@ -945,10 +1037,10 @@
     /// among the ones provided in `cases`. If so, run the corresponding `Block`.
     /// Run `def` otherwise
     </span>MatchTag(Var, IndexMap&lt;Tag, Block&gt;, <span class="prelude-ty">Option</span>&lt;Box&lt;Block&gt;&gt;),
-    <span class="doccomment">/// `MatchSymbol(x, cases, def)` requires that `x` is a symbol and checks
-    /// whether `x` matches some symbol among the ones provided in `cases`. If so,
+    <span class="doccomment">/// `MatchValue(x, cases, def)` requires that `x` is a literal and checks
+    /// whether `x` matches some literal among the ones provided in `cases`. If so,
     /// run the corresponding `Block`. Run `def` otherwise
-    </span>MatchSymbol(Var, IndexMap&lt;Symbol, Block&gt;, <span class="prelude-ty">Option</span>&lt;Box&lt;Block&gt;&gt;),
+    </span>MatchValue(Var, LitType, IndexMap&lt;Lit, Block&gt;, <span class="prelude-ty">Option</span>&lt;Box&lt;Block&gt;&gt;),
     <span class="doccomment">/// `If(x, true_block, false_block)` runs `true_block` if `x` is true, and
     /// otherwise runs `false_block`
     </span>If(Var, Box&lt;Block&gt;, Box&lt;Block&gt;),
@@ -1257,9 +1349,16 @@
                         <span class="prelude-val">None </span>=&gt; (),
                     }
                 }
-                Ctrl::MatchSymbol(var, cases, def) =&gt; {
+                Ctrl::MatchValue(var, lit_typ, cases, def) =&gt; {
                     is_bound(var, map)<span class="question-mark">?</span>;
-                    <span class="kw">for </span>block <span class="kw">in </span>cases.values() {
+                    <span class="kw">for </span>(lit, block) <span class="kw">in </span>cases.iter() {
+                        <span class="kw">if </span>lit.lit_type() != <span class="kw-2">*</span>lit_typ {
+                            <span class="macro">bail!</span>(
+                                <span class="string">"Literal is of type {:?} but is supposed to be {:?}"</span>,
+                                lit.lit_type(),
+                                lit_typ
+                            );
+                        }
                         recurse(block, return_size, map)<span class="question-mark">?</span>;
                     }
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = def {
@@ -1530,7 +1629,7 @@
                 };
                 Ctrl::MatchTag(var, IndexMap::from_iter(new_cases), new_def)
             }
-            Ctrl::MatchSymbol(var, cases, def) =&gt; {
+            Ctrl::MatchValue(var, lit_type, cases, def) =&gt; {
                 <span class="kw">let </span>var = map.get_cloned(<span class="kw-2">&amp;</span>var)<span class="question-mark">?</span>;
                 <span class="kw">let </span><span class="kw-2">mut </span>new_cases = Vec::with_capacity(cases.len());
                 <span class="kw">for </span>(sym, case) <span class="kw">in </span>cases {
@@ -1541,7 +1640,7 @@
                     <span class="prelude-val">Some</span>(def) =&gt; <span class="prelude-val">Some</span>(Box::new(def.deconflict(map, uniq)<span class="question-mark">?</span>)),
                     <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
                 };
-                Ctrl::MatchSymbol(var, IndexMap::from_iter(new_cases), new_def)
+                Ctrl::MatchValue(var, lit_type, IndexMap::from_iter(new_cases), new_def)
             }
             Ctrl::If(x, true_block, false_block) =&gt; {
                 <span class="kw">let </span>x = map.get_cloned(<span class="kw-2">&amp;</span>x)<span class="question-mark">?</span>;
@@ -1573,8 +1672,13 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>match_symbol(v: Var, cases: Vec&lt;(Symbol, Block)&gt;, def: <span class="prelude-ty">Option</span>&lt;Block&gt;) -&gt; Ctrl {
-        Ctrl::MatchSymbol(v, IndexMap::from_iter(cases), def.map(|b| b.into()))
+    </span><span class="kw">fn </span>match_symbol(v: Var, cases: Vec&lt;(Lit, Block)&gt;, def: <span class="prelude-ty">Option</span>&lt;Block&gt;) -&gt; Ctrl {
+        Ctrl::MatchValue(
+            v,
+            LitType::Symbol,
+            IndexMap::from_iter(cases),
+            def.map(|b| b.into()),
+        )
     }
 }
 </code></pre></div></section></main></body></html>

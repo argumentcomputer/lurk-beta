@@ -892,6 +892,8 @@
 <a href="#891" id="891">891</a>
 <a href="#892" id="892">892</a>
 <a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
 </pre></div><pre class="rust"><code><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>var {
     (<span class="macro-nonterminal">$variable</span>:ident) =&gt; {
@@ -1142,27 +1144,28 @@
             <span class="macro-nonterminal">$crate::lem::Ctrl::MatchTag</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$sii</span>), cases, default)
         }
     };
-    ( <span class="kw">match </span>symbol <span class="macro-nonterminal">$sii</span>:ident { $( <span class="macro-nonterminal">$sym</span>:expr $(, <span class="macro-nonterminal">$other_sym</span>:expr)* =&gt; <span class="macro-nonterminal">$case_ops</span>:tt )* } $(; $(<span class="macro-nonterminal">$def</span>:tt)<span class="kw-2">*</span>)<span class="question-mark">? </span>) =&gt; {
+    ( <span class="kw">match </span><span class="macro-nonterminal">$sii</span>:ident.value { $( <span class="macro-nonterminal">$lit</span>:ident(<span class="macro-nonterminal">$val</span>:literal) $(| <span class="macro-nonterminal">$other_lit</span>:ident(<span class="macro-nonterminal">$other_val</span>:literal))* =&gt; <span class="macro-nonterminal">$case_ops</span>:tt )+ } $(; $(<span class="macro-nonterminal">$def</span>:tt)<span class="kw-2">*</span>)<span class="question-mark">? </span>) =&gt; {
         {
             <span class="kw">let </span><span class="kw-2">mut </span>cases = indexmap::IndexMap::new();
             $(
+                <span class="kw">let </span>_lit_type = <span class="macro-nonterminal">$crate::lem::LitType</span>::<span class="macro-nonterminal">$lit</span>;
                 <span class="kw">if </span>cases.insert(
-                    <span class="macro-nonterminal">$crate::state::lurk_sym</span>(<span class="macro-nonterminal">$sym</span>),
+                    <span class="macro-nonterminal">$</span><span class="macro">crate::lit!</span>(<span class="macro-nonterminal">$lit</span>(<span class="macro-nonterminal">$val</span>)),
                     <span class="macro-nonterminal">$</span><span class="macro">crate::block!</span>( <span class="macro-nonterminal">$case_ops </span>),
                 ).is_some() {
                     <span class="macro">panic!</span>(<span class="string">"Repeated value on `match`"</span>);
                 };
                 $(
                     <span class="kw">if </span>cases.insert(
-                        <span class="macro-nonterminal">$crate::state::lurk_sym</span>(<span class="macro-nonterminal">$other_sym</span>),
+                        <span class="macro-nonterminal">$</span><span class="macro">crate::lit!</span>(<span class="macro-nonterminal">$other_lit</span>(<span class="macro-nonterminal">$other_val</span>)),
                         <span class="macro-nonterminal">$</span><span class="macro">crate::block!</span>( <span class="macro-nonterminal">$case_ops </span>),
                     ).is_some() {
                         <span class="macro">panic!</span>(<span class="string">"Repeated value on `match`"</span>);
                     };
                 )*
-            )*
+            )+
             <span class="kw">let </span>default = <span class="prelude-val">None </span>$( .or (<span class="prelude-val">Some</span>(Box::new(<span class="macro-nonterminal">$</span><span class="macro">crate::block!</span>( @<span class="macro-nonterminal">seq </span>{}, $(<span class="macro-nonterminal">$def</span>)* )))) )<span class="question-mark">?</span>;
-            <span class="macro-nonterminal">$crate::lem::Ctrl::MatchSymbol</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$sii</span>), cases, default)
+            <span class="macro-nonterminal">$crate::lem::Ctrl::MatchValue</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$sii</span>), _lit_type, cases, default)
         }
     };
     ( <span class="kw">if </span><span class="macro-nonterminal">$x</span>:ident { $(<span class="macro-nonterminal">$true_block</span>:tt)+ } $(<span class="macro-nonterminal">$false_block</span>:tt)+ ) =&gt; {
@@ -1547,13 +1550,14 @@
             <span class="macro-nonterminal">$</span><span class="macro">crate::ctrl!</span>( <span class="kw">match </span><span class="macro-nonterminal">$sii</span>.tag { $( <span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag </span>$(| <span class="macro-nonterminal">$other_kind</span>::<span class="macro-nonterminal">$other_tag</span>)* =&gt; <span class="macro-nonterminal">$case_ops </span>)* } $(; $(<span class="macro-nonterminal">$def</span>)<span class="kw-2">*</span>)<span class="question-mark">? </span>)
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">match </span>symbol <span class="macro-nonterminal">$sii</span>:ident { $( <span class="macro-nonterminal">$sym</span>:expr $(, <span class="macro-nonterminal">$other_sym</span>:expr)* =&gt; <span class="macro-nonterminal">$case_ops</span>:tt )* } $(; $(<span class="macro-nonterminal">$def</span>:tt)<span class="kw-2">*</span>)<span class="question-mark">?</span>) =&gt; {
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>},
+     <span class="kw">match </span><span class="macro-nonterminal">$sii</span>:ident.value { $( <span class="macro-nonterminal">$lit</span>:ident(<span class="macro-nonterminal">$val</span>:literal) $(| <span class="macro-nonterminal">$other_lit</span>:ident(<span class="macro-nonterminal">$other_val</span>:literal))* =&gt; <span class="macro-nonterminal">$case_ops</span>:tt )+ } $(; $(<span class="macro-nonterminal">$def</span>:tt)<span class="kw-2">*</span>)<span class="question-mark">?</span>) =&gt; {
         <span class="macro-nonterminal">$</span><span class="macro">crate::block! </span>(
             @<span class="macro-nonterminal">end
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
             },
-            <span class="macro-nonterminal">$</span><span class="macro">crate::ctrl!</span>( <span class="kw">match </span><span class="macro-nonterminal">symbol $sii </span>{ $( <span class="macro-nonterminal">$sym </span>$(, <span class="macro-nonterminal">$other_sym</span>)* =&gt; <span class="macro-nonterminal">$case_ops </span>)* } $(; $(<span class="macro-nonterminal">$def</span>)<span class="kw-2">*</span>)<span class="question-mark">? </span>)
+            <span class="macro-nonterminal">$</span><span class="macro">crate::ctrl!</span>( <span class="kw">match </span><span class="macro-nonterminal">$sii</span>.value { $( <span class="macro-nonterminal">$lit</span>(<span class="macro-nonterminal">$val</span>) $(| <span class="macro-nonterminal">$other_lit</span>(<span class="macro-nonterminal">$other_val</span>))* =&gt; <span class="macro-nonterminal">$case_ops </span>)+ } $(; $(<span class="macro-nonterminal">$def</span>)<span class="kw-2">*</span>)<span class="question-mark">? </span>)
         )
     };
     (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">if </span><span class="macro-nonterminal">$x</span>:ident { $(<span class="macro-nonterminal">$true_block</span>:tt)+ } $(<span class="macro-nonterminal">$false_block</span>:tt)+ ) =&gt; {
@@ -1626,7 +1630,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use crate</span>::{
-        lem::{Block, Ctrl, Op, Tag, Var},
+        lem::{Block, Ctrl, Lit, Op, Tag, Var},
         state::lurk_sym,
         tag::ExprTag::{Char, Num, Str},
     };
@@ -1741,11 +1745,11 @@
         );
 
         <span class="kw">let </span>moo = <span class="macro">ctrl!</span>(
-            <span class="kw">match </span>symbol www {
-                <span class="string">"nil" </span>=&gt; {
+            <span class="kw">match </span>www.value {
+                Symbol(<span class="string">"nil"</span>) =&gt; {
                     <span class="kw">return </span>(foo, foo, foo); <span class="comment">// a single Ctrl will not turn into a Seq
                 </span>}
-                <span class="string">"cons" </span>=&gt; {
+                Symbol(<span class="string">"cons"</span>) =&gt; {
                     <span class="kw">let </span>foo: Expr::Num;
                     <span class="kw">let </span>goo: Expr::Char;
                     <span class="kw">return </span>(foo, goo, goo);
@@ -1760,14 +1764,14 @@
                 var(<span class="string">"www"</span>),
                 <span class="macro">vec!</span>[
                     (
-                        lurk_sym(<span class="string">"nil"</span>),
+                        Lit::Symbol(lurk_sym(<span class="string">"nil"</span>)),
                         Block {
                             ops: <span class="macro">vec!</span>[],
                             ctrl: Ctrl::Return(<span class="macro">vec!</span>[var(<span class="string">"foo"</span>), var(<span class="string">"foo"</span>), var(<span class="string">"foo"</span>)]),
                         }
                     ),
                     (
-                        lurk_sym(<span class="string">"cons"</span>),
+                        Lit::Symbol(lurk_sym(<span class="string">"cons"</span>)),
                         Block {
                             ops: <span class="macro">vec!</span>[
                                 Op::Zero(var(<span class="string">"foo"</span>), Tag::Expr(Num)),

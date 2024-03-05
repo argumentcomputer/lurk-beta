@@ -538,7 +538,7 @@
                     .values()
                     .fold(init, |acc, block| acc.cmp_max(block.count_slots()))
             }
-            Ctrl::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; {
+            Ctrl::MatchValue(<span class="kw">_</span>, <span class="kw">_</span>, cases, def) =&gt; {
                 <span class="kw">let </span>init = def
                     .as_ref()
                     .map_or(SlotsCounter::default(), |def| def.count_slots());
