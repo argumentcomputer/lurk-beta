@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -37,7 +38,7 @@ impl<F: LurkField> ZDag<F> {
         store: &Store<F>,
         cache: &mut HashMap<Ptr, ZPtr<F>>,
     ) -> ZPtr<F> {
-        let mut recurse = |ptr: &Ptr| -> ZPtr<F> {
+        let mut recurse = |ptr: &Ptr, cache: &mut HashMap<_, _>| -> ZPtr<F> {
             if let Some(z_ptr) = cache.get(ptr) {
                 *z_ptr
             } else {
@@ -135,12 +136,59 @@ impl<F: LurkField> ZDag<F> {
                 z_ptr
             }
         };
-        recurse(ptr)
+        let mut dag = IndexSet::from([*ptr]);
+        let mut stack = vec![*ptr];
+        macro_rules! feed_loop {
+            ($x:expr) => {
+                if $x.raw().is_hash() {
+                    if !cache.contains_key(&$x) {
+                        if dag.insert($x) {
+                            stack.push($x);
+                        }
+                    }
+                }
+            };
+        }
+        while let Some(ptr) = stack.pop() {
+            match ptr.raw() {
+                RawPtr::Atom(..) => (),
+                RawPtr::Hash4(idx) => {
+                    for ptr in expect_ptrs!(store, 2, *idx) {
+                        feed_loop!(ptr)
+                    }
+                }
+                RawPtr::Hash6(idx) => {
+                    for ptr in expect_ptrs!(store, 3, *idx) {
+                        feed_loop!(ptr)
+                    }
+                }
+                RawPtr::Hash8(idx) => {
+                    for ptr in expect_ptrs!(store, 4, *idx) {
+                        feed_loop!(ptr)
+                    }
+                }
+            }
+        }
+        dag.iter()
+            .rev()
+            .map(|ptr| recurse(ptr, cache))
+            .last()
+            .expect("dag doesn't start empty")
     }
 
     #[inline]
     fn get_type(&self, z_ptr: &ZPtr<F>) -> Option<&ZPtrType<F>> {
         self.0.get(z_ptr)
+    }
+
+    fn get_children(&self, z_ptr: &ZPtr<F>) -> Result<Vec<&ZPtr<F>>> {
+        match self.get_type(z_ptr) {
+            None => bail!("Couldn't find ZPtr on ZStore"),
+            Some(ZPtrType::Atom) => Ok(vec![]),
+            Some(ZPtrType::Tuple2(z1, z2)) => Ok(vec![z1, z2]),
+            Some(ZPtrType::Tuple3(z1, z2, z3) | ZPtrType::Env(z1, z2, z3)) => Ok(vec![z1, z2, z3]),
+            Some(ZPtrType::Tuple4(z1, z2, z3, z4)) => Ok(vec![z1, z2, z3, z4]),
+        }
     }
 
     pub(crate) fn populate_store(
@@ -149,7 +197,7 @@ impl<F: LurkField> ZDag<F> {
         store: &Store<F>,
         cache: &mut HashMap<ZPtr<F>, Ptr>,
     ) -> Result<Ptr> {
-        let mut recurse = |z_ptr: &ZPtr<F>| -> Result<Ptr> {
+        let recurse = |z_ptr: &ZPtr<F>, cache: &mut HashMap<_, _>| -> Result<Ptr> {
             if let Some(z_ptr) = cache.get(z_ptr) {
                 Ok(*z_ptr)
             } else {
@@ -191,10 +239,34 @@ impl<F: LurkField> ZDag<F> {
                 Ok(ptr)
             }
         };
-        recurse(z_ptr)
+        let mut dag = IndexSet::from([z_ptr]);
+        let mut stack = vec![z_ptr];
+        macro_rules! feed_loop {
+            ($x:expr) => {
+                if !cache.contains_key($x) {
+                    if dag.insert($x) {
+                        stack.push($x);
+                    }
+                }
+            };
+        }
+        while let Some(z_ptr) = stack.pop() {
+            for z_ptr in self.get_children(z_ptr)? {
+                feed_loop!(z_ptr)
+            }
+        }
+        dag.iter()
+            .rev()
+            .map(|z_ptr| recurse(z_ptr, cache))
+            .last()
+            .expect("dag doesn't start empty")
     }
 
     /// Populates a `ZDag` with data from self
+    ///
+    /// # Warning
+    /// This function is recursive and might reach Rust's recursion depth limit
+    // TODO: solve this issue if we actually use this function
     #[allow(dead_code)]
     pub(crate) fn populate_z_dag(
         &self,
@@ -424,5 +496,19 @@ mod tests {
         assert!(z_dag.get_type(&z_two_thr).is_some());
         // but not in `z_dag_new`
         assert!(z_dag_new.get_type(&z_two_thr).is_none());
+    }
+
+    #[test]
+    fn test_deep_lurk_data_roundtrip() {
+        let string = String::from_utf8(vec![b'0'; 8192]).unwrap();
+        let store = Store::<Bn>::default();
+        let ptr = store.intern_string(&string);
+        let mut z_dag = ZDag::default();
+        let z_ptr = z_dag.populate_with(&ptr, &store, &mut HashMap::default());
+
+        let store = Store::<Bn>::default();
+        z_dag
+            .populate_store(&z_ptr, &store, &mut HashMap::default())
+            .unwrap();
     }
 }

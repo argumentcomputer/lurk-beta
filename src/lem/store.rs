@@ -1076,20 +1076,17 @@ impl<F: LurkField> Store<F> {
             match ptr {
                 RawPtr::Atom(..) => (),
                 RawPtr::Hash4(idx) => {
-                    let ptrs = self.expect_raw_ptrs::<4>(*idx);
-                    for ptr in ptrs {
+                    for ptr in self.expect_raw_ptrs::<4>(*idx) {
                         feed_loop!(ptr)
                     }
                 }
                 RawPtr::Hash6(idx) => {
-                    let ptrs = self.expect_raw_ptrs::<6>(*idx);
-                    for ptr in ptrs {
+                    for ptr in self.expect_raw_ptrs::<6>(*idx) {
                         feed_loop!(ptr)
                     }
                 }
                 RawPtr::Hash8(idx) => {
-                    let ptrs = self.expect_raw_ptrs::<8>(*idx);
-                    for ptr in ptrs {
+                    for ptr in self.expect_raw_ptrs::<8>(*idx) {
                         feed_loop!(ptr)
                     }
                 }
