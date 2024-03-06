@@ -7,6 +7,7 @@ pub mod cli;
 pub mod config;
 pub mod coprocessor;
 pub mod coroutine;
+pub mod dual_channel;
 pub mod error;
 pub mod field;
 mod hash;

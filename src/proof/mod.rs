@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use crate::{
     coprocessor::Coprocessor,
+    dual_channel::ChannelTerminal,
     error::ProofError,
     field::LurkField,
     lang::Lang,
@@ -191,6 +192,7 @@ pub trait Prover<'a, F: CurveCycleEquipped> {
         env: Ptr,
         store: &'a Store<F>,
         limit: usize,
+        ch_terminal: &ChannelTerminal<Ptr>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError>;
 
     /// Returns the expected total number of steps for the prover given raw iterations.

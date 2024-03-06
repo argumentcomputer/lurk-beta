@@ -2,6 +2,7 @@ use halo2curves::bn256::Fr;
 
 use crate::{
     coprocessor::test::DumbCoprocessor,
+    dual_channel::dummy_terminal,
     lang::Lang,
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
@@ -31,7 +32,14 @@ fn test_nivc_steps() {
     // 9^2 + 8 = 89
     let expr = store.read_with_default_state("(cproc-dumb 9 8)").unwrap();
 
-    let frames = evaluate(Some((&lurk_step, &cprocs, &lang)), expr, &store, 10).unwrap();
+    let frames = evaluate(
+        Some((&lurk_step, &cprocs, &lang)),
+        expr,
+        &store,
+        10,
+        &dummy_terminal(),
+    )
+    .unwrap();
 
     // Iteration 1: evaluate first argument
     // Iteration 2: evaluate second argument

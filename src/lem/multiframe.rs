@@ -11,6 +11,7 @@ use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
     config::lurk_config,
     coprocessor::Coprocessor,
+    dual_channel::ChannelTerminal,
     error::{ProofError, ReductionError},
     field::{LanguageField, LurkField},
     lang::Lang,
@@ -106,10 +107,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     #[inline]
     pub fn frames(&self) -> Option<&Vec<Frame>> {
         self.interpretation_data.frames()
-    }
-
-    pub fn emitted(_store: &Store<F>, eval_frame: &Frame) -> Vec<Ptr> {
-        eval_frame.emitted.clone()
     }
 
     pub fn cache_witness(&mut self, s: &Store<F>) -> Result<(), SynthesisError> {
@@ -366,6 +363,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         store: &Store<F>,
         limit: usize,
         ec: &EvalConfig<'_, F, C>,
+        ch_terminal: &ChannelTerminal<Ptr>,
     ) -> Result<Vec<Frame>, ProofError> {
         let cont = store.cont_outermost();
         let lurk_step = make_eval_step_from_config(ec);
@@ -378,6 +376,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             cont,
             store,
             limit,
+            ch_terminal,
         )
         .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
     }
@@ -968,6 +967,7 @@ mod tests {
     use pasta_curves::{Fp, Fq};
 
     use crate::{
+        dual_channel::dummy_terminal,
         lang::Coproc,
         lem::{
             circuit::AllocatedVal,
@@ -1016,7 +1016,7 @@ mod tests {
 
         let expr = store.read_with_default_state("(if t (+ 5 5) 6)").unwrap();
 
-        let frames = evaluate::<Bn, Coproc<Bn>>(None, expr, &store, 10).unwrap();
+        let frames = evaluate::<Bn, Coproc<Bn>>(None, expr, &store, 10, &dummy_terminal()).unwrap();
 
         let sequential_slots_witnesses =
             generate_slots_witnesses(&store, &frames, num_slots_per_frame, false);

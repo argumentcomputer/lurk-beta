@@ -11,10 +11,10 @@ use super::{
 
 use crate::{
     coprocessor::Coprocessor,
+    dual_channel::{dummy_terminal, ChannelTerminal},
     field::LurkField,
     lang::Lang,
     num::Num as BaseNum,
-    state::initial_lurk_state,
     tag::ExprTag::{Comm, Num},
 };
 
@@ -107,7 +107,6 @@ impl Hints {
 pub struct Frame {
     pub input: Vec<Ptr>,
     pub output: Vec<Ptr>,
-    pub emitted: Vec<Ptr>,
     pub hints: Hints,
     pub blank: bool,
     pub pc: usize,
@@ -121,7 +120,6 @@ impl Frame {
         Frame {
             input,
             output,
-            emitted: Vec::default(),
             hints,
             blank: true,
             pc,
@@ -139,7 +137,7 @@ impl Block {
         store: &Store<F>,
         mut bindings: VarMap<Val>,
         mut hints: Hints,
-        emitted: &mut Vec<Ptr>,
+        ch_terminal: &ChannelTerminal<Ptr>,
         lang: &Lang<F, C>,
         pc: usize,
     ) -> Result<Frame> {
@@ -162,7 +160,7 @@ impl Block {
                 Op::Call(out, func, inp) => {
                     // Get the argument values
                     let inp_ptrs = bindings.get_many_ptr(inp)?;
-                    let frame = func.call(&inp_ptrs, store, hints, emitted, lang, pc)?;
+                    let frame = func.call(&inp_ptrs, store, hints, ch_terminal, lang, pc)?;
                     // Bind the output variables to the output values
                     hints = frame.hints;
                     for (var, ptr) in out.iter().zip(frame.output.into_iter()) {
@@ -332,8 +330,11 @@ impl Block {
                 }
                 Op::Emit(a) => {
                     let a = bindings.get_ptr(a)?;
-                    println!("{}", a.fmt_to_string(store, initial_lurk_state()));
-                    emitted.push(a);
+                    // TODO: remove this printing from here as it should be done
+                    // by receiving messages on the terminal that pairs up with
+                    // `ch_terminal`
+                    println!("{}", a.fmt_to_string_simple(store));
+                    ch_terminal.send(a)?;
                 }
                 Op::Cons2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
@@ -471,12 +472,12 @@ impl Block {
                 let ptr = bindings.get_ptr(match_var)?;
                 let tag = ptr.tag();
                 if let Some(block) = cases.get(tag) {
-                    block.run(input, store, bindings, hints, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 } else {
                     let Some(def) = def else {
                         bail!("No match for tag {}", tag)
                     };
-                    def.run(input, store, bindings, hints, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 }
             }
             Ctrl::MatchValue(match_var, lit_type, cases, def) => {
@@ -488,20 +489,20 @@ impl Block {
                 let lit = Lit::from_ptr(&ptr, store);
 
                 if let Some(block) = lit.and_then(|lit| cases.get(&lit)) {
-                    block.run(input, store, bindings, hints, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 } else {
                     let Some(def) = def else {
                         bail!("No match for value {:?}", ptr.fmt_to_string_simple(store))
                     };
-                    def.run(input, store, bindings, hints, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 }
             }
             Ctrl::If(b, true_block, false_block) => {
                 let b = bindings.get_bool(b)?;
                 if b {
-                    true_block.run(input, store, bindings, hints, emitted, lang, pc)
+                    true_block.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 } else {
-                    false_block.run(input, store, bindings, hints, emitted, lang, pc)
+                    false_block.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 }
             }
             Ctrl::Return(output_vars) => {
@@ -513,7 +514,6 @@ impl Block {
                 Ok(Frame {
                     input,
                     output,
-                    emitted: emitted.clone(),
                     hints,
                     blank: false,
                     pc,
@@ -529,7 +529,7 @@ impl Func {
         args: &[Ptr],
         store: &Store<F>,
         hints: Hints,
-        emitted: &mut Vec<Ptr>,
+        ch_terminal: &ChannelTerminal<Ptr>,
         lang: &Lang<F, C>,
         pc: usize,
     ) -> Result<Frame> {
@@ -548,7 +548,7 @@ impl Func {
 
         let mut res = self
             .body
-            .run(args, store, bindings, hints, emitted, lang, pc)?;
+            .run(args, store, bindings, hints, ch_terminal, lang, pc)?;
         let hints = &mut res.hints;
 
         let hash4_used = hints.hash4.len() - hash4_init;
@@ -588,7 +588,7 @@ impl Func {
             args,
             store,
             Hints::new_from_func(self),
-            &mut vec![],
+            &dummy_terminal(),
             lang,
             pc,
         )

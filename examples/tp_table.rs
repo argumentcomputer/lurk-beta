@@ -3,6 +3,7 @@ use ascii_table::{Align, AsciiTable};
 use criterion::black_box;
 use halo2curves::bn256::Fr as Bn;
 use lurk::{
+    dual_channel::dummy_terminal,
     lang::{Coproc, Lang},
     lem::{eval::evaluate, store::Store},
     proof::nova::{public_params, NovaProver, PublicParams},
@@ -154,7 +155,8 @@ fn main() {
     let store = Store::default();
     let program = store.read_with_default_state(PROGRAM).unwrap();
 
-    let frames = evaluate::<Bn, Coproc<Bn>>(None, program, &store, limit).unwrap();
+    let frames =
+        evaluate::<Bn, Coproc<Bn>>(None, program, &store, limit, &dummy_terminal()).unwrap();
 
     let lang = Lang::<Bn>::new();
     let lang_arc = Arc::new(lang.clone());

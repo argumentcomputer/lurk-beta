@@ -2,6 +2,7 @@ use halo2curves::bn256::Fr;
 use std::sync::Arc;
 
 use crate::{
+    dual_channel::dummy_terminal,
     lang::Lang,
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
@@ -24,7 +25,14 @@ fn test_nil_nil_lang() {
 
     let store = Store::default();
     let expr = store.read_with_default_state("(nil-nil)").unwrap();
-    let frames = evaluate(Some((&lurk_step, &cprocs, &lang)), expr, &store, 50).unwrap();
+    let frames = evaluate(
+        Some((&lurk_step, &cprocs, &lang)),
+        expr,
+        &store,
+        50,
+        &dummy_terminal(),
+    )
+    .unwrap();
 
     // iteration 1: main circuit sets up a call to the coprocessor
     // iteration 2: coprocessor does its job

@@ -23,6 +23,7 @@ use tracing::info;
 use crate::{
     config::lurk_config,
     coprocessor::Coprocessor,
+    dual_channel::ChannelTerminal,
     error::ProofError,
     field::LurkField,
     lang::Lang,
@@ -427,9 +428,11 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F> for NovaPr
         env: Ptr,
         store: &'a Store<F>,
         limit: usize,
+        ch_terminal: &ChannelTerminal<Ptr>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         let eval_config = self.folding_mode().eval_config(self.lang());
-        let frames = C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config)?;
+        let frames =
+            C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config, ch_terminal)?;
         self.prove_from_frames(pp, &frames, store)
     }
 }

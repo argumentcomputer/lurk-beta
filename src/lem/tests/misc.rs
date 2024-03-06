@@ -3,6 +3,7 @@ use bellpepper_core::{test_cs::TestConstraintSystem, Delta};
 use halo2curves::bn256::Fr;
 
 use crate::{
+    dual_channel::dummy_terminal,
     field::LurkField,
     func,
     lang::{DummyCoprocessor, Lang},
@@ -34,7 +35,14 @@ fn synthesize_test_helper(
     for input in inputs {
         let input = [input, nil, outermost];
         let frame = func
-            .call(&input, store, Default::default(), &mut vec![], &lang, 0)
+            .call(
+                &input,
+                store,
+                Default::default(),
+                &dummy_terminal(),
+                &lang,
+                0,
+            )
             .unwrap();
 
         let mut cs = TestConstraintSystem::<Fr>::new();

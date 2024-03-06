@@ -17,6 +17,7 @@ use tracing::info;
 
 use crate::{
     coprocessor::Coprocessor,
+    dual_channel::{dummy_terminal, pair_terminals},
     field::LurkField,
     lang::Lang,
     lem::{
@@ -427,13 +428,16 @@ where
     }
 
     fn eval_expr_with_env(&self, expr: Ptr, env: Ptr) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-        let (ptrs, iterations, emitted) = evaluate_simple_with_env::<F, C>(
+        let (t1, t2) = pair_terminals::<Ptr>();
+        let (ptrs, iterations) = evaluate_simple_with_env::<F, C>(
             Some(self.lang_setup()),
             expr,
             env,
             &self.store,
             self.limit,
+            &t1,
         )?;
+        let emitted = t2.collect();
         match ptrs[2].tag() {
             Tag::Cont(ContTag::Terminal) => Ok((ptrs, iterations, emitted)),
             t => {
@@ -456,13 +460,16 @@ where
         &mut self,
         expr_ptr: Ptr,
     ) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-        let (ptrs, iterations, emitted) = evaluate_simple_with_env::<F, C>(
+        let (t1, t2) = pair_terminals::<Ptr>();
+        let (ptrs, iterations) = evaluate_simple_with_env::<F, C>(
             Some(self.lang_setup()),
             expr_ptr,
             self.env,
             &self.store,
             self.limit,
+            &t1,
         )?;
+        let emitted = t2.collect();
         if matches!(ptrs[2].tag(), Tag::Cont(ContTag::Terminal | ContTag::Error)) {
             Ok((ptrs, iterations, emitted))
         } else {
@@ -480,6 +487,7 @@ where
             self.env,
             &self.store,
             self.limit,
+            &dummy_terminal(),
         )?;
         let iterations = frames.len();
 

@@ -5,6 +5,7 @@ use tracing_texray::TeXRayLayer;
 
 use lurk::{
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
+    dual_channel::dummy_terminal,
     field::LurkField,
     lang::Lang,
     lem::{
@@ -77,7 +78,14 @@ fn main() {
 
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang));
     let cprocs = make_cprocs_funcs_from_lang(&lang);
-    let frames = evaluate(Some((&lurk_step, &cprocs, &lang)), call, store, 1000).unwrap();
+    let frames = evaluate(
+        Some((&lurk_step, &cprocs, &lang)),
+        call,
+        store,
+        1000,
+        &dummy_terminal(),
+    )
+    .unwrap();
 
     let supernova_prover =
         SuperNovaProver::<Bn, Sha256Coproc<Bn>>::new(REDUCTION_COUNT, lang_rc.clone());

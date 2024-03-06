@@ -3,6 +3,7 @@ use halo2curves::bn256::Fr;
 
 use crate::{
     coprocessor::Coprocessor,
+    dual_channel::{dummy_terminal, pair_terminals},
     lang::{Coproc, Lang},
     lem::{
         eval::{
@@ -111,12 +112,13 @@ fn do_test<C: Coprocessor<Fr>>(
     lang: &Lang<Fr, C>,
 ) {
     let limit = 100000;
-    let (output, iterations, emitted) = if lang.is_default() {
-        evaluate_simple::<Fr, C>(None, *expr, s, limit).unwrap()
+    let (t1, t2) = pair_terminals();
+    let (output, iterations) = if lang.is_default() {
+        evaluate_simple::<Fr, C>(None, *expr, s, limit, &t1).unwrap()
     } else {
         let func = make_eval_step_from_config(&EvalConfig::new_ivc(lang));
         let cprocs = make_cprocs_funcs_from_lang(lang);
-        evaluate_simple(Some((&func, &cprocs, lang)), *expr, s, limit).unwrap()
+        evaluate_simple(Some((&func, &cprocs, lang)), *expr, s, limit, &t1).unwrap()
     };
     let new_expr = output[0];
     let new_env = output[1];
@@ -139,6 +141,7 @@ fn do_test<C: Coprocessor<Fr>>(
         assert_eq!(s.cont_terminal(), new_cont);
     }
     if let Some(expected_emitted) = expected_emitted {
+        let emitted = t2.collect();
         assert_eq!(expected_emitted.len(), emitted.len());
 
         assert!(expected_emitted
@@ -395,7 +398,8 @@ fn evaluate_comm_callable3() {
     let comm_id_expr = s
         .read_with_default_state("(commit (lambda (x) x))")
         .unwrap();
-    let (io, ..) = evaluate_simple::<_, Coproc<Fr>>(None, comm_id_expr, s, 100).unwrap();
+    let (io, ..) =
+        evaluate_simple::<_, Coproc<Fr>>(None, comm_id_expr, s, 100, &dummy_terminal()).unwrap();
     let comm_id = io[0];
     let expr = s.list([comm_id, s.intern_nil()]);
 
@@ -1376,7 +1380,8 @@ fn evaluate_make_tree_minimal_regression() {
         )
         .unwrap();
 
-    let (_, iterations, _) = evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, limit).unwrap();
+    let (_, iterations) =
+        evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, limit, &dummy_terminal()).unwrap();
     assert_eq!(100, iterations);
 }
 
@@ -1871,7 +1876,8 @@ fn hide_open() {
 fn hide_opaque_open_available() {
     let s = &Store::<Fr>::default();
     let expr = s.read_with_default_state("(hide 123 'x)").unwrap();
-    let (output, ..) = evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, 10).unwrap();
+    let (output, ..) =
+        evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, 10, &dummy_terminal()).unwrap();
 
     let c = *s.hash_ptr(&output[0]).value();
     let comm = s.comm(c);
@@ -1905,7 +1911,8 @@ fn hide_opaque_open_available() {
 fn hide_opaque_open_unavailable() {
     let s = &Store::<Fr>::default();
     let expr = s.read_with_default_state("(hide 123 'x)").unwrap();
-    let (output, ..) = evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, 10).unwrap();
+    let (output, ..) =
+        evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, 10, &dummy_terminal()).unwrap();
 
     let c = *s.hash_ptr(&output[0]).value();
 
@@ -3406,7 +3413,8 @@ fn test_sym_hash_values() {
     let expr = s.read(state.clone(), "(cons \"fdsa\" '.asdf)").unwrap();
 
     let limit = 10;
-    let (output, ..) = evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, limit).unwrap();
+    let (output, ..) =
+        evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, limit, &dummy_terminal()).unwrap();
     let new_expr = output[0];
 
     let toplevel_sym = s.read(state, ".asdf").unwrap();
