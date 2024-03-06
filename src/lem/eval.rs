@@ -6,6 +6,7 @@ use crate::{
     aux_func,
     coprocessor::Coprocessor,
     ctrl,
+    dual_channel::ChannelTerminal,
     field::LurkField,
     func,
     lang::Lang,
@@ -62,7 +63,7 @@ fn compute_frame<F: LurkField, C: Coprocessor<F>>(
     input: &[Ptr],
     store: &Store<F>,
     lang: &Lang<F, C>,
-    emitted: &mut Vec<Ptr>,
+    ch_terminal: &ChannelTerminal<Ptr>,
     pc: usize,
 ) -> Result<(Frame, bool)> {
     let func = if pc == 0 {
@@ -72,37 +73,33 @@ fn compute_frame<F: LurkField, C: Coprocessor<F>>(
     };
     assert_eq!(func.input_params.len(), input.len());
     let preimages = Hints::new_from_func(func);
-    let frame = func.call(input, store, preimages, emitted, lang, pc)?;
+    let frame = func.call(input, store, preimages, ch_terminal, lang, pc)?;
     let must_break = matches!(frame.output[2].tag(), Tag::Cont(Terminal | Error));
     Ok((frame, must_break))
 }
 
 // Builds frames for IVC or NIVC scheme
-fn build_frames<
-    F: LurkField,
-    C: Coprocessor<F>,
-    LogFmt: Fn(usize, &[Ptr], &[Ptr], &Store<F>) -> String,
->(
+fn build_frames<F: LurkField, C: Coprocessor<F>, LogFmt: Fn(usize, &[Ptr], &Store<F>) -> String>(
     lurk_step: &Func,
     cprocs: &[Func],
     mut input: Vec<Ptr>,
     store: &Store<F>,
     limit: usize,
     lang: &Lang<F, C>,
+    ch_terminal: &ChannelTerminal<Ptr>,
     log_fmt: LogFmt,
 ) -> Result<Vec<Frame>> {
     let mut pc = 0;
     let mut frames = vec![];
     let mut iterations = 0;
-    tracing::info!("{}", &log_fmt(0, &input, &[], store));
+    tracing::info!("{}", &log_fmt(0, &input, store));
     for _ in 0..limit {
-        let mut emitted = vec![];
         let (frame, must_break) =
-            compute_frame(lurk_step, cprocs, &input, store, lang, &mut emitted, pc)?;
+            compute_frame(lurk_step, cprocs, &input, store, lang, ch_terminal, pc)?;
 
         iterations += 1;
         input = frame.output.clone();
-        tracing::info!("{}", &log_fmt(iterations, &input, &emitted, store));
+        tracing::info!("{}", &log_fmt(iterations, &input, store));
         let expr = frame.output[0];
         frames.push(frame);
 
@@ -122,13 +119,13 @@ fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
     store: &Store<F>,
     limit: usize,
     lang: &Lang<F, C>,
-) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<(Vec<Ptr>, usize)> {
     let mut pc = 0;
     let mut iterations = 0;
-    let mut emitted = vec![];
     for _ in 0..limit {
         let (frame, must_break) =
-            compute_frame(lurk_step, cprocs, &input, store, lang, &mut emitted, pc)?;
+            compute_frame(lurk_step, cprocs, &input, store, lang, ch_terminal, pc)?;
 
         iterations += 1;
         input = frame.output.clone();
@@ -138,7 +135,7 @@ fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
         }
         pc = get_pc(&frame.output[0], store, lang);
     }
-    Ok((input, iterations, emitted))
+    Ok((input, iterations))
 }
 
 pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
@@ -148,19 +145,16 @@ pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
     cont: Ptr,
     store: &Store<F>,
     limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
 ) -> Result<Vec<Frame>> {
     let state = initial_lurk_state();
-    let log_fmt = |i: usize, inp: &[Ptr], emit: &[Ptr], store: &Store<F>| {
-        let mut out = format!(
+    let log_fmt = |i: usize, inp: &[Ptr], store: &Store<F>| {
+        format!(
             "Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}",
             inp[0].fmt_to_string(store, state),
             inp[1].fmt_to_string(store, state),
             inp[2].fmt_to_string(store, state)
-        );
-        if let Some(ptr) = emit.first() {
-            out.push_str(&format!("\n\tEmtd: {}", ptr.fmt_to_string(store, state)));
-        }
-        out
+        )
     };
 
     let input = vec![expr, env, cont];
@@ -168,11 +162,27 @@ pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
     match lang_setup {
         None => {
             let lang: Lang<F, C> = Lang::new();
-            build_frames(eval_step(), &[], input, store, limit, &lang, log_fmt)
+            build_frames(
+                eval_step(),
+                &[],
+                input,
+                store,
+                limit,
+                &lang,
+                ch_terminal,
+                log_fmt,
+            )
         }
-        Some((lurk_step, cprocs, lang)) => {
-            build_frames(lurk_step, cprocs, input, store, limit, lang, log_fmt)
-        }
+        Some((lurk_step, cprocs, lang)) => build_frames(
+            lurk_step,
+            cprocs,
+            input,
+            store,
+            limit,
+            lang,
+            ch_terminal,
+            log_fmt,
+        ),
     }
 }
 
@@ -183,8 +193,17 @@ pub fn evaluate_with_env<F: LurkField, C: Coprocessor<F>>(
     env: Ptr,
     store: &Store<F>,
     limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
 ) -> Result<Vec<Frame>> {
-    evaluate_with_env_and_cont(lang_setup, expr, env, store.cont_outermost(), store, limit)
+    evaluate_with_env_and_cont(
+        lang_setup,
+        expr,
+        env,
+        store.cont_outermost(),
+        store,
+        limit,
+        ch_terminal,
+    )
 }
 
 #[inline]
@@ -193,6 +212,7 @@ pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr,
     store: &Store<F>,
     limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
 ) -> Result<Vec<Frame>> {
     evaluate_with_env_and_cont(
         lang_setup,
@@ -201,6 +221,7 @@ pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
         store.cont_outermost(),
         store,
         limit,
+        ch_terminal,
     )
 }
 
@@ -210,15 +231,16 @@ pub fn evaluate_simple_with_env<F: LurkField, C: Coprocessor<F>>(
     env: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<(Vec<Ptr>, usize)> {
     let input = vec![expr, env, store.cont_outermost()];
     match lang_setup {
         None => {
             let lang: Lang<F, C> = Lang::new();
-            traverse_frames(eval_step(), &[], input, store, limit, &lang)
+            traverse_frames(eval_step(), &[], input, store, limit, &lang, ch_terminal)
         }
         Some((lurk_step, cprocs, lang)) => {
-            traverse_frames(lurk_step, cprocs, input, store, limit, lang)
+            traverse_frames(lurk_step, cprocs, input, store, limit, lang, ch_terminal)
         }
     }
 }
@@ -229,8 +251,16 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr,
     store: &Store<F>,
     limit: usize,
-) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-    evaluate_simple_with_env(lang_setup, expr, store.intern_empty_env(), store, limit)
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<(Vec<Ptr>, usize)> {
+    evaluate_simple_with_env(
+        lang_setup,
+        expr,
+        store.intern_empty_env(),
+        store,
+        limit,
+        ch_terminal,
+    )
 }
 
 pub struct EvalConfig<'a, F, C> {

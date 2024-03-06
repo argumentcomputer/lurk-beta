@@ -39,6 +39,7 @@ use lurk::circuit::gadgets::pointer::AllocatedPtr;
 use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 
 use halo2curves::bn256::Fr as Bn;
+use lurk::dual_channel::dummy_terminal;
 use lurk::field::LurkField;
 use lurk::lang::Lang;
 use lurk::lem::{pointers::Ptr, store::Store};
@@ -124,7 +125,14 @@ fn main() {
 
     let proof_start = Instant::now();
     let (proof, z0, zi, _num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, store.intern_empty_env(), store, 10000)
+        .evaluate_and_prove(
+            &pp,
+            ptr,
+            store.intern_empty_env(),
+            store,
+            10000,
+            &dummy_terminal(),
+        )
         .unwrap();
     let proof_end = proof_start.elapsed();
 

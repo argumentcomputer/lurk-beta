@@ -5,6 +5,7 @@ use tracing_texray::TeXRayLayer;
 
 use lurk::{
     coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
+    dual_channel::dummy_terminal,
     field::LurkField,
     lang::Lang,
     lem::{pointers::Ptr, store::Store},
@@ -87,7 +88,14 @@ fn main() {
     let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
         .in_scope(|| {
             nova_prover
-                .evaluate_and_prove(&pp, call, store.intern_empty_env(), store, 10000)
+                .evaluate_and_prove(
+                    &pp,
+                    call,
+                    store.intern_empty_env(),
+                    store,
+                    10000,
+                    &dummy_terminal(),
+                )
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();

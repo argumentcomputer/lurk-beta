@@ -9,6 +9,7 @@ use criterion::{
 use halo2curves::bn256::Fr as Bn;
 
 use lurk::{
+    dual_channel::dummy_terminal,
     field::LurkField,
     lang::{Coproc, Lang},
     lem::{eval::evaluate, multiframe::MultiFrame, pointers::Ptr, store::Store},
@@ -50,7 +51,8 @@ fn synthesize<M: measurement::Measurement>(
             let store = Store::default();
             let fib_n = (reduction_count / 3) as u64; // Heuristic, since one fib is 35 iterations.
             let ptr = fib::<Bn>(&store, state.clone(), black_box(fib_n));
-            let frames = evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit).unwrap();
+            let frames =
+                evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit, &dummy_terminal()).unwrap();
 
             let folding_config =
                 Arc::new(FoldingConfig::new_ivc(lang_rc.clone(), *reduction_count));

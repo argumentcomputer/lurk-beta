@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
+    dual_channel::ChannelTerminal,
     error::ProofError,
     field::LurkField,
     lem::{pointers::Ptr, store::Store},
@@ -224,6 +225,7 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> Prover<'a, F>
         _env: Ptr,
         _store: &'a Store<F>,
         _limit: usize,
+        _ch_terminal: &ChannelTerminal<Ptr>,
     ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
         unimplemented!()
     }

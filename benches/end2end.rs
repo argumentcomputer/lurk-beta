@@ -5,6 +5,7 @@ use halo2curves::bn256::Fr as Bn;
 use std::{sync::Arc, time::Duration};
 
 use lurk::{
+    dual_channel::dummy_terminal,
     field::LurkField,
     lang::{Coproc, Lang},
     lem::{
@@ -77,7 +78,8 @@ fn end2end_benchmark(c: &mut Criterion) {
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         b.iter(|| {
             let ptr = go_base::<Bn>(&store, state.clone(), s.0, s.1);
-            let frames = evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit).unwrap();
+            let frames =
+                evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit, &dummy_terminal()).unwrap();
             let _result = prover.prove_from_frames(&pp, &frames, &store).unwrap();
         })
     });
@@ -167,7 +169,9 @@ fn eval_benchmark(c: &mut Criterion) {
             let benchmark_id = BenchmarkId::new("eval_go_base", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
                 let ptr = go_base::<Bn>(&store, state.clone(), s.0, s.1);
-                b.iter(|| evaluate_simple::<Bn, Coproc<Bn>>(None, ptr, &store, limit))
+                b.iter(|| {
+                    evaluate_simple::<Bn, Coproc<Bn>>(None, ptr, &store, limit, &dummy_terminal())
+                })
             });
         }
     }
@@ -212,7 +216,8 @@ fn prove_benchmark(c: &mut Criterion) {
         let ptr = go_base::<Bn>(&store, state.clone(), s.0, s.1);
         let prover: NovaProver<'_, Bn, Coproc<Bn>> =
             NovaProver::new(reduction_count, lang_rc.clone());
-        let frames = evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit).unwrap();
+        let frames =
+            evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit, &dummy_terminal()).unwrap();
 
         b.iter(|| {
             let result = prover.prove_from_frames(&pp, &frames, &store).unwrap();
@@ -259,7 +264,8 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Bn>(&store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_rc.clone());
-        let frames = evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit).unwrap();
+        let frames =
+            evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit, &dummy_terminal()).unwrap();
 
         b.iter(|| {
             let (proof, _, _, _) = prover.prove_from_frames(&pp, &frames, &store).unwrap();
@@ -305,7 +311,8 @@ fn verify_benchmark(c: &mut Criterion) {
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_rc.clone());
-            let frames = evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit).unwrap();
+            let frames =
+                evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit, &dummy_terminal()).unwrap();
             let (proof, z0, zi, _num_steps) =
                 prover.prove_from_frames(&pp, &frames, &store).unwrap();
 
@@ -358,7 +365,8 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_rc.clone());
-            let frames = evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit).unwrap();
+            let frames =
+                evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit, &dummy_terminal()).unwrap();
             let (proof, z0, zi, _num_steps) =
                 prover.prove_from_frames(&pp, &frames, &store).unwrap();
 

@@ -7,6 +7,7 @@ use halo2curves::bn256::Fr as Bn;
 use std::{sync::Arc, time::Duration};
 
 use lurk::{
+    dual_channel::dummy_terminal,
     lang::{Coproc, Lang},
     lem::{eval::evaluate, store::Store},
     proof::nova::NovaProver,
@@ -107,7 +108,8 @@ fn fibonacci_prove<M: measurement::Measurement>(
             let ptr = fib_expr::<Bn>(&store);
             let prover = NovaProver::new(prove_params.reduction_count, lang_rc.clone());
 
-            let frames = &evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit).unwrap();
+            let frames =
+                &evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit, &dummy_terminal()).unwrap();
 
             b.iter_batched(
                 || frames,

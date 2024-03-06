@@ -15,6 +15,7 @@ use crate::{
         zstore::ZDag,
     },
     coprocessor::Coprocessor,
+    dual_channel::dummy_terminal,
     field::LurkField,
     lem::{
         eval::evaluate_with_env_and_cont,
@@ -190,20 +191,26 @@ where
             let (first_io, ..) = repl
                 .eval_expr(first)
                 .with_context(|| "evaluating first arg")?;
+            let Some((expected_emitted, None)) = repl.store.fetch_list(&first_io[0]) else {
+                bail!("Expectation must be a list")
+            };
             let (.., emitted) = repl
                 .eval_expr(second)
                 .with_context(|| "evaluating second arg")?;
-            let (mut first_emitted, mut rest_emitted) = repl.store.car_cdr(&first_io[0])?;
-            for (i, elem) in emitted.iter().enumerate() {
-                if elem != &first_emitted {
+            let (num_expected_emitted, num_emitted) = (expected_emitted.len(), emitted.len());
+            if num_expected_emitted != num_emitted {
+                eprintln!("`assert-emitted` failed. Expected {num_expected_emitted} emitted values. Got {num_emitted}");
+                process::exit(1);
+            }
+            for (i, (emtd, expct_emtd)) in emitted.into_iter().zip(expected_emitted).enumerate() {
+                if emtd != expct_emtd {
                     eprintln!(
                         "`assert-emitted` failed at position {i}. Expected {}, but found {}.",
-                        first_emitted.fmt_to_string(&repl.store, &repl.state.borrow()),
-                        elem.fmt_to_string(&repl.store, &repl.state.borrow()),
+                        expct_emtd.fmt_to_string(&repl.store, &repl.state.borrow()),
+                        emtd.fmt_to_string(&repl.store, &repl.state.borrow()),
                     );
                     process::exit(1);
                 }
-                (first_emitted, rest_emitted) = repl.store.car_cdr(&rest_emitted)?;
             }
             Ok(())
         },
@@ -974,6 +981,7 @@ where
                 Self::get_cont_ptr(repl, &cek_io[2])?,
                 &repl.store,
                 repl.limit,
+                &dummy_terminal(),
             )?;
 
             let iterations = frames.len();

@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use crate::{
     coprocessor::Coprocessor,
+    dual_channel::pair_terminals,
     lang::Lang,
     lem::{eval::EvalConfig, pointers::Ptr, store::Store},
     proof::{
@@ -173,8 +174,11 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 
     let e = s.initial_empty_env();
 
+    let (t1, t2) = pair_terminals();
+
     let frames =
-        C1LEM::<'a, F, C>::build_frames(expr, e, s, limit, &EvalConfig::new_ivc(&lang)).unwrap();
+        C1LEM::<'a, F, C>::build_frames(expr, e, s, limit, &EvalConfig::new_ivc(&lang), &t1)
+            .unwrap();
     let nova_prover = NovaProver::<'a, F, C>::new(reduction_count, lang.clone());
 
     if check_nova {
@@ -250,11 +254,8 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     let output = previous_frame.unwrap().output();
 
     if let Some(expected_emitted) = expected_emitted {
-        let mut emitted_vec = Vec::default();
-        for frame in frames.iter() {
-            emitted_vec.extend(C1LEM::<'a, F, C>::emitted(s, frame));
-        }
-        assert_eq!(expected_emitted, &emitted_vec);
+        let emitted = t2.collect();
+        assert_eq!(expected_emitted, &emitted);
     }
 
     if let Some(expected_result) = expected_result {

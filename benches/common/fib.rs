@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 use lurk::{
+    dual_channel::dummy_terminal,
     field::LurkField,
     lang::{Coproc, Lang},
     lem::{
@@ -42,7 +43,8 @@ fn lurk_fib<F: LurkField>(store: &Store<F>, n: usize) -> Ptr {
     let limit = frame_idx;
     let fib_expr = fib_expr(store);
 
-    let (output, ..) = evaluate_simple::<F, Coproc<F>>(None, fib_expr, store, limit).unwrap();
+    let (output, ..) =
+        evaluate_simple::<F, Coproc<F>>(None, fib_expr, store, limit, &dummy_terminal()).unwrap();
 
     let target_env = &output[1];
 
