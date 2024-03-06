@@ -1724,9 +1724,6 @@
 <a href="#1723" id="1723">1723</a>
 <a href="#1724" id="1724">1724</a>
 <a href="#1725" id="1725">1725</a>
-<a href="#1726" id="1726">1726</a>
-<a href="#1727" id="1727">1727</a>
-<a href="#1728" id="1728">1728</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -2805,20 +2802,17 @@
             <span class="kw">match </span>ptr {
                 RawPtr::Atom(..) =&gt; (),
                 RawPtr::Hash4(idx) =&gt; {
-                    <span class="kw">let </span>ptrs = <span class="self">self</span>.expect_raw_ptrs::&lt;<span class="number">4</span>&gt;(<span class="kw-2">*</span>idx);
-                    <span class="kw">for </span>ptr <span class="kw">in </span>ptrs {
+                    <span class="kw">for </span>ptr <span class="kw">in </span><span class="self">self</span>.expect_raw_ptrs::&lt;<span class="number">4</span>&gt;(<span class="kw-2">*</span>idx) {
                         <span class="macro">feed_loop!</span>(ptr)
                     }
                 }
                 RawPtr::Hash6(idx) =&gt; {
-                    <span class="kw">let </span>ptrs = <span class="self">self</span>.expect_raw_ptrs::&lt;<span class="number">6</span>&gt;(<span class="kw-2">*</span>idx);
-                    <span class="kw">for </span>ptr <span class="kw">in </span>ptrs {
+                    <span class="kw">for </span>ptr <span class="kw">in </span><span class="self">self</span>.expect_raw_ptrs::&lt;<span class="number">6</span>&gt;(<span class="kw-2">*</span>idx) {
                         <span class="macro">feed_loop!</span>(ptr)
                     }
                 }
                 RawPtr::Hash8(idx) =&gt; {
-                    <span class="kw">let </span>ptrs = <span class="self">self</span>.expect_raw_ptrs::&lt;<span class="number">8</span>&gt;(<span class="kw-2">*</span>idx);
-                    <span class="kw">for </span>ptr <span class="kw">in </span>ptrs {
+                    <span class="kw">for </span>ptr <span class="kw">in </span><span class="self">self</span>.expect_raw_ptrs::&lt;<span class="number">8</span>&gt;(<span class="kw-2">*</span>idx) {
                         <span class="macro">feed_loop!</span>(ptr)
                     }
                 }
