@@ -27,7 +27,7 @@ pub(crate) enum EnvCircuitQuery<F: LurkField> {
 
 impl<F: LurkField> Query<F> for EnvQuery<F> {
     type CQ = EnvCircuitQuery<F>;
-    type C = ();
+    type RD = ();
 
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         let s = scope.store.as_ref();
@@ -56,7 +56,7 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         }
     }
 
-    fn from_ptr(_: &Self::C, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
+    fn from_ptr(_: &Self::RD, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
         let (head, body) = s.car_cdr(ptr).expect("query should be cons");
         let sym = s.fetch_sym(&head).expect("head should be sym");
 
@@ -95,21 +95,21 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         }
     }
 
-    fn dummy_from_index(_: &Self::C, s: &Store<F>, index: usize) -> Self {
+    fn dummy_from_index(_: &Self::RD, s: &Store<F>, index: usize) -> Self {
         match index {
             0 => Self::Lookup(s.num(0.into()), s.num(0.into())),
             _ => unreachable!(),
         }
     }
 
-    fn index(&self, _: &Self::C) -> usize {
+    fn index(&self, _: &Self::RD) -> usize {
         match self {
             Self::Lookup(_, _) => 0,
             _ => unreachable!(),
         }
     }
 
-    fn count(_: &Self::C) -> usize {
+    fn count(_: &Self::RD) -> usize {
         1
     }
 }
@@ -126,7 +126,7 @@ impl<F: LurkField> RecursiveQuery<F> for EnvCircuitQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
-    type C = ();
+    type RD = ();
     fn synthesize_args<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -150,7 +150,7 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::C>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {

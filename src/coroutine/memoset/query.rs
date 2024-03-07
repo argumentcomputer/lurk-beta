@@ -12,17 +12,18 @@ pub trait Query<F: LurkField>
 where
     Self: Sized + Clone,
 {
-    type C: Clone + Send + Sync;
-    type CQ: CircuitQuery<F, C = Self::C>;
+    // RD stands for runtime data; the part of the trait that cannot be known statically
+    type RD: Clone + Send + Sync;
+    type CQ: CircuitQuery<F, RD = Self::RD>;
 
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr;
     fn recursive_eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>, subquery: Self) -> Ptr {
         scope.query_recursively(self, subquery)
     }
-    fn from_ptr(c: &Self::C, s: &Store<F>, ptr: &Ptr) -> Option<Self>;
+    fn from_ptr(runtime_data: &Self::RD, s: &Store<F>, ptr: &Ptr) -> Option<Self>;
     fn to_ptr(&self, s: &Store<F>) -> Ptr;
     fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS, s: &Store<F>) -> Self::CQ;
-    fn dummy_from_index(c: &Self::C, s: &Store<F>, index: usize) -> Self;
+    fn dummy_from_index(runtime_data: &Self::RD, s: &Store<F>, index: usize) -> Self;
 
     fn symbol(&self) -> Symbol;
     fn symbol_ptr(&self, s: &Store<F>) -> Ptr {
@@ -30,22 +31,22 @@ where
     }
 
     /// What is this queries index? Used for ordering circuits and transcripts, grouped by query type.
-    fn index(&self, c: &Self::C) -> usize;
+    fn index(&self, runtime_data: &Self::RD) -> usize;
     /// How many types of query are provided?
-    fn count(c: &Self::C) -> usize;
+    fn count(runtime_data: &Self::RD) -> usize;
 }
 
 pub trait CircuitQuery<F: LurkField>
 where
     Self: Sized + Clone,
 {
-    type C: Clone + Send + Sync;
+    type RD: Clone + Send + Sync;
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::C>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError>;
@@ -106,7 +107,7 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::C>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
         subqueries: &[Self],
         is_recursive: &Boolean,
         immediate: (&AllocatedPtr<F>, &AllocatedPtr<F>),

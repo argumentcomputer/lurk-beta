@@ -331,14 +331,14 @@ pub struct Scope<Q: Query<F>, M, F: LurkField> {
     provenances: OnceCell<IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
     default_rc: usize,
     pub(crate) store: Arc<Store<F>>,
-    pub(crate) content: Q::C,
+    pub(crate) runtime_data: Q::RD,
 }
 
 const DEFAULT_RC_FOR_QUERY: usize = 1;
 
 impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     #[allow(dead_code)]
-    pub fn new(default_rc: usize, store: Arc<Store<F>>, content: Q::C) -> Self {
+    pub fn new(default_rc: usize, store: Arc<Store<F>>, runtime_data: Q::RD) -> Self {
         Self {
             memoset: Default::default(),
             queries: Default::default(),
@@ -349,7 +349,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             unique_inserted_keys: Default::default(),
             provenances: Default::default(),
             default_rc,
-            content,
+            runtime_data,
             store,
         }
     }
@@ -419,14 +419,14 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 }
 
 #[derive(Debug, Clone)]
-pub struct CircuitScope<F: LurkField, CM, C> {
+pub struct CircuitScope<F: LurkField, CM, RD> {
     memoset: CM, // CircuitMemoSet
     /// k -> prov
     provenances: IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     /// k -> allocated v
     transcript: CircuitTranscript<F>,
     acc: Option<AllocatedPtr<F>>,
-    pub(crate) content: C,
+    pub(crate) runtime_data: RD,
 }
 
 #[derive(Clone)]
@@ -439,7 +439,7 @@ pub struct CoroutineCircuit<F: LurkField, CM, Q: Query<F>> {
     next_query_index: usize,
     store: Arc<Store<F>>,
     rc: usize,
-    content: Q::C,
+    runtime_data: Q::RD,
     _p: PhantomData<Q>,
 }
 
@@ -454,7 +454,7 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
         query_index: usize,
         next_query_index: usize,
         rc: usize,
-        content: Q::C,
+        runtime_data: Q::RD,
     ) -> Self {
         assert!(keys.len() <= rc);
         Self {
@@ -466,7 +466,7 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
             next_query_index,
             store: scope.store.clone(),
             rc,
-            content,
+            runtime_data,
             _p: Default::default(),
         }
     }
@@ -475,7 +475,7 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
         query_index: usize,
         store: Arc<Store<F>>,
         rc: usize,
-        content: Q::C,
+        runtime_data: Q::RD,
     ) -> CoroutineCircuit<F, LogMemo<F>, Q> {
         Self {
             input: None,
@@ -486,7 +486,7 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
             next_query_index: 0,
             store,
             rc,
-            content,
+            runtime_data,
             _p: Default::default(),
         }
     }
@@ -509,13 +509,13 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
             multiset: self.memoset.multiset.clone(),
             r: r.hash().clone(),
         };
-        let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>, Q::C> = CircuitScope::new(
+        let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>, Q::RD> = CircuitScope::new(
             cs,
             g,
             &self.store,
             memoset,
             &self.provenances,
-            self.content.clone(),
+            self.runtime_data.clone(),
         );
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
@@ -596,7 +596,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
         let result = self.queries.get(&form).cloned().unwrap_or_else(|| {
             let s = self.store.as_ref();
-            let query = Q::from_ptr(&self.content, s, &form).expect("invalid query");
+            let query = Q::from_ptr(&self.runtime_data, s, &form).expect("invalid query");
 
             let evaluated = query.eval(self);
 
@@ -756,9 +756,9 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         let mut record_kv = |kv: &Ptr| {
             let key = s.car_cdr(kv).unwrap().0;
             let kv1 = kvs_by_key.entry(key).or_insert_with(|| {
-                let index = Q::from_ptr(&self.content, s, &key)
+                let index = Q::from_ptr(&self.runtime_data, s, &key)
                     .expect("bad query")
-                    .index(&self.content);
+                    .index(&self.runtime_data);
 
                 // We only add to `unique_keys` inside this closure, which only happens once per key. This accomplishes
                 // the 'deduplication' referred to below.
@@ -793,7 +793,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         // because when proving later, each query's proof must record that its subquery proofs are being deferred
         // (insertions) before then proving itself (making use of any subquery results) and removing the now-proved
         // deferral from the MemoSet.
-        for index in 0..Q::count(&self.content) {
+        for index in 0..Q::count(&self.runtime_data) {
             if let Some(keys) = unique_keys.get(&index) {
                 let rc = self.rc_for_query(index);
 
@@ -841,7 +841,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             s,
             memoset_circuit.clone(),
             self.provenances(),
-            self.content.clone(),
+            self.runtime_data.clone(),
         );
 
         circuit_scope.init(cs, g, s);
@@ -881,7 +881,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                             *index,
                             next_query_index,
                             rc,
-                            self.content.clone(),
+                            self.runtime_data.clone(),
                         );
 
                         let (_next_pc, z_out) = circuit.supernova_synthesize(cs, &z)?;
@@ -913,21 +913,21 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     }
 }
 
-impl<F: LurkField, C> CircuitScope<F, LogMemoCircuit<F>, C> {
+impl<F: LurkField, RD> CircuitScope<F, LogMemoCircuit<F>, RD> {
     fn new<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         s: &Store<F>,
         memoset: LogMemoCircuit<F>,
         provenances: &IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
-        content: C,
+        runtime_data: RD,
     ) -> Self {
         Self {
             memoset,
             provenances: provenances.clone(), // FIXME
             transcript: CircuitTranscript::new(cs, g, s),
             acc: Default::default(),
-            content,
+            runtime_data,
         }
     }
 
@@ -1217,7 +1217,7 @@ impl<F: LurkField, C> CircuitScope<F, LogMemoCircuit<F>, C> {
         Ok(val)
     }
 
-    fn synthesize_prove_key_query<CS: ConstraintSystem<F>, Q: Query<F, C = C>>(
+    fn synthesize_prove_key_query<CS: ConstraintSystem<F>, Q: Query<F, RD = RD>>(
         &mut self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
@@ -1231,11 +1231,11 @@ impl<F: LurkField, C> CircuitScope<F, LogMemoCircuit<F>, C> {
         )?);
 
         let circuit_query = if let Some(key) = key {
-            let query = Q::from_ptr(&self.content, s, key).unwrap();
-            assert_eq!(index, query.index(&self.content));
+            let query = Q::from_ptr(&self.runtime_data, s, key).unwrap();
+            assert_eq!(index, query.index(&self.runtime_data));
             query.to_circuit(ns!(cs, "circuit_query"), s)
         } else {
-            let query = Q::dummy_from_index(&self.content, s, index);
+            let query = Q::dummy_from_index(&self.runtime_data, s, index);
             query.to_circuit(ns!(cs, "circuit_query"), s)
         };
 
@@ -1252,7 +1252,7 @@ impl<F: LurkField, C> CircuitScope<F, LogMemoCircuit<F>, C> {
         Ok(())
     }
 
-    fn synthesize_prove_query<CS: ConstraintSystem<F>, CQ: CircuitQuery<F, C = C>>(
+    fn synthesize_prove_query<CS: ConstraintSystem<F>, CQ: CircuitQuery<F, RD = RD>>(
         &mut self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,

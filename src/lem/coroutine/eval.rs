@@ -36,7 +36,7 @@ fn run<F: LurkField>(
         match op {
             Op::Crout(out, name, inp) => {
                 let args = bindings.get_many_ptr(inp)?;
-                let sub_query = ToplevelQuery::new(name.clone(), args, &scope.content)?;
+                let sub_query = ToplevelQuery::new(name.clone(), args, &scope.runtime_data)?;
                 let out_ptr = query.recursive_eval(scope, sub_query);
                 bindings.insert_ptr(out.clone(), out_ptr);
             }

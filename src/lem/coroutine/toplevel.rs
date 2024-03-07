@@ -99,11 +99,11 @@ impl<F: LurkField> ToplevelCircuitQuery<F> {
 
 impl<F: LurkField> Query<F> for ToplevelQuery<F> {
     type CQ = ToplevelCircuitQuery<F>;
-    type C = Arc<Toplevel<F>>;
+    type RD = Arc<Toplevel<F>>;
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         let name = &self.name;
         let args = &self.args;
-        let toplevel = scope.content.clone();
+        let toplevel = scope.runtime_data.clone();
         let coroutine = toplevel.get(name).unwrap();
         let outputs = call(self, &coroutine.func, args, scope).unwrap();
         to_improper_list(&outputs, scope.store.as_ref())
@@ -141,7 +141,7 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
         let name = s.intern_symbol(&self.name);
         s.cons(name, args)
     }
-    fn dummy_from_index(toplevel: &Self::C, s: &Store<F>, index: usize) -> Self {
+    fn dummy_from_index(toplevel: &Self::RD, s: &Store<F>, index: usize) -> Self {
         let (name, coroutine) = toplevel.0.get_index(index).unwrap();
         let name = name.clone();
         let args_size = coroutine.func.input_params.len();
@@ -152,27 +152,27 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
     fn symbol(&self) -> Symbol {
         self.name.clone()
     }
-    fn index(&self, toplevel: &Self::C) -> usize {
+    fn index(&self, toplevel: &Self::RD) -> usize {
         toplevel.0.get_index_of(&self.name).unwrap()
     }
-    fn count(toplevel: &Self::C) -> usize {
+    fn count(toplevel: &Self::RD) -> usize {
         toplevel.0.len()
     }
 }
 
 impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
-    type C = Arc<Toplevel<F>>;
+    type RD = Arc<Toplevel<F>>;
     fn synthesize_eval<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::C>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
         let name = &self.name;
-        let toplevel = scope.content.clone();
+        let toplevel = scope.runtime_data.clone();
         let coroutine = toplevel.get(name).unwrap();
 
         let params = coroutine.func.input_params.iter().cloned();
@@ -292,7 +292,7 @@ mod test {
                 return (one)
             }
             let m = sub(n, one);
-            let p = QUERY(factorial, m);
+            let p = QUERY("factorial", m);
             let res = mul(n, p);
             return (res)
         });
@@ -304,7 +304,7 @@ mod test {
                 return (one)
             }
             let m = sub(n, one);
-            let res = QUERY(odd, m);
+            let res = QUERY("odd", m);
             return (res)
         });
         let odd = func!(odd(n): 1 => {
@@ -315,7 +315,7 @@ mod test {
             }
             let one = Num(1);
             let m = sub(n, one);
-            let res = QUERY(even, m);
+            let res = QUERY("even", m);
             return (res)
         });
         let id_sym = user_sym("id");
@@ -440,7 +440,7 @@ mod test {
             }
             let one = Num(1);
             let m = sub(n, one);
-            let ys = QUERY(build_list, m);
+            let ys = QUERY("build-list", m);
             let xs: Expr::Cons = cons2(n, ys);
             return (xs)
         });
@@ -452,20 +452,20 @@ mod test {
                 }
                 Expr::Cons => {
                     let (n, ys) = decons2(xs);
-                    let m = QUERY(sum_list, ys);
+                    let m = QUERY("sum-list", ys);
                     let res = add(n, m);
                     return (res)
                 }
             }
         });
         let main = func!(main(n): 1 => {
-            let xs = QUERY(build_list, n);
-            let n = QUERY(sum_list, xs);
+            let xs = QUERY("build-list", n);
+            let n = QUERY("sum-list", xs);
             return (n)
         });
         let main_sym = user_sym("main");
-        let build_list_sym = user_sym("build_list");
-        let sum_list_sym = user_sym("sum_list");
+        let build_list_sym = user_sym("build-list");
+        let sum_list_sym = user_sym("sum-list");
         let toplevel = Arc::new(Toplevel::<F>::new(vec![
             (main_sym.clone(), main),
             (build_list_sym.clone(), build_list),

@@ -113,7 +113,7 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
         match op {
             Op::Crout(out, name, inp) => {
                 let args = bound_allocations.get_many_ptr(inp)?;
-                let sub_query = ToplevelCircuitQuery::new(name.clone(), args, &scope.content)?;
+                let sub_query = ToplevelCircuitQuery::new(name.clone(), args, &scope.runtime_data)?;
                 let alloc_query = sub_query.synthesize_query(&mut cs, g, store)?;
                 let ((sub_result, sub_provenance), next_acc) = scope
                     .synthesize_internal_query(

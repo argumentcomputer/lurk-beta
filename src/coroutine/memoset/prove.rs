@@ -46,7 +46,7 @@ where
     type C2 = C2<F>;
 
     fn num_circuits(&self) -> usize {
-        Q::count(&self.content)
+        Q::count(&self.runtime_data)
     }
 
     fn primary_circuit(&self, circuit_index: usize) -> Coroutine<F, Q> {
@@ -54,7 +54,7 @@ where
             circuit_index,
             self.store.clone(),
             self.rc,
-            self.content.clone(),
+            self.runtime_data.clone(),
         )
     }
 
@@ -208,7 +208,7 @@ impl<'a, F, Q> MemosetProver<'a, F, Q> {
 }
 
 impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> MemosetProver<'a, F, Q> {
-    pub(crate) fn public_params(&self, c: Q::C, s: Arc<Store<F>>) -> PublicParams<F> {
+    pub(crate) fn public_params(&self, c: Q::RD, s: Arc<Store<F>>) -> PublicParams<F> {
         let non_uniform_circuit = CoroutineCircuit::<_, _, Q>::blank(0, s, self.reduction_count, c);
         let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
         let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<DualEng<E1<F>>>>::ck_floor();
@@ -250,7 +250,7 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> MemosetProver<'a, F, 
                     *index,
                     next_query_index,
                     rc,
-                    scope.content.clone(),
+                    scope.runtime_data.clone(),
                 );
                 steps.push(circuit);
             }
@@ -368,7 +368,7 @@ mod test {
                     *index,
                     *index,
                     rc,
-                    scope.content.clone(),
+                    scope.runtime_data.clone(),
                 );
                 let (_next, out) = circuit.supernova_synthesize(&mut cs, &alloc_ptr).unwrap();
                 let unsat = cs.which_is_unsatisfied();
