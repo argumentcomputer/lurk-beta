@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use bellpepper_core::boolean::{AllocatedBit, Boolean};
 use bellpepper_core::num::AllocatedNum;
 use bellpepper_core::{ConstraintSystem, SynthesisError::AssignmentMissing};
+use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 use std::sync::Arc;
 
 use super::toplevel::{Toplevel, ToplevelCircuitQuery};
@@ -13,7 +14,6 @@ use crate::circuit::gadgets::constraints::{
     implies_equal, implies_equal_const, implies_pack, implies_u64, implies_unequal_const, mul, or,
     pick, sub,
 };
-use crate::circuit::gadgets::data::hash_poseidon;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::coroutine::memoset::{CircuitQuery, CircuitScope, LogMemoCircuit};
 use crate::lem::circuit::{BoundAllocations, GlobalAllocator};
@@ -191,8 +191,8 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                 ];
                 let env_tag = g.alloc_tag_cloned(&mut cs, &Env);
                 implies_equal(ns!(cs, format!("env_tag")), not_dummy, env.tag(), &env_tag);
-                let res = hash_poseidon(
-                    ns!(cs, "hash_poseidon"),
+                let res = poseidon_hash(
+                    ns!(cs, "poseidon_hash"),
                     preimg,
                     store.poseidon_cache.constants.c4(),
                 )?;
@@ -224,8 +224,8 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                         .collect::<Vec<_>>()
                 };
 
-                let hash = hash_poseidon(
-                    ns!(cs, "hash_poseidon"),
+                let hash = poseidon_hash(
+                    ns!(cs, "poseidon_hash"),
                     preimg_alloc_nums.clone(),
                     store.poseidon_cache.constants.c6(),
                 )?;
@@ -464,8 +464,8 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                 let sec_tag = g.alloc_tag(&mut cs, &Num);
 
                 let preimg = vec![sec.hash().clone(), pay.tag().clone(), pay.hash().clone()];
-                let hash = hash_poseidon(
-                    ns!(cs, "hash_poseidon"),
+                let hash = poseidon_hash(
+                    ns!(cs, "poseidon_hash"),
                     preimg,
                     store.poseidon_cache.constants.c3(),
                 )?;
@@ -505,8 +505,8 @@ fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
                         .collect::<Vec<_>>()
                 };
 
-                let hash = hash_poseidon(
-                    ns!(cs, "hash_poseidon"),
+                let hash = poseidon_hash(
+                    ns!(cs, "poseidon_hash"),
                     preimg_alloc_nums.clone(),
                     store.poseidon_cache.constants.c6(),
                 )?;
@@ -733,9 +733,9 @@ fn synthesize_cons<const N: usize, F: LurkField, CS: ConstraintSystem<F>>(
     let preimg = retrieve_nums(preimg, bound_allocations)?;
     let constants = &store.poseidon_cache.constants;
     let hash = match N {
-        2 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg, constants.c4())?,
-        3 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg, constants.c6())?,
-        4 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg, constants.c8())?,
+        2 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg, constants.c4())?,
+        3 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg, constants.c6())?,
+        4 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg, constants.c8())?,
         _ => unimplemented!(),
     };
     let tag = g.alloc_tag_cloned(cs, tag);
@@ -779,9 +779,9 @@ fn synthesize_decons<const N: usize, F: LurkField, CS: ConstraintSystem<F>>(
     let preimg_clone = preimg_alloc_nums.clone();
     let constants = &store.poseidon_cache.constants;
     let hash = match N {
-        2 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg_clone, constants.c4())?,
-        3 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg_clone, constants.c6())?,
-        4 => hash_poseidon(ns!(cs, "hash_poseidon"), preimg_clone, constants.c8())?,
+        2 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg_clone, constants.c4())?,
+        3 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg_clone, constants.c6())?,
+        4 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg_clone, constants.c8())?,
         _ => unimplemented!(),
     };
 
