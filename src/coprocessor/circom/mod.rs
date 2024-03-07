@@ -236,13 +236,7 @@ pub mod non_wasm {
                 vec_ptr.push(AllocatedPtr::from_parts(num_tag.clone(), output));
             }
 
-            let list_root_ptr = construct_list(
-                &mut cs,
-                g,
-                s,
-                vec_ptr.iter().collect::<Vec<&AllocatedPtr<F>>>().as_slice(),
-                None,
-            )?;
+            let list_root_ptr = construct_list(&mut cs, g, s, vec_ptr, None)?;
 
             Ok(list_root_ptr)
         }
@@ -250,9 +244,6 @@ pub mod non_wasm {
 
     impl<F: LurkField, C: CircomGadget<F> + Debug> Coprocessor<F> for CircomCoprocessor<F, C> {
         /// TODO: Generalize
-        fn eval_arity(&self) -> usize {
-            self.gadget.arity()
-        }
 
         fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
             self.gadget.evaluate_simple(s, args)
