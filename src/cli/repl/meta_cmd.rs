@@ -89,7 +89,7 @@ where
             let bindings = repl.store.list(vec![binding]);
             let current_env_call = repl.store.list(vec![current_env]);
             let expanded = repl.store.list(vec![l, bindings, current_env_call]);
-            let (expanded_io, ..) = repl.eval_expr(expanded)?;
+            let expanded_io = repl.eval_expr(expanded)?;
             repl.env = expanded_io[0];
             println!("{new_name}");
             Ok(())
@@ -117,7 +117,7 @@ where
             let bindings = repl.store.list(vec![binding]);
             let current_env_call = repl.store.list(vec![current_env]);
             let expanded = repl.store.list(vec![l, bindings, current_env_call]);
-            let (expanded_io, ..) = repl.eval_expr(expanded)?;
+            let expanded_io = repl.eval_expr(expanded)?;
             repl.env = expanded_io[0];
             println!("{new_name}");
             Ok(())
@@ -132,7 +132,7 @@ where
         example: &["!(assert t)", "!(assert (eq 3 (+ 1 2)))"],
         run: |repl, args, _path| {
             let first = repl.peek1(args)?;
-            let (first_io, ..) = repl.eval_expr(first)?;
+            let first_io = repl.eval_expr(first)?;
             if first_io[0].is_nil() {
                 eprintln!(
                     "`assert` failed. {} evaluates to nil",
@@ -152,10 +152,10 @@ where
         example: &["!(assert-eq 3 (+ 1 2))"],
         run: |repl, args, _path| {
             let (first, second) = repl.peek2(args)?;
-            let (first_io, ..) = repl
+            let first_io = repl
                 .eval_expr(first)
                 .with_context(|| "evaluating first arg")?;
-            let (second_io, ..) = repl
+            let second_io = repl
                 .eval_expr(second)
                 .with_context(|| "evaluating second arg")?;
             let (first_io_expr, second_io_expr) = (&first_io[0], &second_io[0]);
@@ -188,14 +188,14 @@ where
         ],
         run: |repl, args, _path| {
             let (first, second) = repl.peek2(args)?;
-            let (first_io, ..) = repl
+            let first_io = repl
                 .eval_expr(first)
                 .with_context(|| "evaluating first arg")?;
             let Some((expected_emitted, None)) = repl.store.fetch_list(&first_io[0]) else {
                 bail!("Expectation must be a list")
             };
-            let (.., emitted) = repl
-                .eval_expr(second)
+            let emitted = repl
+                .eval_expr_collecting_emitted(second)
                 .with_context(|| "evaluating second arg")?;
             let (num_expected_emitted, num_emitted) = (expected_emitted.len(), emitted.len());
             if num_expected_emitted != num_emitted {
@@ -224,8 +224,8 @@ where
         example: &["!(assert-error (1 1))"],
         run: |repl, args, _path| {
             let first = repl.peek1(args)?;
-            let (first_io, ..) = repl.eval_expr_allowing_error_continuation(first)?;
-            if first_io[2].tag() != &Tag::Cont(ContTag::Error) {
+            let first_io = repl.eval_expr_allowing_error_continuation(first)?;
+            if !matches!(first_io[2].tag(), Tag::Cont(ContTag::Error)) {
                 eprintln!(
                     "`assert-error` failed. {} doesn't result on evaluation error.",
                     first.fmt_to_string(&repl.store, &repl.state.borrow())
@@ -250,7 +250,7 @@ where
         ],
         run: |repl, args, _path| {
             let first = repl.peek1(args)?;
-            let (first_io, ..) = repl.eval_expr(first)?;
+            let first_io = repl.eval_expr(first)?;
             repl.hide(F::NON_HIDING_COMMITMENT_SECRET, first_io[0])
         }
     };
@@ -267,10 +267,10 @@ where
         ],
         run: |repl, args, _path| {
             let (first, second) = repl.peek2(args)?;
-            let (first_io, ..) = repl
+            let first_io = repl
                 .eval_expr(first)
                 .with_context(|| "evaluating first arg")?;
-            let (second_io, ..) = repl
+            let second_io = repl
                 .eval_expr(second)
                 .with_context(|| "evaluating second arg")?;
             let (Tag::Expr(ExprTag::Num), RawPtr::Atom(secret)) = first_io[0].parts() else {
@@ -337,7 +337,7 @@ where
         example: &["!(set-env '((a . 1) (b . 2)))", "a"],
         run: |repl, args, _path| {
             let first = repl.peek1(args)?;
-            let (first_io, ..) = repl.eval_expr(first)?;
+            let first_io = repl.eval_expr(first)?;
             let env = first_io[0];
             if *env.tag() != Tag::Expr(ExprTag::Env) {
                 return Err(anyhow!("Value must be an environment"));
@@ -653,7 +653,7 @@ where
         run: |repl, args, _path| {
             let (expr, path) = repl.peek2(args)?;
             let path = get_path(repl, &path)?;
-            let (io, ..) = repl
+            let io = repl
                 .eval_expr(expr)
                 .with_context(|| "evaluating predicate")?;
             let mut z_dag = ZDag::default();
@@ -736,7 +736,7 @@ where
             }
 
             let lambda = repl.store.list(vec![repl.store.intern_lurk_symbol("lambda"), vars, body]);
-            let (io, ..) = repl.eval_expr_with_env(lambda, repl.store.intern_empty_env())?;
+            let io = repl.eval_expr_with_env(lambda, repl.store.intern_empty_env())?;
             let fun = io[0];
             if !fun.is_fun() {
                 bail!(
@@ -802,7 +802,7 @@ where
     /// * If the backend is not a string or has invalid value
     /// * If the reduction count is not a number or can't be converted to `u64`
     fn get_fun_backend_and_rc(repl: &Repl<F, C>, ptcl: Ptr) -> Result<(Ptr, Backend, usize)> {
-        let (io, ..) = repl
+        let io = repl
             .eval_expr(ptcl)
             .with_context(|| "evaluating protocol")?;
         let ptcl = &io[0];
@@ -862,7 +862,7 @@ where
             .store
             .list(vec![*repl.get_apply_fn(), fun, quoted_args]);
 
-        let (io, ..) = repl
+        let io = repl
             .eval_expr_with_env(apply_call, repl.store.intern_empty_env())
             .with_context(|| "evaluating protocol function call")?;
 
@@ -896,7 +896,7 @@ where
     fn post_verify_check(repl: &Repl<F, C>, post_verify: Ptr) -> Result<()> {
         if !post_verify.is_nil() {
             let call = repl.store.list(vec![post_verify]);
-            let (io, ..) = repl
+            let io = repl
                 .eval_expr_with_env(call, repl.store.intern_empty_env())
                 .with_context(|| "evaluating post-verify call")?;
             if io[0].is_nil() {
@@ -969,7 +969,7 @@ where
 
             let mut args_vec_evaled = Vec::with_capacity(args_vec.len());
             for a in args_vec {
-                let (io, ..) = repl.eval_expr(a)?;
+                let io = repl.eval_expr(a)?;
                 args_vec_evaled.push(io[0]);
             }
 

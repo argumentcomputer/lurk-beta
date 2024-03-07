@@ -256,7 +256,7 @@ pub enum Op {
     Trunc(Var, Var, u32),
     /// `DivRem64(ys, a, b)` binds `ys` to `(a / b, a % b)` as if they were u64
     DivRem64([Var; 2], Var, Var),
-    /// `Emit(v)` simply prints out the value of `v` when interpreting the code
+    /// `Emit(v)` sends the value of `v` through the channel during interpretation
     Emit(Var),
     /// `Cons2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     Cons2(Var, Tag, [Var; 2]),

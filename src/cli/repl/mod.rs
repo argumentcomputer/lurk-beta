@@ -12,12 +12,20 @@ use rustyline::{
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{cell::OnceCell, collections::HashMap, fs::read_to_string, io::Write, sync::Arc};
+use std::{
+    cell::OnceCell,
+    collections::HashMap,
+    fs::read_to_string,
+    io::Write,
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 use tracing::info;
 
 use crate::{
     coprocessor::Coprocessor,
-    dual_channel::{dummy_terminal, pair_terminals},
+    dual_channel::pair_terminals,
     field::LurkField,
     lang::Lang,
     lem::{
@@ -80,7 +88,7 @@ impl Evaluation {
 
 #[allow(dead_code)]
 pub(crate) struct Repl<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> {
-    store: Store<F>,
+    store: Arc<Store<F>>,
     state: StateRcCell,
     lang: Arc<Lang<F, C>>,
     lurk_step: Func,
@@ -195,7 +203,7 @@ where
         let lurk_step = make_eval_step_from_config(&eval_config);
         let cprocs = make_cprocs_funcs_from_lang(&lang);
         Repl {
-            store,
+            store: Arc::new(store),
             state: State::init_lurk_state().rccell(),
             lang: Arc::new(lang),
             lurk_step,
@@ -229,7 +237,7 @@ where
                        apply)",
                 )
                 .unwrap();
-            let (io, ..) = self
+            let io = self
                 .eval_expr_with_env(ptr, self.store.intern_empty_env())
                 .unwrap();
             io[0]
@@ -427,9 +435,25 @@ where
         }
     }
 
-    fn eval_expr_with_env(&self, expr: Ptr, env: Ptr) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
+    #[inline]
+    fn eval_expr(&self, expr: Ptr) -> Result<Vec<Ptr>> {
+        self.eval_expr_with_env(expr, self.env)
+    }
+
+    /// Evaluates an expression with an environment while printing emitted pointers
+    /// and then returns the CEK IO and the number of iterations
+    fn eval_expr_with_env_printing_emitted(
+        &self,
+        expr: Ptr,
+        env: Ptr,
+    ) -> Result<(Vec<Ptr>, usize)> {
         let (t1, t2) = pair_terminals::<Ptr>();
-        let (ptrs, iterations) = evaluate_simple_with_env::<F, C>(
+        let store_clone = self.store.clone();
+        thread::spawn(move || {
+            t2.iter()
+                .for_each(|ptr| println!("{}", ptr.fmt_to_string_simple(&store_clone)));
+        });
+        let (io, iterations) = evaluate_simple_with_env::<F, C>(
             Some(self.lang_setup()),
             expr,
             env,
@@ -437,12 +461,19 @@ where
             self.limit,
             &t1,
         )?;
-        let emitted = t2.collect();
-        match ptrs[2].tag() {
-            Tag::Cont(ContTag::Terminal) => Ok((ptrs, iterations, emitted)),
-            t => {
+        thread::sleep(Duration::from_millis(10)); // wait for last t2 iteration
+        Ok((io, iterations))
+    }
+
+    /// Evaluates an expression with an environment while printing emitted pointers
+    /// and then returns the CEK IO if the final continuation is terminal
+    fn eval_expr_with_env(&self, expr: Ptr, env: Ptr) -> Result<Vec<Ptr>> {
+        let (io, iterations) = self.eval_expr_with_env_printing_emitted(expr, env)?;
+        match io[2].tag() {
+            Tag::Cont(ContTag::Terminal) => Ok(io),
+            tag => {
                 let iterations_display = Self::pretty_iterations_display(iterations);
-                if t == &Tag::Cont(ContTag::Error) {
+                if matches!(tag, Tag::Cont(ContTag::Error)) {
                     bail!("Evaluation encountered an error after {iterations_display}")
                 } else {
                     bail!("Limit reached after {iterations_display}")
@@ -451,27 +482,13 @@ where
         }
     }
 
-    #[inline]
-    fn eval_expr(&self, expr: Ptr) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-        self.eval_expr_with_env(expr, self.env)
-    }
-
-    fn eval_expr_allowing_error_continuation(
-        &mut self,
-        expr_ptr: Ptr,
-    ) -> Result<(Vec<Ptr>, usize, Vec<Ptr>)> {
-        let (t1, t2) = pair_terminals::<Ptr>();
-        let (ptrs, iterations) = evaluate_simple_with_env::<F, C>(
-            Some(self.lang_setup()),
-            expr_ptr,
-            self.env,
-            &self.store,
-            self.limit,
-            &t1,
-        )?;
-        let emitted = t2.collect();
+    /// Evaluates an expression with the REPL's environment while printing emitted
+    /// pointers and then returns the CEK IO if the final continuation is terminal
+    /// or error
+    fn eval_expr_allowing_error_continuation(&self, expr: Ptr) -> Result<Vec<Ptr>> {
+        let (ptrs, iterations) = self.eval_expr_with_env_printing_emitted(expr, self.env)?;
         if matches!(ptrs[2].tag(), Tag::Cont(ContTag::Terminal | ContTag::Error)) {
-            Ok((ptrs, iterations, emitted))
+            Ok(ptrs)
         } else {
             bail!(
                 "Limit reached after {}",
@@ -480,23 +497,61 @@ where
         }
     }
 
-    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr) -> Result<(Vec<Ptr>, usize)> {
-        let frames = evaluate_with_env::<F, C>(
+    /// Evaluates an expression with the REPL's environment while printing emitted
+    /// pointers and collecting them in a vector. Then returns the emitted pointers
+    /// if the final continuation is terminal or error
+    fn eval_expr_collecting_emitted(&self, expr: Ptr) -> Result<Vec<Ptr>> {
+        let (t1, t2) = pair_terminals::<Ptr>();
+        let store_clone = self.store.clone();
+        let emitted = Arc::new(Mutex::new(vec![]));
+        let emitted_clone = emitted.clone();
+        thread::spawn(move || {
+            for ptr in t2.iter() {
+                println!("{}", ptr.fmt_to_string_simple(&store_clone));
+                emitted_clone.lock().unwrap().push(ptr);
+            }
+        });
+        let (ptrs, iterations) = evaluate_simple_with_env::<F, C>(
             Some(self.lang_setup()),
-            expr_ptr,
+            expr,
             self.env,
             &self.store,
             self.limit,
-            &dummy_terminal(),
+            &t1,
         )?;
+        thread::sleep(Duration::from_millis(10)); // wait for last t2 iteration
+        if matches!(ptrs[2].tag(), Tag::Cont(ContTag::Terminal | ContTag::Error)) {
+            Ok(emitted.lock().unwrap().to_owned())
+        } else {
+            bail!(
+                "Limit reached after {}",
+                Self::pretty_iterations_display(iterations)
+            )
+        }
+    }
+
+    /// Evaluates an expression with the REPL's environment while printing emitted
+    /// pointers and then memoizes the frames and returns the CEK IO and the number
+    /// of iterations
+    fn eval_expr_and_memoize(&mut self, expr: Ptr) -> Result<(Vec<Ptr>, usize)> {
+        let (t1, t2) = pair_terminals::<Ptr>();
+        let store_clone = self.store.clone();
+        thread::spawn(move || {
+            t2.iter()
+                .for_each(|ptr| println!("{}", ptr.fmt_to_string_simple(&store_clone)));
+        });
+        let frames = evaluate_with_env::<F, C>(
+            Some(self.lang_setup()),
+            expr,
+            self.env,
+            &self.store,
+            self.limit,
+            &t1,
+        )?;
+        thread::sleep(Duration::from_millis(10)); // wait for last t2 iteration
         let iterations = frames.len();
 
-        let Some(last_frames) = frames.last() else {
-            // TODO: better error decs
-            bail!("Frames is empty");
-        };
-
-        let output = last_frames.output.clone();
+        let output = frames.last().expect("frames can't be empty").output.clone();
         self.evaluation = Some(Evaluation { frames, iterations });
         Ok((output, iterations))
     }
@@ -506,7 +561,7 @@ where
     /// # Errors
     /// Errors when `hash_expr` doesn't reduce to a Num or Comm pointer
     fn get_comm_hash(&mut self, hash_expr: Ptr) -> Result<&F> {
-        let (io, ..) = self.eval_expr(hash_expr)?;
+        let io = self.eval_expr(hash_expr)?;
         let (Tag::Expr(ExprTag::Num | ExprTag::Comm), RawPtr::Atom(hash_idx)) = io[0].parts()
         else {
             bail!("Commitment hash expression must reduce to a Num or Comm pointer")

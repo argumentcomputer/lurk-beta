@@ -330,12 +330,7 @@ impl Block {
                     bindings.insert_ptr(tgt[1].clone(), c2);
                 }
                 Op::Emit(a) => {
-                    let a = bindings.get_ptr(a)?;
-                    // TODO: remove this printing from here as it should be done
-                    // by receiving messages on the terminal that pairs up with
-                    // `ch_terminal`
-                    println!("{}", a.fmt_to_string_simple(store));
-                    ch_terminal.send(a)?;
+                    ch_terminal.send(bindings.get_ptr(a)?)?;
                 }
                 Op::Cons2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
