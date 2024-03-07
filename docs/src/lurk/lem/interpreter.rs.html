@@ -608,10 +608,10 @@
 
 <span class="kw">use crate</span>::{
     coprocessor::Coprocessor,
+    dual_channel::{dummy_terminal, ChannelTerminal},
     field::LurkField,
     lang::Lang,
     num::Num <span class="kw">as </span>BaseNum,
-    state::initial_lurk_state,
     tag::ExprTag::{Comm, Num},
 };
 
@@ -704,7 +704,6 @@
 </span><span class="kw">pub struct </span>Frame {
     <span class="kw">pub </span>input: Vec&lt;Ptr&gt;,
     <span class="kw">pub </span>output: Vec&lt;Ptr&gt;,
-    <span class="kw">pub </span>emitted: Vec&lt;Ptr&gt;,
     <span class="kw">pub </span>hints: Hints,
     <span class="kw">pub </span>blank: bool,
     <span class="kw">pub </span>pc: usize,
@@ -718,7 +717,6 @@
         Frame {
             input,
             output,
-            emitted: Vec::default(),
             hints,
             blank: <span class="bool-val">true</span>,
             pc,
@@ -736,7 +734,7 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         <span class="kw-2">mut </span>bindings: VarMap&lt;Val&gt;,
         <span class="kw-2">mut </span>hints: Hints,
-        emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&gt;,
+        ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         pc: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Frame&gt; {
@@ -759,7 +757,7 @@
                 Op::Call(out, func, inp) =&gt; {
                     <span class="comment">// Get the argument values
                     </span><span class="kw">let </span>inp_ptrs = bindings.get_many_ptr(inp)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>frame = func.call(<span class="kw-2">&amp;</span>inp_ptrs, store, hints, emitted, lang, pc)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>frame = func.call(<span class="kw-2">&amp;</span>inp_ptrs, store, hints, ch_terminal, lang, pc)<span class="question-mark">?</span>;
                     <span class="comment">// Bind the output variables to the output values
                     </span>hints = frame.hints;
                     <span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(frame.output.into_iter()) {
@@ -929,8 +927,11 @@
                 }
                 Op::Emit(a) =&gt; {
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
-                    <span class="macro">println!</span>(<span class="string">"{}"</span>, a.fmt_to_string(store, initial_lurk_state()));
-                    emitted.push(a);
+                    <span class="comment">// TODO: remove this printing from here as it should be done
+                    // by receiving messages on the terminal that pairs up with
+                    // `ch_terminal`
+                    </span><span class="macro">println!</span>(<span class="string">"{}"</span>, a.fmt_to_string_simple(store));
+                    ch_terminal.send(a)<span class="question-mark">?</span>;
                 }
                 Op::Cons2(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_ptr(preimg)<span class="question-mark">?</span>;
@@ -1068,12 +1069,12 @@
                 <span class="kw">let </span>ptr = bindings.get_ptr(match_var)<span class="question-mark">?</span>;
                 <span class="kw">let </span>tag = ptr.tag();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = cases.get(tag) {
-                    block.run(input, store, bindings, hints, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 } <span class="kw">else </span>{
                     <span class="kw">let </span><span class="prelude-val">Some</span>(def) = def <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"No match for tag {}"</span>, tag)
                     };
-                    def.run(input, store, bindings, hints, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 }
             }
             Ctrl::MatchValue(match_var, lit_type, cases, def) =&gt; {
@@ -1085,20 +1086,20 @@
                 <span class="kw">let </span>lit = Lit::from_ptr(<span class="kw-2">&amp;</span>ptr, store);
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = lit.and_then(|lit| cases.get(<span class="kw-2">&amp;</span>lit)) {
-                    block.run(input, store, bindings, hints, emitted, lang, pc)
+                    block.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 } <span class="kw">else </span>{
                     <span class="kw">let </span><span class="prelude-val">Some</span>(def) = def <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">"No match for value {:?}"</span>, ptr.fmt_to_string_simple(store))
                     };
-                    def.run(input, store, bindings, hints, emitted, lang, pc)
+                    def.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 }
             }
             Ctrl::If(b, true_block, false_block) =&gt; {
                 <span class="kw">let </span>b = bindings.get_bool(b)<span class="question-mark">?</span>;
                 <span class="kw">if </span>b {
-                    true_block.run(input, store, bindings, hints, emitted, lang, pc)
+                    true_block.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 } <span class="kw">else </span>{
-                    false_block.run(input, store, bindings, hints, emitted, lang, pc)
+                    false_block.run(input, store, bindings, hints, ch_terminal, lang, pc)
                 }
             }
             Ctrl::Return(output_vars) =&gt; {
@@ -1110,7 +1111,6 @@
                 <span class="prelude-val">Ok</span>(Frame {
                     input,
                     output,
-                    emitted: emitted.clone(),
                     hints,
                     blank: <span class="bool-val">false</span>,
                     pc,
@@ -1126,7 +1126,7 @@
         args: <span class="kw-2">&amp;</span>[Ptr],
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         hints: Hints,
-        emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&gt;,
+        ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         pc: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Frame&gt; {
@@ -1145,7 +1145,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>res = <span class="self">self
             </span>.body
-            .run(args, store, bindings, hints, emitted, lang, pc)<span class="question-mark">?</span>;
+            .run(args, store, bindings, hints, ch_terminal, lang, pc)<span class="question-mark">?</span>;
         <span class="kw">let </span>hints = <span class="kw-2">&amp;mut </span>res.hints;
 
         <span class="kw">let </span>hash4_used = hints.hash4.len() - hash4_init;
@@ -1185,7 +1185,7 @@
             args,
             store,
             Hints::new_from_func(<span class="self">self</span>),
-            <span class="kw-2">&amp;mut </span><span class="macro">vec!</span>[],
+            <span class="kw-2">&amp;</span>dummy_terminal(),
             lang,
             pc,
         )

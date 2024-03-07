@@ -1130,6 +1130,7 @@
     circuit::gadgets::pointer::AllocatedPtr,
     config::lurk_config,
     coprocessor::Coprocessor,
+    dual_channel::ChannelTerminal,
     error::{ProofError, ReductionError},
     field::{LanguageField, LurkField},
     lang::Lang,
@@ -1225,10 +1226,6 @@
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>frames(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;Frame&gt;&gt; {
         <span class="self">self</span>.interpretation_data.frames()
-    }
-
-    <span class="kw">pub fn </span>emitted(_store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, eval_frame: <span class="kw-2">&amp;</span>Frame) -&gt; Vec&lt;Ptr&gt; {
-        eval_frame.emitted.clone()
     }
 
     <span class="kw">pub fn </span>cache_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
@@ -1485,6 +1482,7 @@
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         limit: usize,
         ec: <span class="kw-2">&amp;</span>EvalConfig&lt;<span class="lifetime">'_</span>, F, C&gt;,
+        ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;, ProofError&gt; {
         <span class="kw">let </span>cont = store.cont_outermost();
         <span class="kw">let </span>lurk_step = make_eval_step_from_config(ec);
@@ -1497,6 +1495,7 @@
             cont,
             store,
             limit,
+            ch_terminal,
         )
         .map_err(|e| ProofError::Reduction(ReductionError::Misc(e.to_string())))
     }
@@ -2087,6 +2086,7 @@
     <span class="kw">use </span>pasta_curves::{Fp, Fq};
 
     <span class="kw">use crate</span>::{
+        dual_channel::dummy_terminal,
         lang::Coproc,
         lem::{
             circuit::AllocatedVal,
@@ -2135,7 +2135,7 @@
 
         <span class="kw">let </span>expr = store.read_with_default_state(<span class="string">"(if t (+ 5 5) 6)"</span>).unwrap();
 
-        <span class="kw">let </span>frames = evaluate::&lt;Bn, Coproc&lt;Bn&gt;&gt;(<span class="prelude-val">None</span>, expr, <span class="kw-2">&amp;</span>store, <span class="number">10</span>).unwrap();
+        <span class="kw">let </span>frames = evaluate::&lt;Bn, Coproc&lt;Bn&gt;&gt;(<span class="prelude-val">None</span>, expr, <span class="kw-2">&amp;</span>store, <span class="number">10</span>, <span class="kw-2">&amp;</span>dummy_terminal()).unwrap();
 
         <span class="kw">let </span>sequential_slots_witnesses =
             generate_slots_witnesses(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frames, num_slots_per_frame, <span class="bool-val">false</span>);

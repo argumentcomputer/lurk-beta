@@ -1167,6 +1167,14 @@
 <a href="#1166" id="1166">1166</a>
 <a href="#1167" id="1167">1167</a>
 <a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>::nova::supernova::StepCircuit;
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
@@ -1184,6 +1192,7 @@
         zstore::ZDag,
     },
     coprocessor::Coprocessor,
+    dual_channel::dummy_terminal,
     field::LurkField,
     lem::{
         eval::evaluate_with_env_and_cont,
@@ -1359,20 +1368,26 @@
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
                 .with_context(|| <span class="string">"evaluating first arg"</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="prelude-val">Some</span>((expected_emitted, <span class="prelude-val">None</span>)) = repl.store.fetch_list(<span class="kw-2">&amp;</span>first_io[<span class="number">0</span>]) <span class="kw">else </span>{
+                <span class="macro">bail!</span>(<span class="string">"Expectation must be a list"</span>)
+            };
             <span class="kw">let </span>(.., emitted) = repl
                 .eval_expr(second)
                 .with_context(|| <span class="string">"evaluating second arg"</span>)<span class="question-mark">?</span>;
-            <span class="kw">let </span>(<span class="kw-2">mut </span>first_emitted, <span class="kw-2">mut </span>rest_emitted) = repl.store.car_cdr(<span class="kw-2">&amp;</span>first_io[<span class="number">0</span>])<span class="question-mark">?</span>;
-            <span class="kw">for </span>(i, elem) <span class="kw">in </span>emitted.iter().enumerate() {
-                <span class="kw">if </span>elem != <span class="kw-2">&amp;</span>first_emitted {
+            <span class="kw">let </span>(num_expected_emitted, num_emitted) = (expected_emitted.len(), emitted.len());
+            <span class="kw">if </span>num_expected_emitted != num_emitted {
+                <span class="macro">eprintln!</span>(<span class="string">"`assert-emitted` failed. Expected {num_expected_emitted} emitted values. Got {num_emitted}"</span>);
+                process::exit(<span class="number">1</span>);
+            }
+            <span class="kw">for </span>(i, (emtd, expct_emtd)) <span class="kw">in </span>emitted.into_iter().zip(expected_emitted).enumerate() {
+                <span class="kw">if </span>emtd != expct_emtd {
                     <span class="macro">eprintln!</span>(
                         <span class="string">"`assert-emitted` failed at position {i}. Expected {}, but found {}."</span>,
-                        first_emitted.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
-                        elem.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
+                        expct_emtd.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
+                        emtd.fmt_to_string(<span class="kw-2">&amp;</span>repl.store, <span class="kw-2">&amp;</span>repl.state.borrow()),
                     );
                     process::exit(<span class="number">1</span>);
                 }
-                (first_emitted, rest_emitted) = repl.store.car_cdr(<span class="kw-2">&amp;</span>rest_emitted)<span class="question-mark">?</span>;
             }
             <span class="prelude-val">Ok</span>(())
         },
@@ -2143,6 +2158,7 @@
                 <span class="self">Self</span>::get_cont_ptr(repl, <span class="kw-2">&amp;</span>cek_io[<span class="number">2</span>])<span class="question-mark">?</span>,
                 <span class="kw-2">&amp;</span>repl.store,
                 repl.limit,
+                <span class="kw-2">&amp;</span>dummy_terminal(),
             )<span class="question-mark">?</span>;
 
             <span class="kw">let </span>iterations = frames.len();

@@ -408,9 +408,12 @@
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 </span><span class="kw">use crate</span>::{
     circuit::gadgets::pointer::AllocatedPtr,
+    dual_channel::ChannelTerminal,
     error::ProofError,
     field::LurkField,
     lem::{pointers::Ptr, store::Store},
@@ -634,6 +637,7 @@
         _env: Ptr,
         _store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
         _limit: usize,
+        _ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::RecursiveSnark, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         <span class="macro">unimplemented!</span>()
     }

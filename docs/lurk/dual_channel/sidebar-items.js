@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["dummy_terminal","pair_terminals"],"struct":["ChannelTerminal"]};

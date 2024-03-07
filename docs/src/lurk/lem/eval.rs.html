@@ -1777,6 +1777,36 @@
 <a href="#1776" id="1776">1776</a>
 <a href="#1777" id="1777">1777</a>
 <a href="#1778" id="1778">1778</a>
+<a href="#1779" id="1779">1779</a>
+<a href="#1780" id="1780">1780</a>
+<a href="#1781" id="1781">1781</a>
+<a href="#1782" id="1782">1782</a>
+<a href="#1783" id="1783">1783</a>
+<a href="#1784" id="1784">1784</a>
+<a href="#1785" id="1785">1785</a>
+<a href="#1786" id="1786">1786</a>
+<a href="#1787" id="1787">1787</a>
+<a href="#1788" id="1788">1788</a>
+<a href="#1789" id="1789">1789</a>
+<a href="#1790" id="1790">1790</a>
+<a href="#1791" id="1791">1791</a>
+<a href="#1792" id="1792">1792</a>
+<a href="#1793" id="1793">1793</a>
+<a href="#1794" id="1794">1794</a>
+<a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
+<a href="#1801" id="1801">1801</a>
+<a href="#1802" id="1802">1802</a>
+<a href="#1803" id="1803">1803</a>
+<a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -1785,6 +1815,7 @@
     aux_func,
     coprocessor::Coprocessor,
     ctrl,
+    dual_channel::ChannelTerminal,
     field::LurkField,
     func,
     lang::Lang,
@@ -1841,7 +1872,7 @@
     input: <span class="kw-2">&amp;</span>[Ptr],
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
-    emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&gt;,
+    ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
     pc: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame, bool)&gt; {
     <span class="kw">let </span>func = <span class="kw">if </span>pc == <span class="number">0 </span>{
@@ -1851,37 +1882,33 @@
     };
     <span class="macro">assert_eq!</span>(func.input_params.len(), input.len());
     <span class="kw">let </span>preimages = Hints::new_from_func(func);
-    <span class="kw">let </span>frame = func.call(input, store, preimages, emitted, lang, pc)<span class="question-mark">?</span>;
+    <span class="kw">let </span>frame = func.call(input, store, preimages, ch_terminal, lang, pc)<span class="question-mark">?</span>;
     <span class="kw">let </span>must_break = <span class="macro">matches!</span>(frame.output[<span class="number">2</span>].tag(), Tag::Cont(Terminal | Error));
     <span class="prelude-val">Ok</span>((frame, must_break))
 }
 
 <span class="comment">// Builds frames for IVC or NIVC scheme
-</span><span class="kw">fn </span>build_frames&lt;
-    F: LurkField,
-    C: Coprocessor&lt;F&gt;,
-    LogFmt: Fn(usize, <span class="kw-2">&amp;</span>[Ptr], <span class="kw-2">&amp;</span>[Ptr], <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String,
-&gt;(
+</span><span class="kw">fn </span>build_frames&lt;F: LurkField, C: Coprocessor&lt;F&gt;, LogFmt: Fn(usize, <span class="kw-2">&amp;</span>[Ptr], <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String&gt;(
     lurk_step: <span class="kw-2">&amp;</span>Func,
     cprocs: <span class="kw-2">&amp;</span>[Func],
     <span class="kw-2">mut </span>input: Vec&lt;Ptr&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
+    ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
     log_fmt: LogFmt,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>pc = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>frames = <span class="macro">vec!</span>[];
     <span class="kw">let </span><span class="kw-2">mut </span>iterations = <span class="number">0</span>;
-    <span class="macro">tracing::info!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span>log_fmt(<span class="number">0</span>, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>[], store));
+    <span class="macro">tracing::info!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span>log_fmt(<span class="number">0</span>, <span class="kw-2">&amp;</span>input, store));
     <span class="kw">for _ in </span><span class="number">0</span>..limit {
-        <span class="kw">let </span><span class="kw-2">mut </span>emitted = <span class="macro">vec!</span>[];
         <span class="kw">let </span>(frame, must_break) =
-            compute_frame(lurk_step, cprocs, <span class="kw-2">&amp;</span>input, store, lang, <span class="kw-2">&amp;mut </span>emitted, pc)<span class="question-mark">?</span>;
+            compute_frame(lurk_step, cprocs, <span class="kw-2">&amp;</span>input, store, lang, ch_terminal, pc)<span class="question-mark">?</span>;
 
         iterations += <span class="number">1</span>;
         input = frame.output.clone();
-        <span class="macro">tracing::info!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span>log_fmt(iterations, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>emitted, store));
+        <span class="macro">tracing::info!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span>log_fmt(iterations, <span class="kw-2">&amp;</span>input, store));
         <span class="kw">let </span>expr = frame.output[<span class="number">0</span>];
         frames.push(frame);
 
@@ -1901,13 +1928,13 @@
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
+    ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize)&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>pc = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>iterations = <span class="number">0</span>;
-    <span class="kw">let </span><span class="kw-2">mut </span>emitted = <span class="macro">vec!</span>[];
     <span class="kw">for _ in </span><span class="number">0</span>..limit {
         <span class="kw">let </span>(frame, must_break) =
-            compute_frame(lurk_step, cprocs, <span class="kw-2">&amp;</span>input, store, lang, <span class="kw-2">&amp;mut </span>emitted, pc)<span class="question-mark">?</span>;
+            compute_frame(lurk_step, cprocs, <span class="kw-2">&amp;</span>input, store, lang, ch_terminal, pc)<span class="question-mark">?</span>;
 
         iterations += <span class="number">1</span>;
         input = frame.output.clone();
@@ -1917,7 +1944,7 @@
         }
         pc = get_pc(<span class="kw-2">&amp;</span>frame.output[<span class="number">0</span>], store, lang);
     }
-    <span class="prelude-val">Ok</span>((input, iterations, emitted))
+    <span class="prelude-val">Ok</span>((input, iterations))
 }
 
 <span class="kw">pub fn </span>evaluate_with_env_and_cont&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
@@ -1927,19 +1954,16 @@
     cont: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
+    ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
     <span class="kw">let </span>state = initial_lurk_state();
-    <span class="kw">let </span>log_fmt = |i: usize, inp: <span class="kw-2">&amp;</span>[Ptr], emit: <span class="kw-2">&amp;</span>[Ptr], store: <span class="kw-2">&amp;</span>Store&lt;F&gt;| {
-        <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="macro">format!</span>(
+    <span class="kw">let </span>log_fmt = |i: usize, inp: <span class="kw-2">&amp;</span>[Ptr], store: <span class="kw-2">&amp;</span>Store&lt;F&gt;| {
+        <span class="macro">format!</span>(
             <span class="string">"Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}"</span>,
             inp[<span class="number">0</span>].fmt_to_string(store, state),
             inp[<span class="number">1</span>].fmt_to_string(store, state),
             inp[<span class="number">2</span>].fmt_to_string(store, state)
-        );
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = emit.first() {
-            out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"\n\tEmtd: {}"</span>, ptr.fmt_to_string(store, state)));
-        }
-        out
+        )
     };
 
     <span class="kw">let </span>input = <span class="macro">vec!</span>[expr, env, cont];
@@ -1947,11 +1971,27 @@
     <span class="kw">match </span>lang_setup {
         <span class="prelude-val">None </span>=&gt; {
             <span class="kw">let </span>lang: Lang&lt;F, C&gt; = Lang::new();
-            build_frames(eval_step(), <span class="kw-2">&amp;</span>[], input, store, limit, <span class="kw-2">&amp;</span>lang, log_fmt)
+            build_frames(
+                eval_step(),
+                <span class="kw-2">&amp;</span>[],
+                input,
+                store,
+                limit,
+                <span class="kw-2">&amp;</span>lang,
+                ch_terminal,
+                log_fmt,
+            )
         }
-        <span class="prelude-val">Some</span>((lurk_step, cprocs, lang)) =&gt; {
-            build_frames(lurk_step, cprocs, input, store, limit, lang, log_fmt)
-        }
+        <span class="prelude-val">Some</span>((lurk_step, cprocs, lang)) =&gt; build_frames(
+            lurk_step,
+            cprocs,
+            input,
+            store,
+            limit,
+            lang,
+            ch_terminal,
+            log_fmt,
+        ),
     }
 }
 
@@ -1962,8 +2002,17 @@
     env: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
+    ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
-    evaluate_with_env_and_cont(lang_setup, expr, env, store.cont_outermost(), store, limit)
+    evaluate_with_env_and_cont(
+        lang_setup,
+        expr,
+        env,
+        store.cont_outermost(),
+        store,
+        limit,
+        ch_terminal,
+    )
 }
 
 <span class="attr">#[inline]
@@ -1972,6 +2021,7 @@
     expr: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
+    ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&gt;&gt; {
     evaluate_with_env_and_cont(
         lang_setup,
@@ -1980,6 +2030,7 @@
         store.cont_outermost(),
         store,
         limit,
+        ch_terminal,
     )
 }
 
@@ -1989,15 +2040,16 @@
     env: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
+    ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize)&gt; {
     <span class="kw">let </span>input = <span class="macro">vec!</span>[expr, env, store.cont_outermost()];
     <span class="kw">match </span>lang_setup {
         <span class="prelude-val">None </span>=&gt; {
             <span class="kw">let </span>lang: Lang&lt;F, C&gt; = Lang::new();
-            traverse_frames(eval_step(), <span class="kw-2">&amp;</span>[], input, store, limit, <span class="kw-2">&amp;</span>lang)
+            traverse_frames(eval_step(), <span class="kw-2">&amp;</span>[], input, store, limit, <span class="kw-2">&amp;</span>lang, ch_terminal)
         }
         <span class="prelude-val">Some</span>((lurk_step, cprocs, lang)) =&gt; {
-            traverse_frames(lurk_step, cprocs, input, store, limit, lang)
+            traverse_frames(lurk_step, cprocs, input, store, limit, lang, ch_terminal)
         }
     }
 }
@@ -2008,8 +2060,16 @@
     expr: Ptr,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     limit: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize, Vec&lt;Ptr&gt;)&gt; {
-    evaluate_simple_with_env(lang_setup, expr, store.intern_empty_env(), store, limit)
+    ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&gt;, usize)&gt; {
+    evaluate_simple_with_env(
+        lang_setup,
+        expr,
+        store.intern_empty_env(),
+        store,
+        limit,
+        ch_terminal,
+    )
 }
 
 <span class="kw">pub struct </span>EvalConfig&lt;<span class="lifetime">'a</span>, F, C&gt; {

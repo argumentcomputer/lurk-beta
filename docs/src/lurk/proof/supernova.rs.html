@@ -436,6 +436,9 @@
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>nova::{
     supernova::{
         <span class="self">self</span>,
@@ -461,6 +464,7 @@
 <span class="kw">use crate</span>::{
     config::lurk_config,
     coprocessor::Coprocessor,
+    dual_channel::ChannelTerminal,
     error::ProofError,
     field::LurkField,
     lang::Lang,
@@ -784,9 +788,11 @@
         env: Ptr,
         store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Store&lt;F&gt;,
         limit: usize,
+        ch_terminal: <span class="kw-2">&amp;</span>ChannelTerminal&lt;Ptr&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::RecursiveSnark, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>eval_config = <span class="self">self</span>.folding_mode().eval_config(<span class="self">self</span>.lang());
-        <span class="kw">let </span>frames = C1LEM::&lt;<span class="lifetime">'a</span>, F, C&gt;::build_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>eval_config)<span class="question-mark">?</span>;
+        <span class="kw">let </span>frames =
+            C1LEM::&lt;<span class="lifetime">'a</span>, F, C&gt;::build_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>eval_config, ch_terminal)<span class="question-mark">?</span>;
         <span class="self">self</span>.prove_from_frames(pp, <span class="kw-2">&amp;</span>frames, store)
     }
 }
