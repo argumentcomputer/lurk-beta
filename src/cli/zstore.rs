@@ -403,6 +403,12 @@ impl<F: LurkField> ZStore<F> {
     }
 
     #[inline]
+    pub(crate) fn populate_with_simple(&mut self, ptr: &Ptr, store: &Store<F>) -> ZPtr<F> {
+        self.z_dag
+            .populate_with(ptr, store, &mut HashMap::default())
+    }
+
+    #[inline]
     pub(crate) fn populate_store(
         &self,
         z_ptr: &ZPtr<F>,

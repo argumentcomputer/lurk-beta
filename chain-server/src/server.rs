@@ -13,14 +13,14 @@ use tonic::{transport::Server, Request, Response, Status};
 
 use lurk::{
     cli::{
-        field_data::{de, load, ser, HasFieldModulus, LurkData},
+        field_data::{de, dump, load, ser, HasFieldModulus, LurkData},
         repl::fetch_comm,
         zstore::ZStore,
     },
     coprocessor::Coprocessor,
     dual_channel::dummy_terminal,
     field::LurkField,
-    lang::Lang,
+    lang::{Coproc, Lang},
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
         pointers::{Ptr, ZPtr},
@@ -33,10 +33,7 @@ use lurk::{
         supernova::{PublicParams, SuperNovaProver},
         Prover, RecursiveSNARKTrait,
     },
-    public_parameters::{
-        instance::{Instance, Kind},
-        supernova_public_params,
-    },
+    public_parameters::{instance::Instance, supernova_public_params},
     tag::ContTag,
 };
 
@@ -52,7 +49,7 @@ use chain_prover::{
 
 use chain_server::{ChainRequestData, ChainResponseData};
 
-struct ChainProverInner<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
+struct ChainProverService<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
     callable: Arc<Mutex<Ptr>>,
     store: Store<F>, // TODO: add the store to the state to allow memory cleansing
     limit: usize,
@@ -60,10 +57,18 @@ struct ChainProverInner<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
     cprocs: Vec<Func>,
     prover: SuperNovaProver<'a, F, C>,
     public_params: OnceCell<PublicParams<F>>,
+    session: Option<Utf8PathBuf>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> ChainProverInner<'a, F, C> {
-    fn new(callable: Ptr, store: Store<F>, limit: usize, lang: Lang<F, C>, rc: usize) -> Self {
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> ChainProverService<'a, F, C> {
+    fn new(
+        callable: Ptr,
+        store: Store<F>,
+        limit: usize,
+        lang: Lang<F, C>,
+        rc: usize,
+        session: Option<Utf8PathBuf>,
+    ) -> Self {
         let eval_config = EvalConfig::new_nivc(&lang);
         let lurk_step = make_eval_step_from_config(&eval_config);
         let cprocs = make_cprocs_funcs_from_lang(&lang);
@@ -76,13 +81,16 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> ChainProverInner<'a, F, C> {
             cprocs,
             prover,
             public_params: OnceCell::new(),
+            session,
         }
     }
 }
 
 #[tonic::async_trait]
-impl<F: CurveCycleEquipped + DeserializeOwned + Serialize, C: Coprocessor<F> + 'static> ChainProver
-    for ChainProverInner<'static, F, C>
+impl<
+        F: CurveCycleEquipped + DeserializeOwned + Serialize,
+        C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
+    > ChainProver for ChainProverService<'static, F, C>
 where
     <F as ff::PrimeField>::Repr: Abomonation,
     <Dual<F> as ff::PrimeField>::Repr: Abomonation,
@@ -133,24 +141,18 @@ where
             Tag::Cont(ContTag::Terminal) => {
                 // car_cdr the result to retrieve the chain result and the next callable
                 let (result, next_callable) = self.store.car_cdr(expr_out).map_err(|_e| {
-                    Status::failed_precondition("Call didn't result on a cons-like expression")
+                    Status::failed_precondition("Call didn't result in a cons-like expression")
                 })?;
 
                 // retrieve (or compute if needed) the public params for proving
                 let pp = self
                     .public_params
                     .get_or_try_init(|| {
-                        let instance = Instance::new(
-                            self.prover.reduction_count(),
-                            self.prover.lang().clone(),
-                            true,
-                            Kind::SuperNovaAuxParams,
-                        );
-                        supernova_public_params(&instance)
+                        supernova_public_params(&Instance::new_supernova(&self.prover, true))
                     })
                     .map_err(|e| Status::internal(e.to_string()))?;
 
-                // prove then compress and serialize the proof
+                // prove then compress the proof
                 let (proof, ..) = self
                     .prover
                     .prove_from_frames(pp, &frames, &self.store)
@@ -170,6 +172,12 @@ where
                     proof,
                 ))
                 .map_err(|e| Status::internal(e.to_string()))?;
+
+                // save the session
+                if let Some(session) = &self.session {
+                    let session_data = SessionData::pack(self, &next_callable);
+                    dump(session_data, session).map_err(|e| Status::internal(e.to_string()))?;
+                }
 
                 // now it's safe to set the new callable state since no error
                 // has occurred so far
@@ -198,6 +206,7 @@ where
     }
 }
 
+/// Holds data from a cached session
 #[derive(Serialize, Deserialize)]
 struct SessionData<F: LurkField, S> {
     callable: ZPtr<F>,
@@ -207,10 +216,9 @@ struct SessionData<F: LurkField, S> {
     rc: usize,
 }
 
-#[allow(dead_code)]
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> SessionData<F, C> {
-    fn pack(data: &ChainProverInner<'a, F, C>, callable: &Ptr) -> Self {
-        let ChainProverInner {
+    fn pack(data: &ChainProverService<'a, F, C>, callable: &Ptr) -> Self {
+        let ChainProverService {
             store,
             limit,
             prover,
@@ -229,7 +237,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> SessionData<F, C> {
         }
     }
 
-    fn unpack(self) -> Result<ChainProverInner<'a, F, C>> {
+    fn unpack(self, session: Utf8PathBuf) -> Result<ChainProverService<'a, F, C>> {
         let Self {
             callable,
             z_store,
@@ -238,7 +246,14 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> SessionData<F, C> {
             rc,
         } = self;
         let (store, callable) = z_store.to_store_and_ptr(&callable)?;
-        Ok(ChainProverInner::new(callable, store, limit, lang, rc))
+        Ok(ChainProverService::new(
+            callable,
+            store,
+            limit,
+            lang,
+            rc,
+            Some(session),
+        ))
     }
 }
 
@@ -248,6 +263,17 @@ impl<F: LurkField, S> HasFieldModulus for SessionData<F, S> {
     }
 }
 
+/// An RPC server built on top of Lurk to create SNARKs of chaining callable
+/// objects
+///
+/// A callable object is one of the following:
+/// * A function
+/// * A commitment to a function
+/// * An expression that reduces to one of the above
+///
+/// Further, a callable object that can be chained, once called appropriatelly,
+/// must return a pair whose second component is the next callable object (the
+/// first component is application specific)
 #[derive(Parser, Debug)]
 #[clap(version)]
 struct Cli {
@@ -255,10 +281,12 @@ struct Cli {
     command: Command,
 }
 
-// TODO: Resume command
 #[derive(Subcommand, Debug)]
 enum Command {
+    /// Initiates the server with fresh state and configurations
     Init(InitArgs),
+    /// Starts the server by resuming a previously cached session
+    Resume(ResumeArgs),
 }
 
 #[derive(Args, Debug)]
@@ -279,9 +307,13 @@ struct InitArgs {
     #[clap(long, value_parser)]
     rc: Option<usize>,
 
-    /// Iterations allowed (defaults to 100_000_000; rounded up to the next_callable multiple of rc)
+    /// Iterations allowed (defaults to 100_000_000; rounded up to the next multiple of rc)
     #[clap(long, value_parser)]
     limit: Option<usize>,
+
+    #[clap(long, value_parser)]
+    /// Path to the file where the session will be cached
+    session: Option<Utf8PathBuf>,
 }
 
 impl InitArgs {
@@ -296,15 +328,29 @@ impl InitArgs {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: get lang from CLI arg
-    let lang = Lang::<Fr>::new();
+#[derive(Args, Debug)]
+struct ResumeArgs {
+    /// Path to the file contained the cached session
+    #[clap(value_parser)]
+    session: Utf8PathBuf,
+
+    /// Port to listen to
+    #[clap(long, value_parser)]
+    port: u16,
+}
+
+fn get_service_and_address<
+    'a,
+    F: CurveCycleEquipped + DeserializeOwned,
+    C: Coprocessor<F> + DeserializeOwned,
+>() -> Result<(ChainProverService<'a, F, C>, SocketAddr), Box<dyn std::error::Error>> {
     let Cli { command } = Cli::parse();
     let local_ip = |port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port));
-    let (server, addr) = match command {
+    match command {
         Command::Init(init_args) => {
-            let store = Store::<Fr>::default();
+            // TODO: get lang from `init_args`
+            let lang = Lang::<F, C>::new();
+            let store = Store::<F>::default();
             let callable = if init_args.comm {
                 let hash_ptr = store.read_with_default_state(&init_args.callable)?;
                 let hash = store
@@ -313,23 +359,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 fetch_comm(hash, &store)?;
                 hash_ptr.cast(Tag::Expr(lurk::tag::ExprTag::Comm))
             } else {
-                let LurkData::<Fr> { z_ptr, z_dag } =
-                    load(&Utf8PathBuf::from(&init_args.callable))?;
+                let LurkData::<F> { z_ptr, z_dag } = load(&Utf8PathBuf::from(&init_args.callable))?;
                 z_dag.populate_store_simple(&z_ptr, &store)?
             };
-            let server = ChainProverInner::new(
+            let svc = ChainProverService::new(
                 callable,
                 store,
                 init_args.get_limit(),
                 lang,
                 init_args.get_rc(),
+                init_args.session,
             );
-            (server, local_ip(init_args.port))
+            Ok((svc, local_ip(init_args.port)))
         }
-    };
+        Command::Resume(resume_args) => {
+            let session = resume_args.session;
+            let session_data: SessionData<F, C> = load(&session)?;
+            let svc = session_data.unpack(session)?;
+            Ok((svc, local_ip(resume_args.port)))
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let (svc, addr) = get_service_and_address::<Fr, Coproc<Fr>>()?;
 
     Server::builder()
-        .add_service(ChainProverServer::new(server))
+        .add_service(ChainProverServer::new(svc))
         .serve(addr)
         .await?;
 

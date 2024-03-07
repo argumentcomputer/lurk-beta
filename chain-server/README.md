@@ -37,7 +37,7 @@ Go to Lurk's REPL and persist a the chaining function as Lurk data:
               (if (eq xs nil) acc (sum (cdr xs) (+ acc (car xs))))))
        (add (lambda (counter xs)
               (let ((counter (+ counter (sum xs 0))))
-                (cons counter (commit (add counter)))))))
+                (cons counter (add counter))))))
     (add 0))
   "my-function")
 ```

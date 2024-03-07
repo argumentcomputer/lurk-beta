@@ -2,9 +2,10 @@
 
 use halo2curves::bn256::Fr;
 use nova::supernova::snark::CompressedSNARK;
+use rustyline::{error::ReadlineError, DefaultEditor};
 use std::{
     env,
-    io::{stdin, stdout, Write},
+    io::{stdout, Write},
     sync::Arc,
 };
 use tonic::Request;
@@ -74,44 +75,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let pp = supernova_public_params(&instance)?;
 
-    let (stdin, mut stdout) = (stdin(), stdout());
-    let input = &mut String::new();
+    let mut editor = DefaultEditor::new()?;
+    let mut stdout = stdout();
     loop {
-        print!("> ");
-        stdout.flush()?;
-        input.clear();
-        stdin.read_line(input)?;
+        match editor.readline("> ") {
+            Ok(input) => {
+                let argument = store.read_with_default_state(&input)?;
+                let chain_request_data = ser(ChainRequestData::new(&callable, &argument, &store))?;
+                let request = Request::new(ChainRequest { chain_request_data });
 
-        let argument = store.read_with_default_state(input)?;
-        let chain_request_data = ser(ChainRequestData::new(&callable, &argument, &store))?;
-        let request = Request::new(ChainRequest { chain_request_data });
+                let ChainResponse {
+                    chain_response_data,
+                } = client.chain(request).await?.into_inner();
+                let chain_response_data = de::<ChainResponseData<Fr>>(&chain_response_data)?;
+                let (result, next_callable) = chain_response_data.interned(&store)?;
+                let proof = chain_response_data.extract_proof();
 
-        let ChainResponse {
-            chain_response_data,
-        } = client.chain(request).await?.into_inner();
-        let chain_response_data = de::<ChainResponseData<Fr>>(&chain_response_data)?;
-        let (result, next_callable) = chain_response_data.interned(&store)?;
-        let proof = chain_response_data.extract_proof();
+                let expr_in = store.list([callable, argument]);
+                let expr_out = store.cons(result, next_callable);
 
-        let expr_in = store.list([callable, argument]);
-        let expr_out = store.cons(result, next_callable);
+                print!(
+                    "{}\n↳ {}",
+                    expr_in.fmt_to_string_simple(&store),
+                    expr_out.fmt_to_string_simple(&store)
+                );
+                stdout.flush()?;
 
-        print!(
-            "{}\n↳ {}",
-            expr_in.fmt_to_string_simple(&store),
-            expr_out.fmt_to_string_simple(&store)
-        );
-        stdout.flush()?;
+                let public_inputs = store.to_scalar_vector(&[expr_in, empty_env, cont_outermost]);
+                let public_outputs = store.to_scalar_vector(&[expr_out, empty_env, cont_terminal]);
+                if verify(&proof, &pp, &public_inputs, &public_outputs)? {
+                    println!(" ✓");
+                } else {
+                    println!(" ✗\nServer's proof didn't verify!");
+                }
 
-        let public_inputs = store.to_scalar_vector(&[expr_in, empty_env, cont_outermost]);
-        let public_outputs = store.to_scalar_vector(&[expr_out, empty_env, cont_terminal]);
-        if verify(&proof, &pp, &public_inputs, &public_outputs)? {
-            println!(" ✓");
-        } else {
-            println!(" ✗");
-            panic!("Server's proof didn't verify!")
+                callable = next_callable
+            }
+            Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
+                println!("Exiting...");
+                break;
+            }
+            Err(e) => {
+                eprintln!("Read line error: {e}");
+                break;
+            }
         }
-
-        callable = next_callable
     }
+    Ok(())
 }
