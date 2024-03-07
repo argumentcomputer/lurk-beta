@@ -10,7 +10,7 @@ use crate::{
         store::{expect_ptrs, intern_ptrs_hydrated, Store},
         tag::Tag,
     },
-    tag::ExprTag::{Env, Sym},
+    tag::ExprTag::Env,
 };
 
 use super::field_data::HasFieldModulus;
@@ -51,14 +51,8 @@ impl<F: LurkField> ZDag<F> {
                         z_ptr
                     }
                     RawPtr::Hash4(idx) => {
-                        if let Tag::Expr(Env) = tag {
-                            let [sym_pay, val_tag, val_pay, env_pay] = store.expect_raw_ptrs(*idx);
-                            let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
-                            let val = Ptr::new(
-                                store.fetch_tag(val_tag).expect("Couldn't fetch tag"),
-                                *val_pay,
-                            );
-                            let env = Ptr::new(Tag::Expr(Env), *env_pay);
+                        if matches!(tag, Tag::Expr(Env)) {
+                            let [sym, val, env] = store.expect_env_components(*idx);
                             let sym = self.populate_with(&sym, store, cache);
                             let val = self.populate_with(&val, store, cache);
                             let env = self.populate_with(&env, store, cache);
@@ -153,8 +147,14 @@ impl<F: LurkField> ZDag<F> {
             match ptr.raw() {
                 RawPtr::Atom(..) => (),
                 RawPtr::Hash4(idx) => {
-                    for ptr in expect_ptrs!(store, 2, *idx) {
-                        feed_loop!(ptr)
+                    if matches!(ptr.tag(), Tag::Expr(Env)) {
+                        for ptr in store.expect_env_components(*idx) {
+                            feed_loop!(ptr)
+                        }
+                    } else {
+                        for ptr in expect_ptrs!(store, 2, *idx) {
+                            feed_loop!(ptr)
+                        }
                     }
                 }
                 RawPtr::Hash6(idx) => {
@@ -420,6 +420,15 @@ mod tests {
             3 => Tag::Op2(Op2::try_from((rnd % Op2::COUNT) as u16 + OP2_TAG_INIT).unwrap()),
             _ => unreachable!(),
         };
+        if matches!(tag, Tag::Expr(ExprTag::Env)) {
+            let mut env = store.intern_empty_env();
+            for _ in 0..max_depth {
+                let sym = store.intern_user_symbol("foo");
+                let val = rng_interner(rng, max_depth - 1, store);
+                env = store.push_binding(sym, val, env);
+            }
+            return env;
+        }
         if max_depth == 0 {
             store.intern_atom(tag, Bn::from_u64(rnd.try_into().unwrap()))
         } else {
@@ -473,6 +482,22 @@ mod tests {
 
             assert_eq!(store1.hash_ptr(&ptr1), store2.hash_ptr(&ptr2))
         });
+    }
+
+    #[test]
+    fn test_env_roundtrip() {
+        let store = Store::<Bn>::default();
+        let val = store.num_u64(1);
+        let sym = store.intern_user_symbol("a");
+        let env = store.intern_empty_env();
+        let env = store.push_binding(sym, val, env);
+        let mut z_dag = ZDag::default();
+        let z_env = z_dag.populate_with(&env, &store, &mut Default::default());
+        let store2 = Store::<Bn>::default();
+        let env2 = z_dag
+            .populate_store(&z_env, &store2, &mut Default::default())
+            .unwrap();
+        assert_eq!(store.hash_ptr(&env), store2.hash_ptr(&env2));
     }
 
     #[test]

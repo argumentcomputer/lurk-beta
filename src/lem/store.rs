@@ -881,6 +881,17 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn expect_env_components(&self, idx: usize) -> [Ptr; 3] {
+        let [sym_pay, val_tag, val_pay, env_pay] = self.expect_raw_ptrs(idx);
+        let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
+        let val = Ptr::new(
+            self.fetch_tag(val_tag).expect("Couldn't fetch tag"),
+            *val_pay,
+        );
+        let env = Ptr::new(Tag::Expr(Env), *env_pay);
+        [sym, val, env]
+    }
+
     /// Fetches an environment
     pub fn fetch_env(&self, ptr: &Ptr) -> Option<Vec<(Ptr, Ptr)>> {
         if *ptr.tag() != Tag::Expr(Env) {
