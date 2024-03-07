@@ -20,6 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: lurk-lab/ci-workflows
+      - uses: ./.github/actions/install-deps
+        with:
+          packages: 'pkg-config libssl-dev protobuf-compiler libprotobuf-dev'
+      - uses: actions/checkout@v4
+        with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@nextest
@@ -34,6 +40,12 @@ jobs:
     env:
       RUSTFLAGS: -D warnings
     steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: lurk-lab/ci-workflows
+      - uses: ./.github/actions/install-deps
+        with:
+          packages: 'pkg-config libssl-dev protobuf-compiler libprotobuf-dev'
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -51,6 +63,12 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     runs-on: macos-latest-xlarge
     steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: lurk-lab/ci-workflows
+      - uses: ./.github/actions/install-deps
+        with:
+          packages: 'pkg-config libssl-dev protobuf-compiler libprotobuf-dev'
       - uses: actions/checkout@v4
         with:
           submodules: recursive

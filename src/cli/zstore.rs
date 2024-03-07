@@ -29,10 +29,10 @@ pub(crate) enum ZPtrType<F: LurkField> {
 
 /// Holds a mapping from `ZPtr`s to their `ZPtrType`s
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub(crate) struct ZDag<F: LurkField>(BTreeMap<ZPtr<F>, ZPtrType<F>>);
+pub struct ZDag<F: LurkField>(BTreeMap<ZPtr<F>, ZPtrType<F>>);
 
 impl<F: LurkField> ZDag<F> {
-    pub(crate) fn populate_with(
+    pub fn populate_with(
         &mut self,
         ptr: &Ptr,
         store: &Store<F>,
@@ -177,6 +177,11 @@ impl<F: LurkField> ZDag<F> {
     }
 
     #[inline]
+    pub fn populate_with_simple(&mut self, ptr: &Ptr, store: &Store<F>) -> ZPtr<F> {
+        self.populate_with(ptr, store, &mut HashMap::default())
+    }
+
+    #[inline]
     fn get_type(&self, z_ptr: &ZPtr<F>) -> Option<&ZPtrType<F>> {
         self.0.get(z_ptr)
     }
@@ -191,7 +196,7 @@ impl<F: LurkField> ZDag<F> {
         }
     }
 
-    pub(crate) fn populate_store(
+    pub fn populate_store(
         &self,
         z_ptr: &ZPtr<F>,
         store: &Store<F>,
@@ -262,6 +267,11 @@ impl<F: LurkField> ZDag<F> {
             .expect("dag doesn't start empty")
     }
 
+    #[inline]
+    pub fn populate_store_simple(&self, z_ptr: &ZPtr<F>, store: &Store<F>) -> Result<Ptr> {
+        self.populate_store(z_ptr, store, &mut HashMap::default())
+    }
+
     /// Populates a `ZDag` with data from self
     ///
     /// # Warning
@@ -328,7 +338,7 @@ impl<F: LurkField> ZDag<F> {
 
 /// A `ZStore` is a stable IO format for `Store`, without index-based references
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub(crate) struct ZStore<F: LurkField> {
+pub struct ZStore<F: LurkField> {
     z_dag: ZDag<F>,
     comms: BTreeMap<FWrap<F>, (F, ZPtr<F>)>,
 }
@@ -341,26 +351,45 @@ impl<F: LurkField> HasFieldModulus for ZStore<F> {
 
 impl<F: LurkField> ZStore<F> {
     #[inline]
-    pub(crate) fn add_comm(&mut self, hash: F, secret: F, payload: ZPtr<F>) {
+    pub fn add_comm(&mut self, hash: F, secret: F, payload: ZPtr<F>) {
         self.comms.insert(FWrap(hash), (secret, payload));
     }
 
     #[inline]
-    pub(crate) fn open(&self, hash: F) -> Option<&(F, ZPtr<F>)> {
+    pub fn open(&self, hash: F) -> Option<&(F, ZPtr<F>)> {
         self.comms.get(&FWrap(hash))
     }
 
-    pub(crate) fn to_store(&self) -> Result<Store<F>> {
+    pub fn to_store(&self) -> Result<Store<F>> {
         let store = Store::default();
-        let mut cache = HashMap::default();
-        for z_ptr in self.z_dag.0.keys() {
-            self.populate_store(z_ptr, &store, &mut cache)?;
-        }
+        let cache = &mut HashMap::default();
         for (hash, (secret, z_payload)) in &self.comms {
-            let payload = self.populate_store(z_payload, &store, &mut cache)?;
+            let payload = self.populate_store(z_payload, &store, cache)?;
             store.add_comm(hash.0, *secret, payload);
         }
         Ok(store)
+    }
+
+    pub fn to_store_and_ptr(&self, z_ptr: &ZPtr<F>) -> Result<(Store<F>, Ptr)> {
+        let store = Store::default();
+        let cache = &mut HashMap::default();
+        for (FWrap(hash), (secret, z_payload)) in &self.comms {
+            let payload = self.populate_store(z_payload, &store, cache)?;
+            store.add_comm(*hash, *secret, payload);
+        }
+        let ptr = self.populate_store(z_ptr, &store, cache)?;
+        Ok((store, ptr))
+    }
+
+    pub fn from_store_and_ptr(store: &Store<F>, ptr: &Ptr) -> (Self, ZPtr<F>) {
+        let mut z_store = ZStore::default();
+        let cache = &mut HashMap::default();
+        for (FWrap(hash), img) in store.comms.clone().into_tuple_vec() {
+            let payload = z_store.populate_with(&img.1, store, cache);
+            z_store.add_comm(hash, img.0, payload)
+        }
+        let z_ptr = z_store.populate_with(ptr, store, cache);
+        (z_store, z_ptr)
     }
 
     #[inline]
@@ -373,6 +402,13 @@ impl<F: LurkField> ZStore<F> {
         self.z_dag.populate_with(ptr, store, cache)
     }
 
+    #[inline]
+    pub(crate) fn populate_with_simple(&mut self, ptr: &Ptr, store: &Store<F>) -> ZPtr<F> {
+        self.z_dag
+            .populate_with(ptr, store, &mut HashMap::default())
+    }
+
+    #[inline]
     pub(crate) fn populate_store(
         &self,
         z_ptr: &ZPtr<F>,
@@ -380,6 +416,11 @@ impl<F: LurkField> ZStore<F> {
         cache: &mut HashMap<ZPtr<F>, Ptr>,
     ) -> Result<Ptr> {
         self.z_dag.populate_store(z_ptr, store, cache)
+    }
+
+    #[inline]
+    pub(crate) fn populate_store_simple(&self, z_ptr: &ZPtr<F>, store: &Store<F>) -> Result<Ptr> {
+        self.z_dag.populate_store_simple(z_ptr, store)
     }
 }
 

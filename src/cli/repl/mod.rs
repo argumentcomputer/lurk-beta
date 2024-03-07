@@ -110,6 +110,17 @@ fn pad(a: usize, m: usize) -> usize {
     (a + m - 1) / m * m
 }
 
+pub fn fetch_comm<F: LurkField + DeserializeOwned>(hash: &F, store: &Store<F>) -> Result<Ptr> {
+    let commitment: Commitment<F> = load(&commitment_path(&hash.hex_digits()))?;
+    if &commitment.hash != hash {
+        bail!("Hash mismatch. Corrupted commitment file.")
+    }
+    let (secret, z_payload) = commitment.open()?;
+    let payload = commitment.z_store.populate_store_simple(z_payload, store)?;
+    store.hide(*secret, payload);
+    Ok(payload)
+}
+
 impl<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> Repl<F, C> {
     fn get_evaluation(&self) -> &Option<Evaluation> {
         &self.evaluation
@@ -387,7 +398,7 @@ where
         }
     }
 
-    fn hide(&mut self, secret: F, payload: Ptr) -> Result<()> {
+    fn hide(&self, secret: F, payload: Ptr) -> Result<()> {
         let commitment = Commitment::new(Some(secret), payload, &self.store);
         let hash_str = &commitment.hash.hex_digits();
         commitment.persist()?;
@@ -395,26 +406,15 @@ where
         Ok(())
     }
 
-    fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
-        let commitment: Commitment<F> = load(&commitment_path(&hash.hex_digits()))?;
-        if &commitment.hash != hash {
-            bail!("Hash mismatch. Corrupted commitment file.")
+    fn fetch(&self, hash: &F, print_data: bool) -> Result<()> {
+        let payload = fetch_comm(hash, &self.store)?;
+        if print_data {
+            println!(
+                "{}",
+                payload.fmt_to_string(&self.store, &self.state.borrow())
+            );
         } else {
-            let (secret, z_payload) = commitment.open()?;
-            let payload = commitment.z_store.populate_store(
-                z_payload,
-                &self.store,
-                &mut Default::default(),
-            )?;
-            self.store.hide(*secret, payload);
-            if print_data {
-                println!(
-                    "{}",
-                    payload.fmt_to_string(&self.store, &self.state.borrow())
-                );
-            } else {
-                println!("Data is now available");
-            }
+            println!("Data is now available");
         }
         Ok(())
     }

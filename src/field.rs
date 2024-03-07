@@ -69,7 +69,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     const NON_HIDING_COMMITMENT_SECRET: Self = Self::ZERO;
 
     /// Converts the field element to a byte vector
-    fn to_bytes(self) -> Vec<u8> {
+    fn to_bytes(&self) -> Vec<u8> {
         let repr = self.to_repr();
         repr.as_ref().to_vec()
     }
@@ -81,7 +81,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     }
 
     /// Converts the field element to a hexadecimal string
-    fn hex_digits(self) -> String {
+    fn hex_digits(&self) -> String {
         let bytes = self.to_bytes();
         let mut s = String::with_capacity(bytes.len() * 2);
         for b in bytes.iter().rev() {
@@ -92,7 +92,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
 
     /// Converts the field to a variable-length hex string
     fn trimmed_hex_digits(self) -> String {
-        let hex_digits = self.hex_digits();
+        let hex_digits = &self.hex_digits();
         let mut res = hex_digits.trim_start_matches('0');
         if res.is_empty() {
             res = "0";

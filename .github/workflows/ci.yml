@@ -19,11 +19,12 @@ jobs:
         with:
           repository: lurk-lab/ci-workflows
       - uses: ./.github/actions/ci-env
+      - uses: ./.github/actions/install-deps
+        with:
+          packages: 'pkg-config libssl-dev protobuf-compiler libprotobuf-dev'
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install dependencies
-        run: sudo apt-get install -y pkg-config libssl-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
@@ -37,6 +38,8 @@ jobs:
   # Rustfmt, clippy, doctests
   code-quality:
     uses: lurk-lab/ci-workflows/.github/workflows/lints.yml@main
+    with:
+      packages: 'protobuf-compiler libprotobuf-dev'
 
   # Checks `cargo build --target wasm32-unknown-unknown`
   wasm:
@@ -45,6 +48,8 @@ jobs:
   # Checks MSRV specified by `rust-version` in `Cargo.toml`
   msrv:
     uses: lurk-lab/ci-workflows/.github/workflows/msrv.yml@main
+    with:
+      packages: 'protobuf-compiler libprotobuf-dev'
 
   # Check documentation links aren't broken
   link-checker:

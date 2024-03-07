@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::{
     field::LurkField,
@@ -37,7 +36,7 @@ impl<F: LurkField> Commitment<F> {
         let secret = secret.unwrap_or(F::NON_HIDING_COMMITMENT_SECRET);
         let (hash, z_payload) = store.hide_and_return_z_payload(secret, payload);
         let mut z_store = ZStore::<F>::default();
-        z_store.populate_with(&payload, store, &mut HashMap::default());
+        z_store.populate_with_simple(&payload, store);
         z_store.add_comm(hash, secret, z_payload);
         Self { hash, z_store }
     }

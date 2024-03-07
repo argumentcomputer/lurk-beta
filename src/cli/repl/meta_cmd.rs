@@ -9,7 +9,7 @@ use std::{collections::HashMap, process};
 use crate::{
     cli::{
         backend::Backend,
-        field_data::{dump, load, HasFieldModulus},
+        field_data::{dump, load, HasFieldModulus, LurkData},
         lurk_proof::{LurkProof, LurkProofMeta, LurkProofWrapper},
         paths::proof_path,
         zstore::ZDag,
@@ -19,7 +19,7 @@ use crate::{
     field::LurkField,
     lem::{
         eval::evaluate_with_env_and_cont,
-        pointers::{Ptr, RawPtr, ZPtr},
+        pointers::{Ptr, RawPtr},
         store::expect_ptrs,
         tag::Tag,
     },
@@ -642,7 +642,13 @@ where
         name: "dump-data",
         summary: "Write Lurk data to the file system",
         format: "!(dump-data <expr> <string>)",
-        description: &[],
+        description: &[
+            "An important detail is that this API is secure in terms of privacy",
+            "(secrets aren't persisted). If a commitment to some Lurk data is",
+            "dumped to a file, opening it with a fresh `Store` isn't possible.",
+            "In other words, dumped commitments become opaque pointers if the",
+            "loader doesn't know its pre-image.",
+        ],
         example: &["!(dump-data (+ 1 1) \"my_file\")"],
         run: |repl, args, _path| {
             let (expr, path) = repl.peek2(args)?;
@@ -1119,18 +1125,6 @@ where
 
     pub(super) fn cmds() -> std::collections::HashMap<&'static str, MetaCmd<F, C>> {
         HashMap::from(Self::CMDS.map(|x| (x.name, x)))
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct LurkData<F: LurkField> {
-    z_ptr: ZPtr<F>,
-    z_dag: ZDag<F>,
-}
-
-impl<F: LurkField> HasFieldModulus for LurkData<F> {
-    fn field_modulus() -> String {
-        F::MODULUS.to_string()
     }
 }
 

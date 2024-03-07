@@ -2,6 +2,17 @@ use anyhow::Result;
 use camino::Utf8PathBuf;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+use crate::{
+    field::LurkField,
+    lem::{
+        pointers::{Ptr, ZPtr},
+        store::Store,
+    },
+    proof::{nova::CurveCycleEquipped, supernova::Proof},
+};
+
+use super::zstore::ZDag;
+
 // This module implements a 2-step serde protocol for data that is parametrized
 // on an arithmetic field in order to be properly deserialized.
 //
@@ -13,26 +24,26 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 // modulus for consistency. If everything goes well, we further unwrap the second
 // vector of bytes.
 
-pub(crate) trait HasFieldModulus {
+pub trait HasFieldModulus {
     fn field_modulus() -> String;
 }
 
 #[allow(dead_code)]
-pub(crate) fn ser<T: Serialize + HasFieldModulus>(t: T) -> Result<Vec<u8>> {
+pub fn ser<T: Serialize + HasFieldModulus>(t: T) -> Result<Vec<u8>> {
     Ok(bincode::serialize(&FieldData(t))?)
 }
 
 #[allow(dead_code)]
-pub(crate) fn de<T: DeserializeOwned + HasFieldModulus>(bytes: &[u8]) -> Result<T> {
+pub fn de<T: DeserializeOwned + HasFieldModulus>(bytes: &[u8]) -> Result<T> {
     let FieldData(data) = bincode::deserialize(bytes)?;
     Ok(data)
 }
 
-pub(crate) fn dump<T: Serialize + HasFieldModulus>(t: T, path: &Utf8PathBuf) -> Result<()> {
+pub fn dump<T: Serialize + HasFieldModulus>(t: T, path: &Utf8PathBuf) -> Result<()> {
     Ok(std::fs::write(path, ser(t)?)?)
 }
 
-pub(crate) fn load<T: DeserializeOwned + HasFieldModulus>(path: &Utf8PathBuf) -> Result<T> {
+pub fn load<T: DeserializeOwned + HasFieldModulus>(path: &Utf8PathBuf) -> Result<T> {
     de(&std::fs::read(path)?)
 }
 
@@ -70,6 +81,36 @@ impl<T: Serialize + HasFieldModulus> Serialize for FieldData<T> {
             bytes: bincode::serialize(&self.0).map_err(serde::ser::Error::custom)?,
         };
         fdw.serialize(serializer)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LurkData<F: LurkField> {
+    pub z_ptr: ZPtr<F>,
+    pub z_dag: ZDag<F>,
+}
+
+impl<F: LurkField> LurkData<F> {
+    pub fn new(ptr: &Ptr, store: &Store<F>) -> Self {
+        let mut z_dag = ZDag::default();
+        let z_ptr = z_dag.populate_with_simple(ptr, store);
+        Self { z_ptr, z_dag }
+    }
+
+    pub fn interned(&self, store: &Store<F>) -> Result<Ptr> {
+        self.z_dag.populate_store_simple(&self.z_ptr, store)
+    }
+}
+
+impl<F: LurkField> HasFieldModulus for LurkData<F> {
+    fn field_modulus() -> String {
+        F::MODULUS.to_string()
+    }
+}
+
+impl<F: LurkField + CurveCycleEquipped, S> HasFieldModulus for Proof<F, S> {
+    fn field_modulus() -> String {
+        F::MODULUS.to_string()
     }
 }
 
