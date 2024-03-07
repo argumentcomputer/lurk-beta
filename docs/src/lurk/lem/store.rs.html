@@ -1724,6 +1724,17 @@
 <a href="#1723" id="1723">1723</a>
 <a href="#1724" id="1724">1724</a>
 <a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::SizedWitness;
@@ -2605,6 +2616,17 @@
             }
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
+    }
+
+    <span class="kw">pub fn </span>expect_env_components(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; [Ptr; <span class="number">3</span>] {
+        <span class="kw">let </span>[sym_pay, val_tag, val_pay, env_pay] = <span class="self">self</span>.expect_raw_ptrs(idx);
+        <span class="kw">let </span>sym = Ptr::new(Tag::Expr(Sym), <span class="kw-2">*</span>sym_pay);
+        <span class="kw">let </span>val = Ptr::new(
+            <span class="self">self</span>.fetch_tag(val_tag).expect(<span class="string">"Couldn't fetch tag"</span>),
+            <span class="kw-2">*</span>val_pay,
+        );
+        <span class="kw">let </span>env = Ptr::new(Tag::Expr(Env), <span class="kw-2">*</span>env_pay);
+        [sym, val, env]
     }
 
     <span class="doccomment">/// Fetches an environment
