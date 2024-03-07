@@ -331,8 +331,8 @@ fn make_eval_step(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
 
 /// Simpler version of `car_cdr` that doesn't deconstruct strings to save some
 /// constraints
-fn car_cdr() -> Func {
-    aux_func!(car_cdr(xs): 2 => {
+fn car_cdr_simple() -> Func {
+    aux_func!(car_cdr_simple(xs): 2 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         match xs.tag {
@@ -374,11 +374,11 @@ fn car_cdr() -> Func {
 ///                     // save a copy of the evaluated arguments for possible arity error
 ///                     let evaluated_args_cp = copy(evaluated_args);
 ///                     if !is_nil {
-///                         let (x{n-1}, evaluated_args) = car_cdr(evaluated_args);
+///                         let (x{n-1}, evaluated_args) = car_cdr_simple(evaluated_args);
 ///                         let is_nil = eq_tag(evaluated_args, nil);
 ///                         if !is_nil {
 ///                             ...
-///                             let (x0, evaluated_args) = car_cdr(evaluated_args);
+///                             let (x0, evaluated_args) = car_cdr_simple(evaluated_args);
 ///                             let is_nil = eq_tag(evaluated_args, nil);
 ///                             // there must be no remaining arguments
 ///                             if is_nil {
@@ -431,7 +431,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
         let ops = vec![
             Op::Call(
                 vec![cproc_arg.clone(), evaluated_args.clone()],
-                Box::new(car_cdr()),
+                Box::new(car_cdr_simple()),
                 vec![evaluated_args.clone()],
             ),
             Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
@@ -567,11 +567,11 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 ///             // save a copy of the evaluated arguments for possible arity error
 ///             let evaluated_args_cp = copy(evaluated_args);
 ///             if !is_nil {
-///                 let (x{n-1}, evaluated_args) = car_cdr(evaluated_args);
+///                 let (x{n-1}, evaluated_args) = car_cdr_simple(evaluated_args);
 ///                 let is_nil = eq_tag(evaluated_args, nil);
 ///                 if !is_nil {
 ///                     ...
-///                     let (x0, evaluated_args) = car_cdr(evaluated_args);
+///                     let (x0, evaluated_args) = car_cdr_simple(evaluated_args);
 ///                     let is_nil = eq_tag(evaluated_args, nil);
 ///                     // there must be no remaining arguments
 ///                     if is_nil {
@@ -643,7 +643,7 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
             let ops = vec![
                 Op::Call(
                     vec![cproc_arg.clone(), evaluated_args.clone()],
-                    Box::new(car_cdr()),
+                    Box::new(car_cdr_simple()),
                     vec![evaluated_args.clone()],
                 ),
                 Op::EqTag(is_nil.clone(), evaluated_args.clone(), nil.clone()),
@@ -698,7 +698,7 @@ fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 
 fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
     // Auxiliary functions
-    let car_cdr = car_cdr();
+    let car_cdr_simple = car_cdr_simple();
     let expand_bindings = aux_func!(expand_bindings(head, body, body1, rest_bindings): 1 => {
         match rest_bindings.tag {
             Expr::Nil => {
@@ -951,7 +951,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                 }
             }
             Expr::Cons => {
-                // No need for `car_cdr` since the expression is already a `Cons`
+                // No need for `car_cdr_simple` since the expression is already a `Cons`
                 let (head, rest) = decons2(expr);
                 let rest_is_nil = eq_tag(rest, nil);
                 let rest_is_cons = eq_tag(rest, expr);
@@ -968,8 +968,8 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         let head_is_letrec_sym = eq_val(head, letrec_sym);
                         let head_is_let_or_letrec_sym = or(head_is_let_sym, head_is_letrec_sym);
                         if head_is_let_or_letrec_sym {
-                            let (bindings, body) = car_cdr(rest);
-                            let (body1, rest_body) = car_cdr(body);
+                            let (bindings, body) = car_cdr_simple(rest);
+                            let (body1, rest_body) = car_cdr_simple(body);
                             // Only a single body form allowed for now.
                             match body.tag {
                                 Expr::Nil => {
@@ -983,11 +983,11 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                             return (body1, env, cont, ret)
                                         }
                                     };
-                                    let (binding1, rest_bindings) = car_cdr(bindings);
-                                    let (var, vals) = car_cdr(binding1);
+                                    let (binding1, rest_bindings) = car_cdr_simple(bindings);
+                                    let (var, vals) = car_cdr_simple(binding1);
                                     match var.tag {
                                         Expr::Sym => {
-                                            let (val, end) = car_cdr(vals);
+                                            let (val, end) = car_cdr_simple(vals);
                                             let end_is_nil = eq_tag(end, nil);
                                             if !end_is_nil {
                                                 return (expr, env, err, errctrl)
@@ -1008,12 +1008,12 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         }
                         match head.value {
                             Symbol("lambda") => {
-                                let (vars, rest) = car_cdr(rest);
+                                let (vars, rest) = car_cdr_simple(rest);
                                 let rest_nil = eq_tag(rest, nil);
                                 if rest_nil {
                                     return (expr, env, err, errctrl)
                                 }
-                                let (body, end) = car_cdr(rest);
+                                let (body, end) = car_cdr_simple(rest);
                                 let end_nil = eq_tag(end, nil);
                                 if !end_nil {
                                     return (expr, env, err, errctrl)
@@ -1037,7 +1037,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                 return (expr, env, err, errctrl)
                             }
                             Symbol("quote") => {
-                                let (quoted, end) = car_cdr(rest);
+                                let (quoted, end) = car_cdr_simple(rest);
 
                                 match end.tag {
                                     Expr::Nil => {
@@ -1047,7 +1047,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                 return (expr, env, err, errctrl)
                             }
                             Symbol("begin") => {
-                                let (arg1, more) = car_cdr(rest);
+                                let (arg1, more) = car_cdr_simple(rest);
                                 match more.tag {
                                     Expr::Nil => {
                                         return (arg1, env, cont, ret)
@@ -1063,7 +1063,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                         return (expr, env, err, errctrl)
                                     }
                                 };
-                                let (arg1, more) = car_cdr(rest);
+                                let (arg1, more) = car_cdr_simple(rest);
                                 match more.tag {
                                     Expr::Nil => {
                                         let op: Op1::Eval;
@@ -1076,7 +1076,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                 return (arg1, env, cont, ret)
                             }
                             Symbol("if") => {
-                                let (condition, more) = car_cdr(rest);
+                                let (condition, more) = car_cdr_simple(rest);
                                 match more.tag {
                                     Expr::Nil => {
                                         return (expr, env, err, errctrl)
@@ -1142,7 +1142,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                 let cont: Cont::Cproc = cons4(head, args, env, cont);
                                 return (nil, env, cont, apply);
                             }
-                            let (arg, unevaled_args) = car_cdr(rest);
+                            let (arg, unevaled_args) = car_cdr_simple(rest);
                             let args: Expr::Cons = cons2(unevaled_args, nil);
                             let cont: Cont::Cproc = cons4(head, args, env, cont);
                             return (arg, env, cont, ret);
@@ -1197,7 +1197,7 @@ fn choose_cproc_call(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
 }
 
 fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
-    let car_cdr = car_cdr();
+    let car_cdr_simple = car_cdr_simple();
     // Returns 0u64 if both arguments are U64, 0 (num) if the arguments are some kind of number (either U64 or Num),
     // and nil otherwise
     let args_num_type = aux_func!(args_num_type(arg1, arg2): 1 => {
@@ -1330,7 +1330,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                     return (body, ext_env, cont, ret)
                                 }
                                 let ext_function: Expr::Fun = cons4(rest_vars, body, ext_env, foo);
-                                let (var, _rest_vars) = car_cdr(rest_vars);
+                                let (var, _rest_vars) = car_cdr_simple(rest_vars);
                                 match var.tag {
                                     Expr::Sym => {
                                         if args_empty {
@@ -1492,7 +1492,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     }
                     Cont::Binop => {
                         let (operator, saved_env, unevaled_args, continuation) = decons4(cont);
-                        let (arg2, rest) = car_cdr(unevaled_args);
+                        let (arg2, rest) = car_cdr_simple(unevaled_args);
                         match operator.tag {
                             Op2::Begin => {
                                 match rest.tag {
@@ -1710,8 +1710,8 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     }
                     Cont::If => {
                         let (unevaled_args, args_env, continuation, _foo) = decons4(cont);
-                        let (arg1, more) = car_cdr(unevaled_args);
-                        let (arg2, end) = car_cdr(more);
+                        let (arg1, more) = car_cdr_simple(unevaled_args);
+                        let (arg2, end) = car_cdr_simple(more);
                         match end.tag {
                             Expr::Nil => {
                                 match result.tag {
