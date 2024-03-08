@@ -51,38 +51,20 @@ impl<F: LurkField> ZDag<F> {
                         z_ptr
                     }
                     RawPtr::Hash4(idx) => {
-                        if matches!(tag, Tag::Expr(Env)) {
-                            let [sym, val, env] = store.expect_env_components(*idx);
-                            let sym = self.populate_with(&sym, store, cache);
-                            let val = self.populate_with(&val, store, cache);
-                            let env = self.populate_with(&env, store, cache);
-                            let z_ptr = ZPtr::from_parts(
-                                *tag,
-                                store.poseidon_cache.hash4(&[
-                                    *sym.value(),
-                                    val.tag_field(),
-                                    *val.value(),
-                                    *env.value(),
-                                ]),
-                            );
-                            self.0.insert(z_ptr, ZPtrType::Env(sym, val, env));
-                            z_ptr
-                        } else {
-                            let [a, b] = expect_ptrs!(store, 2, *idx);
-                            let a = self.populate_with(&a, store, cache);
-                            let b = self.populate_with(&b, store, cache);
-                            let z_ptr = ZPtr::from_parts(
-                                *tag,
-                                store.poseidon_cache.hash4(&[
-                                    a.tag_field(),
-                                    *a.value(),
-                                    b.tag_field(),
-                                    *b.value(),
-                                ]),
-                            );
-                            self.0.insert(z_ptr, ZPtrType::Tuple2(a, b));
-                            z_ptr
-                        }
+                        let [a, b] = expect_ptrs!(store, 2, *idx);
+                        let a = self.populate_with(&a, store, cache);
+                        let b = self.populate_with(&b, store, cache);
+                        let z_ptr = ZPtr::from_parts(
+                            *tag,
+                            store.poseidon_cache.hash4(&[
+                                a.tag_field(),
+                                *a.value(),
+                                b.tag_field(),
+                                *b.value(),
+                            ]),
+                        );
+                        self.0.insert(z_ptr, ZPtrType::Tuple2(a, b));
+                        z_ptr
                     }
                     RawPtr::Hash6(idx) => {
                         let [a, b, c] = expect_ptrs!(store, 3, *idx);
@@ -125,6 +107,23 @@ impl<F: LurkField> ZDag<F> {
                         self.0.insert(z_ptr, ZPtrType::Tuple4(a, b, c, d));
                         z_ptr
                     }
+                    RawPtr::Env(idx) => {
+                        let [sym, val, env] = store.expect_env_ptrs(*idx);
+                        let sym = self.populate_with(&sym, store, cache);
+                        let val = self.populate_with(&val, store, cache);
+                        let env = self.populate_with(&env, store, cache);
+                        let z_ptr = ZPtr::from_parts(
+                            *tag,
+                            store.poseidon_cache.hash4(&[
+                                *sym.value(),
+                                val.tag_field(),
+                                *val.value(),
+                                *env.value(),
+                            ]),
+                        );
+                        self.0.insert(z_ptr, ZPtrType::Env(sym, val, env));
+                        z_ptr
+                    }
                 };
                 cache.insert(*ptr, z_ptr);
                 z_ptr
@@ -134,7 +133,7 @@ impl<F: LurkField> ZDag<F> {
         let mut stack = vec![*ptr];
         macro_rules! feed_loop {
             ($x:expr) => {
-                if $x.raw().is_hash() {
+                if $x.raw().is_not_atom() {
                     if !cache.contains_key(&$x) {
                         if dag.insert($x) {
                             stack.push($x);
@@ -147,14 +146,8 @@ impl<F: LurkField> ZDag<F> {
             match ptr.raw() {
                 RawPtr::Atom(..) => (),
                 RawPtr::Hash4(idx) => {
-                    if matches!(ptr.tag(), Tag::Expr(Env)) {
-                        for ptr in store.expect_env_components(*idx) {
-                            feed_loop!(ptr)
-                        }
-                    } else {
-                        for ptr in expect_ptrs!(store, 2, *idx) {
-                            feed_loop!(ptr)
-                        }
+                    for ptr in expect_ptrs!(store, 2, *idx) {
+                        feed_loop!(ptr)
                     }
                 }
                 RawPtr::Hash6(idx) => {
@@ -164,6 +157,11 @@ impl<F: LurkField> ZDag<F> {
                 }
                 RawPtr::Hash8(idx) => {
                     for ptr in expect_ptrs!(store, 4, *idx) {
+                        feed_loop!(ptr)
+                    }
+                }
+                RawPtr::Env(idx) => {
+                    for ptr in store.expect_env_ptrs(*idx) {
                         feed_loop!(ptr)
                     }
                 }
@@ -228,15 +226,14 @@ impl<F: LurkField> ZDag<F> {
                         intern_ptrs_hydrated!(store, *z_ptr.tag(), *z_ptr, ptr1, ptr2, ptr3, ptr4)
                     }
                     Some(ZPtrType::Env(sym, val, env)) => {
-                        let sym = self.populate_store(sym, store, cache)?;
-                        let val = self.populate_store(val, store, cache)?;
-                        let env = self.populate_store(env, store, cache)?;
-                        let raw = store.intern_raw_ptrs([
-                            *sym.raw(),
-                            store.tag(*val.tag()),
-                            *val.raw(),
-                            *env.raw(),
-                        ]);
+                        let (_, sym_raw) = self.populate_store(sym, store, cache)?.into_parts();
+                        let (val_tag, val_raw) =
+                            self.populate_store(val, store, cache)?.into_parts();
+                        let (_, env_raw) = self.populate_store(env, store, cache)?.into_parts();
+                        let raw = store.intern_raw_ptrs_hydrated(
+                            [sym_raw, store.tag(val_tag), val_raw, env_raw],
+                            *z_ptr.value(),
+                        );
                         Ptr::new(Tag::Expr(Env), raw)
                     }
                 };

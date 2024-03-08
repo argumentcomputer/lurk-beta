@@ -281,18 +281,14 @@ impl<F: LurkField> Store<F> {
     /// Similar to `intern_raw_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    pub fn intern_raw_ptrs_hydrated<const N: usize>(
-        &self,
-        ptrs: [RawPtr; N],
-        z: FWrap<F>,
-    ) -> RawPtr {
+    pub fn intern_raw_ptrs_hydrated<const N: usize>(&self, ptrs: [RawPtr; N], z: F) -> RawPtr {
         let (ptr, _) = self.intern_raw_ptrs_internal::<N>(ptrs);
-        self.z_cache.insert(ptr, Box::new(z));
-        self.inverse_z_cache.insert(z, Box::new(ptr));
+        let z_wrap = FWrap(z);
+        self.z_cache.insert(ptr, Box::new(z_wrap));
+        self.inverse_z_cache.insert(z_wrap, Box::new(ptr));
         ptr
     }
 
-    #[inline]
     fn intern_raw_ptrs_internal<const N: usize>(&self, ptrs: [RawPtr; N]) -> (RawPtr, bool) {
         macro_rules! intern {
             ($Hash:ident, $hash:ident, $n:expr) => {{
@@ -326,7 +322,7 @@ impl<F: LurkField> Store<F> {
         z: ZPtr<F>,
     ) -> Ptr {
         let raw_ptrs = self.ptrs_to_raw_ptrs::<N, P>(&ptrs);
-        let payload = self.intern_raw_ptrs_hydrated::<N>(raw_ptrs, FWrap(*z.value()));
+        let payload = self.intern_raw_ptrs_hydrated::<N>(raw_ptrs, *z.value());
         Ptr::new(tag, payload)
     }
 
@@ -391,8 +387,7 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn fetch_tag(&self, ptr: &RawPtr) -> Option<Tag> {
-        let idx = ptr.get_atom()?;
-        Tag::pos(idx)
+        ptr.get_atom().and_then(Tag::pos)
     }
 
     pub fn raw_to_ptr(&self, tag: &RawPtr, raw: &RawPtr) -> Option<Ptr> {
@@ -400,19 +395,30 @@ impl<F: LurkField> Store<F> {
         Some(Ptr::new(tag, *raw))
     }
 
-    #[inline]
+    /// Creates a `RawPtr` for an environment
+    pub fn intern_env_raw_components(&self, ptrs: [RawPtr; 4]) -> RawPtr {
+        let (idx, inserted) = self.hash4.insert_probe(Box::new(ptrs));
+        let ptr = RawPtr::Env(idx);
+        if inserted {
+            // this is for `hydrate_z_cache`
+            self.dehydrated.load().push(Box::new(ptr));
+        }
+        ptr
+    }
+
     pub fn push_binding(&self, sym: Ptr, val: Ptr, env: Ptr) -> Ptr {
-        assert_eq!(*sym.tag(), Tag::Expr(Sym));
-        assert_eq!(*env.tag(), Tag::Expr(Env));
-        let raw =
-            self.intern_raw_ptrs::<4>([*sym.raw(), self.tag(*val.tag()), *val.raw(), *env.raw()]);
+        let (sym_tag, sym_raw) = sym.into_parts();
+        let (val_tag, val_raw) = val.into_parts();
+        let (env_tag, env_raw) = env.into_parts();
+        assert_eq!(sym_tag, Tag::Expr(Sym));
+        assert_eq!(env_tag, Tag::Expr(Env));
+        let raw = self.intern_env_raw_components([sym_raw, self.tag(val_tag), val_raw, env_raw]);
         Ptr::new(Tag::Expr(Env), raw)
     }
 
-    #[inline]
-    pub fn pop_binding(&self, env: Ptr) -> Option<[Ptr; 3]> {
+    pub fn pop_binding(&self, env: &Ptr) -> Option<[Ptr; 3]> {
         assert_eq!(*env.tag(), Tag::Expr(Env));
-        let idx = env.get_index2()?;
+        let idx = env.get_env()?;
         let [sym_pay, val_tag, val_pay, env_pay] = self.fetch_raw_ptrs::<4>(idx)?;
         let val_tag = self.fetch_tag(val_tag)?;
         let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
@@ -437,7 +443,6 @@ impl<F: LurkField> Store<F> {
         Ptr::new(Tag::Expr(Prov), raw)
     }
 
-    #[inline]
     pub fn deconstruct_provenance(&self, prov: Ptr) -> Option<[Ptr; 3]> {
         assert_eq!(*prov.tag(), Tag::Expr(Prov));
         let idx = prov.get_index2()?;
@@ -881,7 +886,9 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn expect_env_components(&self, idx: usize) -> [Ptr; 3] {
+    /// Returns the pointers that form an environment pointer by the index of
+    /// its respective `RawPtr::Env` raw component
+    pub fn expect_env_ptrs(&self, idx: usize) -> [Ptr; 3] {
         let [sym_pay, val_tag, val_pay, env_pay] = self.expect_raw_ptrs(idx);
         let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
         let val = Ptr::new(
@@ -1021,7 +1028,7 @@ impl<F: LurkField> Store<F> {
         }
         match ptr {
             RawPtr::Atom(idx) => FWrap(*self.expect_f(*idx)),
-            RawPtr::Hash4(idx) => hash_raw!(hash4, 4, *idx),
+            RawPtr::Hash4(idx) | RawPtr::Env(idx) => hash_raw!(hash4, 4, *idx),
             RawPtr::Hash6(idx) => hash_raw!(hash6, 6, *idx),
             RawPtr::Hash8(idx) => hash_raw!(hash8, 8, *idx),
         }
@@ -1074,7 +1081,7 @@ impl<F: LurkField> Store<F> {
         let mut stack = vec![ptr];
         macro_rules! feed_loop {
             ($x:expr) => {
-                if $x.is_hash() {
+                if $x.is_not_atom() {
                     if self.z_cache.get($x).is_none() {
                         if ptrs.insert($x) {
                             stack.push($x);
@@ -1086,7 +1093,7 @@ impl<F: LurkField> Store<F> {
         while let Some(ptr) = stack.pop() {
             match ptr {
                 RawPtr::Atom(..) => (),
-                RawPtr::Hash4(idx) => {
+                RawPtr::Hash4(idx) | RawPtr::Env(idx) => {
                     for ptr in self.expect_raw_ptrs::<4>(*idx) {
                         feed_loop!(ptr)
                     }

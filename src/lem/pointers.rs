@@ -10,17 +10,25 @@ use super::Tag;
 /// `RawPtr` is the basic pointer type of the LEM store. An `Atom` points to a field
 /// element, and a `HashN` points to `N` children, which are also raw pointers. Thus,
 /// they are a building block for graphs that represent Lurk data.
+///
+/// The `RawPtr::Env` variant has 4 children and is meant to encode environments in
+/// a more compact way than cons lists. The 4 children, in order, are:
+/// 1. The `raw` component of the symbol from the head binding
+/// 2. The `tag` component of the value from the head binding
+/// 3. The `raw` component of the value from the head binding
+/// 4. The `raw` component of the tail of the environment
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum RawPtr {
     Atom(usize),
     Hash4(usize),
     Hash6(usize),
     Hash8(usize),
+    Env(usize),
 }
 
 impl RawPtr {
     #[inline]
-    pub fn is_hash(&self) -> bool {
+    pub fn is_not_atom(&self) -> bool {
         matches!(
             self,
             RawPtr::Hash4(..) | RawPtr::Hash6(..) | RawPtr::Hash8(..)
@@ -58,6 +66,14 @@ impl RawPtr {
             _ => None,
         }
     }
+
+    #[inline]
+    pub fn get_env(&self) -> Option<usize> {
+        match self {
+            RawPtr::Env(x) => Some(*x),
+            _ => None,
+        }
+    }
 }
 
 /// `Ptr` is a tagged pointer. The tag is there to say what kind of data it encodes.
@@ -87,6 +103,12 @@ impl Ptr {
 
     #[inline]
     pub fn parts(&self) -> (&Tag, &RawPtr) {
+        let Ptr { tag, raw } = self;
+        (tag, raw)
+    }
+
+    #[inline]
+    pub fn into_parts(self) -> (Tag, RawPtr) {
         let Ptr { tag, raw } = self;
         (tag, raw)
     }
@@ -159,6 +181,11 @@ impl Ptr {
     #[inline]
     pub fn get_index4(&self) -> Option<usize> {
         self.raw().get_hash8()
+    }
+
+    #[inline]
+    pub fn get_env(&self) -> Option<usize> {
+        self.raw().get_env()
     }
 
     #[inline]

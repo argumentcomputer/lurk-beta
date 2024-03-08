@@ -33,7 +33,7 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         let s = scope.store.as_ref();
         match self {
             Self::Lookup(var, env) => {
-                if let Some([v, val, new_env]) = s.pop_binding(*env) {
+                if let Some([v, val, new_env]) = s.pop_binding(env) {
                     if s.ptr_eq(var, &v) {
                         let t = s.intern_t();
                         s.cons(val, t)
