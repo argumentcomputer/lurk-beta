@@ -2,6 +2,12 @@
 
 A server for proving chained calls built on top of Lurk.
 
+> [!IMPORTANT]
+> This crate depends on [`tonic`](https://docs.rs/tonic/latest/tonic/), which uses [Protocol Buffers](https://protobuf.dev/) to specify the server/client communication.
+> If `protoc` is installed and this crate had trouble finding it, you can set the `PROTOC` environment variable with the specific path to your installed `protoc` binary.
+> Otherwise, you can download it from https://github.com/protocolbuffers/protobuf/releases.
+> On debian, try `apt-get install protobuf-compiler`.
+
 ### Initiating the server with a functional commitment
 
 Go to Lurk's REPL and persist the commitment to the chaining function:
