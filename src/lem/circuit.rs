@@ -691,8 +691,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
                         if not_dummy_and_not_blank {
                             let z_ptr = &collected_z_ptrs[i];
-                            dbg!(ptr.hash().get_value());
-                            dbg!(*z_ptr.value());
                             if ptr.tag().get_value() != Some(z_ptr.tag_field())
                                 || ptr.hash().get_value() != Some(*z_ptr.value())
                             {

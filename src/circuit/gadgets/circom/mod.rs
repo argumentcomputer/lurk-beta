@@ -9,6 +9,7 @@ use crate::{
     lem::{pointers::Ptr, store::Store},
 };
 use anyhow::{bail, Result};
+use bellpepper_core::{ConstraintSystem, SynthesisError};
 use camino::Utf8PathBuf;
 use circom_scotia::r1cs::CircomInput;
 use std::fmt::{Debug, Display, Formatter};
@@ -34,7 +35,14 @@ pub trait CircomGadget<F: LurkField>: Send + Sync + Clone {
         None
     }
 
-    fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<CircomInput<F>>;
+    fn into_circom_input<CS: ConstraintSystem<F>>(
+        self,
+        cs: &mut CS,
+        g: &crate::lem::circuit::GlobalAllocator<F>,
+        s: &Store<F>,
+        not_dummy: &bellpepper_core::boolean::Boolean,
+        input: &[AllocatedPtr<F>],
+    ) -> Result<Vec<CircomInput<F>>, SynthesisError>;
 
     fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr;
 

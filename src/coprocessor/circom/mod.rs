@@ -9,7 +9,6 @@ pub mod error;
 pub mod non_wasm {
     use core::fmt::Debug;
     use std::fs;
-    use std::hash::Hash;
     use std::io::Write;
 
     use ansi_term::Colour::Red;
@@ -216,10 +215,13 @@ pub mod non_wasm {
             mut cs: &mut CS,
             g: &crate::lem::circuit::GlobalAllocator<F>,
             s: &Store<F>,
-            _not_dummy: &bellpepper_core::boolean::Boolean,
+            not_dummy: &bellpepper_core::boolean::Boolean,
             args: &[AllocatedPtr<F>],
         ) -> std::result::Result<AllocatedPtr<F>, SynthesisError> {
-            let input = self.gadget.clone().into_circom_input(args);
+            let input = self
+                .gadget
+                .clone()
+                .into_circom_input(cs, g, s, not_dummy, args)?;
             let witness =
                 circom_scotia::calculate_witness(&self.config, input, true).map_err(|e| {
                     eprintln!("{:?}", e);
