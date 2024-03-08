@@ -34,10 +34,7 @@ use lurk::lem::eval::{
 use lurk::lem::{pointers::Ptr, store::Store};
 use lurk::proof::supernova::SuperNovaProver;
 use lurk::proof::RecursiveSNARKTrait;
-use lurk::public_parameters::{
-    instance::{Instance, Kind},
-    supernova_public_params,
-};
+use lurk::public_parameters::{instance::Instance, supernova_public_params};
 use lurk::state::user_sym;
 use lurk::tag::{ExprTag, Tag};
 use lurk_macros::Coproc;
@@ -119,8 +116,11 @@ pub enum KeccakExampleCoproc<F: LurkField> {
 /*************************************************
  * String to LE bits
  *************************************************/
+
+/// Structure representing the str_to_bits coprocessor
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StrToBits<F: LurkField> {
+    /// Size of the input string
     n: usize,
     pub(crate) _p: PhantomData<F>,
 }
@@ -140,7 +140,7 @@ impl<F: LurkField> CoCircuit<F> for StrToBits<F> {
         args: &[AllocatedPtr<F>],
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
         // Get all str characters
-        let (elts, _, _) = chain_car_cdr(cs, g, s, not_dummy, &args[0], self.n)?;
+        let (elts, _, _) = chain_car_cdr(cs, g, s, not_dummy, &args[0], self.n, false)?;
         // Convert to 8 bits per character
         let elts_bits = elts
             .iter()
@@ -236,8 +236,10 @@ impl<F: LurkField> StrToBits<F> {
     }
 }
 
+/// Structure representing the Keccak gadget used in the Circom Coprocessor
 #[derive(Debug, Clone)]
 pub struct CircomKeccak<F: LurkField> {
+    /// Size of the incoming bit vector
     n: usize,
     pub(crate) _p: PhantomData<F>,
     reference: CircomGadgetReference,
@@ -271,7 +273,7 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
         inputs: &[AllocatedPtr<F>],
     ) -> Result<Vec<CircomInput<F>>, SynthesisError> {
         // Get all bits
-        let (elts, _, _) = chain_car_cdr(cs, g, s, not_dummy, &inputs[0], self.n * 8)?;
+        let (elts, _, _) = chain_car_cdr(cs, g, s, not_dummy, &inputs[0], self.n, false)?;
 
         // Constraint that they are bits
         let mut elts_alloc_bits = elts
@@ -363,12 +365,13 @@ fn main() {
     lang.add_coprocessor(str_to_le_bits_sym, StrToBits::new(args[1].len()));
     lang.add_coprocessor(
         keccak_sym,
-        CircomCoprocessor::new(CircomKeccak::new(args[1].len())),
+        CircomCoprocessor::new(CircomKeccak::new(args[1].len() * 8)),
     );
-    let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang));
     let cprocs = make_cprocs_funcs_from_lang(&lang);
+
+    println!("Evaluating Lurk program..");
 
     let frames = evaluate(
         Some((&lurk_step, &cprocs, &lang)),
@@ -378,18 +381,29 @@ fn main() {
         &dummy_terminal(),
     )
     .unwrap();
+    let bits_out = bits_to_bytes(
+        &store
+            .fetch_list(&frames.last().unwrap().output[0])
+            .unwrap()
+            .0
+            .iter()
+            .map(|ptr| ptr.raw().get_atom().unwrap() == 1)
+            .collect::<Vec<_>>(),
+    );
+
+    println!("Evaluated Lurk program, output: {:?}", bits_out);
 
     let supernova_prover =
         SuperNovaProver::<pallas::Scalar, KeccakExampleCoproc<pallas::Scalar>>::new(
             REDUCTION_COUNT,
-            lang_rc.clone(),
+            Arc::new(lang),
         );
 
     let pp_start = Instant::now();
 
     println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
 
-    let instance_primary = Instance::new(REDUCTION_COUNT, lang_rc, true, Kind::SuperNovaAuxParams);
+    let instance_primary = Instance::new_supernova(&supernova_prover, true);
     let pp = supernova_public_params(&instance_primary).unwrap();
 
     let pp_end = pp_start.elapsed();
