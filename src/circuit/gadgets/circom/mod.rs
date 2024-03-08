@@ -1,6 +1,6 @@
 //! # Usage of circom coprocessors.
 //!
-//! See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
+//! See `examples/keccak.rs` for a quick example of how to declare a circom coprocessor.
 
 use crate::cli::paths::circom_dir;
 use crate::coprocessor::circom::error::CircomCoprocessorError;
