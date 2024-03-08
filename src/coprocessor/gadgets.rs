@@ -20,7 +20,6 @@ use crate::{
 };
 
 /// Constructs an `AllocatedPtr` compound by two others
-#[allow(dead_code)]
 pub(crate) fn construct_tuple2<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
@@ -107,7 +106,6 @@ pub(crate) fn construct_tuple4<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
 }
 
 /// Constructs a `Cons` pointer
-#[allow(dead_code)]
 #[inline]
 pub(crate) fn construct_cons<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
@@ -121,7 +119,6 @@ pub(crate) fn construct_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
 /// Constructs a cons-list with the provided `elts`. The terminating value defaults
 /// to `nil` when `last` is `None`
-#[allow(dead_code)]
 pub(crate) fn construct_list<
     F: LurkField,
     CS: ConstraintSystem<F>,
@@ -151,7 +148,6 @@ where
 
 /// Constructs an `Env` pointer
 #[allow(dead_code)]
-#[inline]
 pub(crate) fn construct_env<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
@@ -253,7 +249,6 @@ pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
     Ok((key_sym_hash, val, new_env_hash))
 }
 
-#[allow(dead_code)]
 pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     s: &Store<F>,
@@ -307,7 +302,6 @@ pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
 
 /// Retrieves the `Ptr` that corresponds to `a_ptr` by using the `Store` as the
 /// hint provider
-#[allow(dead_code)]
 fn get_ptr<F: LurkField>(a_ptr: &AllocatedPtr<F>, store: &Store<F>) -> Result<Ptr, SynthesisError> {
     let z_ptr = ZPtr::from_parts(
         Tag::from_field(
@@ -461,11 +455,35 @@ pub(crate) fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
     Ok((a, b, c, d))
 }
 
+/// Enforces that car and cdr are both nil when the data is nil
+fn enforce_car_cdr_nil<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    not_dummy: &Boolean,
+    data_is_nil: &Boolean,
+    nil: &AllocatedPtr<F>,
+    car: &AllocatedPtr<F>,
+    cdr: &AllocatedPtr<F>,
+) -> Result<(), SynthesisError> {
+    let not_dummy_and_data_is_nil =
+        Boolean::and(ns!(cs, "not dummy and data is nil"), not_dummy, data_is_nil)?;
+
+    car.implies_ptr_equal(
+        ns!(cs, "data is nil implies car is nil"),
+        &not_dummy_and_data_is_nil,
+        nil,
+    );
+    cdr.implies_ptr_equal(
+        ns!(cs, "data is nil implies cdr is nil"),
+        &not_dummy_and_data_is_nil,
+        nil,
+    );
+    Ok(())
+}
+
 /// Deconstructs `data` with `car_cdr` semantics.
 ///
 /// # Panics
 /// Panics if the store can't deconstruct `data` with `car_cdr`
-#[allow(dead_code)]
 pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
@@ -492,22 +510,7 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 
     {
         // when data is nil, we enforce that car and cdr are both nil
-        let not_dummy_and_data_is_nil = Boolean::and(
-            ns!(cs, "not dummy and data is nil"),
-            not_dummy,
-            &data_is_nil,
-        )?;
-
-        car.implies_ptr_equal(
-            ns!(cs, "data is nil implies car is nil"),
-            &not_dummy_and_data_is_nil,
-            &nil,
-        );
-        cdr.implies_ptr_equal(
-            ns!(cs, "data is nil implies cdr is nil"),
-            &not_dummy_and_data_is_nil,
-            &nil,
-        );
+        enforce_car_cdr_nil(cs, not_dummy, &data_is_nil, &nil, &car, &cdr)?;
     }
 
     {
@@ -540,7 +543,7 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 
     {
         // when data is not empty, we enforce hash equality
-        let not_dumy_and_data_is_not_empty = Boolean::and(
+        let not_dummy_and_data_is_not_empty = Boolean::and(
             ns!(cs, "not dummy and data is not empty"),
             not_dummy,
             &data_is_not_empty,
@@ -559,13 +562,75 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 
         implies_equal(
             ns!(cs, "data is not empty implies hash equality"),
-            &not_dumy_and_data_is_not_empty,
+            &not_dummy_and_data_is_not_empty,
             data.hash(),
             &hash,
         );
     }
 
     Ok((car, cdr, data_is_not_empty))
+}
+
+/// Simpler version of `car_cdr` that doesn't deconstruct strings to save some
+/// constraints
+pub(crate) fn car_cdr_simple<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    g: &GlobalAllocator<F>,
+    store: &Store<F>,
+    not_dummy: &Boolean,
+    data: &AllocatedPtr<F>,
+) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, Boolean), SynthesisError> {
+    let (car, cdr) = if not_dummy.get_value() == Some(true) {
+        let (car, cdr) = store
+            .car_cdr_simple(&get_ptr(data, store)?)
+            .expect("invalid Ptr");
+        (store.hash_ptr(&car), store.hash_ptr(&cdr))
+    } else {
+        (ZPtr::dummy(), ZPtr::dummy())
+    };
+
+    let nil = g.alloc_ptr(cs, &store.intern_nil(), store);
+
+    let car = AllocatedPtr::alloc_infallible(ns!(cs, "car"), || car);
+    let cdr = AllocatedPtr::alloc_infallible(ns!(cs, "cdr"), || cdr);
+
+    let data_is_nil = data.alloc_equal(ns!(cs, "data is nil"), &nil)?;
+
+    {
+        // when data is nil, we enforce that car and cdr are both nil
+        enforce_car_cdr_nil(cs, not_dummy, &data_is_nil, &nil, &car, &cdr)?;
+    }
+
+    let data_is_not_nil = data_is_nil.not();
+
+    {
+        // when data is not nil, we enforce hash equality
+        let not_dummy_and_data_is_not_nil = Boolean::and(
+            ns!(cs, "not dummy and data is not empty"),
+            not_dummy,
+            &data_is_not_nil,
+        )?;
+
+        let hash = poseidon_hash(
+            ns!(cs, "hash"),
+            vec![
+                car.tag().clone(),
+                car.hash().clone(),
+                cdr.tag().clone(),
+                cdr.hash().clone(),
+            ],
+            store.poseidon_cache.constants.c4(),
+        )?;
+
+        implies_equal(
+            ns!(cs, "data is not nil implies hash equality"),
+            &not_dummy_and_data_is_not_nil,
+            data.hash(),
+            &hash,
+        );
+    }
+
+    Ok((car, cdr, data_is_not_nil))
 }
 
 /// Chains `car_cdr` calls `n` times, returning the accumulated `car`s, the final
@@ -575,14 +640,15 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 /// `1` as the (explored) length.
 ///
 /// It can be used to deconstruct cons-lists into their elements or strings into
-/// their characters.
+/// their characters. Use the `simple` flag to disable the deconstruction of
+/// strings and save some constraints.
 ///
 /// # Panics
 /// Panics if any of the reached elements can't be deconstructed with `car_cdr`
 ///
 /// ```
 /// # use bellpepper_core::{boolean::Boolean, test_cs::TestConstraintSystem, ConstraintSystem};
-/// # use pasta_curves::Fq;
+/// # use halo2curves::bn256::Fr;
 ///
 /// use lurk::{
 /// #    circuit::gadgets::pointer::AllocatedPtr,
@@ -593,7 +659,7 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 ///
 /// # let mut cs = TestConstraintSystem::new();
 /// # let g = GlobalAllocator::default();
-/// let store = Store::<Fq>::default();
+/// let store = Store::<Fr>::default();
 /// let nil = store.intern_nil();
 /// let z_nil = store.hash_ptr(&nil);
 /// let empty_str = store.intern_string("");
@@ -614,6 +680,7 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 ///     &not_dummy,
 ///     &a_ab,
 ///     4,
+///     false,
 /// )
 /// .unwrap();
 /// assert_eq!(cars.len(), 4);
@@ -622,9 +689,8 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 /// assert_eq!(a_ptr_as_z_ptr(&cars[2]), Some(z_nil));
 /// assert_eq!(a_ptr_as_z_ptr(&cars[3]), Some(z_nil));
 /// assert_eq!(a_ptr_as_z_ptr(&cdr), Some(z_empty_str));
-/// assert_eq!(length.get_value(), Some(Fq::from_u64(2)));
+/// assert_eq!(length.get_value(), Some(Fr::from_u64(2)));
 /// ```
-#[allow(dead_code)]
 pub fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     g: &GlobalAllocator<F>,
@@ -632,13 +698,17 @@ pub fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     not_dummy: &Boolean,
     data: &AllocatedPtr<F>,
     n: usize,
+    simple: bool,
 ) -> Result<(Vec<AllocatedPtr<F>>, AllocatedPtr<F>, AllocatedNum<F>), SynthesisError> {
     let mut cars = Vec::with_capacity(n);
     let mut cdr = data.clone();
     let mut length = g.alloc_const_cloned(cs, F::ZERO);
     for i in 0..n {
-        let (car, new_cdr, not_empty) =
-            car_cdr(ns!(cs, format!("car_cdr {i}")), g, store, not_dummy, &cdr)?;
+        let (car, new_cdr, not_empty) = if simple {
+            car_cdr_simple(ns!(cs, format!("car_cdr {i}")), g, store, not_dummy, &cdr)?
+        } else {
+            car_cdr(ns!(cs, format!("car_cdr {i}")), g, store, not_dummy, &cdr)?
+        };
         cars.push(car);
         cdr = new_cdr;
         let not_empty_num = boolean_to_num(ns!(cs, format!("not_empty_num {i}")), &not_empty)?;
@@ -665,7 +735,7 @@ pub fn a_ptr_as_z_ptr<T: Tag, F: LurkField>(
 mod test {
     use bellpepper::util_cs::witness_cs::WitnessCS;
     use bellpepper_core::{boolean::Boolean, test_cs::TestConstraintSystem, ConstraintSystem};
-    use halo2curves::bn256::Fr as Fq;
+    use halo2curves::bn256::Fr;
 
     use crate::{
         circuit::gadgets::pointer::AllocatedPtr,
@@ -686,7 +756,7 @@ mod test {
     fn test_construct_tuples() {
         let mut cs = WitnessCS::new();
         let g = GlobalAllocator::default();
-        let store = Store::<Fq>::default();
+        let store = Store::<Fr>::default();
         let nil = store.intern_nil();
         let nil_tag = nil.tag();
         let a_nil = g.alloc_ptr(&mut cs, &nil, &store);
@@ -722,7 +792,7 @@ mod test {
     fn test_construct_list() {
         let mut cs = WitnessCS::new();
         let g = GlobalAllocator::default();
-        let store = Store::<Fq>::default();
+        let store = Store::<Fr>::default();
         let one = store.num_u64(1);
         let a_one = g.alloc_ptr(&mut cs, &one, &store);
 
@@ -741,7 +811,7 @@ mod test {
     #[test]
     fn deconstruct_tuples() {
         let mut cs = TestConstraintSystem::new();
-        let store = Store::<Fq>::default();
+        let store = Store::<Fr>::default();
         let nil = store.intern_nil();
         let z_nil = store.hash_ptr(&nil);
         let nil_tag = *nil.tag();
@@ -784,7 +854,7 @@ mod test {
     fn test_car_cdr() {
         let mut cs = TestConstraintSystem::new();
         let g = GlobalAllocator::default();
-        let store = Store::<Fq>::default();
+        let store = Store::<Fr>::default();
         let nil = store.intern_nil();
         let z_nil = store.hash_ptr(&nil);
         let empty_str = store.intern_string("");
@@ -846,7 +916,7 @@ mod test {
     fn test_chain_car_cdr() {
         let mut cs = TestConstraintSystem::new();
         let g = GlobalAllocator::default();
-        let store = Store::<Fq>::default();
+        let store = Store::<Fr>::default();
         let nil = store.intern_nil();
         let z_nil = store.hash_ptr(&nil);
         let empty_str = store.intern_string("");
@@ -868,6 +938,7 @@ mod test {
             &not_dummy,
             &a_ab,
             4,
+            false,
         )
         .unwrap();
         assert_eq!(cars.len(), 4);
@@ -876,19 +947,21 @@ mod test {
         assert_eq!(a_ptr_as_z_ptr(&cars[2]), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&cars[3]), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&cdr), Some(z_empty_str));
-        assert_eq!(length.get_value(), Some(Fq::from_u64(2)));
+        assert_eq!(length.get_value(), Some(Fr::from_u64(2)));
 
         // list
+        let mut cs_simple = TestConstraintSystem::new();
         let list = store.list(vec![ab, ab]);
         let z_list = store.hash_ptr(&list);
-        let a_list = AllocatedPtr::alloc_infallible(ns!(cs, "list"), || z_list);
+        let a_list = AllocatedPtr::alloc_infallible(ns!(cs_simple, "list"), || z_list);
         let (cars, cdr, length) = chain_car_cdr(
-            ns!(cs, "chain_car_cdr on list"),
+            ns!(cs_simple, "chain_car_cdr on list"),
             &g,
             &store,
             &not_dummy,
             &a_list,
             4,
+            true,
         )
         .unwrap();
         assert_eq!(cars.len(), 4);
@@ -897,6 +970,10 @@ mod test {
         assert_eq!(a_ptr_as_z_ptr(&cars[2]), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&cars[3]), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&cdr), Some(z_nil));
-        assert_eq!(length.get_value(), Some(Fq::from_u64(2)));
+        assert_eq!(length.get_value(), Some(Fr::from_u64(2)));
+
+        // even though they were both used with depth 4, the call with the
+        // `simple` flag is cheaper
+        assert!(cs_simple.num_constraints() < cs.num_constraints());
     }
 }

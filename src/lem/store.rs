@@ -395,9 +395,9 @@ impl<F: LurkField> Store<F> {
         Tag::pos(idx)
     }
 
-    pub fn raw_to_ptr(&self, tag: &RawPtr, raw: &RawPtr) -> Option<Ptr> {
-        let tag = self.fetch_tag(tag)?;
-        Some(Ptr::new(tag, *raw))
+    #[inline]
+    pub fn raw_to_ptr(&self, tag: &RawPtr, raw: RawPtr) -> Option<Ptr> {
+        self.fetch_tag(tag).map(|tag| Ptr::new(tag, raw))
     }
 
     #[inline]
@@ -771,41 +771,47 @@ impl<F: LurkField> Store<F> {
         Ptr::new(Tag::Cont(Terminal), RawPtr::Atom(self.hash8zeros_idx))
     }
 
-    pub fn car_cdr(&self, ptr: &Ptr) -> Result<(Ptr, Ptr)> {
+    /// Returns the pair of pointers used to construct the provided `RawPtr`
+    fn decons_hash4_raw(&self, raw: &RawPtr) -> Result<(Ptr, Ptr)> {
+        let Some(idx) = raw.get_hash4() else {
+            bail!("not a hash4 raw pointer")
+        };
+        match self.fetch_raw_ptrs(idx) {
+            Some([car_tag, car, cdr_tag, cdr]) => {
+                let car_ptr = self.raw_to_ptr(car_tag, *car).context("Not a pointer")?;
+                let cdr_ptr = self.raw_to_ptr(cdr_tag, *cdr).context("Not a pointer")?;
+                Ok((car_ptr, cdr_ptr))
+            }
+            None => bail!("couldn't fetch raw ptrs"),
+        }
+    }
+
+    /// Simpler version of `car_cdr` that doesn't deconstruct strings
+    pub fn car_cdr_simple(&self, ptr: &Ptr) -> Result<(Ptr, Ptr)> {
         match ptr.tag() {
             Tag::Expr(Nil) => {
                 let nil = self.intern_nil();
                 Ok((nil, nil))
             }
-            Tag::Expr(Cons) => {
-                let Some(idx) = ptr.raw().get_hash4() else {
-                    bail!("malformed cons pointer")
-                };
-                match self.fetch_raw_ptrs(idx) {
-                    Some([car_tag, car, cdr_tag, cdr]) => {
-                        let car_ptr = self.raw_to_ptr(car_tag, car).context("Not a pointer")?;
-                        let cdr_ptr = self.raw_to_ptr(cdr_tag, cdr).context("Not a pointer")?;
-                        Ok((car_ptr, cdr_ptr))
-                    }
-                    None => bail!("car/cdr not found"),
-                }
-            }
+            Tag::Expr(Cons) => self.decons_hash4_raw(ptr.raw()),
+            _ => bail!("invalid pointer to extract car/cdr (simple) from"),
+        }
+    }
+
+    /// Deconstruct a cons-like pointer such that:
+    /// * If applied on `nil`, returns `(nil, nil)`
+    /// * If applied on a pair `(a . b)`, returns `(a, b)`
+    /// * If applied on the empty string, returns `(nil, "")`
+    /// * If applied on a string `"abc..."`, returns `('a', "bc...")`
+    pub fn car_cdr(&self, ptr: &Ptr) -> Result<(Ptr, Ptr)> {
+        match ptr.tag() {
+            Tag::Expr(Nil | Cons) => self.car_cdr_simple(ptr),
             Tag::Expr(Str) => {
                 if self.is_zero(ptr.raw()) {
                     let empty_str = Ptr::new(Tag::Expr(Str), self.raw_zero());
                     Ok((self.intern_nil(), empty_str))
                 } else {
-                    let Some(idx) = ptr.raw().get_hash4() else {
-                        bail!("malformed str pointer")
-                    };
-                    match self.fetch_raw_ptrs(idx) {
-                        Some([car_tag, car, cdr_tag, cdr]) => {
-                            let car_ptr = self.raw_to_ptr(car_tag, car).context("Not a pointer")?;
-                            let cdr_ptr = self.raw_to_ptr(cdr_tag, cdr).context("Not a pointer")?;
-                            Ok((car_ptr, cdr_ptr))
-                        }
-                        None => bail!("car/cdr not found"),
-                    }
+                    self.decons_hash4_raw(ptr.raw())
                 }
             }
             _ => bail!("invalid pointer to extract car/cdr from"),
@@ -861,8 +867,8 @@ impl<F: LurkField> Store<F> {
                 let mut list = vec![];
                 let mut last = None;
                 while let Some([car_tag, car, cdr_tag, cdr]) = self.fetch_raw_ptrs(idx) {
-                    let car_ptr = self.raw_to_ptr(car_tag, car)?;
-                    let cdr_ptr = self.raw_to_ptr(cdr_tag, cdr)?;
+                    let car_ptr = self.raw_to_ptr(car_tag, *car)?;
+                    let cdr_ptr = self.raw_to_ptr(cdr_tag, *cdr)?;
                     list.push(car_ptr);
                     match cdr_ptr.tag() {
                         Tag::Expr(Nil) => break,
@@ -904,7 +910,7 @@ impl<F: LurkField> Store<F> {
         let mut list = vec![];
         while let Some([sym_pay, val_tag, val_pay, env_pay]) = self.fetch_raw_ptrs(idx) {
             let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
-            let val = self.raw_to_ptr(val_tag, val_pay)?;
+            let val = self.raw_to_ptr(val_tag, *val_pay)?;
             list.push((sym, val));
             if env_pay == self.intern_empty_env().raw() {
                 break;
@@ -924,7 +930,7 @@ impl<F: LurkField> Store<F> {
         self.fetch_raw_ptrs(idx)
             .and_then(|[query_pay, val_tag, val_pay, deps_pay]| {
                 let query = Ptr::new(Tag::Expr(Cons), *query_pay);
-                let val = self.raw_to_ptr(val_tag, val_pay)?;
+                let val = self.raw_to_ptr(val_tag, *val_pay)?;
 
                 let nil = self.intern_nil();
                 let deps = if deps_pay == nil.raw() {
