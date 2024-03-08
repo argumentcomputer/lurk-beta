@@ -94,7 +94,7 @@ impl CircomGadgetReference {
         } else if !gadget_dir.exists() && create_if_missing {
             std::fs::create_dir_all(&gadget_dir).map_err(|err| {
                 CircomCoprocessorError::AssetCreationFailure {
-                    prelude: crate::coprocessor::circom::non_wasm::error_prelude(),
+                    prelude: String::from("error"),
                     reference: self.clone(),
                     source: err.into(),
                 }
