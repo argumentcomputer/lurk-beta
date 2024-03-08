@@ -687,8 +687,6 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                         bail!("Incompatible output length for coprocessor {sym}")
                     }
                     for ((i, var), ptr) in out.iter().enumerate().zip(synthesize_output) {
-                        // TODO COMPARE COPROC RESULT CIRCUIT
-
                         if not_dummy_and_not_blank {
                             let z_ptr = &collected_z_ptrs[i];
                             if ptr.tag().get_value() != Some(z_ptr.tag_field())

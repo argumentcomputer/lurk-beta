@@ -205,7 +205,6 @@ pub mod non_wasm {
     }
 
     impl<F: LurkField, C: CircomGadget<F>> CoCircuit<F> for CircomCoprocessor<F, C> {
-        /// TODO: Generalize
         fn arity(&self) -> usize {
             self.gadget.arity()
         }
@@ -245,8 +244,6 @@ pub mod non_wasm {
     }
 
     impl<F: LurkField, C: CircomGadget<F> + Debug> Coprocessor<F> for CircomCoprocessor<F, C> {
-        /// TODO: Generalize
-
         fn evaluate_simple(&self, s: &Store<F>, args: &[Ptr]) -> Ptr {
             self.gadget.evaluate_simple(s, args)
         }
