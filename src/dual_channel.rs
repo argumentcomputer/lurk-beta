@@ -1,10 +1,12 @@
+#![deny(missing_docs)]
+
 //! This module implements `ChannelTerminal`, meant to be used in pairs of its
 //! instances with crossed `Sender`s and `Receiver` from `mpsc::channel`. This
 //! crossing is performed in `pair_terminals`. The idea is that one terminal can
 //! send/receive messages to/from the other.
 
 use anyhow::{anyhow, Result};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Iter, Receiver, Sender};
 
 /// Holds a `Sender` and a `Receiver` which are not expected to be paired with
 /// each other
@@ -32,6 +34,12 @@ impl<T> ChannelTerminal<T> {
     #[inline]
     pub fn collect(&self) -> Vec<T> {
         self.receiver.try_iter().collect()
+    }
+
+    #[inline]
+    /// Returns a thread-blocking iterator for the received messages
+    pub fn iter(&self) -> Iter<'_, T> {
+        self.receiver.iter()
     }
 }
 
