@@ -27,6 +27,7 @@ pub(crate) enum EnvCircuitQuery<F: LurkField> {
 
 impl<F: LurkField> Query<F> for EnvQuery<F> {
     type CQ = EnvCircuitQuery<F>;
+    type RD = ();
 
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         let s = scope.store.as_ref();
@@ -55,7 +56,7 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         }
     }
 
-    fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self> {
+    fn from_ptr(_: &Self::RD, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
         let (head, body) = s.car_cdr(ptr).expect("query should be cons");
         let sym = s.fetch_sym(&head).expect("head should be sym");
 
@@ -94,21 +95,21 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         }
     }
 
-    fn dummy_from_index(s: &Store<F>, index: usize) -> Self {
+    fn dummy_from_index(_: &Self::RD, s: &Store<F>, index: usize) -> Self {
         match index {
             0 => Self::Lookup(s.num(0.into()), s.num(0.into())),
             _ => unreachable!(),
         }
     }
 
-    fn index(&self) -> usize {
+    fn index(&self, _: &Self::RD) -> usize {
         match self {
             Self::Lookup(_, _) => 0,
             _ => unreachable!(),
         }
     }
 
-    fn count() -> usize {
+    fn count(_: &Self::RD) -> usize {
         1
     }
 }
@@ -125,6 +126,7 @@ impl<F: LurkField> RecursiveQuery<F> for EnvCircuitQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
+    type RD = ();
     fn synthesize_args<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -148,7 +150,7 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
@@ -206,11 +208,11 @@ impl<F: LurkField> CircuitQuery<F> for EnvCircuitQuery<F> {
     }
 
     fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
-        EnvQuery::from_ptr(s, ptr).map(|q| q.to_circuit(cs, s))
+        EnvQuery::from_ptr(&(), s, ptr).map(|q| q.to_circuit(cs, s))
     }
 
     fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self {
-        EnvQuery::dummy_from_index(s, index).to_circuit(cs, s)
+        EnvQuery::dummy_from_index(&(), s, index).to_circuit(cs, s)
     }
 
     fn symbol(&self) -> Symbol {
@@ -255,7 +257,7 @@ mod test {
         let t = s.intern_t();
         let nil = s.intern_nil();
 
-        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s);
+        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s, ());
         let mut test = |var, env, found| {
             let expected = if let Some(val) = found {
                 scope.store.cons(val, t)
@@ -358,7 +360,7 @@ mod test {
             expected.assert_eq(&computed.to_string());
         };
 
-        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s.clone());
+        let mut scope: Scope<EnvQuery<F>, LogMemo<F>, F> = Scope::new(1, s.clone(), ());
 
         let make_query = |sym, env| EnvQuery::Lookup(sym, env).to_ptr(s);
 

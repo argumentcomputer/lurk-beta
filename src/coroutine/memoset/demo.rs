@@ -26,6 +26,7 @@ pub(crate) enum DemoCircuitQuery<F: LurkField> {
 
 impl<F: LurkField> Query<F> for DemoQuery<F> {
     type CQ = DemoCircuitQuery<F>;
+    type RD = ();
 
     fn eval(&self, scope: &mut Scope<Self, LogMemo<F>, F>) -> Ptr {
         match self {
@@ -55,7 +56,7 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
         }
     }
 
-    fn from_ptr(s: &Store<F>, ptr: &Ptr) -> Option<Self> {
+    fn from_ptr(_: &Self::RD, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
         let (head, body) = s.car_cdr(ptr).expect("query should be cons");
         let sym = s.fetch_sym(&head).expect("head should be sym");
 
@@ -87,21 +88,21 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
         }
     }
 
-    fn dummy_from_index(s: &Store<F>, index: usize) -> Self {
+    fn dummy_from_index(_: &Self::RD, s: &Store<F>, index: usize) -> Self {
         match index {
             0 => Self::Factorial(s.num(0.into())),
             _ => unreachable!(),
         }
     }
 
-    fn index(&self) -> usize {
+    fn index(&self, _: &Self::RD) -> usize {
         match self {
             Self::Factorial(_) => 0,
             _ => unreachable!(),
         }
     }
 
-    fn count() -> usize {
+    fn count(_: &Self::RD) -> usize {
         1
     }
 }
@@ -131,6 +132,7 @@ impl<F: LurkField> RecursiveQuery<F> for DemoCircuitQuery<F> {
 }
 
 impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
+    type RD = ();
     fn synthesize_args<CS: ConstraintSystem<F>>(
         &self,
         _cs: &mut CS,
@@ -147,7 +149,7 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>>,
+        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
@@ -198,11 +200,11 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
     }
 
     fn from_ptr<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
-        DemoQuery::from_ptr(s, ptr).map(|q| q.to_circuit(cs, s))
+        DemoQuery::from_ptr(&(), s, ptr).map(|q| q.to_circuit(cs, s))
     }
 
     fn dummy_from_index<CS: ConstraintSystem<F>>(cs: &mut CS, s: &Store<F>, index: usize) -> Self {
-        DemoQuery::dummy_from_index(s, index).to_circuit(cs, s)
+        DemoQuery::dummy_from_index(&(), s, index).to_circuit(cs, s)
     }
 
     fn symbol(&self) -> Symbol {
@@ -230,7 +232,7 @@ mod test {
         let four = s.num(F::from_u64(4));
         let six = s.num(F::from_u64(6));
         let twenty_four = s.num(F::from_u64(24));
-        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::new(1, s);
+        let mut scope: Scope<DemoQuery<F>, LogMemo<F>, F> = Scope::new(1, s, ());
         assert_eq!(one, DemoQuery::Factorial(zero).eval(&mut scope));
         assert_eq!(one, DemoQuery::Factorial(one).eval(&mut scope));
         assert_eq!(two, DemoQuery::Factorial(two).eval(&mut scope));

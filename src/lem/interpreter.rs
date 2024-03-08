@@ -23,25 +23,25 @@ impl VarMap<Val> {
         args.iter().map(|arg| self.get_ptr(arg)).collect()
     }
 
-    fn get_ptr(&self, var: &Var) -> Result<Ptr> {
+    pub fn get_ptr(&self, var: &Var) -> Result<Ptr> {
         if let Val::Pointer(ptr) = self.get(var)? {
             return Ok(*ptr);
         }
         bail!("Expected {var} to be a pointer")
     }
 
-    fn insert_ptr(&mut self, var: Var, ptr: Ptr) -> Option<Val> {
+    pub fn insert_ptr(&mut self, var: Var, ptr: Ptr) -> Option<Val> {
         self.insert(var, Val::Pointer(ptr))
     }
 
-    fn get_bool(&self, var: &Var) -> Result<bool> {
+    pub fn get_bool(&self, var: &Var) -> Result<bool> {
         if let Val::Boolean(b) = self.get(var)? {
             return Ok(*b);
         }
         bail!("Expected {var} to be a boolean")
     }
 
-    fn insert_bool(&mut self, var: Var, b: bool) -> Option<Val> {
+    pub fn insert_bool(&mut self, var: Var, b: bool) -> Option<Val> {
         self.insert(var, Val::Boolean(b))
     }
 }
@@ -143,6 +143,7 @@ impl Block {
     ) -> Result<Frame> {
         for op in &self.ops {
             match op {
+                Op::Crout(..) => unimplemented!(),
                 Op::Cproc(out, sym, inp) => {
                     let inp_ptrs = bindings.get_many_ptr(inp)?;
                     let cproc = lang

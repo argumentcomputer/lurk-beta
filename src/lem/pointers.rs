@@ -127,6 +127,11 @@ impl Ptr {
     }
 
     #[inline]
+    pub fn is_cons(&self) -> bool {
+        self.has_tag(&Tag::Expr(Cons))
+    }
+
+    #[inline]
     pub fn is_list(&self) -> bool {
         self.has_tag_in(&[Tag::Expr(Cons), Tag::Expr(Nil)])
     }
