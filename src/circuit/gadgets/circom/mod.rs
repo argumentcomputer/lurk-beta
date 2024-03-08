@@ -103,7 +103,7 @@ impl CircomGadgetReference {
             return Ok(None);
         }
 
-        return Ok(Some(gadget_dir));
+        Ok(Some(gadget_dir))
     }
 }
 

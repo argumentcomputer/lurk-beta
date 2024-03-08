@@ -64,7 +64,7 @@ pub mod non_wasm {
     fn get_remote_gadget<F: LurkField, C: CircomGadget<F>>(
         gadget: &C,
     ) -> Result<Option<(Utf8PathBuf, Utf8PathBuf)>, CircomCoprocessorError> {
-        let identifier_as_string = String::from(gadget.reference().identifier());
+        let identifier_as_string = gadget.reference().identifier();
 
         // Check that we have a proper version for a remote release. If not, look if gadget repo exist
         // and return error accordingly.

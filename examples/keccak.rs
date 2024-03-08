@@ -97,7 +97,7 @@ fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
 }
 
 /// Program that will be proven and verified
-fn lurk_program<F: LurkField>(store: &Store<F>, input: String) -> Ptr {
+fn lurk_program<F: LurkField>(store: &Store<F>, input: &str) -> Ptr {
     let program = format!(
         r#"
             (let ((bit-list (str_to_le_bits "{input}"))
@@ -150,7 +150,7 @@ impl<F: LurkField> CoCircuit<F> for StrToBits<F> {
                     .unwrap_or(F::ZERO)
                     .to_le_bits()
                     .iter()
-                    .map(|b| *b as u32)
+                    .map(|b| u32::from(*b))
                     .take(8)
                     .collect::<Vec<_>>()
             })
@@ -161,7 +161,7 @@ impl<F: LurkField> CoCircuit<F> for StrToBits<F> {
             .enumerate()
             .map(|(i, b)| {
                 AllocatedNum::alloc(&mut cs.namespace(|| format!("alloc bit {i}")), || {
-                    Ok(F::from(*b as u64))
+                    Ok(F::from(u64::from(*b)))
                 })
             })
             .collect::<Result<Vec<AllocatedNum<F>>, SynthesisError>>()?;
@@ -212,10 +212,7 @@ impl<F: LurkField> Coprocessor<F> for StrToBits<F> {
 
         let mut le_bits_ptr = le_bits
             .into_iter()
-            .map(|b| {
-                let pte = s.num(F::from(b as u64));
-                pte
-            })
+            .map(|b| s.num(F::from(u64::from(b))))
             .collect::<Vec<Ptr>>();
 
         if le_bits_ptr.len() != 256 {
@@ -226,9 +223,7 @@ impl<F: LurkField> Coprocessor<F> for StrToBits<F> {
             );
         }
 
-        let list = s.list(le_bits_ptr);
-
-        list
+        s.list(le_bits_ptr)
     }
 }
 
@@ -252,7 +247,7 @@ impl<F: LurkField> CircomKeccak<F> {
     fn new(n: usize) -> Self {
         CircomKeccak {
             n,
-            _p: PhantomData::default(),
+            _p: PhantomData,
             reference: CircomGadgetReference::new("lurk-lab/keccak-circom-gadget").unwrap(),
         }
     }
@@ -328,7 +323,7 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
         let bytes_to_hash = bits_to_bytes(
             &z_bits
                 .iter()
-                .map(|ptr| if ptr.value() == &F::ZERO { false } else { true })
+                .map(|ptr| ptr.value() != &F::ZERO)
                 .collect::<Vec<_>>(),
         );
 
@@ -343,9 +338,7 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
             .map(|b| if *b { s.num(F::ONE) } else { s.num(F::ZERO) })
             .collect::<Vec<Ptr>>();
 
-        let list = s.list(output_bits_ptr);
-
-        list
+        s.list(output_bits_ptr)
     }
 
     fn arity(&self) -> usize {
@@ -361,9 +354,9 @@ fn main() {
     let store: &Store<pallas::Scalar> = &Store::default();
 
     // Define the symbol that will call upon our Coprocessor
-    let str_to_le_bits_sym = user_sym(&"str_to_le_bits".to_string());
-    let keccak_sym = user_sym(&"keccak_hash".to_string());
-    let program = lurk_program(store, args[1].clone());
+    let str_to_le_bits_sym = user_sym("str_to_le_bits");
+    let keccak_sym = user_sym("keccak_hash");
+    let program = lurk_program(store, &args[1]);
 
     // Create the Lang. ie the list of corprocessor that will be accessible in our program
     let mut lang = Lang::<pallas::Scalar, KeccakExampleCoproc<pallas::Scalar>>::new();
