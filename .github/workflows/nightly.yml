@@ -104,6 +104,8 @@ jobs:
 
   unused-dependencies:
     uses: lurk-lab/ci-workflows/.github/workflows/unused-deps.yml@main
+    with:
+      packages: 'protobuf-compiler libprotobuf-dev'
 
   rust-version-check:
     uses: lurk-lab/ci-workflows/.github/workflows/rust-version-check.yml@main
