@@ -156,7 +156,7 @@ where
                 // prove then compress the proof
                 let (proof, ..) = self
                     .prover
-                    .prove_from_frames(pp, &frames, &self.store)
+                    .prove_from_frames(pp, &frames, &self.store, None)
                     .map_err(|e| Status::internal(e.to_string()))?;
                 let proof = proof
                     .compress(pp)

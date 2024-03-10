@@ -11,7 +11,7 @@ use super::{
 
 use crate::{
     coprocessor::Coprocessor,
-    dual_channel::{dummy_terminal, ChannelTerminal},
+    dual_channel::ChannelTerminal,
     field::LurkField,
     lang::Lang,
     num::Num as BaseNum,
@@ -332,6 +332,11 @@ impl Block {
                 Op::Emit(a) => {
                     ch_terminal.send(bindings.get_ptr(a)?)?;
                 }
+                Op::Recv(a) => {
+                    let ptr = ch_terminal.recv()?;
+                    hints.bindings.insert_ptr(a.clone(), ptr);
+                    bindings.insert_ptr(a.clone(), ptr);
+                }
                 Op::Cons2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
                     let tgt_ptr = intern_ptrs!(store, *tag, preimg_ptrs[0], preimg_ptrs[1]);
@@ -579,12 +584,13 @@ impl Func {
         store: &Store<F>,
         lang: &Lang<F, C>,
         pc: usize,
+        ch_terminal: &ChannelTerminal<Ptr>,
     ) -> Result<Frame> {
         self.call(
             args,
             store,
             Hints::new_from_func(self),
-            &dummy_terminal(),
+            ch_terminal,
             lang,
             pc,
         )

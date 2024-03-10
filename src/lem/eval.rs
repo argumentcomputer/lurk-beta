@@ -15,7 +15,7 @@ use crate::{
     proof::FoldingMode,
     state::initial_lurk_state,
     tag::{
-        ContTag::{Error, Terminal},
+        ContTag::{Error, StreamOut, Terminal},
         ExprTag::Cproc,
     },
     Symbol,
@@ -74,12 +74,25 @@ fn compute_frame<F: LurkField, C: Coprocessor<F>>(
     assert_eq!(func.input_params.len(), input.len());
     let preimages = Hints::new_from_func(func);
     let frame = func.call(input, store, preimages, ch_terminal, lang, pc)?;
-    let must_break = matches!(frame.output[2].tag(), Tag::Cont(Terminal | Error));
+    let must_break = matches!(
+        frame.output[2].tag(),
+        Tag::Cont(Terminal | Error | StreamOut)
+    );
     Ok((frame, must_break))
 }
 
+fn log_fmt<F: LurkField>(i: usize, input: &[Ptr], store: &Store<F>) -> String {
+    let state = initial_lurk_state();
+    format!(
+        "Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}",
+        input[0].fmt_to_string(store, state),
+        input[1].fmt_to_string(store, state),
+        input[2].fmt_to_string(store, state)
+    )
+}
+
 // Builds frames for IVC or NIVC scheme
-fn build_frames<F: LurkField, C: Coprocessor<F>, LogFmt: Fn(usize, &[Ptr], &Store<F>) -> String>(
+fn build_frames<F: LurkField, C: Coprocessor<F>>(
     lurk_step: &Func,
     cprocs: &[Func],
     mut input: Vec<Ptr>,
@@ -87,7 +100,6 @@ fn build_frames<F: LurkField, C: Coprocessor<F>, LogFmt: Fn(usize, &[Ptr], &Stor
     limit: usize,
     lang: &Lang<F, C>,
     ch_terminal: &ChannelTerminal<Ptr>,
-    log_fmt: LogFmt,
 ) -> Result<Vec<Frame>> {
     let mut pc = 0;
     let mut frames = vec![];
@@ -147,42 +159,15 @@ pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
     limit: usize,
     ch_terminal: &ChannelTerminal<Ptr>,
 ) -> Result<Vec<Frame>> {
-    let state = initial_lurk_state();
-    let log_fmt = |i: usize, inp: &[Ptr], store: &Store<F>| {
-        format!(
-            "Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}",
-            inp[0].fmt_to_string(store, state),
-            inp[1].fmt_to_string(store, state),
-            inp[2].fmt_to_string(store, state)
-        )
-    };
-
     let input = vec![expr, env, cont];
-
     match lang_setup {
         None => {
             let lang: Lang<F, C> = Lang::new();
-            build_frames(
-                eval_step(),
-                &[],
-                input,
-                store,
-                limit,
-                &lang,
-                ch_terminal,
-                log_fmt,
-            )
+            build_frames(eval_step(), &[], input, store, limit, &lang, ch_terminal)
         }
-        Some((lurk_step, cprocs, lang)) => build_frames(
-            lurk_step,
-            cprocs,
-            input,
-            store,
-            limit,
-            lang,
-            ch_terminal,
-            log_fmt,
-        ),
+        Some((lurk_step, cprocs, lang)) => {
+            build_frames(lurk_step, cprocs, input, store, limit, lang, ch_terminal)
+        }
     }
 }
 
@@ -225,15 +210,16 @@ pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
     )
 }
 
-pub fn evaluate_simple_with_env<F: LurkField, C: Coprocessor<F>>(
+pub fn evaluate_simple_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
     lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
     expr: Ptr,
     env: Ptr,
+    cont: Ptr,
     store: &Store<F>,
     limit: usize,
     ch_terminal: &ChannelTerminal<Ptr>,
 ) -> Result<(Vec<Ptr>, usize)> {
-    let input = vec![expr, env, store.cont_outermost()];
+    let input = vec![expr, env, cont];
     match lang_setup {
         None => {
             let lang: Lang<F, C> = Lang::new();
@@ -243,6 +229,26 @@ pub fn evaluate_simple_with_env<F: LurkField, C: Coprocessor<F>>(
             traverse_frames(lurk_step, cprocs, input, store, limit, lang, ch_terminal)
         }
     }
+}
+
+#[inline]
+pub fn evaluate_simple_with_env<F: LurkField, C: Coprocessor<F>>(
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
+    expr: Ptr,
+    env: Ptr,
+    store: &Store<F>,
+    limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<(Vec<Ptr>, usize)> {
+    evaluate_simple_with_env_and_cont(
+        lang_setup,
+        expr,
+        env,
+        store.cont_outermost(),
+        store,
+        limit,
+        ch_terminal,
+    )
 }
 
 #[inline]
@@ -261,6 +267,122 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
         limit,
         ch_terminal,
     )
+}
+
+#[inline]
+pub fn start_stream_with_env<F: LurkField, C: Coprocessor<F>>(
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
+    callable: Ptr,
+    env: Ptr,
+    store: &Store<F>,
+    limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<Vec<Frame>> {
+    evaluate_with_env_and_cont(
+        lang_setup,
+        callable,
+        env,
+        store.cont_stream_in(),
+        store,
+        limit,
+        ch_terminal,
+    )
+}
+
+#[inline]
+pub fn start_stream<F: LurkField, C: Coprocessor<F>>(
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
+    callable: Ptr,
+    store: &Store<F>,
+    limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<Vec<Frame>> {
+    start_stream_with_env(
+        lang_setup,
+        callable,
+        store.intern_nil(),
+        store,
+        limit,
+        ch_terminal,
+    )
+}
+
+#[inline]
+pub fn resume_stream<F: LurkField, C: Coprocessor<F>>(
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
+    input: Vec<Ptr>,
+    store: &Store<F>,
+    limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<Vec<Frame>> {
+    assert!(matches!(input[2].tag(), Tag::Cont(StreamOut)));
+    match lang_setup {
+        None => {
+            let lang: Lang<F, C> = Lang::new();
+            build_frames(eval_step(), &[], input, store, limit, &lang, ch_terminal)
+        }
+        Some((lurk_step, cprocs, lang)) => {
+            build_frames(lurk_step, cprocs, input, store, limit, lang, ch_terminal)
+        }
+    }
+}
+
+#[inline]
+pub fn start_stream_simple_with_env<F: LurkField, C: Coprocessor<F>>(
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
+    callable: Ptr,
+    env: Ptr,
+    store: &Store<F>,
+    limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<(Vec<Ptr>, usize)> {
+    evaluate_simple_with_env_and_cont(
+        lang_setup,
+        callable,
+        env,
+        store.cont_stream_in(),
+        store,
+        limit,
+        ch_terminal,
+    )
+}
+
+#[inline]
+pub fn start_stream_simple<F: LurkField, C: Coprocessor<F>>(
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
+    callable: Ptr,
+    store: &Store<F>,
+    limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<(Vec<Ptr>, usize)> {
+    start_stream_simple_with_env(
+        lang_setup,
+        callable,
+        store.intern_nil(),
+        store,
+        limit,
+        ch_terminal,
+    )
+}
+
+#[inline]
+pub fn resume_stream_simple<F: LurkField, C: Coprocessor<F>>(
+    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
+    input: Vec<Ptr>,
+    store: &Store<F>,
+    limit: usize,
+    ch_terminal: &ChannelTerminal<Ptr>,
+) -> Result<(Vec<Ptr>, usize)> {
+    assert!(matches!(input[2].tag(), Tag::Cont(StreamOut)));
+    match lang_setup {
+        None => {
+            let lang: Lang<F, C> = Lang::new();
+            traverse_frames(eval_step(), &[], input, store, limit, &lang, ch_terminal)
+        }
+        Some((lurk_step, cprocs, lang)) => {
+            traverse_frames(lurk_step, cprocs, input, store, limit, lang, ch_terminal)
+        }
+    }
 }
 
 pub struct EvalConfig<'a, F, C> {
@@ -874,6 +996,7 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         let err: Cont::Error = HASH_8_ZEROS;
         let cproc: Expr::Cproc;
 
+        // stuttering condition when not in `StreamOut`
         let cont_is_term = eq_tag(cont, term);
         let cont_is_err = eq_tag(cont, err);
         let expr_is_cproc = eq_tag(expr, cproc);
@@ -882,11 +1005,51 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         if acc_ret {
             return (expr, env, cont, ret)
         }
+
+        let errctrl = Symbol("error");
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
+        let foo: Expr::Nil;
+
+        match cont.tag {
+            Cont::StreamIn => {
+                // 1. receive data from channel;
+                // 2. build the list of arguments with it (just one argument!)
+                // 3. setup a call cycle with a `StreamDispatch` stacked underneath
+                let arg =! recv();
+                let arg_list: Expr::Cons = cons2(arg, nil);
+                let cont: Cont::StreamDispatch = HASH_8_ZEROS;
+                let cont: Cont::Call = cons4(arg_list, env, cont, foo);
+                return (expr, env, cont, ret);
+            }
+            Cont::StreamOut => {
+                let stutter =! recv();
+                match stutter.tag {
+                    Expr::Nil => {
+                        // 1. make sure the resulting expression is a cons
+                        // 2. deconstruct it to acquire the next callable
+                        // 3. loop back to `StreamIn` with such callable
+                        match expr.tag {
+                            Expr::Cons => {
+                                let (_result, callable) = decons2(expr);
+                                let cont: Cont::StreamIn = HASH_8_ZEROS;
+                                return(callable, env, cont, ret);
+                            }
+                        };
+                        return (expr, env, err, errctrl);
+                    }
+                };
+                // `stutter != nil` is the stuttering condition when in `StreamOut`
+                return (expr, env, cont, ret);
+            }
+        };
+
         let apply = Symbol("apply-continuation");
         let thunk: Expr::Thunk;
         let sym: Expr::Sym;
         let cons: Expr::Cons;
 
+        // non self-evaluating condition
         let expr_is_thunk = eq_tag(expr, thunk);
         let expr_is_sym = eq_tag(expr, sym);
         let expr_is_cons = eq_tag(expr, cons);
@@ -895,11 +1058,8 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         if !acc_not_apply {
             return (expr, env, cont, apply)
         }
-        let errctrl = Symbol("error");
+
         let t = Symbol("t");
-        let nil = Symbol("nil");
-        let nil = cast(nil, Expr::Nil);
-        let foo: Expr::Nil;
 
         match expr.tag {
             Expr::Thunk => {
@@ -1251,7 +1411,6 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
         match ctrl.value {
             Symbol("apply-continuation") => {
                 let makethunk = Symbol("make-thunk");
-
                 let errctrl = Symbol("error");
                 let ret = Symbol("return");
                 let t = Symbol("t");
@@ -1264,11 +1423,20 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                 let char: Expr::Char;
                 let u64: Expr::U64;
                 let err: Cont::Error = HASH_8_ZEROS;
-                let term: Cont::Terminal = HASH_8_ZEROS;
                 match cont.tag {
                     Cont::Outermost => {
+                        let term: Cont::Terminal = HASH_8_ZEROS;
                         // We erase the environment as to not leak any information about internal variables.
                         return (result, empty_env, term, ret)
+                    }
+                    Cont::StreamDispatch => {
+                        match result.tag {
+                            Expr::Cons => {
+                                let cont: Cont::StreamOut = HASH_8_ZEROS;
+                                return (result, env, cont, ret);
+                            }
+                        };
+                        return (result, env, err, errctrl);
                     }
                     Cont::Emit => {
                         let (cont, _rest, _foo, _foo) = decons4(cont);
@@ -1762,9 +1930,14 @@ fn make_thunk() -> Func {
             Symbol("make-thunk") => {
                 match cont.tag {
                     Cont::Outermost => {
-                        let empty_env: Expr::Env;
                         let cont: Cont::Terminal = HASH_8_ZEROS;
+                        // We erase the environment as to not leak any information about internal variables.
+                        let empty_env: Expr::Env;
                         return (expr, empty_env, cont)
+                    }
+                    Cont::StreamDispatch => {
+                        let cont: Cont::StreamOut = HASH_8_ZEROS;
+                        return (expr, env, cont);
                     }
                 };
                 let thunk: Expr::Thunk = cons2(expr, cont);
@@ -1791,7 +1964,8 @@ mod tests {
         let frame = Frame::blank(func, 0, &store);
         let mut cs = TestConstraintSystem::<Fr>::new();
         let lang: Lang<Fr> = Lang::new();
-        let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);
+        func.synthesize_frame_aux(&mut cs, &store, &frame, &lang)
+            .unwrap();
         let expect_eq = |computed: usize, expected: Expect| {
             expected.assert_eq(&computed.to_string());
         };
@@ -1801,8 +1975,8 @@ mod tests {
         expect_eq(func.slots_count.commitment, expect!["1"]);
         expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9094"]);
-        expect_eq(cs.num_constraints(), expect!["11032"]);
+        expect_eq(cs.aux().len(), expect!["9118"]);
+        expect_eq(cs.num_constraints(), expect!["11130"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }

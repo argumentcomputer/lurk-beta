@@ -104,7 +104,7 @@ fn main() {
     let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
         .in_scope(|| {
             supernova_prover
-                .prove_from_frames(&pp, &frames, store)
+                .prove_from_frames(&pp, &frames, store, None)
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();

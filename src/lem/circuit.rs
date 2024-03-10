@@ -1121,6 +1121,16 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 bound_allocations.insert_ptr(tgt[1].clone(), rem_ptr);
             }
             Op::Emit(_) | Op::Unit(_) => (),
+            Op::Recv(tgt) => {
+                let ptr = if let Ok(val) = ctx.bindings.get(tgt) {
+                    *val.get_ptr().expect("Received data must be a pointer")
+                } else {
+                    ctx.store.dummy()
+                };
+                let z_ptr = || ctx.store.hash_ptr(&ptr);
+                let a_ptr = AllocatedPtr::alloc_infallible(ns!(cs, format!("recv {tgt}")), z_ptr);
+                bound_allocations.insert_ptr(tgt.clone(), a_ptr);
+            }
             Op::Hide(tgt, sec, pay) => {
                 let sec = bound_allocations.get_ptr(sec)?;
                 let pay = bound_allocations.get_ptr(pay)?;
@@ -1593,7 +1603,12 @@ impl Func {
                         // three implies_u64, one sub and one linear
                         num_constraints += 197;
                     }
-                    Op::Not(..) | Op::Emit(_) | Op::Cproc(..) | Op::Copy(..) | Op::Unit(_) => (),
+                    Op::Not(..)
+                    | Op::Emit(_)
+                    | Op::Recv(_)
+                    | Op::Cproc(..)
+                    | Op::Copy(..)
+                    | Op::Unit(_) => (),
                     Op::Cons2(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));

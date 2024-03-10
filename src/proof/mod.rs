@@ -93,6 +93,10 @@ where
     /// Associated type for public parameters
     type PublicParams;
 
+    /// Type for the base recursive SNARK that can be used as a starting point
+    /// in `Self::prove_recursively`
+    type BaseRecursiveSNARK;
+
     /// Type for error potentially thrown during verification
     type ErrorType;
 
@@ -102,6 +106,7 @@ where
         z0: &[F],
         steps: Vec<M>,
         store: &Store<F>,
+        init: Option<Self::BaseRecursiveSNARK>,
     ) -> Result<Self, ProofError>;
 
     /// Compress a proof
@@ -158,7 +163,7 @@ pub trait Prover<'a, F: CurveCycleEquipped> {
     type PublicParams;
 
     /// Associated proof type, which must implement `RecursiveSNARKTrait`
-    type RecursiveSnark: RecursiveSNARKTrait<F, Self::Frame, PublicParams = Self::PublicParams>;
+    type RecursiveSNARK: RecursiveSNARKTrait<F, Self::Frame, PublicParams = Self::PublicParams>;
 
     /// Returns a reference to the prover's FoldingMode
     fn folding_mode(&self) -> &FoldingMode;
@@ -172,14 +177,17 @@ pub trait Prover<'a, F: CurveCycleEquipped> {
         pp: &Self::PublicParams,
         steps: Vec<Self::Frame>,
         store: &'a Store<F>,
-    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
+        init: Option<
+            <Self::RecursiveSNARK as RecursiveSNARKTrait<F, Self::Frame>>::BaseRecursiveSNARK,
+        >,
+    ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
         let z0 = store.to_scalar_vector(steps[0].input());
         let zi = store.to_scalar_vector(steps.last().unwrap().output());
 
         let num_steps = steps.len();
 
-        let prove_output = Self::RecursiveSnark::prove_recursively(pp, &z0, steps, store)?;
+        let prove_output = Self::RecursiveSNARK::prove_recursively(pp, &z0, steps, store, init)?;
 
         Ok((prove_output, z0, zi, num_steps))
     }
@@ -193,7 +201,7 @@ pub trait Prover<'a, F: CurveCycleEquipped> {
         store: &'a Store<F>,
         limit: usize,
         ch_terminal: &ChannelTerminal<Ptr>,
-    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError>;
+    ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError>;
 
     /// Returns the expected total number of steps for the prover given raw iterations.
     fn expected_num_steps(&self, raw_iterations: usize) -> usize {

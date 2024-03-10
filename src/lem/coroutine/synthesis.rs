@@ -458,6 +458,7 @@ fn synthesize_run<'a, F: LurkField, CS: ConstraintSystem<F>>(
                 bound_allocations.insert_ptr(tgt[1].clone(), rem_ptr);
             }
             Op::Emit(_) | Op::Unit(_) => (),
+            Op::Recv(_) => todo!("not supported yet"),
             Op::Hide(tgt, sec, pay) => {
                 let sec = bound_allocations.get_ptr(sec)?;
                 let pay = bound_allocations.get_ptr(pay)?;

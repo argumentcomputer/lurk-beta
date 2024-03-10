@@ -114,7 +114,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let result = prover.prove_from_frames(&pp, frames, &store);
+                    let result = prover.prove_from_frames(&pp, frames, &store, None);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

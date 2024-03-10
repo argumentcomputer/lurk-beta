@@ -200,9 +200,11 @@ fn run<F: LurkField>(
                 bindings.insert_ptr(tgt[1].clone(), c2);
             }
             Op::Emit(a) => {
+                // TODO: send `a` through a channel as in the original interpreter
                 let a = bindings.get_ptr(a)?;
                 println!("{}", a.fmt_to_string_simple(&scope.store));
             }
+            Op::Recv(_) => todo!("not supported yet"),
             Op::Cons2(img, tag, preimg) => {
                 let preimg_ptrs = bindings.get_many_ptr(preimg)?;
                 let tgt_ptr = intern_ptrs!(scope.store, *tag, preimg_ptrs[0], preimg_ptrs[1]);

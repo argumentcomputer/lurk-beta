@@ -1,4 +1,5 @@
 mod nova_tests;
+mod stream;
 mod supernova_tests;
 
 use bellpepper::util_cs::{metric_cs::MetricCS, witness_cs::WitnessCS, Comparable};
@@ -183,7 +184,9 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 
     if check_nova {
         let pp = public_params(reduction_count, lang.clone());
-        let (proof, z0, zi, _num_steps) = nova_prover.prove_from_frames(&pp, &frames, s).unwrap();
+        let (proof, z0, zi, _num_steps) = nova_prover
+            .prove_from_frames(&pp, &frames, s, None)
+            .unwrap();
 
         let res = proof.verify(&pp, &z0, &zi);
         if res.is_err() {
