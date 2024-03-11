@@ -355,7 +355,7 @@ mod test {
         let s = Arc::new(Store::<F>::default());
 
         let prover = MemosetProver::<'_, F, ToplevelQuery<F>>::new(10);
-        let pp = prover.public_params(toplevel.clone(), s.clone());
+        let pp = prover.public_params(&toplevel, &s);
 
         // This query is only necessary because Arecibo assumes that the first circuit
         // to run is 0. Eventually, this will be replaced by the coroutine prologue
@@ -389,12 +389,8 @@ mod test {
         let (toplevel, [_, factorial, even, _]) = sample_toplevel();
         let s = Arc::new(Store::<F>::default());
         let index = toplevel.0.get_index_of(&factorial).unwrap();
-        let factorial_circuit = CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(
-            index,
-            s.clone(),
-            1,
-            toplevel.clone(),
-        );
+        let factorial_circuit =
+            CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(index, 1, &s, &toplevel);
         let mut cs = BenchCS::new();
         let dummy = [
             AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
@@ -410,12 +406,8 @@ mod test {
         expect!("1772").assert_eq(&cs.num_constraints().to_string());
 
         let index = toplevel.0.get_index_of(&even).unwrap();
-        let even_circuit = CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(
-            index,
-            s.clone(),
-            1,
-            toplevel.clone(),
-        );
+        let even_circuit =
+            CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(index, 1, &s, &toplevel);
         let mut cs = BenchCS::new();
         let dummy = [
             AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
@@ -484,7 +476,7 @@ mod test {
         let mut scope = Scope::new(prover.reduction_count(), s.clone(), toplevel.clone());
         scope.query(query);
         scope.finalize_transcript();
-        let pp = prover.public_params(toplevel, s);
+        let pp = prover.public_params(&toplevel, &s);
         let (snark, input, output, iterations) = prover.prove_from_scope(&pp, &scope).unwrap();
         assert_eq!(iterations, 23);
         assert_eq!(output[7], F::zero());

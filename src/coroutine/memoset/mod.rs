@@ -430,64 +430,73 @@ pub struct CircuitScope<F: LurkField, CM, RD> {
 }
 
 #[derive(Clone)]
-pub struct CoroutineCircuit<F: LurkField, CM, Q: Query<F>> {
-    input: Option<Vec<Ptr>>,
-    provenances: IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
-    memoset: CM,
-    keys: Vec<Ptr>,
+pub struct CoroutineCircuit<'a, F: LurkField, M, Q: Query<F>> {
     query_index: usize,
-    next_query_index: usize,
-    store: Arc<Store<F>>,
     rc: usize,
-    runtime_data: Q::RD,
-    _p: PhantomData<Q>,
+    store: &'a Store<F>,
+    runtime_data: &'a Q::RD,
+    input: Option<Vec<Ptr>>,
+    // `None` for circuit synthesis
+    // `Some` for witness generation
+    witness_data: Option<WitnessData<'a, F, M>>,
+}
+
+#[derive(Clone, Copy)]
+struct WitnessData<'a, F: LurkField, M> {
+    keys: &'a [Ptr],
+    memoset: &'a M,
+    provenances: &'a IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
+    next_query_index: usize,
+}
+
+impl<'a, F: LurkField, M, Q: Query<F>> CoroutineCircuit<'a, F, M, Q> {
+    pub fn blank(
+        query_index: usize,
+        rc: usize,
+        store: &'a Store<F>,
+        runtime_data: &'a Q::RD,
+    ) -> Self {
+        Self {
+            input: None,
+            query_index,
+            store,
+            rc,
+            runtime_data,
+            witness_data: None,
+        }
+    }
+
+    fn witness_data(&self) -> Option<&WitnessData<'a, F, M>> {
+        self.witness_data.as_ref()
+    }
 }
 
 // TODO: Make this generic rather than specialized to LogMemo.
 // That will require a CircuitScopeTrait.
-impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
+impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
     pub fn new(
         input: Option<Vec<Ptr>>,
-        scope: &Scope<Q, LogMemo<F>, F>,
-        memoset: LogMemo<F>,
-        keys: Vec<Ptr>,
+        scope: &'a Scope<Q, LogMemo<F>, F>,
+        keys: &'a [Ptr],
         query_index: usize,
         next_query_index: usize,
         rc: usize,
-        runtime_data: Q::RD,
     ) -> Self {
         assert!(keys.len() <= rc);
+        let memoset = &scope.memoset;
+        let provenances = scope.provenances();
         Self {
             input,
-            memoset,
-            provenances: scope.provenances().clone(), // FIXME
-            keys,
-            query_index,
-            next_query_index,
-            store: scope.store.clone(),
             rc,
-            runtime_data,
-            _p: Default::default(),
-        }
-    }
-
-    pub fn blank(
-        query_index: usize,
-        store: Arc<Store<F>>,
-        rc: usize,
-        runtime_data: Q::RD,
-    ) -> CoroutineCircuit<F, LogMemo<F>, Q> {
-        Self {
-            input: None,
-            memoset: Default::default(),
-            provenances: Default::default(),
-            keys: Default::default(),
             query_index,
-            next_query_index: 0,
-            store,
-            rc,
-            runtime_data,
-            _p: Default::default(),
+            store: &scope.store,
+            runtime_data: &scope.runtime_data,
+            witness_data: Some(WitnessData {
+                keys,
+                memoset,
+                provenances,
+                next_query_index,
+            }),
         }
     }
 
@@ -505,22 +514,27 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
             unreachable!()
         };
 
+        let multiset = self
+            .witness_data()
+            .map_or_else(MultiSet::new, |w| w.memoset.multiset.clone());
         let memoset = LogMemoCircuit {
-            multiset: self.memoset.multiset.clone(),
+            multiset,
             r: r.hash().clone(),
         };
+        let empty_prov = Default::default();
+        let provenances = self.witness_data().map_or(&empty_prov, |w| w.provenances);
         let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>, Q::RD> = CircuitScope::new(
             cs,
             g,
-            &self.store,
+            self.store,
             memoset,
-            &self.provenances,
+            provenances,
             self.runtime_data.clone(),
         );
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
-        for (i, key) in self
-            .keys
+        let keys: &[Ptr] = self.witness_data().map_or(&[], |w| w.keys);
+        for (i, key) in keys
             .iter()
             .map(Some)
             .pad_using(self.rc, |_| None)
@@ -530,7 +544,7 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
             circuit_scope.synthesize_prove_key_query::<_, Q>(
                 cs,
                 g,
-                &self.store,
+                self.store,
                 key,
                 self.query_index,
             )?;
@@ -542,7 +556,8 @@ impl<F: LurkField, Q: Query<F>> CoroutineCircuit<F, LogMemo<F>, Q> {
         let z_out = vec![c.clone(), e.clone(), k.clone(), memoset_acc, transcript, r];
 
         let next_pc = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "next_pc"), || {
-            F::from_u64(self.next_query_index as u64)
+            let index = self.witness_data().unwrap().next_query_index;
+            F::from_u64(index as u64)
         });
         Ok((Some(next_pc), z_out))
     }
@@ -873,16 +888,8 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 
                         // `next_query_index` is only relevant for SuperNova
                         let next_query_index = 0;
-                        let circuit: CoroutineCircuit<F, LogMemo<F>, Q> = CoroutineCircuit::new(
-                            None,
-                            self,
-                            self.memoset.clone(),
-                            chunk.to_vec(),
-                            *index,
-                            next_query_index,
-                            rc,
-                            self.runtime_data.clone(),
-                        );
+                        let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> =
+                            CoroutineCircuit::new(None, self, chunk, *index, next_query_index, rc);
 
                         let (_next_pc, z_out) = circuit.supernova_synthesize(cs, &z)?;
                         {
