@@ -93,6 +93,10 @@ fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
     bits // Return the vector of bits
 }
 
+/*************************************************
+ * Lurk components
+ *************************************************/
+
 /// Program that will be proven and verified
 fn lurk_program<F: LurkField>(store: &Store<F>, input: &str) -> Ptr {
     let program = format!(
@@ -142,21 +146,21 @@ impl<F: LurkField> CoCircuit<F> for StrToBits<F> {
         // Get all str characters
         let (elts, _, _) = chain_car_cdr(cs, g, s, not_dummy, &args[0], self.n, false)?;
         // Convert to 8 bits per character
-        let elts_bits = elts
+        let elts_u32 = elts
             .iter()
-            .flat_map(|e| {
+            .enumerate()
+            .flat_map(|(i, e)| {
                 e.hash()
-                    .get_value()
-                    .unwrap_or(F::ZERO)
-                    .to_le_bits()
+                    .to_bits_le(&mut cs.namespace(|| format!("to_bits_le {i}")))
+                    .unwrap()
                     .iter()
-                    .map(|b| u32::from(*b))
                     .take(8)
+                    .map(|b| u32::from(b.get_value().unwrap_or(false)))
                     .collect::<Vec<_>>()
             })
-            .collect::<Vec<u32>>();
-        // Bit to AllocatedNum
-        let mut elts_alloc_num = elts_bits
+            .collect::<Vec<_>>();
+
+        let mut elts_alloc_num = elts_u32
             .iter()
             .enumerate()
             .map(|(i, b)| {
@@ -294,7 +298,7 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
 
         // Padding to 256 bits
         elts_alloc_bits.extend_from_slice(
-            &(0..256 - self.n * 8)
+            &(0..256 - self.n)
                 .map(|i| {
                     AllocatedBit::alloc(&mut cs.namespace(|| format!("alloc bit {i}")), Some(false))
                         .unwrap()
@@ -339,7 +343,6 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
             .iter()
             .map(|b| if *b { s.num(F::ONE) } else { s.num(F::ZERO) })
             .collect::<Vec<Ptr>>();
-
         s.list(output_bits_ptr)
     }
 
@@ -402,10 +405,8 @@ fn main() {
     let pp_start = Instant::now();
 
     println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
-
     let instance_primary = Instance::new_supernova(&supernova_prover, true);
     let pp = supernova_public_params(&instance_primary).unwrap();
-
     let pp_end = pp_start.elapsed();
     println!("Running claim parameters took {:?}", pp_end);
 
