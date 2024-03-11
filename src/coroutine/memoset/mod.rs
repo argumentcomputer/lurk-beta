@@ -377,9 +377,9 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         Ok(Provenance::new(query, *result, dependencies))
     }
 
-    fn provenance_from_kv(&self, kv: Ptr) -> Result<Provenance, MemoSetError> {
+    fn provenance_from_kv(&self, kv: &Ptr) -> Result<Provenance, MemoSetError> {
         let store = self.store.as_ref();
-        let (query, result) = store.car_cdr(&kv).expect("kv missing");
+        let (query, result) = store.car_cdr_simple(kv).expect("kv missing");
         let query_dependencies = self.dependencies.get(&query);
 
         let dependencies = if let Some(deps) = query_dependencies {
@@ -401,7 +401,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         let s = self.store.as_ref();
         let mut memoset = s.num(F::ZERO);
         for kv in self.toplevel_insertions.iter() {
-            let provenance = self.provenance_from_kv(*kv).unwrap();
+            let provenance = self.provenance_from_kv(kv).unwrap();
             memoset = self.memoset.acc_add(&memoset, provenance.to_ptr(s), s);
         }
         memoset
@@ -411,7 +411,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         let s = self.store.as_ref();
         let mut transcript = Transcript::new(s);
         for kv in self.toplevel_insertions.iter() {
-            let provenance = self.provenance_from_kv(*kv).unwrap();
+            let provenance = self.provenance_from_kv(kv).unwrap();
             transcript.add(s, *provenance.to_ptr(s));
         }
         transcript.acc
@@ -754,7 +754,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         let mut unique_keys: IndexMap<usize, Vec<Ptr>> = Default::default();
 
         let mut record_kv = |kv: &Ptr| {
-            let key = s.car_cdr(kv).unwrap().0;
+            let key = s.car_cdr_simple(kv).unwrap().0;
             let kv1 = kvs_by_key.entry(key).or_insert_with(|| {
                 let index = Q::from_ptr(&self.runtime_data, s, &key)
                     .expect("bad query")
@@ -785,7 +785,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         });
 
         for kv in self.toplevel_insertions.iter() {
-            let provenance = self.provenance_from_kv(*kv).unwrap();
+            let provenance = self.provenance_from_kv(kv).unwrap();
             transcript.add(s, *provenance.to_ptr(s));
         }
 
@@ -804,7 +804,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                             // `unique_keys`.
                             let kv = kvs_by_key.get(key).expect("kv missing");
                             let count = self.memoset.count(kv);
-                            let provenance = self.provenance_from_kv(*kv).unwrap();
+                            let provenance = self.provenance_from_kv(kv).unwrap();
                             (provenance, count)
                         } else {
                             (Provenance::dummy(s), 0)
@@ -1171,7 +1171,7 @@ impl<F: LurkField, RD> CircuitScope<F, LogMemoCircuit<F>, RD> {
         for (i, kv) in scope.toplevel_insertions.iter().enumerate() {
             let s = scope.store.as_ref();
             let cs = ns!(cs, format!("toplevel_insertion-{i}"));
-            let (key, value) = s.car_cdr(kv).expect("kv missing");
+            let (key, value) = s.car_cdr_simple(kv).expect("kv missing");
             // NOTE: This is an unconstrained allocation, but when actually hooked up to Lurk reduction, it must be
             // constrained appropriately.
             let allocated_key =

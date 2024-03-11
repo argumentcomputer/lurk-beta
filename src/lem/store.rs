@@ -6,6 +6,7 @@ use elsa::{
     sync::{FrozenMap, FrozenVec},
 };
 use indexmap::IndexSet;
+use match_opt::match_opt;
 use neptune::Poseidon;
 use nom::{sequence::preceded, Parser};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -343,6 +344,11 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    pub fn expect_f(&self, idx: usize) -> &F {
+        self.fetch_f_by_idx(idx).expect("Index missing from f_elts")
+    }
+
+    #[inline]
     pub fn fetch_raw_ptrs<const N: usize>(&self, idx: usize) -> Option<&[RawPtr; N]> {
         macro_rules! fetch {
             ($hash:ident, $n:expr) => {{
@@ -360,21 +366,16 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    pub fn expect_raw_ptrs<const N: usize>(&self, idx: usize) -> &[RawPtr; N] {
+        self.fetch_raw_ptrs::<N>(idx)
+            .expect("Index missing from store")
+    }
+
+    #[inline]
     pub fn fetch_ptrs<const N: usize, const P: usize>(&self, idx: usize) -> Option<[Ptr; P]> {
         assert_eq!(P * 2, N);
         let raw_ptrs = self.fetch_raw_ptrs::<N>(idx)?;
         self.raw_ptrs_to_ptrs(raw_ptrs)
-    }
-
-    #[inline]
-    pub fn expect_f(&self, idx: usize) -> &F {
-        self.fetch_f_by_idx(idx).expect("Index missing from f_elts")
-    }
-
-    #[inline]
-    pub fn expect_raw_ptrs<const N: usize>(&self, idx: usize) -> &[RawPtr; N] {
-        self.fetch_raw_ptrs::<N>(idx)
-            .expect("Index missing from store")
     }
 
     #[inline]
@@ -391,8 +392,7 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn fetch_tag(&self, ptr: &RawPtr) -> Option<Tag> {
-        let idx = ptr.get_atom()?;
-        Tag::pos(idx)
+        ptr.get_atom().and_then(Tag::pos)
     }
 
     #[inline]
@@ -402,18 +402,20 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn push_binding(&self, sym: Ptr, val: Ptr, env: Ptr) -> Ptr {
-        assert_eq!(*sym.tag(), Tag::Expr(Sym));
-        assert_eq!(*env.tag(), Tag::Expr(Env));
-        let raw =
-            self.intern_raw_ptrs::<4>([*sym.raw(), self.tag(*val.tag()), *val.raw(), *env.raw()]);
+        let (sym_tag, sym_raw) = sym.into_parts();
+        let (val_tag, val_raw) = val.into_parts();
+        let (env_tag, env_raw) = env.into_parts();
+        assert_eq!(sym_tag, Tag::Expr(Sym));
+        assert_eq!(env_tag, Tag::Expr(Env));
+        let raw = self.intern_raw_ptrs([sym_raw, self.tag(val_tag), val_raw, env_raw]);
         Ptr::new(Tag::Expr(Env), raw)
     }
 
     #[inline]
-    pub fn pop_binding(&self, env: Ptr) -> Option<[Ptr; 3]> {
-        assert_eq!(*env.tag(), Tag::Expr(Env));
+    pub fn pop_binding(&self, env: &Ptr) -> Option<[Ptr; 3]> {
+        assert_eq!(env.tag(), &Tag::Expr(Env));
         let idx = env.get_index2()?;
-        let [sym_pay, val_tag, val_pay, env_pay] = self.fetch_raw_ptrs::<4>(idx)?;
+        let [sym_pay, val_tag, val_pay, env_pay] = self.fetch_raw_ptrs(idx)?;
         let val_tag = self.fetch_tag(val_tag)?;
         let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
         let val = Ptr::new(val_tag, *val_pay);
@@ -423,29 +425,26 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn intern_provenance(&self, query: Ptr, val: Ptr, deps: Ptr) -> Ptr {
-        assert_eq!(*query.tag(), Tag::Expr(Cons));
+        let (query_tag, query_raw) = query.into_parts();
+        let (val_tag, val_raw) = val.into_parts();
+        let (deps_tag, deps_raw) = deps.into_parts();
+        assert_eq!(query_tag, Tag::Expr(Cons));
         // TODO: Deps must be a single Prov or a list (later, an N-ary tuple), but we discard the type tag. This is
         // arguably okay, but it means that in order to recover the preimage we will need to know the expected arity
         // based on the query.
-        assert!(matches!(*deps.tag(), Tag::Expr(Prov | Cons | Nil)));
-        let raw = self.intern_raw_ptrs::<4>([
-            *query.raw(),
-            self.tag(*val.tag()),
-            *val.raw(),
-            *deps.raw(),
-        ]);
+        assert!(matches!(deps_tag, Tag::Expr(Prov | Cons | Nil)));
+        let raw = self.intern_raw_ptrs([query_raw, self.tag(val_tag), val_raw, deps_raw]);
         Ptr::new(Tag::Expr(Prov), raw)
     }
 
     #[inline]
     pub fn deconstruct_provenance(&self, prov: Ptr) -> Option<[Ptr; 3]> {
-        assert_eq!(*prov.tag(), Tag::Expr(Prov));
+        assert_eq!(prov.tag(), &Tag::Expr(Prov));
         let idx = prov.get_index2()?;
         let [query_pay, val_tag, val_pay, deps_pay] = self.fetch_raw_ptrs::<4>(idx)?;
         let val_tag = self.fetch_tag(val_tag)?;
         let query = Ptr::new(Tag::Expr(Cons), *query_pay);
         let val = Ptr::new(val_tag, *val_pay);
-
         let deps = Ptr::new(Tag::Expr(Cons), *deps_pay);
         Some([query, val, deps])
     }
@@ -462,10 +461,7 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn fetch_num(&self, ptr: &Ptr) -> Option<&F> {
-        match ptr.tag() {
-            Tag::Expr(Num) => self.fetch_f(ptr),
-            _ => None,
-        }
+        match_opt!(ptr.tag(), Tag::Expr(Num) => self.fetch_f(ptr)?)
     }
 
     #[inline]
@@ -480,10 +476,7 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn fetch_u64(&self, ptr: &Ptr) -> Option<u64> {
-        match ptr.tag() {
-            Tag::Expr(U64) => self.fetch_f(ptr).and_then(F::to_u64),
-            _ => None,
-        }
+        match_opt!(ptr.tag(), Tag::Expr(U64) => self.fetch_f(ptr).and_then(F::to_u64)?)
     }
 
     #[inline]
@@ -493,10 +486,7 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn fetch_char(&self, ptr: &Ptr) -> Option<char> {
-        match ptr.tag() {
-            Tag::Expr(Char) => self.fetch_f(ptr).and_then(F::to_char),
-            _ => None,
-        }
+        match_opt!(ptr.tag(), Tag::Expr(Char) => self.fetch_f(ptr).and_then(F::to_char)?)
     }
 
     #[inline]
@@ -514,8 +504,8 @@ impl<F: LurkField> Store<F> {
         Ptr::new(tag, self.raw_zero())
     }
 
-    pub fn is_zero(&self, ptr: &RawPtr) -> bool {
-        match ptr {
+    pub fn is_zero(&self, raw: &RawPtr) -> bool {
+        match raw {
             RawPtr::Atom(idx) => self.fetch_f_by_idx(*idx) == Some(&F::ZERO),
             _ => false,
         }
@@ -530,7 +520,8 @@ impl<F: LurkField> Store<F> {
     /// such pointer will result on the same original `ZPtr`
     #[inline]
     pub fn opaque(&self, z: ZPtr<F>) -> Ptr {
-        self.intern_atom(*z.tag(), *z.value())
+        let crate::z_ptr::ZPtr(tag, value) = z;
+        self.intern_atom(tag, value)
     }
 
     pub fn intern_string(&self, s: &str) -> Ptr {
@@ -675,20 +666,14 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    #[inline]
     pub fn fetch_sym(&self, ptr: &Ptr) -> Option<Symbol> {
-        if ptr.tag() == &Tag::Expr(Sym) {
-            self.fetch_symbol(ptr)
-        } else {
-            None
-        }
+        match_opt!(ptr.tag(), Tag::Expr(Sym) => self.fetch_symbol(ptr)?)
     }
 
+    #[inline]
     pub fn fetch_key(&self, ptr: &Ptr) -> Option<Symbol> {
-        if ptr.tag() == &Tag::Expr(Key) {
-            self.fetch_symbol(ptr)
-        } else {
-            None
-        }
+        match_opt!(ptr.tag(), Tag::Expr(Key) => self.fetch_symbol(ptr)?)
     }
 
     #[inline]
@@ -771,31 +756,12 @@ impl<F: LurkField> Store<F> {
         Ptr::new(Tag::Cont(Terminal), RawPtr::Atom(self.hash8zeros_idx))
     }
 
-    /// Returns the pair of pointers used to construct the provided `RawPtr`
-    fn decons_hash4_raw(&self, raw: &RawPtr) -> Result<(Ptr, Ptr)> {
-        let Some(idx) = raw.get_hash4() else {
-            bail!("not a hash4 raw pointer")
-        };
-        match self.fetch_raw_ptrs(idx) {
-            Some([car_tag, car, cdr_tag, cdr]) => {
-                let car_ptr = self.raw_to_ptr(car_tag, *car).context("Not a pointer")?;
-                let cdr_ptr = self.raw_to_ptr(cdr_tag, *cdr).context("Not a pointer")?;
-                Ok((car_ptr, cdr_ptr))
-            }
-            None => bail!("couldn't fetch raw ptrs"),
-        }
-    }
-
-    /// Simpler version of `car_cdr` that doesn't deconstruct strings
-    pub fn car_cdr_simple(&self, ptr: &Ptr) -> Result<(Ptr, Ptr)> {
-        match ptr.tag() {
-            Tag::Expr(Nil) => {
-                let nil = self.intern_nil();
-                Ok((nil, nil))
-            }
-            Tag::Expr(Cons) => self.decons_hash4_raw(ptr.raw()),
-            _ => bail!("invalid pointer to extract car/cdr (simple) from"),
-        }
+    /// Function specialized on deconstructing `Cons` pointers into their car/cdr
+    pub fn fetch_cons(&self, ptr: &Ptr) -> Option<(Ptr, Ptr)> {
+        match_opt!((ptr.tag(), ptr.raw()), (Tag::Expr(Cons), RawPtr::Hash4(idx)) => {
+            let [car, cdr] = fetch_ptrs!(self, 2, *idx)?;
+            (car, cdr)
+        })
     }
 
     /// Deconstruct a cons-like pointer such that:
@@ -804,17 +770,39 @@ impl<F: LurkField> Store<F> {
     /// * If applied on the empty string, returns `(nil, "")`
     /// * If applied on a string `"abc..."`, returns `('a', "bc...")`
     pub fn car_cdr(&self, ptr: &Ptr) -> Result<(Ptr, Ptr)> {
-        match ptr.tag() {
-            Tag::Expr(Nil | Cons) => self.car_cdr_simple(ptr),
-            Tag::Expr(Str) => {
-                if self.is_zero(ptr.raw()) {
+        match (ptr.tag(), ptr.raw()) {
+            (Tag::Expr(Nil), _) => {
+                let nil = self.intern_nil();
+                Ok((nil, nil))
+            }
+            (Tag::Expr(Str), RawPtr::Atom(idx)) => {
+                if self.fetch_f_by_idx(*idx) == Some(&F::ZERO) {
                     let empty_str = Ptr::new(Tag::Expr(Str), self.raw_zero());
                     Ok((self.intern_nil(), empty_str))
                 } else {
-                    self.decons_hash4_raw(ptr.raw())
+                    bail!("Invalid empty string pointer")
                 }
             }
+            (Tag::Expr(Cons | Str), RawPtr::Hash4(idx)) => {
+                let [car, cdr] = fetch_ptrs!(self, 2, *idx).context("couldn't fetch car/cdr")?;
+                Ok((car, cdr))
+            }
             _ => bail!("invalid pointer to extract car/cdr from"),
+        }
+    }
+
+    /// Simpler version of `car_cdr` that doesn't deconstruct strings
+    pub fn car_cdr_simple(&self, ptr: &Ptr) -> Result<(Ptr, Ptr)> {
+        match (ptr.tag(), ptr.raw()) {
+            (Tag::Expr(Nil), _) => {
+                let nil = self.intern_nil();
+                Ok((nil, nil))
+            }
+            (Tag::Expr(Cons), RawPtr::Hash4(idx)) => {
+                let [car, cdr] = fetch_ptrs!(self, 2, *idx).context("couldn't fetch car/cdr")?;
+                Ok((car, cdr))
+            }
+            _ => bail!("invalid pointer to extract car/cdr (simple) from"),
         }
     }
 
@@ -900,10 +888,10 @@ impl<F: LurkField> Store<F> {
 
     /// Fetches an environment
     pub fn fetch_env(&self, ptr: &Ptr) -> Option<Vec<(Ptr, Ptr)>> {
-        if *ptr.tag() != Tag::Expr(Env) {
+        if ptr.tag() != &Tag::Expr(Env) {
             return None;
         }
-        if *ptr == self.intern_empty_env() {
+        if ptr == &self.intern_empty_env() {
             return Some(vec![]);
         }
         let mut idx = ptr.raw().get_hash4()?;
@@ -922,7 +910,7 @@ impl<F: LurkField> Store<F> {
 
     /// Fetches a provenance
     pub fn fetch_provenance(&self, ptr: &Ptr) -> Option<(Ptr, Ptr, Ptr)> {
-        if *ptr.tag() != Tag::Expr(Prov) {
+        if ptr.tag() != &Tag::Expr(Prov) {
             return None;
         }
 
@@ -1495,12 +1483,16 @@ mod tests {
         let nil = store.intern_nil();
         let (car, cdr) = store.car_cdr(&nil).unwrap();
         assert_eq!((&car, &cdr), (&nil, &nil));
+        let (car, cdr) = store.car_cdr_simple(&nil).unwrap();
+        assert_eq!((&car, &cdr), (&nil, &nil));
 
         // regular cons
         let one = store.num_u64(1);
         let a = store.char('a');
         let one_a = store.cons(one, a);
         let (car, cdr) = store.car_cdr(&one_a).unwrap();
+        assert_eq!((&one, &a), (&car, &cdr));
+        let (car, cdr) = store.car_cdr_simple(&one_a).unwrap();
         assert_eq!((&one, &a), (&car, &cdr));
 
         // string

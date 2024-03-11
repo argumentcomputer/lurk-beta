@@ -135,7 +135,7 @@ impl<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> Repl<F, C> 
     }
 
     fn peek1(&self, args: &Ptr) -> Result<Ptr> {
-        let (first, rest) = self.store.car_cdr(args)?;
+        let (first, rest) = self.store.car_cdr_simple(args)?;
         if !rest.is_nil() {
             bail!("At most one argument is accepted")
         }
@@ -143,8 +143,8 @@ impl<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> Repl<F, C> 
     }
 
     fn peek2(&self, args: &Ptr) -> Result<(Ptr, Ptr)> {
-        let (first, rest) = self.store.car_cdr(args)?;
-        let (second, rest) = self.store.car_cdr(&rest)?;
+        let (first, rest) = self.store.car_cdr_simple(args)?;
+        let (second, rest) = self.store.car_cdr_simple(&rest)?;
         if !rest.is_nil() {
             bail!("At most two arguments are accepted")
         }
@@ -588,7 +588,7 @@ where
     }
 
     fn handle_meta(&mut self, expr_ptr: Ptr, file_path: &Utf8Path) -> Result<()> {
-        let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
+        let (car, cdr) = self.store.car_cdr_simple(&expr_ptr)?;
         match &self.store.fetch_sym(&car) {
             Some(symbol) => {
                 let cmdstr = symbol.name()?;

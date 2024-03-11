@@ -398,7 +398,7 @@ where
         example: &["!(defpackage abc)"],
         run: |repl, args, _path| {
             // TODO: handle args
-            let (name, _args) = repl.store.car_cdr(args)?;
+            let (name, _args) = repl.store.car_cdr_simple(args)?;
             let name = match name.tag() {
                 Tag::Expr(ExprTag::Str) => repl.state.borrow_mut().intern(repl.get_string(&name)?),
                 Tag::Expr(ExprTag::Sym) => repl.get_symbol(&name)?.into(),
@@ -419,7 +419,7 @@ where
         example: &[],
         run: |repl, args, _path| {
             // TODO: handle pkg
-            let (mut symbols, _pkg) = repl.store.car_cdr(args)?;
+            let (mut symbols, _pkg) = repl.store.car_cdr_simple(args)?;
             if symbols.tag() == &Tag::Expr(ExprTag::Sym) {
                 let sym = SymbolRef::new(repl.get_symbol(&symbols)?);
                 repl.state.borrow_mut().import(&[sym])?;
@@ -427,7 +427,7 @@ where
                 let mut symbols_vec = vec![];
                 loop {
                     {
-                        let (head, tail) = repl.store.car_cdr(&symbols)?;
+                        let (head, tail) = repl.store.car_cdr_simple(&symbols)?;
                         let sym = repl.get_symbol(&head)?;
                         symbols_vec.push(SymbolRef::new(sym));
                         if tail.is_nil() {
@@ -530,7 +530,7 @@ where
     }
 
     fn call(repl: &mut Repl<F, C>, args: &Ptr, _path: &Utf8Path) -> Result<()> {
-        let (hash_expr, args) = repl.store.car_cdr(args)?;
+        let (hash_expr, args) = repl.store.car_cdr_simple(args)?;
         let hash = *repl.get_comm_hash(hash_expr)?;
         // check if the data is already available on the store before trying to
         // fetch it from the file system
@@ -586,7 +586,10 @@ where
             let result = ev
                 .get_result()
                 .expect("evaluation result must have been set");
-            let (_, comm) = repl.store.car_cdr(result)?;
+            let (_, comm) = repl
+                .store
+                .fetch_cons(result)
+                .ok_or_else(|| anyhow!("Chained function must return a cons expression"))?;
             let (Tag::Expr(ExprTag::Comm), RawPtr::Atom(hash)) = comm.parts() else {
                 bail!("Second component of a chain must be a commitment")
             };
@@ -719,9 +722,9 @@ where
             "  :description \"example protocol\")",
         ],
         run: |repl, args, _path| {
-            let (name, rest) = repl.store.car_cdr(args)?;
-            let (vars, rest) = repl.store.car_cdr(&rest)?;
-            let (body, props) = repl.store.car_cdr(&rest)?;
+            let (name, rest) = repl.store.car_cdr_simple(args)?;
+            let (vars, rest) = repl.store.car_cdr_simple(&rest)?;
+            let (body, props) = repl.store.car_cdr_simple(&rest)?;
             if !name.is_sym() {
                 bail!(
                     "Protocol name must be a symbol. Got {}",
@@ -807,9 +810,9 @@ where
             .with_context(|| "evaluating protocol")?;
         let ptcl = &io[0];
 
-        let (fun, rest) = repl.store.car_cdr(ptcl)?;
+        let (fun, rest) = repl.store.car_cdr_simple(ptcl)?;
 
-        let (car, rest) = repl.store.car_cdr(&rest)?;
+        let (car, rest) = repl.store.car_cdr_simple(&rest)?;
         let Some(backend) = repl.store.fetch_string(&car) else {
             bail!("Backend must be a string")
         };
@@ -819,7 +822,7 @@ where
             _ => bail!("Invalid value for backend"),
         };
 
-        let (car, _) = repl.store.car_cdr(&rest)?;
+        let (car, _) = repl.store.car_cdr_simple(&rest)?;
         let (Tag::Expr(ExprTag::Num), RawPtr::Atom(rc_idx)) = car.parts() else {
             bail!("Reduction count must be a Num")
         };
@@ -945,8 +948,8 @@ where
             "  '(13 . 17))",
         ],
         run: |repl, args, _path| {
-            let (ptcl, rest) = repl.store.car_cdr(args)?;
-            let (path, args) = repl.store.car_cdr(&rest)?;
+            let (ptcl, rest) = repl.store.car_cdr_simple(args)?;
+            let (path, args) = repl.store.car_cdr_simple(&rest)?;
 
             let path = get_path(repl, &path)?;
 

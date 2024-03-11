@@ -81,7 +81,7 @@ pub struct Context {
 /// Look up `var` in `env`, where `env` is a list of bindings from `Symbol` to `U64` representing bindings of variables to vertices
 /// by id.
 fn lookup_vertex_id<F: LurkField>(store: &Store<F>, env: &Ptr, var: &Ptr) -> Result<Option<Id>> {
-    let Some([bound_var, id, rest_env]) = store.pop_binding(*env) else {
+    let Some([bound_var, id, rest_env]) = store.pop_binding(env) else {
         return Ok(None);
     };
 
@@ -125,7 +125,7 @@ impl Context {
 
     fn pop_binding<F: LurkField>(&mut self, store: &Store<F>) -> Result<Id> {
         let [_var, id, rest_env] = store
-            .pop_binding(self.env)
+            .pop_binding(&self.env)
             .ok_or(anyhow!("failed to pop binding"))?;
         self.env = rest_env;
 

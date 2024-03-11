@@ -228,15 +228,14 @@ impl<F: LurkField> ZDag<F> {
                         intern_ptrs_hydrated!(store, *z_ptr.tag(), *z_ptr, ptr1, ptr2, ptr3, ptr4)
                     }
                     Some(ZPtrType::Env(sym, val, env)) => {
-                        let sym = self.populate_store(sym, store, cache)?;
-                        let val = self.populate_store(val, store, cache)?;
-                        let env = self.populate_store(env, store, cache)?;
-                        let raw = store.intern_raw_ptrs([
-                            *sym.raw(),
-                            store.tag(*val.tag()),
-                            *val.raw(),
-                            *env.raw(),
-                        ]);
+                        let (_, sym_raw) = self.populate_store(sym, store, cache)?.into_parts();
+                        let (val_tag, val_raw) =
+                            self.populate_store(val, store, cache)?.into_parts();
+                        let (_, env_raw) = self.populate_store(env, store, cache)?.into_parts();
+                        let raw = store.intern_raw_ptrs_hydrated(
+                            [sym_raw, store.tag(val_tag), val_raw, env_raw],
+                            FWrap(*z_ptr.value()),
+                        );
                         Ptr::new(Tag::Expr(Env), raw)
                     }
                 };
