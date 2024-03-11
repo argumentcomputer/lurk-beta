@@ -119,7 +119,7 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
         ToplevelCircuitQuery { name, args }
     }
     fn from_ptr(toplevel: &Arc<Toplevel<F>>, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
-        let (head, mut acc) = s.car_cdr(ptr).expect("query should be cons");
+        let (head, mut acc) = s.car_cdr_simple(ptr).expect("query should be cons");
         let name = s.fetch_sym(&head).expect("head should be sym");
         let num_args = toplevel.get(&name).unwrap().func.input_params.len();
         assert!(num_args > 0, "cannot yet make 0 argument queries");
@@ -127,7 +127,7 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
         let _p = PhantomData;
         if !acc.is_nil() {
             while args.len() < num_args - 1 {
-                let (arg, rest) = s.car_cdr(&acc).expect("can't find image for cons");
+                let (arg, rest) = s.car_cdr_simple(&acc).expect("can't find image for cons");
                 args.push(arg);
                 acc = rest;
             }

@@ -92,6 +92,12 @@ impl Ptr {
     }
 
     #[inline]
+    pub fn into_parts(self) -> (Tag, RawPtr) {
+        let Ptr { tag, raw } = self;
+        (tag, raw)
+    }
+
+    #[inline]
     pub fn has_tag(&self, tag: &Tag) -> bool {
         self.tag() == tag
     }

@@ -57,7 +57,7 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
     }
 
     fn from_ptr(_: &Self::RD, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
-        let (head, body) = s.car_cdr(ptr).expect("query should be cons");
+        let (head, body) = s.car_cdr_simple(ptr).expect("query should be cons");
         let sym = s.fetch_sym(&head).expect("head should be sym");
 
         if sym == Symbol::sym(&["lurk", "user", "factorial"]) {

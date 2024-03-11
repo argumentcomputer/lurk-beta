@@ -58,8 +58,8 @@ fn lurk_fib<F: LurkField>(store: &Store<F>, n: usize) -> Ptr {
     //               saved_env: (((.lurk.user.next . <FUNCTION (.lurk.user.a .lurk.user.b) (.lurk.user.next .lurk.user.b (+ .lurk.user.a .lurk.user.b))>))),
     //               body: (.lurk.user.fib), continuation: Outermost }
 
-    let [_, _, rest_bindings] = store.pop_binding(*target_env).unwrap();
-    let [_, val, _] = store.pop_binding(rest_bindings).unwrap();
+    let [_, _, rest_bindings] = store.pop_binding(target_env).unwrap();
+    let [_, val, _] = store.pop_binding(&rest_bindings).unwrap();
     val
 }
 

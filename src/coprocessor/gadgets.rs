@@ -211,7 +211,7 @@ pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
     let env_ptr = s.to_ptr(&env_zptr);
 
     let (a, b, c, d) = {
-        if let Some([v, val, new_env]) = s.pop_binding(env_ptr) {
+        if let Some([v, val, new_env]) = s.pop_binding(&env_ptr) {
             let v_zptr = s.hash_ptr(&v);
             let val_zptr = s.hash_ptr(&val);
             let new_env_zptr = s.hash_ptr(&new_env);

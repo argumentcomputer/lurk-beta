@@ -33,7 +33,7 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         let s = scope.store.as_ref();
         match self {
             Self::Lookup(var, env) => {
-                if let Some([v, val, new_env]) = s.pop_binding(*env) {
+                if let Some([v, val, new_env]) = s.pop_binding(env) {
                     if s.ptr_eq(var, &v) {
                         let t = s.intern_t();
                         s.cons(val, t)
@@ -57,11 +57,11 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
     }
 
     fn from_ptr(_: &Self::RD, s: &Store<F>, ptr: &Ptr) -> Option<Self> {
-        let (head, body) = s.car_cdr(ptr).expect("query should be cons");
+        let (head, body) = s.car_cdr_simple(ptr).expect("query should be cons");
         let sym = s.fetch_sym(&head).expect("head should be sym");
 
         if sym == Symbol::sym(&["lurk", "env", "lookup"]) {
-            let (var, env) = s.car_cdr(&body).expect("query body should be cons");
+            let (var, env) = s.car_cdr_simple(&body).expect("query body should be cons");
             Some(Self::Lookup(var, env))
         } else {
             None

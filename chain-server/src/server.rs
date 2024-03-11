@@ -139,9 +139,10 @@ where
         // make sure that the evaluation terminated appropriatelly
         match cont_out.tag() {
             Tag::Cont(ContTag::Terminal) => {
-                // car_cdr the result to retrieve the chain result and the next callable
-                let (result, next_callable) = self.store.car_cdr(expr_out).map_err(|_e| {
-                    Status::failed_precondition("Call didn't result in a cons-like expression")
+                // get the car/cdr of the result to retrieve the chain result and
+                // the next callable
+                let (result, next_callable) = self.store.fetch_cons(expr_out).ok_or_else(|| {
+                    Status::failed_precondition("Call didn't result in a cons expression")
                 })?;
 
                 // retrieve (or compute if needed) the public params for proving
