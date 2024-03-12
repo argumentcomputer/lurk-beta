@@ -435,7 +435,6 @@ pub struct CoroutineCircuit<'a, F: LurkField, M, Q: Query<F>> {
     rc: usize,
     store: &'a Store<F>,
     runtime_data: &'a Q::RD,
-    input: Option<Vec<Ptr>>,
     // `None` for circuit synthesis
     // `Some` for witness generation
     witness_data: Option<WitnessData<'a, F, M>>,
@@ -457,7 +456,6 @@ impl<'a, F: LurkField, M, Q: Query<F>> CoroutineCircuit<'a, F, M, Q> {
         runtime_data: &'a Q::RD,
     ) -> Self {
         Self {
-            input: None,
             query_index,
             store,
             rc,
@@ -475,7 +473,6 @@ impl<'a, F: LurkField, M, Q: Query<F>> CoroutineCircuit<'a, F, M, Q> {
 // That will require a CircuitScopeTrait.
 impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
     pub fn new(
-        input: Option<Vec<Ptr>>,
         scope: &'a Scope<Q, LogMemo<F>, F>,
         keys: &'a [Ptr],
         query_index: usize,
@@ -486,7 +483,6 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
         let memoset = &scope.memoset;
         let provenances = scope.provenances();
         Self {
-            input,
             rc,
             query_index,
             store: &scope.store,
@@ -889,7 +885,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
                         // `next_query_index` is only relevant for SuperNova
                         let next_query_index = 0;
                         let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> =
-                            CoroutineCircuit::new(None, self, chunk, *index, next_query_index, rc);
+                            CoroutineCircuit::new(self, chunk, *index, next_query_index, rc);
 
                         let (_next_pc, z_out) = circuit.supernova_synthesize(cs, &z)?;
                         {

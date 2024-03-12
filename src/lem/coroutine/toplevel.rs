@@ -275,7 +275,7 @@ mod test {
     use crate::coroutine::memoset::prove::MemosetProver;
     use crate::coroutine::memoset::CoroutineCircuit;
     use crate::lem::tag::Tag;
-    use crate::proof::{Prover, RecursiveSNARKTrait};
+    use crate::proof::RecursiveSNARKTrait;
     use crate::{func, state::user_sym};
 
     use bellpepper::util_cs::bench_cs::BenchCS;
@@ -362,7 +362,7 @@ mod test {
         let id_query = s.read_with_default_state("(id . 0)").unwrap();
 
         let query = s.read_with_default_state("(factorial . 5)").unwrap();
-        let mut scope = Scope::new(prover.reduction_count(), s.clone(), toplevel.clone());
+        let mut scope = Scope::new(prover.reduction_count, s.clone(), toplevel.clone());
         scope.query(id_query);
         scope.query(query);
         scope.finalize_transcript();
@@ -374,7 +374,7 @@ mod test {
         assert!(snark.verify(&pp, &input, &output).unwrap());
 
         let query = s.read_with_default_state("(even . 5)").unwrap();
-        let mut scope = Scope::new(prover.reduction_count(), s, toplevel);
+        let mut scope = Scope::new(prover.reduction_count, s, toplevel);
         scope.query(id_query);
         scope.query(query);
         scope.finalize_transcript();
@@ -473,7 +473,7 @@ mod test {
 
         let prover = MemosetProver::<'_, F, ToplevelQuery<F>>::new(1);
         let query = s.read_with_default_state("(main . 10)").unwrap();
-        let mut scope = Scope::new(prover.reduction_count(), s.clone(), toplevel.clone());
+        let mut scope = Scope::new(prover.reduction_count, s.clone(), toplevel.clone());
         scope.query(query);
         scope.finalize_transcript();
         let pp = prover.public_params(&toplevel, &s);

@@ -1,14 +1,13 @@
 #![allow(dead_code)]
 use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
-    dual_channel::ChannelTerminal,
     error::ProofError,
     field::LurkField,
     lem::{pointers::Ptr, store::Store},
     proof::{
         nova::{CurveCycleEquipped, E1},
         supernova::{Proof, PublicParams, SuperNovaPublicParams, C2, SS1, SS2},
-        FrameLike, Prover, RecursiveSNARKTrait,
+        RecursiveSNARKTrait,
     },
 };
 
@@ -170,22 +169,9 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
     }
 }
 
-impl<'a, F: LurkField, Q: Query<F> + Send + Sync> FrameLike<Ptr> for Coroutine<'a, F, Q> {
-    type FrameIO = Vec<Ptr>;
-    #[inline]
-    fn input(&self) -> &Vec<Ptr> {
-        unimplemented!()
-    }
-
-    #[inline]
-    fn output(&self) -> &Vec<Ptr> {
-        unimplemented!()
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct MemosetProver<'a, F, Q> {
-    reduction_count: usize,
+    pub(crate) reduction_count: usize,
     _phantom: PhantomData<&'a (F, Q)>,
 }
 
@@ -238,65 +224,34 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> MemosetProver<'a, F, 
                     *index
                 };
                 let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> =
-                    CoroutineCircuit::new(None, scope, chunk, *index, next_query_index, rc);
+                    CoroutineCircuit::new(scope, chunk, *index, next_query_index, rc);
                 steps.push(circuit);
             }
         }
-        let input_ptrs = Some(vec![
+        let input_ptrs = &[
             store.dummy(),
             store.dummy(),
             store.dummy(),
             scope.init_memoset(),
             scope.init_transcript(),
             store.num(*scope.memoset.r().unwrap()),
-        ]);
-        steps[0].input = input_ptrs;
-        self.prove(pp, steps, store)
-    }
-}
-
-impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> Prover<'a, F>
-    for MemosetProver<'a, F, Q>
-{
-    type Frame = Coroutine<'a, F, Q>;
-    type PublicParams = PublicParams<F>;
-    type RecursiveSnark = Proof<F, Coroutine<'a, F, Q>>;
-
-    #[inline]
-    fn reduction_count(&self) -> usize {
-        self.reduction_count
+        ];
+        self.prove(pp, steps, input_ptrs, store)
     }
 
-    #[inline]
-    fn folding_mode(&self) -> &crate::proof::FoldingMode {
-        unimplemented!()
-    }
-
-    fn evaluate_and_prove(
+    pub(crate) fn prove(
         &self,
-        _pp: &Self::PublicParams,
-        _expr: Ptr,
-        _env: Ptr,
-        _store: &'a Store<F>,
-        _limit: usize,
-        _ch_terminal: &ChannelTerminal<Ptr>,
-    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
-        unimplemented!()
-    }
-
-    fn prove(
-        &self,
-        pp: &Self::PublicParams,
+        pp: &PublicParams<F>,
         steps: Vec<Coroutine<'a, F, Q>>,
+        input_ptrs: &[Ptr],
         store: &'a Store<F>,
-    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<F, Coroutine<'a, F, Q>>, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
-        let input_ptrs = steps[0].input.as_ref().unwrap();
         let z0 = store.to_scalar_vector(input_ptrs);
 
         let num_steps = steps.len();
 
-        let prove_output = Self::RecursiveSnark::prove_recursively(pp, &z0, steps, store)?;
+        let prove_output = Proof::prove_recursively(pp, &z0, steps, store)?;
         let zi = match prove_output {
             Proof::Recursive(ref snark, ..) => snark.zi_primary().clone(),
             Proof::Compressed(..) => unreachable!(),
@@ -349,7 +304,7 @@ mod test {
                     })
                     .collect::<Vec<_>>();
                 let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> =
-                    CoroutineCircuit::new(None, scope, chunk, *index, *index, rc);
+                    CoroutineCircuit::new(scope, chunk, *index, *index, rc);
                 let (_next, out) = circuit.supernova_synthesize(&mut cs, &alloc_ptr).unwrap();
                 let unsat = cs.which_is_unsatisfied();
 
