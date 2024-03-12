@@ -419,12 +419,12 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
 }
 
 #[derive(Debug, Clone)]
-pub struct CircuitScope<F: LurkField, CM, RD> {
+pub struct CircuitScope<'a, F: LurkField, CM, RD> {
     memoset: CM, // CircuitMemoSet
-    /// k -> prov
-    provenances: IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
     /// k -> allocated v
     transcript: CircuitTranscript<F>,
+    /// k -> prov
+    provenances: Option<&'a IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
     acc: Option<AllocatedPtr<F>>,
     pub(crate) runtime_data: RD,
 }
@@ -517,9 +517,8 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
             multiset,
             r: r.hash().clone(),
         };
-        let empty_prov = Default::default();
-        let provenances = self.witness_data().map_or(&empty_prov, |w| w.provenances);
-        let mut circuit_scope: CircuitScope<F, LogMemoCircuit<F>, Q::RD> = CircuitScope::new(
+        let provenances = self.witness_data().map(|w| w.provenances);
+        let mut circuit_scope: CircuitScope<'_, F, LogMemoCircuit<F>, Q::RD> = CircuitScope::new(
             cs,
             g,
             self.store,
@@ -851,7 +850,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
             g,
             s,
             memoset_circuit.clone(),
-            self.provenances(),
+            Some(self.provenances()),
             self.runtime_data.clone(),
         );
 
@@ -916,18 +915,18 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     }
 }
 
-impl<F: LurkField, RD> CircuitScope<F, LogMemoCircuit<F>, RD> {
+impl<'a, F: LurkField, RD> CircuitScope<'a, F, LogMemoCircuit<F>, RD> {
     fn new<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         s: &Store<F>,
         memoset: LogMemoCircuit<F>,
-        provenances: &IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
+        provenances: Option<&'a IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
         runtime_data: RD,
     ) -> Self {
         Self {
             memoset,
-            provenances: provenances.clone(), // FIXME
+            provenances,
             transcript: CircuitTranscript::new(cs, g, s),
             acc: Default::default(),
             runtime_data,
@@ -1130,7 +1129,7 @@ impl<F: LurkField, RD> CircuitScope<F, LogMemoCircuit<F>, RD> {
         let provenance = AllocatedPtr::alloc(ns!(cs, "provenance"), || {
             Ok(if not_dummy.get_value() == Some(true) {
                 *key.get_value()
-                    .and_then(|k| self.provenances.get(&k))
+                    .and_then(|k| self.provenances.unwrap().get(&k))
                     .ok_or(SynthesisError::AssignmentMissing)?
             } else {
                 // Dummy value that will not be used.
