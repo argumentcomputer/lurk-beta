@@ -510,22 +510,21 @@ impl<'a, F: LurkField, Q: Query<F>> CoroutineCircuit<'a, F, LogMemo<F>, Q> {
             unreachable!()
         };
 
-        let multiset = self
-            .witness_data()
-            .map_or_else(MultiSet::new, |w| w.memoset.multiset.clone());
+        let multiset = self.witness_data().map(|w| &w.memoset.multiset);
         let memoset = LogMemoCircuit {
             multiset,
             r: r.hash().clone(),
         };
         let provenances = self.witness_data().map(|w| w.provenances);
-        let mut circuit_scope: CircuitScope<'_, F, LogMemoCircuit<F>, Q::RD> = CircuitScope::new(
-            cs,
-            g,
-            self.store,
-            memoset,
-            provenances,
-            self.runtime_data.clone(),
-        );
+        let mut circuit_scope: CircuitScope<'_, F, LogMemoCircuit<'_, F>, Q::RD> =
+            CircuitScope::new(
+                cs,
+                g,
+                self.store,
+                memoset,
+                provenances,
+                self.runtime_data.clone(),
+            );
         circuit_scope.update_from_io(memoset_acc.clone(), transcript.clone(), r);
 
         let keys: &[Ptr] = self.witness_data().map_or(&[], |w| w.keys);
@@ -843,7 +842,11 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         let s = self.store.as_ref();
         // FIXME: Do we need to allocate a new GlobalAllocator here?
         // Is it okay for this memoset circuit to be shared between all CoroutineCircuits?
-        let memoset_circuit = self.memoset.to_circuit(ns!(cs, "memoset_circuit"));
+        let r = self.memoset.allocated_r(ns!(cs, "memoset_allocated_r"));
+        let memoset_circuit = LogMemoCircuit {
+            multiset: Some(&self.memoset.multiset),
+            r,
+        };
 
         let mut circuit_scope = CircuitScope::new(
             ns!(cs, "transcript"),
@@ -915,12 +918,12 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     }
 }
 
-impl<'a, F: LurkField, RD> CircuitScope<'a, F, LogMemoCircuit<F>, RD> {
+impl<'a, F: LurkField, RD> CircuitScope<'a, F, LogMemoCircuit<'a, F>, RD> {
     fn new<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         s: &Store<F>,
-        memoset: LogMemoCircuit<F>,
+        memoset: LogMemoCircuit<'a, F>,
         provenances: Option<&'a IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
         runtime_data: RD,
     ) -> Self {
@@ -1329,10 +1332,6 @@ pub trait CircuitMemoSet<F: LurkField>: Clone {
 }
 
 pub trait MemoSet<F: LurkField>: Clone {
-    type CM: CircuitMemoSet<F>;
-
-    fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self::CM;
-
     fn is_finalized(&self) -> bool;
     fn finalize_transcript(&mut self, s: &Store<F>, transcript: Transcript<F>);
     fn r(&self) -> Option<&F>;
@@ -1353,8 +1352,8 @@ pub struct LogMemo<F: LurkField> {
 }
 
 #[derive(Debug, Clone)]
-pub struct LogMemoCircuit<F: LurkField> {
-    multiset: MultiSet<Ptr>,
+pub struct LogMemoCircuit<'a, F: LurkField> {
+    multiset: Option<&'a MultiSet<Ptr>>,
     r: AllocatedNum<F>,
 }
 
@@ -1389,16 +1388,6 @@ impl<F: LurkField> LogMemo<F> {
 }
 
 impl<F: LurkField> MemoSet<F> for LogMemo<F> {
-    type CM = LogMemoCircuit<F>;
-
-    fn to_circuit<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self::CM {
-        let r = self.allocated_r(cs);
-        LogMemoCircuit {
-            multiset: self.multiset.clone(),
-            r,
-        }
-    }
-
     fn count(&self, form: &Ptr) -> usize {
         self.multiset.get(form).unwrap_or(0)
     }
@@ -1432,7 +1421,7 @@ impl<F: LurkField> MemoSet<F> for LogMemo<F> {
     }
 }
 
-impl<F: LurkField> CircuitMemoSet<F> for LogMemoCircuit<F> {
+impl<'a, F: LurkField> CircuitMemoSet<F> for LogMemoCircuit<'a, F> {
     fn allocated_r(&self) -> AllocatedNum<F> {
         self.r.clone()
     }
@@ -1475,7 +1464,7 @@ impl<F: LurkField> CircuitMemoSet<F> for LogMemoCircuit<F> {
     }
 
     fn count(&self, form: &Ptr) -> usize {
-        self.multiset.get(form).unwrap_or(0)
+        self.multiset.and_then(|m| m.get(form)).unwrap_or(0)
     }
 }
 

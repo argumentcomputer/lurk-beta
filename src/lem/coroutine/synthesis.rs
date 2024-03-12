@@ -66,13 +66,13 @@ fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(output)
 }
 
-pub(crate) fn synthesize_call<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn synthesize_call<'a, F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     func: &Func,
     not_dummy: &Boolean,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
-    scope: &mut CircuitScope<'_, F, LogMemoCircuit<F>, Arc<Toplevel<F>>>,
+    scope: &mut CircuitScope<'a, F, LogMemoCircuit<'a, F>, Arc<Toplevel<F>>>,
     bound_allocations: &mut BoundAllocations<F>,
     acc: &mut AllocatedPtr<F>,
     sub_provenances: &mut Vec<AllocatedPtr<F>>,
@@ -96,13 +96,13 @@ pub(crate) fn synthesize_call<F: LurkField, CS: ConstraintSystem<F>>(
     allocate_return(cs, selected_branch)
 }
 
-fn synthesize_run<F: LurkField, CS: ConstraintSystem<F>>(
+fn synthesize_run<'a, F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     block: &Block,
     not_dummy: &Boolean,
     g: &GlobalAllocator<F>,
     store: &Store<F>,
-    scope: &mut CircuitScope<'_, F, LogMemoCircuit<F>, Arc<Toplevel<F>>>,
+    scope: &mut CircuitScope<'a, F, LogMemoCircuit<'a, F>, Arc<Toplevel<F>>>,
     bound_allocations: &mut BoundAllocations<F>,
     acc: &mut AllocatedPtr<F>,
     sub_provenances: &mut Vec<AllocatedPtr<F>>,
