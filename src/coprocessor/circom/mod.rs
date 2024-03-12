@@ -172,7 +172,8 @@ pub mod non_wasm {
     ) -> Result<(Utf8PathBuf, Utf8PathBuf), CircomCoprocessorError> {
         match get_local_gadget(gadget)? {
             Some(paths) => Ok(paths),
-            None => get_remote_gadget(gadget)?.ok_or_else(|| CircomCoprocessorError::GadgetNotFound {
+            None => {
+                get_remote_gadget(gadget)?.ok_or_else(|| CircomCoprocessorError::GadgetNotFound {
                     reference: gadget.reference().clone(),
                     name: String::from(gadget.reference().name()),
                     prelude: error_prelude(),

@@ -51,7 +51,7 @@ fn string_to_le_bits(input_string: &str) -> Vec<u32> {
         .flat_map(|c| c.to_string().into_bytes())
         .collect::<Vec<_>>();
 
-    bytes_to_bits(&bytes)
+    bellpepper::gadgets::multipack::bytes_to_bits_le(&bytes)
         .iter()
         .map(|b| if *b { 1 } else { 0 })
         .collect::<Vec<_>>()
@@ -71,26 +71,6 @@ fn bits_to_bytes(bits: &[bool]) -> Vec<u8> {
         }
     }
     bytes // Return the array of bytes
-}
-
-// Transforms a slice of bytes to a slice of bits. When dividing one byte in bits, order the bits
-// from the least significant to the most significant one.
-fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
-    let mut bits = Vec::new(); // Create a new, empty vector to store bits
-
-    for &byte in bytes.iter() {
-        // Iterate over each byte in the input slice
-        for j in 0..8 {
-            // For each bit in the byte
-            if byte & (1 << j) > 0 {
-                // Check if the bit is set
-                bits.push(true); // If the bit is set, push 1 to the vector
-            } else {
-                bits.push(false); // If the bit is not set, push 0
-            }
-        }
-    }
-    bits // Return the vector of bits
 }
 
 /*************************************************
@@ -339,10 +319,11 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
         let mut output_bytes = [0u8; 32];
         hasher.finalize(&mut output_bytes);
         // Convert the output bytes into a Vec<u8> representing bits
-        let output_bits_ptr = bytes_to_bits(&output_bytes)
+        let output_bits_ptr = bellpepper::gadgets::multipack::bytes_to_bits_le(&output_bytes)
             .iter()
             .map(|b| if *b { s.num(F::ONE) } else { s.num(F::ZERO) })
             .collect::<Vec<Ptr>>();
+
         s.list(output_bits_ptr)
     }
 
