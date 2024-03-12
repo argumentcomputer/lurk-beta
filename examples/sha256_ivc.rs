@@ -14,12 +14,18 @@ use lurk::{
         instance::{Instance, Kind},
         public_params,
     },
-    state::user_sym,
+    state::{State, StateRcCell},
+    Symbol,
 };
 
 const REDUCTION_COUNT: usize = 10;
 
-fn sha256_ivc<F: LurkField>(store: &Store<F>, n: usize, input: &[usize]) -> Ptr {
+fn sha256_ivc<F: LurkField>(
+    store: &Store<F>,
+    state: StateRcCell,
+    n: usize,
+    input: &[usize],
+) -> Ptr {
     assert_eq!(n, input.len());
     let input = input
         .iter()
@@ -47,7 +53,7 @@ fn sha256_ivc<F: LurkField>(store: &Store<F>, n: usize, input: &[usize]) -> Ptr 
 "#
     );
 
-    store.read_with_default_state(&program).unwrap()
+    store.read(state, &program).unwrap()
 }
 
 /// Run the example in this file with
@@ -64,9 +70,10 @@ fn main() {
     let n = args.get(1).unwrap_or(&"1".into()).parse().unwrap();
 
     let store = &Store::default();
-    let cproc_sym = user_sym(&format!("sha256_ivc_{n}"));
+    let state = State::init_lurk_state().rccell();
+    let cproc_sym = Symbol::interned(format!("sha256_ivc_{n}"), state.clone()).unwrap();
 
-    let call = sha256_ivc(store, n, &(0..n).collect::<Vec<_>>());
+    let call = sha256_ivc(store, state, n, &(0..n).collect::<Vec<_>>());
 
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));

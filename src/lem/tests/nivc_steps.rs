@@ -9,15 +9,17 @@ use crate::{
         store::{expect_ptrs, intern_ptrs, Store},
         Tag,
     },
-    state::user_sym,
+    state::{user_sym, State},
     tag::{ContTag, ExprTag},
+    Symbol,
 };
 
 #[test]
 fn test_nivc_steps() {
+    let state = State::init_lurk_state().rccell();
     let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
     let dumb = DumbCoprocessor::new();
-    let name = user_sym("cproc-dumb");
+    let name = Symbol::interned("cproc-dumb", state.clone()).unwrap();
 
     let store = Store::<Fr>::default();
     lang.add_coprocessor(name, dumb);
@@ -30,7 +32,7 @@ fn test_nivc_steps() {
     let cproc = &cprocs[0];
 
     // 9^2 + 8 = 89
-    let expr = store.read_with_default_state("(cproc-dumb 9 8)").unwrap();
+    let expr = store.read(state, "(cproc-dumb 9 8)").unwrap();
 
     let frames = evaluate(
         Some((&lurk_step, &cprocs, &lang)),

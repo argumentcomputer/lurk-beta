@@ -265,7 +265,8 @@ impl Symbol {
         }
     }
 
-    /// Attempts to parse and intern a `Symbol` from a string
+    /// Attempts to parse and intern a `Symbol` from its string representation,
+    /// creating unknown packages if necessary
     pub fn interned<A: AsRef<str>>(input: A, state: StateRcCell) -> Result<SymbolRef> {
         use crate::{parser::syntax::parse_symbol, syntax::Syntax};
         use halo2curves::bn256::Fr; // could be any other field

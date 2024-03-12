@@ -48,6 +48,7 @@ use lurk::public_parameters::{
     instance::{Instance, Kind},
     public_params,
 };
+use lurk::state::State;
 use lurk::Symbol;
 use lurk_macros::Coproc;
 
@@ -101,14 +102,15 @@ enum Sha256Coproc<F: LurkField> {
 /// `cargo run --release --example circom`
 fn main() {
     let store = &Store::default();
-    let sym_str = Symbol::new(&[".circom_sha256_2"], false); // two inputs
+    let state = State::init_lurk_state().rccell();
+
+    let name = Symbol::interned(".circom_sha256_2", state.clone()).unwrap(); // two inputs
     let circom_sha256: CircomSha256<Bn> = CircomSha256::new(0);
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
-    lang.add_coprocessor(sym_str, CircomCoprocessor::new(circom_sha256));
+    lang.add_coprocessor(name, CircomCoprocessor::new(circom_sha256));
     let lang_rc = Arc::new(lang);
 
-    let expr = "(.circom_sha256_2)".to_string();
-    let ptr = store.read_with_default_state(&expr).unwrap();
+    let ptr = store.read(state, "(.circom_sha256_2)").unwrap();
 
     let nova_prover = NovaProver::<Bn, Sha256Coproc<Bn>>::new(REDUCTION_COUNT, lang_rc.clone());
 

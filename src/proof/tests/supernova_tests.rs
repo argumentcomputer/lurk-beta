@@ -10,21 +10,25 @@ use crate::{
     },
     proof::{supernova::SuperNovaProver, RecursiveSNARKTrait},
     public_parameters::{instance::Instance, supernova_public_params},
-    state::user_sym,
+    state::State,
+    Symbol,
 };
 
 #[test]
 fn test_nil_nil_lang() {
     use crate::coprocessor::test::NilNil;
+    let state = State::init_lurk_state().rccell();
+
     let mut lang = Lang::<Fr, NilNil<Fr>>::new();
-    lang.add_coprocessor(user_sym("nil-nil"), NilNil::new());
+    let name = Symbol::interned("nil-nil", state.clone()).unwrap();
+    lang.add_coprocessor(name, NilNil::new());
 
     let eval_config = EvalConfig::new_nivc(&lang);
     let lurk_step = make_eval_step_from_config(&eval_config);
     let cprocs = make_cprocs_funcs_from_lang(&lang);
 
     let store = Store::default();
-    let expr = store.read_with_default_state("(nil-nil)").unwrap();
+    let expr = store.read(state, "(nil-nil)").unwrap();
     let frames = evaluate(
         Some((&lurk_step, &cprocs, &lang)),
         expr,

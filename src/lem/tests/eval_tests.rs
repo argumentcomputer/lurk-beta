@@ -15,6 +15,7 @@ use crate::{
     },
     state::{State, StateRcCell},
     tag::Op,
+    Symbol,
 };
 
 fn test_aux<C: Coprocessor<Fr>>(
@@ -3733,11 +3734,13 @@ fn test_eval_non_symbol_binding_error() {
 
 #[test]
 fn test_dumb_lang() {
-    use crate::{coprocessor::test::DumbCoprocessor, state::user_sym};
+    use crate::coprocessor::test::DumbCoprocessor;
+
+    let state = State::init_lurk_state().rccell();
 
     let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
     let dumb = DumbCoprocessor::new();
-    let name = user_sym("cproc-dumb");
+    let name = Symbol::interned("cproc-dumb", state.clone()).unwrap();
 
     let s = &Store::default();
     lang.add_coprocessor(name, dumb);
@@ -3770,8 +3773,9 @@ fn test_dumb_lang() {
     let error = s.cont_error();
     let terminal = s.cont_terminal();
 
-    test_aux(
+    test_aux_with_state(
         s,
+        state.clone(),
         expr,
         Some(res),
         None,
@@ -3780,8 +3784,9 @@ fn test_dumb_lang() {
         &expect!["3"],
         &Some(&lang),
     );
-    test_aux(
+    test_aux_with_state(
         s,
+        state.clone(),
         expr2,
         Some(res),
         None,
@@ -3790,8 +3795,9 @@ fn test_dumb_lang() {
         &expect!["5"],
         &Some(&lang),
     );
-    test_aux(
+    test_aux_with_state(
         s,
+        state.clone(),
         expr3,
         Some(res),
         None,
@@ -3800,8 +3806,9 @@ fn test_dumb_lang() {
         &expect!["9"],
         &Some(&lang),
     );
-    test_aux(
+    test_aux_with_state(
         s,
+        state.clone(),
         expr4,
         Some(error4),
         None,
@@ -3810,8 +3817,9 @@ fn test_dumb_lang() {
         &expect!["4"],
         &Some(&lang),
     );
-    test_aux(
+    test_aux_with_state(
         s,
+        state.clone(),
         expr5,
         Some(error5),
         None,
@@ -3820,8 +3828,9 @@ fn test_dumb_lang() {
         &expect!["2"],
         &Some(&lang),
     );
-    test_aux(
+    test_aux_with_state(
         s,
+        state.clone(),
         expr6,
         Some(error6),
         None,
@@ -3830,8 +3839,9 @@ fn test_dumb_lang() {
         &expect!["3"],
         &Some(&lang),
     );
-    test_aux(
+    test_aux_with_state(
         s,
+        state.clone(),
         expr6_,
         Some(error6),
         None,
@@ -3840,8 +3850,9 @@ fn test_dumb_lang() {
         &expect!["3"],
         &Some(&lang),
     );
-    test_aux(
+    test_aux_with_state(
         s,
+        state,
         expr7,
         Some(error7),
         None,
@@ -3971,22 +3982,24 @@ fn test_trie_lang() {
 
 #[test]
 fn test_terminator_lang() {
-    use crate::{coprocessor::test::Terminator, state::user_sym};
+    use crate::coprocessor::test::Terminator;
+
+    let state = State::init_lurk_state().rccell();
 
     let mut lang = Lang::<Fr, Terminator<Fr>>::new();
-    let dumb = Terminator::new();
-    let name = user_sym("terminate");
+    let name = Symbol::interned("terminate", state.clone()).unwrap();
 
     let s = &Store::default();
-    lang.add_coprocessor(name, dumb);
+    lang.add_coprocessor(name, Terminator::new());
 
     let expr = "(terminate)";
 
     let res = s.intern_nil();
     let terminal = s.cont_terminal();
 
-    test_aux(
+    test_aux_with_state(
         s,
+        state,
         expr,
         Some(res),
         None,

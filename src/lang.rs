@@ -8,6 +8,7 @@ use crate::{
     coprocessor::{CoCircuit, Coprocessor},
     field::LurkField,
     lem::{pointers::Ptr, store::Store},
+    package::SymbolRef,
     symbol::Symbol,
 };
 
@@ -69,12 +70,10 @@ pub enum Coproc<F: LurkField> {
 /// - `F`: A field type that implements the [`crate::field::LurkField`] trait.
 /// - `C`: A type that implements the [`crate::coprocessor::Coprocessor`] trait. This allows late-binding of the
 ///   exact set of coprocessors to be allowed in the `Lang` struct.
-///
-// TODO: Define a trait for the Hash and parameterize on that also.
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct Lang<F, C = Coproc<F>> {
     /// An IndexMap that stores coprocessors with their associated `Sym` keys.
-    coprocessors: IndexMap<Symbol, C>,
+    coprocessors: IndexMap<SymbolRef, C>,
     _p: PhantomData<F>,
 }
 
@@ -111,8 +110,8 @@ impl<F: LurkField, C> Lang<F, C> {
     }
 
     #[inline]
-    pub fn add_coprocessor<T: Into<C>, S: Into<Symbol>>(&mut self, name: S, cproc: T) {
-        self.coprocessors.insert(name.into(), cproc.into());
+    pub fn add_coprocessor<T: Into<C>>(&mut self, name: SymbolRef, cproc: T) {
+        self.coprocessors.insert(name, cproc.into());
     }
 
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B) {
@@ -121,7 +120,7 @@ impl<F: LurkField, C> Lang<F, C> {
     }
 
     #[inline]
-    pub fn coprocessors(&self) -> &IndexMap<Symbol, C> {
+    pub fn coprocessors(&self) -> &IndexMap<SymbolRef, C> {
         &self.coprocessors
     }
 
@@ -155,21 +154,21 @@ impl<F: LurkField, C> Lang<F, C> {
 /// modular construction of `Lang`s using `Coprocessor`s.
 #[derive(Debug)]
 pub struct Binding<F, C> {
-    name: Symbol,
+    name: SymbolRef,
     coproc: C,
     _p: PhantomData<F>,
 }
 
-impl<F: LurkField, C: Coprocessor<F>, S: Into<Symbol>> From<(S, C)> for Binding<F, C> {
-    fn from(pair: (S, C)) -> Self {
+impl<F: LurkField, C: Coprocessor<F>> From<(SymbolRef, C)> for Binding<F, C> {
+    fn from(pair: (SymbolRef, C)) -> Self {
         Self::new(pair.0, pair.1)
     }
 }
 
 impl<F: LurkField, C> Binding<F, C> {
-    pub fn new<T: Into<C>, S: Into<Symbol>>(name: S, coproc: T) -> Self {
+    pub fn new<T: Into<C>>(name: SymbolRef, coproc: T) -> Self {
         Self {
-            name: name.into(),
+            name,
             coproc: coproc.into(),
             _p: Default::default(),
         }
@@ -191,7 +190,7 @@ pub(crate) mod test {
     #[test]
     fn dummy_lang() {
         let _lang = Lang::<Fr>::new_with_bindings(vec![(
-            sym!("coproc", "dummy"),
+            sym!("coproc", "dummy").into(),
             DummyCoprocessor::new().into(),
         )]);
     }

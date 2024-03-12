@@ -310,7 +310,7 @@ pub fn make_eval_step_from_config<F: LurkField, C: Coprocessor<F>>(
         &ec.lang
             .coprocessors()
             .iter()
-            .map(|(s, c)| (s, c.arity()))
+            .map(|(s, c)| (s as &Symbol, c.arity()))
             .collect::<Vec<_>>(),
         ec.is_ivc(),
     )
@@ -489,7 +489,7 @@ pub fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
 ) -> Vec<Func> {
     lang.coprocessors()
         .iter()
-        .map(|(name, c)| run_cproc(name.clone(), c.arity()))
+        .map(|(name, c)| run_cproc((*name.clone()).clone(), c.arity()))
         .collect()
 }
 
