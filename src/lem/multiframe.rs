@@ -720,7 +720,7 @@ fn pad_frames<F: LurkField, C: Coprocessor<F>>(
     size: usize,
     store: &Store<F>,
 ) {
-    let padding_frame = if matches!(input[2].tag(), Tag::Cont(ContTag::StreamOut)) {
+    let padding_frame = if matches!(input[2].tag(), Tag::Cont(ContTag::StreamPause)) {
         // we need to allow stuttering for the padding frame
         let (t1, t2) = pair_terminals();
         t2.send(store.intern_t()).unwrap(); // anything but `nil` to allow stuttering

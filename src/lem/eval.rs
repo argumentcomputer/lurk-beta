@@ -15,7 +15,7 @@ use crate::{
     proof::FoldingMode,
     state::initial_lurk_state,
     tag::{
-        ContTag::{Error, StreamOut, Terminal},
+        ContTag::{Error, StreamPause, Terminal},
         ExprTag::Cproc,
     },
     Symbol,
@@ -76,7 +76,7 @@ fn compute_frame<F: LurkField, C: Coprocessor<F>>(
     let frame = func.call(input, store, preimages, ch_terminal, lang, pc)?;
     let must_break = matches!(
         frame.output[2].tag(),
-        Tag::Cont(Terminal | Error | StreamOut)
+        Tag::Cont(Terminal | Error | StreamPause)
     );
     Ok((frame, must_break))
 }
@@ -282,7 +282,7 @@ pub fn start_stream_with_env<F: LurkField, C: Coprocessor<F>>(
         lang_setup,
         callable,
         env,
-        store.cont_stream_in(),
+        store.cont_stream_start(),
         store,
         limit,
         ch_terminal,
@@ -315,7 +315,7 @@ pub fn resume_stream<F: LurkField, C: Coprocessor<F>>(
     limit: usize,
     ch_terminal: &ChannelTerminal<Ptr>,
 ) -> Result<Vec<Frame>> {
-    assert!(matches!(input[2].tag(), Tag::Cont(StreamOut)));
+    assert!(matches!(input[2].tag(), Tag::Cont(StreamPause)));
     match lang_setup {
         None => {
             let lang: Lang<F, C> = Lang::new();
@@ -340,7 +340,7 @@ pub fn start_stream_simple_with_env<F: LurkField, C: Coprocessor<F>>(
         lang_setup,
         callable,
         env,
-        store.cont_stream_in(),
+        store.cont_stream_start(),
         store,
         limit,
         ch_terminal,
@@ -373,7 +373,7 @@ pub fn resume_stream_simple<F: LurkField, C: Coprocessor<F>>(
     limit: usize,
     ch_terminal: &ChannelTerminal<Ptr>,
 ) -> Result<(Vec<Ptr>, usize)> {
-    assert!(matches!(input[2].tag(), Tag::Cont(StreamOut)));
+    assert!(matches!(input[2].tag(), Tag::Cont(StreamPause)));
     match lang_setup {
         None => {
             let lang: Lang<F, C> = Lang::new();
@@ -990,13 +990,27 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         return (expr, smaller_env, not_found)
     });
 
+    // 1. receive data from channel;
+    // 2. build the list of arguments with it (just one argument!)
+    // 3. setup a call cycle with a `StreamDispatch` stacked underneath
+    let mk_stream_call_cont = aux_func!(mk_stream_call_cont(env): 1 => {
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
+        let foo: Expr::Nil;
+        let arg =! recv();
+        let arg_list: Expr::Cons = cons2(arg, nil);
+        let cont: Cont::StreamDispatch = HASH_8_ZEROS;
+        let cont: Cont::Call = cons4(arg_list, env, cont, foo);
+        return (cont);
+    });
+
     aux_func!(reduce(expr, env, cont): 4 => {
         let ret = Symbol("return");
         let term: Cont::Terminal = HASH_8_ZEROS;
         let err: Cont::Error = HASH_8_ZEROS;
         let cproc: Expr::Cproc;
 
-        // stuttering condition when not in `StreamOut`
+        // stuttering condition when not in `StreamPause`
         let cont_is_term = eq_tag(cont, term);
         let cont_is_err = eq_tag(cont, err);
         let expr_is_cproc = eq_tag(expr, cproc);
@@ -1007,39 +1021,30 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         }
 
         let errctrl = Symbol("error");
-        let nil = Symbol("nil");
-        let nil = cast(nil, Expr::Nil);
-        let foo: Expr::Nil;
 
         match cont.tag {
-            Cont::StreamIn => {
-                // 1. receive data from channel;
-                // 2. build the list of arguments with it (just one argument!)
-                // 3. setup a call cycle with a `StreamDispatch` stacked underneath
-                let arg =! recv();
-                let arg_list: Expr::Cons = cons2(arg, nil);
-                let cont: Cont::StreamDispatch = HASH_8_ZEROS;
-                let cont: Cont::Call = cons4(arg_list, env, cont, foo);
+            Cont::StreamStart => {
+                let (cont) = mk_stream_call_cont(env);
                 return (expr, env, cont, ret);
             }
-            Cont::StreamOut => {
+            Cont::StreamPause => {
                 let stutter =! recv();
                 match stutter.tag {
                     Expr::Nil => {
                         // 1. make sure the resulting expression is a cons
                         // 2. deconstruct it to acquire the next callable
-                        // 3. loop back to `StreamIn` with such callable
+                        // 3. setup the next call cycle and start it ASAP
                         match expr.tag {
                             Expr::Cons => {
                                 let (_result, callable) = decons2(expr);
-                                let cont: Cont::StreamIn = HASH_8_ZEROS;
+                                let (cont) = mk_stream_call_cont(env);
                                 return(callable, env, cont, ret);
                             }
                         };
                         return (expr, env, err, errctrl);
                     }
                 };
-                // `stutter != nil` is the stuttering condition when in `StreamOut`
+                // `stutter != nil` is the stuttering condition when in `StreamPause`
                 return (expr, env, cont, ret);
             }
         };
@@ -1059,6 +1064,9 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
             return (expr, env, cont, apply)
         }
 
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
+        let foo: Expr::Nil;
         let t = Symbol("t");
 
         match expr.tag {
@@ -1432,7 +1440,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     Cont::StreamDispatch => {
                         match result.tag {
                             Expr::Cons => {
-                                let cont: Cont::StreamOut = HASH_8_ZEROS;
+                                let cont: Cont::StreamPause = HASH_8_ZEROS;
                                 return (result, env, cont, ret);
                             }
                         };
@@ -1936,7 +1944,7 @@ fn make_thunk() -> Func {
                         return (expr, empty_env, cont)
                     }
                     Cont::StreamDispatch => {
-                        let cont: Cont::StreamOut = HASH_8_ZEROS;
+                        let cont: Cont::StreamPause = HASH_8_ZEROS;
                         return (expr, env, cont);
                     }
                 };
@@ -1975,8 +1983,8 @@ mod tests {
         expect_eq(func.slots_count.commitment, expect!["1"]);
         expect_eq(func.slots_count.bit_decomp, expect!["3"]);
         expect_eq(cs.num_inputs(), expect!["1"]);
-        expect_eq(cs.aux().len(), expect!["9118"]);
-        expect_eq(cs.num_constraints(), expect!["11130"]);
+        expect_eq(cs.aux().len(), expect!["9119"]);
+        expect_eq(cs.num_constraints(), expect!["11141"]);
         assert_eq!(func.num_constraints(&store), cs.num_constraints());
     }
 }

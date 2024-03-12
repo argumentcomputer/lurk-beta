@@ -142,9 +142,9 @@ pub enum ContTag {
     Terminal,
     Emit,
     Cproc,
-    StreamIn,
+    StreamStart,
     StreamDispatch,
-    StreamOut,
+    StreamPause,
 }
 
 impl From<ContTag> for u16 {
@@ -196,9 +196,9 @@ impl fmt::Display for ContTag {
             ContTag::Terminal => write!(f, "terminal#"),
             ContTag::Emit => write!(f, "emit#"),
             ContTag::Cproc => write!(f, "cproc#"),
-            ContTag::StreamIn => write!(f, "stream-in#"),
+            ContTag::StreamStart => write!(f, "stream-start#"),
             ContTag::StreamDispatch => write!(f, "stream-dispatch#"),
-            ContTag::StreamOut => write!(f, "stream-out#"),
+            ContTag::StreamPause => write!(f, "stream-pause#"),
         }
     }
 }
@@ -545,9 +545,9 @@ pub(crate) mod tests {
             (ContTag::Terminal, 4110),
             (ContTag::Emit, 4111),
             (ContTag::Cproc, 4112),
-            (ContTag::StreamIn, 4113),
+            (ContTag::StreamStart, 4113),
             (ContTag::StreamDispatch, 4114),
-            (ContTag::StreamOut, 4115),
+            (ContTag::StreamPause, 4115),
         ]);
         assert_eq!(map.len(), ContTag::COUNT);
         assert_tags_u16s(map)

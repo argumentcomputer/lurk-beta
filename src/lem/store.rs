@@ -22,7 +22,7 @@ use crate::{
     syntax::Syntax,
     tag::ContTag::{
         self, Binop, Binop2, Call, Call0, Call2, Dummy, Emit, If, Let, LetRec, Lookup, Outermost,
-        StreamDispatch, StreamIn, StreamOut, Tail, Terminal, Unop,
+        StreamDispatch, StreamPause, StreamStart, Tail, Terminal, Unop,
     },
     tag::ExprTag::{
         Char, Comm, Cons, Cproc, Env, Fun, Key, Nil, Num, Prov, Rec, Str, Sym, Thunk, U64,
@@ -757,8 +757,8 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn cont_stream_in(&self) -> Ptr {
-        Ptr::new(Tag::Cont(StreamIn), RawPtr::Atom(self.hash8zeros_idx))
+    pub fn cont_stream_start(&self) -> Ptr {
+        Ptr::new(Tag::Cont(StreamStart), RawPtr::Atom(self.hash8zeros_idx))
     }
 
     /// Function specialized on deconstructing `Cons` pointers into their car/cdr
@@ -1379,9 +1379,9 @@ impl Ptr {
                     store,
                     state,
                 ),
-                StreamIn => "StreamIn".into(),
+                StreamStart => "StreamStart".into(),
                 StreamDispatch => "StreamDispatch".into(),
-                StreamOut => "StreamOut".into(),
+                StreamPause => "StreamPause".into(),
             },
             Tag::Op1(op) => op.to_string(),
             Tag::Op2(op) => op.to_string(),

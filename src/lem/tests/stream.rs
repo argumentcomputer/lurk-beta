@@ -68,27 +68,28 @@ fn test_comm_callable() {
         (add 0)))";
     let store = Store::<Fr>::default();
     let callable = get_callable(callable_str, &store);
+    let expected_iterations = &expect!["16"];
 
     let output = assert_start_stream(
         callable,
         store.num_u64(123),
         &store,
         store.num_u64(123),
-        &expect!["16"],
+        expected_iterations,
     );
     let output = assert_resume_stream(
         output,
         store.num_u64(321),
         &store,
         store.num_u64(444),
-        &expect!["17"],
+        expected_iterations,
     );
     assert_resume_stream(
         output,
         store.num_u64(111),
         &store,
         store.num_u64(555),
-        &expect!["17"],
+        expected_iterations,
     );
 }
 
@@ -100,26 +101,27 @@ fn test_fun_callable() {
         (add 0))";
     let store = Store::<Fr>::default();
     let callable = get_callable(callable_str, &store);
+    let expected_iterations = &expect!["14"];
 
     let output = assert_start_stream(
         callable,
         store.num_u64(123),
         &store,
         store.num_u64(123),
-        &expect!["14"],
+        expected_iterations,
     );
     let output = assert_resume_stream(
         output,
         store.num_u64(321),
         &store,
         store.num_u64(444),
-        &expect!["15"],
+        expected_iterations,
     );
     assert_resume_stream(
         output,
         store.num_u64(111),
         &store,
         store.num_u64(555),
-        &expect!["15"],
+        expected_iterations,
     );
 }

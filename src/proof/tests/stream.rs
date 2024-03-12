@@ -37,6 +37,7 @@ fn test_continued_proof() {
         (add 0))";
     let store = Store::<Fr>::default();
     let callable = get_callable(callable_str, &store);
+    let expected_iterations = &expect!["14"];
 
     let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
 
@@ -52,7 +53,7 @@ fn test_continued_proof() {
         // this input will be used to construct the public input of every proof
         let z0 = store.to_scalar_vector(&frames.first().unwrap().input);
 
-        expect_eq(frames.len(), &expect!["14"]);
+        expect_eq(frames.len(), expected_iterations);
         let output = &frames.last().unwrap().output;
         let (result, _) = store.fetch_cons(&output[0]).unwrap();
         assert_eq!(result, store.num_u64(123));
@@ -74,7 +75,7 @@ fn test_continued_proof() {
         let frames =
             resume_stream::<Fr, Coproc<Fr>>(None, output.clone(), &store, LIMIT, &t1).unwrap();
 
-        expect_eq(frames.len(), &expect!["15"]);
+        expect_eq(frames.len(), expected_iterations);
         let output = &frames.last().unwrap().output;
         let (result, _) = store.fetch_cons(&output[0]).unwrap();
         assert_eq!(result, store.num_u64(444));
