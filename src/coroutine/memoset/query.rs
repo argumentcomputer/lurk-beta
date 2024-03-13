@@ -41,12 +41,12 @@ where
     Self: Sized + Clone,
 {
     type RD: Clone + Send + Sync;
-    fn synthesize_eval<CS: ConstraintSystem<F>>(
+    fn synthesize_eval<'a, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
+        scope: &mut CircuitScope<'a, F, LogMemoCircuit<'a, F>, Self::RD>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError>;
@@ -102,12 +102,12 @@ pub(crate) trait RecursiveQuery<F: LurkField>: CircuitQuery<F> {
         subquery_results: &[AllocatedPtr<F>],
     ) -> Result<AllocatedPtr<F>, SynthesisError>;
 
-    fn recurse<CS: ConstraintSystem<F>>(
+    fn recurse<'a, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
+        scope: &mut CircuitScope<'a, F, LogMemoCircuit<'a, F>, Self::RD>,
         subqueries: &[Self],
         is_recursive: &Boolean,
         immediate: (&AllocatedPtr<F>, &AllocatedPtr<F>),

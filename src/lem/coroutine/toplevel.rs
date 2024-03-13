@@ -162,12 +162,12 @@ impl<F: LurkField> Query<F> for ToplevelQuery<F> {
 
 impl<F: LurkField> CircuitQuery<F> for ToplevelCircuitQuery<F> {
     type RD = Arc<Toplevel<F>>;
-    fn synthesize_eval<CS: ConstraintSystem<F>>(
+    fn synthesize_eval<'a, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
+        scope: &mut CircuitScope<'a, F, LogMemoCircuit<'a, F>, Self::RD>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
@@ -275,7 +275,7 @@ mod test {
     use crate::coroutine::memoset::prove::MemosetProver;
     use crate::coroutine::memoset::CoroutineCircuit;
     use crate::lem::tag::Tag;
-    use crate::proof::{Prover, RecursiveSNARKTrait};
+    use crate::proof::RecursiveSNARKTrait;
     use crate::{func, state::user_sym};
 
     use bellpepper::util_cs::bench_cs::BenchCS;
@@ -355,14 +355,14 @@ mod test {
         let s = Arc::new(Store::<F>::default());
 
         let prover = MemosetProver::<'_, F, ToplevelQuery<F>>::new(10);
-        let pp = prover.public_params(toplevel.clone(), s.clone());
+        let pp = prover.public_params(&toplevel, &s);
 
         // This query is only necessary because Arecibo assumes that the first circuit
         // to run is 0. Eventually, this will be replaced by the coroutine prologue
         let id_query = s.read_with_default_state("(id . 0)").unwrap();
 
         let query = s.read_with_default_state("(factorial . 5)").unwrap();
-        let mut scope = Scope::new(prover.reduction_count(), s.clone(), toplevel.clone());
+        let mut scope = Scope::new(prover.reduction_count, s.clone(), toplevel.clone());
         scope.query(id_query);
         scope.query(query);
         scope.finalize_transcript();
@@ -374,7 +374,7 @@ mod test {
         assert!(snark.verify(&pp, &input, &output).unwrap());
 
         let query = s.read_with_default_state("(even . 5)").unwrap();
-        let mut scope = Scope::new(prover.reduction_count(), s, toplevel);
+        let mut scope = Scope::new(prover.reduction_count, s, toplevel);
         scope.query(id_query);
         scope.query(query);
         scope.finalize_transcript();
@@ -389,12 +389,8 @@ mod test {
         let (toplevel, [_, factorial, even, _]) = sample_toplevel();
         let s = Arc::new(Store::<F>::default());
         let index = toplevel.0.get_index_of(&factorial).unwrap();
-        let factorial_circuit = CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(
-            index,
-            s.clone(),
-            1,
-            toplevel.clone(),
-        );
+        let factorial_circuit =
+            CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(index, 1, &s, &toplevel);
         let mut cs = BenchCS::new();
         let dummy = [
             AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
@@ -410,12 +406,8 @@ mod test {
         expect!("1772").assert_eq(&cs.num_constraints().to_string());
 
         let index = toplevel.0.get_index_of(&even).unwrap();
-        let even_circuit = CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(
-            index,
-            s.clone(),
-            1,
-            toplevel.clone(),
-        );
+        let even_circuit =
+            CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(index, 1, &s, &toplevel);
         let mut cs = BenchCS::new();
         let dummy = [
             AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
@@ -481,10 +473,10 @@ mod test {
 
         let prover = MemosetProver::<'_, F, ToplevelQuery<F>>::new(1);
         let query = s.read_with_default_state("(main . 10)").unwrap();
-        let mut scope = Scope::new(prover.reduction_count(), s.clone(), toplevel.clone());
+        let mut scope = Scope::new(prover.reduction_count, s.clone(), toplevel.clone());
         scope.query(query);
         scope.finalize_transcript();
-        let pp = prover.public_params(toplevel, s);
+        let pp = prover.public_params(&toplevel, &s);
         let (snark, input, output, iterations) = prover.prove_from_scope(&pp, &scope).unwrap();
         assert_eq!(iterations, 23);
         assert_eq!(output[7], F::zero());

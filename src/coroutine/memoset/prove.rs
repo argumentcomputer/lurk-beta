@@ -1,20 +1,18 @@
 #![allow(dead_code)]
 use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
-    dual_channel::ChannelTerminal,
     error::ProofError,
     field::LurkField,
     lem::{pointers::Ptr, store::Store},
     proof::{
         nova::{CurveCycleEquipped, E1},
         supernova::{Proof, PublicParams, SuperNovaPublicParams, C2, SS1, SS2},
-        FrameLike, Prover, RecursiveSNARKTrait,
+        RecursiveSNARKTrait,
     },
 };
 
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use once_cell::sync::OnceCell;
-use std::sync::Arc;
 use tracing::info;
 
 use super::query::Query;
@@ -35,27 +33,22 @@ use std::marker::PhantomData;
 /// Number of arguments a coroutine takes: CEK arguments + memoset arguments
 const COROUTINE_ARITY: usize = 12;
 
-type Coroutine<F, Q> = CoroutineCircuit<F, LogMemo<F>, Q>;
+type Coroutine<'a, F, Q> = CoroutineCircuit<'a, F, LogMemo<F>, Q>;
 
-impl<F, Q> NonUniformCircuit<E1<F>> for Coroutine<F, Q>
+impl<'a, F, Q> NonUniformCircuit<E1<F>> for Coroutine<'a, F, Q>
 where
     F: CurveCycleEquipped + LurkField,
     Q: Query<F> + Send + Sync,
 {
-    type C1 = Coroutine<F, Q>;
+    type C1 = Coroutine<'a, F, Q>;
     type C2 = C2<F>;
 
     fn num_circuits(&self) -> usize {
-        Q::count(&self.runtime_data)
+        Q::count(self.runtime_data)
     }
 
-    fn primary_circuit(&self, circuit_index: usize) -> Coroutine<F, Q> {
-        Coroutine::blank(
-            circuit_index,
-            self.store.clone(),
-            self.rc,
-            self.runtime_data.clone(),
-        )
+    fn primary_circuit(&self, circuit_index: usize) -> Self {
+        Coroutine::blank(circuit_index, self.rc, self.store, self.runtime_data)
     }
 
     fn secondary_circuit(&self) -> C2<F> {
@@ -63,7 +56,7 @@ where
     }
 }
 
-impl<F: LurkField, Q: Query<F> + Send + Sync> StepCircuit<F> for Coroutine<F, Q> {
+impl<'a, F: LurkField, Q: Query<F> + Send + Sync> StepCircuit<F> for Coroutine<'a, F, Q> {
     fn arity(&self) -> usize {
         COROUTINE_ARITY
     }
@@ -99,8 +92,8 @@ impl<F: LurkField, Q: Query<F> + Send + Sync> StepCircuit<F> for Coroutine<F, Q>
     }
 }
 
-impl<F: CurveCycleEquipped, Q: Query<F> + Send + Sync> RecursiveSNARKTrait<F, Coroutine<F, Q>>
-    for Proof<F, Coroutine<F, Q>>
+impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
+    RecursiveSNARKTrait<F, Coroutine<'a, F, Q>> for Proof<F, Coroutine<'a, F, Q>>
 {
     type PublicParams = PublicParams<F>;
 
@@ -110,7 +103,7 @@ impl<F: CurveCycleEquipped, Q: Query<F> + Send + Sync> RecursiveSNARKTrait<F, Co
     fn prove_recursively(
         pp: &PublicParams<F>,
         z0: &[F],
-        steps: Vec<Coroutine<F, Q>>,
+        steps: Vec<Coroutine<'a, F, Q>>,
         _store: &Store<F>,
     ) -> Result<Self, ProofError> {
         let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>>> = None;
@@ -118,7 +111,7 @@ impl<F: CurveCycleEquipped, Q: Query<F> + Send + Sync> RecursiveSNARKTrait<F, Co
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
 
-        let mut prove_step = |i: usize, step: &Coroutine<F, Q>| {
+        let mut prove_step = |i: usize, step: &Coroutine<'a, F, Q>| {
             info!("prove_recursively, step {i}");
 
             let secondary_circuit = step.secondary_circuit();
@@ -176,22 +169,9 @@ impl<F: CurveCycleEquipped, Q: Query<F> + Send + Sync> RecursiveSNARKTrait<F, Co
     }
 }
 
-impl<F: LurkField, Q: Query<F> + Send + Sync> FrameLike<Ptr> for Coroutine<F, Q> {
-    type FrameIO = Vec<Ptr>;
-    #[inline]
-    fn input(&self) -> &Vec<Ptr> {
-        unimplemented!()
-    }
-
-    #[inline]
-    fn output(&self) -> &Vec<Ptr> {
-        unimplemented!()
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct MemosetProver<'a, F, Q> {
-    reduction_count: usize,
+    pub(crate) reduction_count: usize,
     _phantom: PhantomData<&'a (F, Q)>,
 }
 
@@ -208,8 +188,9 @@ impl<'a, F, Q> MemosetProver<'a, F, Q> {
 }
 
 impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> MemosetProver<'a, F, Q> {
-    pub(crate) fn public_params(&self, c: Q::RD, s: Arc<Store<F>>) -> PublicParams<F> {
-        let non_uniform_circuit = CoroutineCircuit::<_, _, Q>::blank(0, s, self.reduction_count, c);
+    pub(crate) fn public_params(&self, c: &'a Q::RD, s: &'a Store<F>) -> PublicParams<F> {
+        let non_uniform_circuit =
+            CoroutineCircuit::<'_, _, _, Q>::blank(0, self.reduction_count, s, c);
         let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
         let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<DualEng<E1<F>>>>::ck_floor();
 
@@ -227,8 +208,8 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> MemosetProver<'a, F, 
     pub(crate) fn prove_from_scope(
         &self,
         pp: &PublicParams<F>,
-        scope: &Scope<Q, LogMemo<F>, F>,
-    ) -> Result<(Proof<F, Coroutine<F, Q>>, Vec<F>, Vec<F>, usize), ProofError> {
+        scope: &'a Scope<Q, LogMemo<F>, F>,
+    ) -> Result<(Proof<F, Coroutine<'a, F, Q>>, Vec<F>, Vec<F>, usize), ProofError> {
         assert_eq!(self.reduction_count, scope.default_rc);
         let store = scope.store.as_ref();
         let mut steps = Vec::new();
@@ -242,74 +223,35 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> MemosetProver<'a, F, 
                 } else {
                     *index
                 };
-                let circuit: CoroutineCircuit<F, LogMemo<F>, Q> = CoroutineCircuit::new(
-                    None,
-                    scope,
-                    scope.memoset.clone(),
-                    chunk.to_vec(),
-                    *index,
-                    next_query_index,
-                    rc,
-                    scope.runtime_data.clone(),
-                );
+                let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> =
+                    CoroutineCircuit::new(scope, chunk, *index, next_query_index, rc);
                 steps.push(circuit);
             }
         }
-        let input_ptrs = Some(vec![
+        let input_ptrs = &[
             store.dummy(),
             store.dummy(),
             store.dummy(),
             scope.init_memoset(),
             scope.init_transcript(),
             store.num(*scope.memoset.r().unwrap()),
-        ]);
-        steps[0].input = input_ptrs;
-        self.prove(pp, steps, store)
-    }
-}
-
-impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> Prover<'a, F>
-    for MemosetProver<'a, F, Q>
-{
-    type Frame = Coroutine<F, Q>;
-    type PublicParams = PublicParams<F>;
-    type RecursiveSnark = Proof<F, Coroutine<F, Q>>;
-
-    #[inline]
-    fn reduction_count(&self) -> usize {
-        self.reduction_count
+        ];
+        self.prove(pp, steps, input_ptrs, store)
     }
 
-    #[inline]
-    fn folding_mode(&self) -> &crate::proof::FoldingMode {
-        unimplemented!()
-    }
-
-    fn evaluate_and_prove(
+    pub(crate) fn prove(
         &self,
-        _pp: &Self::PublicParams,
-        _expr: Ptr,
-        _env: Ptr,
-        _store: &'a Store<F>,
-        _limit: usize,
-        _ch_terminal: &ChannelTerminal<Ptr>,
-    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
-        unimplemented!()
-    }
-
-    fn prove(
-        &self,
-        pp: &Self::PublicParams,
-        steps: Vec<Coroutine<F, Q>>,
+        pp: &PublicParams<F>,
+        steps: Vec<Coroutine<'a, F, Q>>,
+        input_ptrs: &[Ptr],
         store: &'a Store<F>,
-    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<F, Coroutine<'a, F, Q>>, Vec<F>, Vec<F>, usize), ProofError> {
         store.hydrate_z_cache();
-        let input_ptrs = steps[0].input.as_ref().unwrap();
         let z0 = store.to_scalar_vector(input_ptrs);
 
         let num_steps = steps.len();
 
-        let prove_output = Self::RecursiveSnark::prove_recursively(pp, &z0, steps, store)?;
+        let prove_output = Proof::prove_recursively(pp, &z0, steps, store)?;
         let zi = match prove_output {
             Proof::Recursive(ref snark, ..) => snark.zi_primary().clone(),
             Proof::Compressed(..) => unreachable!(),
@@ -327,6 +269,7 @@ mod test {
     use bellpepper_core::{test_cs::TestConstraintSystem, Delta};
     use expect_test::{expect, Expect};
     use halo2curves::bn256::Fr;
+    use std::sync::Arc;
 
     fn check_from_scope<F: CurveCycleEquipped, Q: Query<F> + Send + Sync>(
         scope: &Scope<Q, LogMemo<F>, F>,
@@ -360,16 +303,8 @@ mod test {
                         )
                     })
                     .collect::<Vec<_>>();
-                let circuit: CoroutineCircuit<F, LogMemo<F>, Q> = CoroutineCircuit::new(
-                    None,
-                    scope,
-                    scope.memoset.clone(),
-                    chunk.to_vec(),
-                    *index,
-                    *index,
-                    rc,
-                    scope.runtime_data.clone(),
-                );
+                let circuit: CoroutineCircuit<'_, F, LogMemo<F>, Q> =
+                    CoroutineCircuit::new(scope, chunk, *index, *index, rc);
                 let (_next, out) = circuit.supernova_synthesize(&mut cs, &alloc_ptr).unwrap();
                 let unsat = cs.which_is_unsatisfied();
 
@@ -409,7 +344,7 @@ mod test {
         scope.query(query);
         scope.finalize_transcript();
 
-        let pp = prover.public_params((), s);
+        let pp = prover.public_params(&(), &s);
         let (snark, input, output, _iterations) = prover.prove_from_scope(&pp, &scope).unwrap();
         // Memoset acc is 0
         assert_eq!(output[7], Fr::zero());

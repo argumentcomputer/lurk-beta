@@ -144,12 +144,12 @@ impl<F: LurkField> CircuitQuery<F> for DemoCircuitQuery<F> {
         }
     }
 
-    fn synthesize_eval<CS: ConstraintSystem<F>>(
+    fn synthesize_eval<'a, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         g: &GlobalAllocator<F>,
         store: &Store<F>,
-        scope: &mut CircuitScope<F, LogMemoCircuit<F>, Self::RD>,
+        scope: &mut CircuitScope<'a, F, LogMemoCircuit<'a, F>, Self::RD>,
         acc: &AllocatedPtr<F>,
         allocated_key: &AllocatedPtr<F>,
     ) -> Result<((AllocatedPtr<F>, AllocatedPtr<F>), AllocatedPtr<F>), SynthesisError> {
