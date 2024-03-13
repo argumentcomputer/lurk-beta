@@ -119,7 +119,8 @@ pub(crate) fn construct_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
 /// Constructs a cons-list with the provided `elts`. The terminating value defaults
 /// to `nil` when `last` is `None`
-pub(crate) fn construct_list<
+#[allow(dead_code)]
+pub fn construct_list<
     F: LurkField,
     CS: ConstraintSystem<F>,
     B: Borrow<AllocatedPtr<F>>,
@@ -324,7 +325,7 @@ fn get_ptr<F: LurkField>(a_ptr: &AllocatedPtr<F>, store: &Store<F>) -> Result<Pt
 /// # Panics
 /// Panics if the store can't deconstruct the tuple pointer
 #[allow(dead_code)]
-pub(crate) fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     store: &Store<F>,
     not_dummy: &Boolean,

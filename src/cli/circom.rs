@@ -4,7 +4,7 @@ use std::{fs, path::Path, process::Command};
 use std::os::unix::fs::PermissionsExt;
 
 use ansi_term::Colour::{Green, Red};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use camino::Utf8PathBuf;
 
 use crate::cli::paths::{circom_binary_path, circom_dir};
@@ -75,9 +75,21 @@ fn get_circom_binary() -> Result<Command> {
     }
 }
 
-pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, name: &str) -> Result<()> {
-    let circom_gadget = circom_dir().join(name);
-    let circom_file = circom_folder.join(name).with_extension("circom");
+/// This method will compile a designated Circom circuit and store the generated static files in our
+/// lurk folder.
+pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, reference: &str) -> Result<()> {
+    let circom_gadget = circom_dir().join(reference);
+
+    // We expect a format <AUTHOR>/<NAME> for the name.
+    let reference_split: Vec<&str> = reference.split('/').collect();
+    if reference_split.len() != 2 || reference_split[0].is_empty() || reference_split[1].is_empty()
+    {
+        bail!("Expected a reference of format \"<AUTHOR>/<NAME>\", got \"{reference}\"");
+    }
+
+    let circom_file = circom_folder
+        .join(reference_split[1])
+        .with_extension("circom");
 
     // TODO: support for other fields
     let default_field = "vesta";
@@ -88,14 +100,15 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, name: &str) -> R
         match lurk_field.as_str() {
             "PALLAS" => "vesta",
             "VESTA" => "pallas",
-            _ => bail!("unsupported field"),
+            _ => bail!("Unsupported field: {lurk_field}"),
         }
     } else {
         default_field
     };
 
     println!("Running circom binary to generate r1cs and witness files to {circom_gadget:?}");
-    fs::create_dir_all(&circom_gadget)?;
+    fs::create_dir_all(&circom_gadget)
+        .map_err(|err| anyhow!("Couldn't create folder for static files: {err}"))?;
     let output = get_circom_binary()?
         .args(&[
             circom_file,
@@ -110,21 +123,30 @@ pub(crate) fn create_circom_gadget(circom_folder: &Utf8PathBuf, name: &str) -> R
         .expect("circom failed");
 
     if !output.status.success() {
-        println!(
+        eprintln!(
             "{} Please check that your input files are correct,",
             Red.bold().paint("Circom failed.")
         );
-        println!("  and refer to the circom stderr output for further information:\n");
+        eprintln!("  and refer to the circom stderr output for further information:\n");
         bail!("{}", String::from_utf8_lossy(&output.stderr));
     }
 
-    // get out `name`_js/`name`.wasm and `name`.r1cs
-    // and put them in <CIRCOM_DIR>/`name`/*
+    // Get out <NAME>_js/<NAME>.wasm and <NAME>.r1cs and put them in <CIRCOM_DIR>/<AUTHOR>/<NAME>/*.
     fs::copy(
-        circom_gadget.join(format!("{}_js/{}.wasm", &name, &name)),
-        circom_gadget.join(format!("{}.wasm", &name)),
-    )?;
-    fs::remove_dir_all(circom_gadget.join(format!("{}_js", &name)))?;
+        circom_gadget.join(format!(
+            "{}_js/{}.wasm",
+            &reference_split[1], &reference_split[1]
+        )),
+        circom_gadget.join(format!("{}.wasm", &reference_split[1])),
+    )
+    .map_err(|err| {
+        anyhow!(
+            "Couldn't move compilation artifacts to Lurk folder: {}",
+            err
+        )
+    })?;
+    fs::remove_dir_all(circom_gadget.join(format!("{}_js", &reference_split[1])))
+        .map_err(|err| anyhow!("Couldn't clean up temporary artifacts: {err}"))?;
 
     println!("{}", Green.bold().paint("Circom success"));
     Ok(())
