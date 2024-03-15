@@ -92,14 +92,14 @@ fn build_frames<F: LurkField, C: Coprocessor<F>, LogFmt: Fn(usize, &[Ptr], &Stor
     let mut pc = 0;
     let mut frames = vec![];
     let mut iterations = 0;
-    tracing::info!("{}", &log_fmt(0, &input, store));
+    // tracing::info!("{}", &log_fmt(0, &input, store));
     for _ in 0..limit {
         let (frame, must_break) =
             compute_frame(lurk_step, cprocs, &input, store, lang, ch_terminal, pc)?;
 
         iterations += 1;
         input = frame.output.clone();
-        tracing::info!("{}", &log_fmt(iterations, &input, store));
+        // tracing::info!("{}", &log_fmt(iterations, &input, store));
         let expr = frame.output[0];
         frames.push(frame);
 

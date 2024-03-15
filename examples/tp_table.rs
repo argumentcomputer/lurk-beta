@@ -12,6 +12,9 @@ use num_traits::ToPrimitive;
 use statrs::statistics::Statistics;
 use std::{cell::OnceCell, sync::Arc, time::Instant};
 
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
+use tracing_texray::TeXRayLayer;
+
 const PROGRAM: &str = "(letrec ((loop (lambda (k) (begin
   ;; fibonacci from lurk-lib
   (letrec ((next (lambda (a b n target)
@@ -144,9 +147,15 @@ fn n_folds_env() -> Result<usize> {
 /// └────────────┴────────────┴────────────┘
 /// ```
 fn main() {
+    let subscriber = Registry::default()
+        .with(fmt::layer().pretty())
+        .with(EnvFilter::from_default_env())
+        .with(TeXRayLayer::new().width(120));
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+
     let rc_vec = rc_env().unwrap_or_else(|_| vec![100]);
     let max_n_folds = n_folds_env().unwrap_or(3);
-    let n_samples = 10;
+    let n_samples = 3;
 
     let max_rc = rc_vec.iter().max().unwrap();
 
@@ -176,7 +185,8 @@ fn main() {
                 let mut timings = Vec::with_capacity(n_samples);
                 for _ in 0..n_samples {
                     let start = Instant::now();
-                    let result = prover.prove_from_frames(&pp, frames, &store);
+                    let result = tracing_texray::examine(tracing::info_span!("bang!"))
+                        .in_scope(|| prover.prove_from_frames(&pp, frames, &store));
                     let _ = black_box(result);
                     let end = start.elapsed().as_secs_f64();
                     timings.push(end);

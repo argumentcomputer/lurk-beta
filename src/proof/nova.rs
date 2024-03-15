@@ -282,7 +282,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                     RecursiveSNARK::new(&pp.pp, step, &secondary_circuit, z0, &Self::z0_secondary())
                         .expect("failed to construct initial recursive SNARK")
                 });
-                info!("prove_step {i}");
+                // info!("prove_step {i}");
                 recursive_snark
                     .prove_step(&pp.pp, step, &secondary_circuit)
                     .unwrap();
