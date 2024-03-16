@@ -28,7 +28,7 @@ use nova::{
         Dual as DualEng,
     },
 };
-use std::marker::PhantomData;
+use std::{borrow::Cow, marker::PhantomData};
 
 /// Number of arguments a coroutine takes: CEK arguments + memoset arguments
 const COROUTINE_ARITY: usize = 12;
@@ -146,13 +146,13 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
         ))
     }
 
-    fn compress(self, pp: &PublicParams<F>) -> Result<Self, ProofError> {
-        match &self {
+    fn compress(&self, pp: &PublicParams<F>) -> Result<Cow<Self>, ProofError> {
+        match self {
             Self::Recursive(recursive_snark, _) => {
                 let snark = CompressedSNARK::prove(&pp.pp, pp.pk(), recursive_snark)?;
-                Ok(Self::Compressed(Box::new(snark), PhantomData))
+                Ok(Cow::Owned(Self::Compressed(Box::new(snark), PhantomData)))
             }
-            Self::Compressed(..) => Ok(self),
+            Self::Compressed(..) => Ok(Cow::Borrowed(self)),
         }
     }
 

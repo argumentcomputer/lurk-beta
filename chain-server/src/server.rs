@@ -161,7 +161,10 @@ where
                 let proof = proof
                     .compress(pp)
                     .map_err(|e| Status::internal(e.to_string()))?;
+                // the above compression operated on a recursive proof, so the following `into_owned()` should
+                // not involve cloning
                 let proof = proof
+                    .into_owned()
                     .get_compressed()
                     .ok_or(Status::internal("Failed to retrieve the compressed SNARK"))?;
 

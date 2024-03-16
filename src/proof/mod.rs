@@ -16,7 +16,7 @@ pub mod supernova;
 mod tests;
 
 use ff::Field;
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     coprocessor::Coprocessor,
@@ -88,7 +88,7 @@ pub trait Provable<F: LurkField> {
 /// Trait to abstract Nova and SuperNova proofs
 pub trait RecursiveSNARKTrait<F: CurveCycleEquipped, M>
 where
-    Self: Sized,
+    Self: Sized + Clone,
 {
     /// Associated type for public parameters
     type PublicParams;
@@ -110,7 +110,7 @@ where
     ) -> Result<Self, ProofError>;
 
     /// Compress a proof
-    fn compress(self, pp: &Self::PublicParams) -> Result<Self, ProofError>;
+    fn compress(&self, pp: &Self::PublicParams) -> Result<Cow<Self>, ProofError>;
 
     /// Verify the proof given the public parameters, the input and output values
     fn verify(&self, pp: &Self::PublicParams, z0: &[F], zi: &[F]) -> Result<bool, Self::ErrorType>;
