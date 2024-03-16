@@ -315,7 +315,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         ))
     }
 
-    fn compress(&self, pp: &PublicParams<F>) -> Result<Cow<Self>, ProofError> {
+    fn compress(&self, pp: &PublicParams<F>) -> Result<Cow<'_, Self>, ProofError> {
         match &self {
             Self::Recursive(recursive_snark, _phantom) => {
                 let snark =

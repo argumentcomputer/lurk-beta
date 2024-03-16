@@ -146,7 +146,7 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
         ))
     }
 
-    fn compress(&self, pp: &PublicParams<F>) -> Result<Cow<Self>, ProofError> {
+    fn compress(&self, pp: &PublicParams<F>) -> Result<Cow<'_, Self>, ProofError> {
         match self {
             Self::Recursive(recursive_snark, _) => {
                 let snark = CompressedSNARK::prove(&pp.pp, pp.pk(), recursive_snark)?;

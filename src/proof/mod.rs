@@ -110,7 +110,7 @@ where
     ) -> Result<Self, ProofError>;
 
     /// Compress a proof
-    fn compress(&self, pp: &Self::PublicParams) -> Result<Cow<Self>, ProofError>;
+    fn compress(&self, pp: &Self::PublicParams) -> Result<Cow<'_, Self>, ProofError>;
 
     /// Verify the proof given the public parameters, the input and output values
     fn verify(&self, pp: &Self::PublicParams, z0: &[F], zi: &[F]) -> Result<bool, Self::ErrorType>;

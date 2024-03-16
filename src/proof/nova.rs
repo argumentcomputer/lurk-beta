@@ -332,14 +332,14 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         ))
     }
 
-    fn compress(&self, pp: &PublicParams<F>) -> Result<Cow<Self>, ProofError> {
+    fn compress(&self, pp: &PublicParams<F>) -> Result<Cow<'_, Self>, ProofError> {
         match self {
             Self::Recursive(recursive_snark, num_steps, _phantom) => {
                 Ok(Cow::Owned(Self::Compressed(
                     Box::new(CompressedSNARK::<_, SS1<F>, SS2<F>>::prove(
                         &pp.pp,
                         pp.pk(),
-                        &recursive_snark,
+                        recursive_snark,
                     )?),
                     *num_steps,
                     PhantomData,
