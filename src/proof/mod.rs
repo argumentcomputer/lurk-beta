@@ -101,13 +101,13 @@ where
     type ErrorType;
 
     /// Generate the recursive SNARK, encoded in `ProveOutput`
-    fn prove_recursively(
+    fn prove_recursively<I: IntoIterator<Item = M>>(
         pp: &Self::PublicParams,
         z0: &[F],
-        steps: Vec<M>,
+        steps: I,
         store: &Store<F>,
         init: Option<Self::BaseRecursiveSNARK>,
-    ) -> Result<Self, ProofError>;
+    ) -> Result<Self, ProofError> where <I as IntoIterator>::IntoIter: ExactSizeIterator;
 
     /// Compress a proof
     fn compress(&self, pp: &Self::PublicParams) -> Result<Cow<'_, Self>, ProofError>;

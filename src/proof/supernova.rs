@@ -214,14 +214,15 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
     type ErrorType = SuperNovaError;
 
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
-    fn prove_recursively(
+    fn prove_recursively<I: IntoIterator<Item = C1LEM<'a, F, C>>>(
         pp: &PublicParams<F>,
         z0: &[F],
-        steps: Vec<C1LEM<'a, F, C>>,
+        steps: I,
         store: &Store<F>,
         init: Option<RecursiveSNARK<E1<F>>>,
-    ) -> Result<Self, ProofError> {
+    ) -> Result<Self, ProofError> where <I as IntoIterator>::IntoIter: ExactSizeIterator {
         let debug = false;
+        let steps = steps.into_iter();
 
         info!("proving {} steps", steps.len());
 
@@ -303,8 +304,8 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
                 recursive_snark_option
             })
         } else {
-            for (i, step) in steps.iter().enumerate() {
-                prove_step(i, step, &mut recursive_snark_option);
+            for (i, step) in steps.enumerate() {
+                prove_step(i, &step, &mut recursive_snark_option);
             }
             recursive_snark_option
         };
