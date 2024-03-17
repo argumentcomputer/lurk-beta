@@ -152,7 +152,7 @@ fn main() {
 
     let limit = n_iters(max_n_folds, *max_rc);
 
-    let store = Store::default();
+    let store = Arc::new(Store::default());
     let program = store.read_with_default_state(PROGRAM).unwrap();
 
     let frames =
@@ -164,7 +164,7 @@ fn main() {
     let mut data = Vec::with_capacity(rc_vec.len());
 
     for rc in rc_vec.clone() {
-        let prover: NovaProver<'_, _, _> = NovaProver::new(rc, lang_arc.clone());
+        let prover: NovaProver<_, _> = NovaProver::new(rc, lang_arc.clone());
         println!("Getting public params for rc={rc}");
         // TODO: use cache once it's fixed
         let pp: PublicParams<_> = public_params(rc, lang_arc.clone());

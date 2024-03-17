@@ -49,18 +49,18 @@ use chain_prover::{
 
 use chain_server::{ChainRequestData, ChainResponseData};
 
-struct ChainProverService<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
+struct ChainProverService<F: CurveCycleEquipped, C: Coprocessor<F>> {
     callable: Arc<Mutex<Ptr>>,
-    store: Store<F>, // TODO: add the store to the state to allow memory cleansing
+    store: Arc<Store<F>>, // TODO: add the store to the state to allow memory cleansing
     limit: usize,
     lurk_step: Func,
     cprocs: Vec<Func>,
-    prover: SuperNovaProver<'a, F, C>,
+    prover: SuperNovaProver<F, C>,
     public_params: OnceCell<PublicParams<F>>,
     session: Option<Utf8PathBuf>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> ChainProverService<'a, F, C> {
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> ChainProverService<F, C> {
     fn new(
         callable: Ptr,
         store: Store<F>,
@@ -75,7 +75,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> ChainProverService<'a, F, C> 
         let prover = SuperNovaProver::<_, C>::new(rc, Arc::new(lang));
         Self {
             callable: Arc::new(Mutex::new(callable)),
-            store,
+            store: Arc::new(store),
             limit,
             lurk_step,
             cprocs,
@@ -90,7 +90,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> ChainProverService<'a, F, C> 
 impl<
         F: CurveCycleEquipped + DeserializeOwned + Serialize,
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
-    > ChainProver for ChainProverService<'static, F, C>
+    > ChainProver for ChainProverService<F, C>
 where
     <F as ff::PrimeField>::Repr: Abomonation,
     <Dual<F> as ff::PrimeField>::Repr: Abomonation,
@@ -220,8 +220,8 @@ struct SessionData<F: LurkField, S> {
     rc: usize,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> SessionData<F, C> {
-    fn pack(data: &ChainProverService<'a, F, C>, callable: &Ptr) -> Self {
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> SessionData<F, C> {
+    fn pack(data: &ChainProverService<F, C>, callable: &Ptr) -> Self {
         let ChainProverService {
             store,
             limit,
@@ -241,7 +241,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> SessionData<F, C> {
         }
     }
 
-    fn unpack(self, session: Utf8PathBuf) -> Result<ChainProverService<'a, F, C>> {
+    fn unpack(self, session: Utf8PathBuf) -> Result<ChainProverService<F, C>> {
         let Self {
             callable,
             z_store,
@@ -344,10 +344,9 @@ struct ResumeArgs {
 }
 
 fn get_service_and_address<
-    'a,
     F: CurveCycleEquipped + DeserializeOwned,
     C: Coprocessor<F> + DeserializeOwned,
->() -> Result<(ChainProverService<'a, F, C>, SocketAddr), Box<dyn std::error::Error>> {
+>() -> Result<(ChainProverService<F, C>, SocketAddr), Box<dyn std::error::Error>> {
     let Cli { command } = Cli::parse();
     let local_ip = |port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port));
     match command {

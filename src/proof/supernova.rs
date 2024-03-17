@@ -120,7 +120,7 @@ pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
     lang: Arc<Lang<F, C>>,
 ) -> PublicParams<F> {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    let non_uniform_circuit = C1LEM::<'_, F, C>::blank(folding_config, 0);
+    let non_uniform_circuit = C1LEM::<F, C>::blank(folding_config, 0);
 
     // grab hints for the compressed SNARK variants we will use this with
     let commitment_size_hint1 = <SS1<F> as BatchedRelaxedR1CSSNARKTrait<E1<F>>>::ck_floor();
@@ -163,16 +163,15 @@ impl<F: CurveCycleEquipped, S> Proof<F, S> {
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct SuperNovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> {
+pub struct SuperNovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
     /// The number of small-step reductions performed in each recursive step of
     /// the primary Lurk circuit.
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
     folding_mode: FoldingMode,
-    _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C> {
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> SuperNovaProver<F, C> {
     /// Create a new SuperNovaProver with a reduction count and a `Lang`
     #[inline]
     pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -180,7 +179,6 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
             reduction_count,
             lang,
             folding_mode: FoldingMode::NIVC,
-            _phantom: PhantomData,
         }
     }
 
@@ -189,13 +187,13 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
         &self,
         pp: &PublicParams<F>,
         frames: &[Frame],
-        store: &'a Store<F>,
+        store: &Arc<Store<F>>,
         init: Option<RecursiveSNARK<E1<F>>>,
-    ) -> Result<(Proof<F, C1LEM<'a, F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<F, C1LEM<F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
         let folding_config = self
             .folding_mode()
             .folding_config(self.lang().clone(), self.reduction_count());
-        let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
+        let steps = C1LEM::<F, C>::from_frames(frames, store, &folding_config.into());
         self.prove(pp, steps, store, init)
     }
 
@@ -206,21 +204,24 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> SuperNovaProver<'a, F, C
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
-    for Proof<F, C1LEM<'a, F, C>>
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<F, C>>
+    for Proof<F, C1LEM<F, C>>
 {
     type PublicParams = PublicParams<F>;
     type BaseRecursiveSNARK = RecursiveSNARK<E1<F>>;
     type ErrorType = SuperNovaError;
 
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
-    fn prove_recursively<I: IntoIterator<Item = C1LEM<'a, F, C>>>(
+    fn prove_recursively<I: IntoIterator<Item = C1LEM<F, C>>>(
         pp: &PublicParams<F>,
         z0: &[F],
         steps: I,
         store: &Store<F>,
         init: Option<RecursiveSNARK<E1<F>>>,
-    ) -> Result<Self, ProofError> where <I as IntoIterator>::IntoIter: ExactSizeIterator {
+    ) -> Result<Self, ProofError>
+    where
+        <I as IntoIterator>::IntoIter: ExactSizeIterator,
+    {
         let debug = false;
         let steps = steps.into_iter();
 
@@ -228,29 +229,28 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
 
         let mut recursive_snark_option = init;
 
-        let prove_step =
-            |i: usize, step: &C1LEM<'a, F, C>, rs: &mut Option<RecursiveSNARK<E1<F>>>| {
-                if debug {
-                    debug_step(step, store).unwrap();
-                }
-                let secondary_circuit = step.secondary_circuit();
-                let mut recursive_snark = rs.take().unwrap_or_else(|| {
-                    RecursiveSNARK::new(
-                        &pp.pp,
-                        step,
-                        step,
-                        &secondary_circuit,
-                        z0,
-                        &Self::z0_secondary(),
-                    )
-                    .expect("failed to construct initial recursive SNARK")
-                });
-                info!("prove_step {i}");
-                recursive_snark
-                    .prove_step(&pp.pp, step, &secondary_circuit)
-                    .unwrap();
-                *rs = Some(recursive_snark);
-            };
+        let prove_step = |i: usize, step: &C1LEM<F, C>, rs: &mut Option<RecursiveSNARK<E1<F>>>| {
+            if debug {
+                debug_step(step, store).unwrap();
+            }
+            let secondary_circuit = step.secondary_circuit();
+            let mut recursive_snark = rs.take().unwrap_or_else(|| {
+                RecursiveSNARK::new(
+                    &pp.pp,
+                    step,
+                    step,
+                    &secondary_circuit,
+                    z0,
+                    &Self::z0_secondary(),
+                )
+                .expect("failed to construct initial recursive SNARK")
+            });
+            info!("prove_step {i}");
+            recursive_snark
+                .prove_step(&pp.pp, step, &secondary_circuit)
+                .unwrap();
+            *rs = Some(recursive_snark);
+        };
 
         recursive_snark_option = if lurk_config(None, None)
             .perf
@@ -343,10 +343,10 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F> for SuperNovaProver<'a, F, C> {
-    type Frame = C1LEM<'a, F, C>;
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> Prover<F> for SuperNovaProver<F, C> {
+    type Frame = C1LEM<F, C>;
     type PublicParams = PublicParams<F>;
-    type RecursiveSNARK = Proof<F, C1LEM<'a, F, C>>;
+    type RecursiveSNARK = Proof<F, C1LEM<F, C>>;
 
     #[inline]
     fn reduction_count(&self) -> usize {
@@ -363,13 +363,13 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Prover<'a, F> for SuperNovaPr
         pp: &Self::PublicParams,
         expr: Ptr,
         env: Ptr,
-        store: &'a Store<F>,
+        store: &Arc<Store<F>>,
         limit: usize,
         ch_terminal: &ChannelTerminal<Ptr>,
     ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError> {
         let eval_config = self.folding_mode().eval_config(self.lang());
         let frames =
-            C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config, ch_terminal)?;
+            C1LEM::<F, C>::build_frames(expr, env, store, limit, &eval_config, ch_terminal)?;
         self.prove_from_frames(pp, &frames, store, None)
     }
 }
@@ -438,7 +438,7 @@ pub fn circuit_cache_key<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     circuit_index: usize,
 ) -> F {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, 2));
-    let circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
+    let circuit = C1LEM::<F, C>::blank(folding_config, 0);
     let num_circuits = circuit.num_circuits();
     let circuit = circuit.primary_circuit(circuit_index);
     F::from(rc as u64) * supernova::circuit_digest::<F::E1, _>(&circuit, num_circuits)

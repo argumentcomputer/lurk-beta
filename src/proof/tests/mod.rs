@@ -38,7 +38,7 @@ fn mismatch<T: PartialEq + Copy>(a: &[T], b: &[T]) -> Option<(usize, (Option<T>,
 }
 
 fn test_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
-    s: &Store<F>,
+    s: &Arc<Store<F>>,
     expr: &str,
     expected_result: Option<Ptr>,
     expected_env: Option<Ptr>,
@@ -65,7 +65,7 @@ fn test_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
 }
 
 fn test_aux_ptr<F: CurveCycleEquipped, C: Coprocessor<F>>(
-    s: &Store<F>,
+    s: &Arc<Store<F>>,
     expr: Ptr,
     expected_result: Option<Ptr>,
     expected_env: Option<Ptr>,
@@ -92,7 +92,7 @@ fn test_aux_ptr<F: CurveCycleEquipped, C: Coprocessor<F>>(
 }
 
 fn nova_test_full_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
-    s: &Store<F>,
+    s: &Arc<Store<F>>,
     expr: &str,
     expected_result: Option<Ptr>,
     expected_env: Option<Ptr>,
@@ -104,7 +104,7 @@ fn nova_test_full_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
     limit: Option<usize>,
     lang: &Option<Arc<Lang<F, C>>>,
 ) {
-    let expr = EvaluationStore::read(s, expr).unwrap();
+    let expr = EvaluationStore::read(&**s, expr).unwrap();
 
     nova_test_full_aux_ptr(
         s,
@@ -122,7 +122,7 @@ fn nova_test_full_aux<F: CurveCycleEquipped, C: Coprocessor<F>>(
 }
 
 fn nova_test_full_aux_ptr<F: CurveCycleEquipped, C: Coprocessor<F>>(
-    s: &Store<F>,
+    s: &Arc<Store<F>>,
     expr: Ptr,
     expected_result: Option<Ptr>,
     expected_env: Option<Ptr>,
@@ -159,7 +159,7 @@ fn nova_test_full_aux_ptr<F: CurveCycleEquipped, C: Coprocessor<F>>(
 }
 
 fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
-    s: &'a Store<F>,
+    s: &Arc<Store<F>>,
     expr: Ptr,
     expected_result: Option<Ptr>,
     expected_env: Option<Ptr>,
@@ -178,9 +178,8 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     let (t1, t2) = pair_terminals();
 
     let frames =
-        C1LEM::<'a, F, C>::build_frames(expr, e, s, limit, &EvalConfig::new_ivc(&lang), &t1)
-            .unwrap();
-    let nova_prover = NovaProver::<'a, F, C>::new(reduction_count, lang.clone());
+        C1LEM::<F, C>::build_frames(expr, e, s, limit, &EvalConfig::new_ivc(&lang), &t1).unwrap();
+    let nova_prover = NovaProver::<F, C>::new(reduction_count, lang.clone());
 
     if check_nova {
         let pp = public_params(reduction_count, lang.clone());
@@ -194,7 +193,7 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
         }
         assert!(res.unwrap());
 
-        let compressed: crate::proof::nova::Proof<F, C1LEM<'a, F, C>> =
+        let compressed: crate::proof::nova::Proof<F, C1LEM<F, C>> =
             proof.compress(&pp).unwrap().into_owned();
         let res2 = compressed.verify(&pp, &z0, &zi);
 
@@ -203,16 +202,16 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, nova_prover.reduction_count()));
 
-    let multiframes = C1LEM::<'a, F, C>::from_frames(&frames, s, &folding_config);
+    let multiframes = C1LEM::<F, C>::from_frames(&frames, s, &folding_config);
     let len = multiframes.len();
 
     let expected_iterations_data = expected_iterations.data().parse::<usize>().unwrap();
     let adjusted_iterations = nova_prover.expected_num_steps(expected_iterations_data);
-    let mut previous_frame: Option<&C1LEM<'a, F, C>> = None;
+    let mut previous_frame: Option<&C1LEM<F, C>> = None;
 
     let mut cs_blank = MetricCS::<F>::new();
 
-    let blank = C1LEM::<'a, F, C>::blank(folding_config, 0);
+    let blank = C1LEM::<F, C>::blank(folding_config, 0);
     blank
         .synthesize(&mut cs_blank)
         .expect("failed to synthesize blank");
@@ -273,7 +272,7 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
         assert_eq!(&s.get_cont_terminal(), output.cont());
     }
 
-    let iterations = C1LEM::<'a, F, C>::significant_frame_count(&frames);
+    let iterations = C1LEM::<F, C>::significant_frame_count(&frames);
     assert!(iterations <= expected_iterations_data);
     expected_iterations.assert_eq(&iterations.to_string());
     assert_eq!(adjusted_iterations, len);

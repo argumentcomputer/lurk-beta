@@ -98,7 +98,7 @@ pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<DualEng<E1<F>>, EE2<F>>
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
 /// to reflect it this should not be used outside the Nova context
-pub type C1LEM<'a, F, C> = crate::lem::multiframe::MultiFrame<'a, F, C>;
+pub type C1LEM<F, C> = crate::lem::multiframe::MultiFrame<F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialCircuit<Dual<F>>;
 
@@ -188,7 +188,7 @@ pub fn circuit_cache_key<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     lang: Arc<Lang<F, C>>,
 ) -> F {
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, 2));
-    let circuit = C1LEM::<'a, F, C>::blank(folding_config, 0);
+    let circuit = C1LEM::<F, C>::blank(folding_config, 0);
     F::from(rc as u64) * nova::circuit_digest::<F::E1, _>(&circuit)
 }
 
@@ -219,10 +219,10 @@ pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
-) -> (C1LEM<'a, F, C>, C2<F>) {
+) -> (C1LEM<F, C>, C2<F>) {
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, reduction_count));
     (
-        C1LEM::<'a, F, C>::blank(folding_config, 0),
+        C1LEM::<F, C>::blank(folding_config, 0),
         TrivialCircuit::default(),
     )
 }
@@ -231,7 +231,7 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
 /// system is satisfied
 #[inline]
 pub(crate) fn debug_step<F: LurkField, C: Coprocessor<F>>(
-    circuit: &MultiFrame<'_, F, C>,
+    circuit: &MultiFrame<F, C>,
     store: &Store<F>,
 ) -> Result<(), SynthesisError> {
     use bellpepper_core::test_cs::TestConstraintSystem;
@@ -250,24 +250,27 @@ pub(crate) fn debug_step<F: LurkField, C: Coprocessor<F>>(
     Ok(())
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<'a, F, C>>
-    for Proof<F, C1LEM<'a, F, C>>
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<F, C>>
+    for Proof<F, C1LEM<F, C>>
 {
     type PublicParams = PublicParams<F>;
     type BaseRecursiveSNARK = RecursiveSNARK<E1<F>>;
     type ErrorType = NovaError;
 
     #[tracing::instrument(skip_all, name = "nova::prove_recursively")]
-    fn prove_recursively<I: IntoIterator<Item = C1LEM<'a, F, C>>>(
+    fn prove_recursively<I: IntoIterator<Item = C1LEM<F, C>>>(
         pp: &PublicParams<F>,
         z0: &[F],
         steps: I,
         store: &Store<F>,
         init: Option<RecursiveSNARK<E1<F>>>,
-    ) -> Result<Self, ProofError> where <I as IntoIterator>::IntoIter: ExactSizeIterator{
+    ) -> Result<Self, ProofError>
+    where
+        <I as IntoIterator>::IntoIter: ExactSizeIterator,
+    {
         let debug = false;
         let mut steps = steps.into_iter().peekable();
-        assert_eq!(steps.peek().map(|s| s.arity()).unwrap_or(0), z0.len());
+        assert_eq!(steps.peek().map_or(0, |s| s.arity()), z0.len());
 
         let secondary_circuit = TrivialCircuit::default();
 
@@ -276,21 +279,20 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
 
         let mut recursive_snark_option = init;
 
-        let prove_step =
-            |i: usize, step: &C1LEM<'a, F, C>, rs: &mut Option<RecursiveSNARK<E1<F>>>| {
-                if debug {
-                    debug_step(step, store).unwrap();
-                }
-                let mut recursive_snark = rs.take().unwrap_or_else(|| {
-                    RecursiveSNARK::new(&pp.pp, step, &secondary_circuit, z0, &Self::z0_secondary())
-                        .expect("failed to construct initial recursive SNARK")
-                });
-                info!("prove_step {i}");
-                recursive_snark
-                    .prove_step(&pp.pp, step, &secondary_circuit)
-                    .unwrap();
-                *rs = Some(recursive_snark);
-            };
+        let prove_step = |i: usize, step: &C1LEM<F, C>, rs: &mut Option<RecursiveSNARK<E1<F>>>| {
+            if debug {
+                debug_step(step, store).unwrap();
+            }
+            let mut recursive_snark = rs.take().unwrap_or_else(|| {
+                RecursiveSNARK::new(&pp.pp, step, &secondary_circuit, z0, &Self::z0_secondary())
+                    .expect("failed to construct initial recursive SNARK")
+            });
+            info!("prove_step {i}");
+            recursive_snark
+                .prove_step(&pp.pp, step, &secondary_circuit)
+                .unwrap();
+            *rs = Some(recursive_snark);
+        };
 
         recursive_snark_option = if lurk_config(None, None)
             .perf
@@ -298,7 +300,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
             .wit_gen_vs_folding
             .is_parallel()
         {
-            let cc = steps.into_iter().map(Mutex::new).collect::<Vec<_>>();
+            let cc = steps.map(Mutex::new).collect::<Vec<_>>();
 
             std::thread::scope(|s| {
                 s.spawn(|| {
@@ -370,15 +372,14 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct NovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
+pub struct NovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
     /// The number of small-step reductions performed in each recursive step.
     reduction_count: usize,
     lang: Arc<Lang<F, C>>,
     folding_mode: FoldingMode,
-    _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C> {
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<F, C> {
     /// Create a new NovaProver with a reduction count and a `Lang`
     #[inline]
     pub fn new(reduction_count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -386,7 +387,6 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C> {
             reduction_count,
             lang,
             folding_mode: FoldingMode::IVC,
-            _phantom: PhantomData,
         }
     }
 
@@ -395,13 +395,13 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C> {
         &self,
         pp: &PublicParams<F>,
         frames: &[Frame],
-        store: &'a Store<F>,
+        store: &Arc<Store<F>>,
         init: Option<RecursiveSNARK<E1<F>>>,
-    ) -> Result<(Proof<F, C1LEM<'a, F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<F, C1LEM<F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
         let folding_config = self
             .folding_mode()
             .folding_config(self.lang().clone(), self.reduction_count());
-        let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
+        let steps = C1LEM::<F, C>::from_frames(frames, store, &folding_config.into());
         self.prove(pp, steps, store, init)
     }
 
@@ -412,10 +412,10 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C> {
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F> for NovaProver<'a, F, C> {
-    type Frame = C1LEM<'a, F, C>;
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> Prover<F> for NovaProver<F, C> {
+    type Frame = C1LEM<F, C>;
     type PublicParams = PublicParams<F>;
-    type RecursiveSNARK = Proof<F, C1LEM<'a, F, C>>;
+    type RecursiveSNARK = Proof<F, C1LEM<F, C>>;
 
     #[inline]
     fn reduction_count(&self) -> usize {
@@ -432,13 +432,13 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F> for NovaPr
         pp: &Self::PublicParams,
         expr: Ptr,
         env: Ptr,
-        store: &'a Store<F>,
+        store: &Arc<Store<F>>,
         limit: usize,
         ch_terminal: &ChannelTerminal<Ptr>,
     ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError> {
         let eval_config = self.folding_mode().eval_config(self.lang());
         let frames =
-            C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config, ch_terminal)?;
+            C1LEM::<F, C>::build_frames(expr, env, store, limit, &eval_config, ch_terminal)?;
         self.prove_from_frames(pp, &frames, store, None)
     }
 }

@@ -102,7 +102,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
     let limit = 10000;
 
-    let store = &Store::<Bn>::default();
+    let store = Arc::new(Store::<Bn>::default());
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
@@ -125,7 +125,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
         &prove_params,
         |b, prove_params| {
             let ptr = sha256_ivc(
-                store,
+                &*store,
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
@@ -137,7 +137,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
             let frames = &evaluate(
                 Some((&lurk_step, &[], &lang)),
                 ptr,
-                store,
+                &*store,
                 limit,
                 &dummy_terminal(),
             )
@@ -146,7 +146,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let result = prover.prove_from_frames(&pp, frames, store, None);
+                    let result = prover.prove_from_frames(&pp, frames, &store, None);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -190,7 +190,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 
     let limit = 10000;
 
-    let store = &Store::<Bn>::default();
+    let store = Arc::new(Store::<Bn>::default());
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
@@ -213,7 +213,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
         &prove_params,
         |b, prove_params| {
             let ptr = sha256_ivc(
-                store,
+                &*store,
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
@@ -225,7 +225,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
             let frames = &evaluate(
                 Some((&lurk_step, &[], &lang)),
                 ptr,
-                store,
+                &*store,
                 limit,
                 &dummy_terminal(),
             )
@@ -235,7 +235,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
                 || frames,
                 |frames| {
                     let (proof, _, _, _) =
-                        prover.prove_from_frames(&pp, frames, store, None).unwrap();
+                        prover.prove_from_frames(&pp, frames, &store, None).unwrap();
                     let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);
@@ -281,7 +281,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
 
     let limit = 10000;
 
-    let store = &Store::<Bn>::default();
+    let store = Arc::new(Store::<Bn>::default());
     let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
@@ -305,7 +305,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
         &prove_params,
         |b, prove_params| {
             let ptr = sha256_ivc(
-                store,
+                &*store,
                 state.clone(),
                 black_box(prove_params.arity),
                 black_box(prove_params.n),
@@ -317,7 +317,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
             let frames = &evaluate(
                 Some((&lurk_step, &cprocs, &lang)),
                 ptr,
-                store,
+                &*store,
                 limit,
                 &dummy_terminal(),
             )
@@ -326,7 +326,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || frames,
                 |frames| {
-                    let result = prover.prove_from_frames(&pp, frames, store, None);
+                    let result = prover.prove_from_frames(&pp, frames, &store, None);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

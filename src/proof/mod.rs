@@ -107,7 +107,9 @@ where
         steps: I,
         store: &Store<F>,
         init: Option<Self::BaseRecursiveSNARK>,
-    ) -> Result<Self, ProofError> where <I as IntoIterator>::IntoIter: ExactSizeIterator;
+    ) -> Result<Self, ProofError>
+    where
+        <I as IntoIterator>::IntoIter: ExactSizeIterator;
 
     /// Compress a proof
     fn compress(&self, pp: &Self::PublicParams) -> Result<Cow<'_, Self>, ProofError>;
@@ -155,7 +157,7 @@ impl FoldingMode {
 }
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, F: CurveCycleEquipped> {
+pub trait Prover<F: CurveCycleEquipped> {
     /// Associated type for a frame-like datatype
     type Frame: FrameLike<Ptr, FrameIO = Vec<Ptr>>;
 
@@ -176,7 +178,7 @@ pub trait Prover<'a, F: CurveCycleEquipped> {
         &self,
         pp: &Self::PublicParams,
         steps: Vec<Self::Frame>,
-        store: &'a Store<F>,
+        store: &Store<F>,
         init: Option<
             <Self::RecursiveSNARK as RecursiveSNARKTrait<F, Self::Frame>>::BaseRecursiveSNARK,
         >,
@@ -198,7 +200,7 @@ pub trait Prover<'a, F: CurveCycleEquipped> {
         pp: &Self::PublicParams,
         expr: Ptr,
         env: Ptr,
-        store: &'a Store<F>,
+        store: &Arc<Store<F>>,
         limit: usize,
         ch_terminal: &ChannelTerminal<Ptr>,
     ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError>;

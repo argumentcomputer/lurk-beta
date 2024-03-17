@@ -67,10 +67,10 @@ fn main() {
     let args = std::env::args().collect::<Vec<_>>();
     let n = args.get(1).unwrap_or(&"1".into()).parse().unwrap();
 
-    let store = &Store::default();
+    let store = Arc::new(Store::default());
     let cproc_sym = user_sym(&format!("sha256_nivc_{n}"));
 
-    let call = sha256_nivc(store, n, &(0..n).collect::<Vec<_>>());
+    let call = sha256_nivc(&*store, n, &(0..n).collect::<Vec<_>>());
 
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));
@@ -81,7 +81,7 @@ fn main() {
     let frames = evaluate(
         Some((&lurk_step, &cprocs, &lang)),
         call,
-        store,
+        &*store,
         1000,
         &dummy_terminal(),
     )
@@ -104,7 +104,7 @@ fn main() {
     let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
         .in_scope(|| {
             supernova_prover
-                .prove_from_frames(&pp, &frames, store, None)
+                .prove_from_frames(&pp, &frames, &store, None)
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();
