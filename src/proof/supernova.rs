@@ -11,13 +11,12 @@ use nova::{
     },
 };
 use once_cell::sync::OnceCell;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     marker::PhantomData,
     ops::Index,
-    sync::{Arc, Mutex},
+    sync::{mpsc, Arc},
 };
 use tracing::info;
 
@@ -31,7 +30,7 @@ use crate::{
     lem::{interpreter::Frame, pointers::Ptr, store::Store},
     proof::{
         nova::{debug_step, CurveCycleEquipped, Dual, NovaCircuitShape, E1},
-        Prover, RecursiveSNARKTrait,
+        Prover, RecursiveSNARKTrait, MAX_BUFFERED_FRAMES,
     },
 };
 
@@ -220,7 +219,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<F, C
         init: Option<RecursiveSNARK<E1<F>>>,
     ) -> Result<Self, ProofError>
     where
-        <I as IntoIterator>::IntoIter: ExactSizeIterator,
+        <I as IntoIterator>::IntoIter: ExactSizeIterator + Send,
     {
         let debug = false;
         let steps = steps.into_iter();
@@ -258,46 +257,23 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<F, C
             .wit_gen_vs_folding
             .is_parallel()
         {
-            let cc = steps
-                .into_iter()
-                .map(|mf| (mf.program_counter() == 0, Mutex::new(mf)))
-                .collect::<Vec<_>>();
+            // the sending end of the channel will block if it is at capacity
+            let (step_sender, step_receiver) = mpsc::sync_channel(MAX_BUFFERED_FRAMES);
 
             std::thread::scope(|s| {
-                s.spawn(|| {
-                    // Skip the very first circuit's witness, so `prove_step` can begin immediately.
-                    // That circuit's witness will not be cached and will just be computed on-demand.
-
-                    // There are many MultiFrames with PC = 0, each with several inner frames and heavy internal
-                    // parallelism for witness generation. So we do it like on Nova's pipeline.
-                    cc.iter()
-                        .skip(1)
-                        .filter(|(is_zero_pc, _)| *is_zero_pc)
-                        .for_each(|(_, mf)| {
-                            mf.lock()
-                                .unwrap()
-                                .cache_witness(store)
-                                .expect("witness caching failed");
-                        });
-
-                    // There shouldn't be as many MultiFrames with PC != 0 and they only have one inner frame, each with
-                    // poor internal parallelism for witness generation, so we can generate their witnesses in parallel.
-                    // This is mimicking the behavior we had in the Nova pipeline before #941 so...
-                    // TODO: once we have robust benchmarking for NIVC, we should test whether merging this loop with
-                    // the non-parallel one above (and getting rid of the filters) is better
-                    cc.par_iter()
-                        .skip(1)
-                        .filter(|(is_zero_pc, _)| !*is_zero_pc)
-                        .for_each(|(_, mf)| {
-                            mf.lock()
-                                .unwrap()
-                                .cache_witness(store)
-                                .expect("witness caching failed");
-                        });
+                s.spawn(move || {
+                    for mut step in steps {
+                        step.cache_witness(store).expect("witness caching failed");
+                        if step_sender.send(step).is_err() {
+                            // The main thread has dropped the receiver, so we can stop
+                            return;
+                        }
+                    }
                 });
 
-                for (i, (_, step)) in cc.iter().enumerate() {
-                    let mut step = step.lock().unwrap();
+                let buffered_steps = step_receiver.into_iter();
+
+                for (i, mut step) in buffered_steps.enumerate() {
                     prove_step(i, &step, &mut recursive_snark_option);
                     step.clear_cached_witness();
                 }

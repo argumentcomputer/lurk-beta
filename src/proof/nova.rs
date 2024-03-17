@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     marker::PhantomData,
-    sync::{Arc, Mutex},
+    sync::{mpsc, Arc},
 };
 use tracing::info;
 
@@ -29,7 +29,7 @@ use crate::{
     field::LurkField,
     lang::Lang,
     lem::{interpreter::Frame, multiframe::MultiFrame, pointers::Ptr, store::Store},
-    proof::{supernova::FoldingConfig, FrameLike, Prover},
+    proof::{supernova::FoldingConfig, FrameLike, Prover, MAX_BUFFERED_FRAMES},
 };
 
 use super::{FoldingMode, RecursiveSNARKTrait};
@@ -266,7 +266,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<F, C
         init: Option<RecursiveSNARK<E1<F>>>,
     ) -> Result<Self, ProofError>
     where
-        <I as IntoIterator>::IntoIter: ExactSizeIterator,
+        <I as IntoIterator>::IntoIter: ExactSizeIterator + Send,
     {
         let debug = false;
         let mut steps = steps.into_iter().peekable();
@@ -300,22 +300,21 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<F, C
             .wit_gen_vs_folding
             .is_parallel()
         {
-            let cc = steps.map(Mutex::new).collect::<Vec<_>>();
-
+            // the sending end of the channel will block if it is at capacity
+            let (step_sender, step_receiver) = mpsc::sync_channel(MAX_BUFFERED_FRAMES);
             std::thread::scope(|s| {
-                s.spawn(|| {
-                    // Skip the very first circuit's witness, so `prove_step` can begin immediately.
-                    // That circuit's witness will not be cached and will just be computed on-demand.
-                    cc.iter().skip(1).for_each(|mf| {
-                        mf.lock()
-                            .unwrap()
-                            .cache_witness(store)
-                            .expect("witness caching failed");
-                    });
+                s.spawn(move || {
+                    for mut step in steps {
+                        step.cache_witness(store).expect("witness caching failed");
+                        if step_sender.send(step).is_err() {
+                            // The main thread has dropped the receiver, so we can stop
+                            return;
+                        }
+                    }
                 });
+                let buffered_steps = step_receiver.into_iter();
 
-                for (i, step) in cc.iter().enumerate() {
-                    let mut step = step.lock().unwrap();
+                for (i, mut step) in buffered_steps.enumerate() {
                     prove_step(i, &step, &mut recursive_snark_option);
                     step.clear_cached_witness();
                 }
