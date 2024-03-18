@@ -187,3 +187,7 @@ harness = false
 [[bench]]
 name = "public_params"
 harness = false
+
+[[bench]]
+name = "trie_nivc"
+harness = false
