@@ -176,7 +176,7 @@ fn main() {
                 let mut timings = Vec::with_capacity(n_samples);
                 for _ in 0..n_samples {
                     let start = Instant::now();
-                    let result = prover.prove_from_frames(&pp, frames, &store);
+                    let result = prover.prove_from_frames(&pp, frames, &store, None);
                     let _ = black_box(result);
                     let end = start.elapsed().as_secs_f64();
                     timings.push(end);

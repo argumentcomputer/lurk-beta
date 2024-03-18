@@ -395,7 +395,7 @@ fn main() {
     let proof_start = Instant::now();
 
     let (proof, z0, zi, _) = supernova_prover
-        .prove_from_frames(&pp, &frames, store)
+        .prove_from_frames(&pp, &frames, store, None)
         .unwrap();
 
     let proof_end = proof_start.elapsed();

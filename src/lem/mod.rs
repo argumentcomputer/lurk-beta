@@ -258,6 +258,12 @@ pub enum Op {
     DivRem64([Var; 2], Var, Var),
     /// `Emit(v)` sends the value of `v` through the channel during interpretation
     Emit(Var),
+    /// `Recv(v)` binds `v` to a variable received from the channel
+    ///
+    /// # Warnings
+    /// * This will lock the interpretation thread until a message is received
+    /// * This will be an unconstrained allocation in the circuit
+    Recv(Var),
     /// `Cons2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     Cons2(Var, Tag, [Var; 2]),
     /// `Cons3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
@@ -390,7 +396,8 @@ impl Func {
                     | Op::Hash4Zeros(tgt, _)
                     | Op::Hash6Zeros(tgt, _)
                     | Op::Hash8Zeros(tgt, _)
-                    | Op::Lit(tgt, _) => {
+                    | Op::Lit(tgt, _)
+                    | Op::Recv(tgt) => {
                         is_unique(tgt, map);
                     }
                     Op::Cast(tgt, _tag, src) => {
@@ -727,6 +734,10 @@ impl Block {
                 Op::Emit(a) => {
                     let a = map.get_cloned(&a)?;
                     ops.push(Op::Emit(a))
+                }
+                Op::Recv(tgt) => {
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Recv(tgt))
                 }
                 Op::Cons2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();

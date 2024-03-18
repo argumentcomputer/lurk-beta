@@ -55,7 +55,7 @@ fn test_nil_nil_lang() {
     let pp = supernova_public_params(&instance).unwrap();
 
     let (proof, ..) = supernova_prover
-        .prove_from_frames(&pp, &frames, &store)
+        .prove_from_frames(&pp, &frames, &store, None)
         .unwrap();
 
     let input_scalar = store.to_scalar_vector(&first_frame.input);

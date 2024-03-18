@@ -103,6 +103,8 @@
 //! STEP 2 will need as many iterations as it takes to evaluate the Lurk
 //! expression and so will STEP 3.
 
+use match_opt::match_opt;
+
 use super::{
     pointers::{Ptr, RawPtr},
     Block, Ctrl, Op,
@@ -246,6 +248,13 @@ pub enum Val {
     Pointer(Ptr),
     Num(RawPtr),
     Boolean(bool),
+}
+
+impl Val {
+    #[inline]
+    pub(crate) fn get_ptr(&self) -> Option<&Ptr> {
+        match_opt!(self, Self::Pointer(ptr) => ptr)
+    }
 }
 
 /// Holds data to feed the slots

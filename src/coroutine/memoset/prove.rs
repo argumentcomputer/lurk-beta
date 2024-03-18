@@ -96,7 +96,7 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
     RecursiveSNARKTrait<F, Coroutine<'a, F, Q>> for Proof<F, Coroutine<'a, F, Q>>
 {
     type PublicParams = PublicParams<F>;
-
+    type BaseRecursiveSNARK = RecursiveSNARK<E1<F>>;
     type ErrorType = SuperNovaError;
 
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
@@ -105,8 +105,9 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
         z0: &[F],
         steps: Vec<Coroutine<'a, F, Q>>,
         _store: &Store<F>,
+        init: Option<RecursiveSNARK<E1<F>>>,
     ) -> Result<Self, ProofError> {
-        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>>> = None;
+        let mut recursive_snark_option = init;
 
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
@@ -251,7 +252,7 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync> MemosetProver<'a, F, 
 
         let num_steps = steps.len();
 
-        let prove_output = Proof::prove_recursively(pp, &z0, steps, store)?;
+        let prove_output = Proof::prove_recursively(pp, &z0, steps, store, None)?;
         let zi = match prove_output {
             Proof::Recursive(ref snark, ..) => snark.zi_primary().clone(),
             Proof::Compressed(..) => unreachable!(),

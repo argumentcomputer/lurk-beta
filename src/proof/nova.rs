@@ -253,7 +253,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
     for Proof<F, C1LEM<'a, F, C>>
 {
     type PublicParams = PublicParams<F>;
-
+    type BaseRecursiveSNARK = RecursiveSNARK<E1<F>>;
     type ErrorType = NovaError;
 
     #[tracing::instrument(skip_all, name = "nova::prove_recursively")]
@@ -262,6 +262,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         z0: &[F],
         steps: Vec<C1LEM<'a, F, C>>,
         store: &Store<F>,
+        init: Option<RecursiveSNARK<E1<F>>>,
     ) -> Result<Self, ProofError> {
         let debug = false;
         assert_eq!(steps[0].arity(), z0.len());
@@ -271,7 +272,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         let num_steps = steps.len();
         info!("proving {num_steps} steps");
 
-        let mut recursive_snark_option: Option<RecursiveSNARK<E1<F>>> = None;
+        let mut recursive_snark_option = init;
 
         let prove_step =
             |i: usize, step: &C1LEM<'a, F, C>, rs: &mut Option<RecursiveSNARK<E1<F>>>| {
@@ -391,12 +392,13 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C> {
         pp: &PublicParams<F>,
         frames: &[Frame],
         store: &'a Store<F>,
+        init: Option<RecursiveSNARK<E1<F>>>,
     ) -> Result<(Proof<F, C1LEM<'a, F, C>>, Vec<F>, Vec<F>, usize), ProofError> {
         let folding_config = self
             .folding_mode()
             .folding_config(self.lang().clone(), self.reduction_count());
         let steps = C1LEM::<'a, F, C>::from_frames(frames, store, &folding_config.into());
-        self.prove(pp, steps, store)
+        self.prove(pp, steps, store, init)
     }
 
     #[inline]
@@ -409,7 +411,7 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> NovaProver<'a, F, C> {
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F> for NovaProver<'a, F, C> {
     type Frame = C1LEM<'a, F, C>;
     type PublicParams = PublicParams<F>;
-    type RecursiveSnark = Proof<F, C1LEM<'a, F, C>>;
+    type RecursiveSNARK = Proof<F, C1LEM<'a, F, C>>;
 
     #[inline]
     fn reduction_count(&self) -> usize {
@@ -429,10 +431,10 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F> for NovaPr
         store: &'a Store<F>,
         limit: usize,
         ch_terminal: &ChannelTerminal<Ptr>,
-    ) -> Result<(Self::RecursiveSnark, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError> {
         let eval_config = self.folding_mode().eval_config(self.lang());
         let frames =
             C1LEM::<'a, F, C>::build_frames(expr, env, store, limit, &eval_config, ch_terminal)?;
-        self.prove_from_frames(pp, &frames, store)
+        self.prove_from_frames(pp, &frames, store, None)
     }
 }

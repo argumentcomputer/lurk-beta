@@ -54,9 +54,13 @@ fn test_nivc_steps() {
         Tag::Cont(ContTag::Terminal)
     ));
 
+    let dt = &dummy_terminal();
+
     // `cproc` can't reduce the first input, which is meant for `lurk_step`
     let first_input = &frames[0].input;
-    assert!(cproc.call_simple(first_input, &store, &lang, 0).is_err());
+    assert!(cproc
+        .call_simple(first_input, &store, &lang, 0, dt)
+        .is_err());
 
     // the fourth frame is the one reduced by the coprocessor
     let cproc_frame = &frames[3];
@@ -66,14 +70,14 @@ fn test_nivc_steps() {
 
     // `lurk_step` stutters on the cproc input
     let output = &lurk_step
-        .call_simple(&cproc_input, &store, &lang, 0)
+        .call_simple(&cproc_input, &store, &lang, 0, dt)
         .unwrap()
         .output;
     assert_eq!(&cproc_input, output);
 
     // `cproc` *can* reduce the cproc input
     let output = &cproc
-        .call_simple(&cproc_input, &store, &lang, 1)
+        .call_simple(&cproc_input, &store, &lang, 1, dt)
         .unwrap()
         .output;
     assert_ne!(&cproc_input, output);
@@ -97,5 +101,7 @@ fn test_nivc_steps() {
 
     // `cproc` can't reduce the altered cproc input (with the wrong name)
     let cproc_input = vec![new_expr, env, cont];
-    assert!(cproc.call_simple(&cproc_input, &store, &lang, 0).is_err());
+    assert!(cproc
+        .call_simple(&cproc_input, &store, &lang, 0, dt)
+        .is_err());
 }

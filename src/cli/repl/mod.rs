@@ -355,7 +355,7 @@ where
 
                     info!("Proving with NovaProver");
                     let (proof, public_inputs, public_outputs, num_steps) =
-                        prover.prove_from_frames(&pp, frames, &self.store)?;
+                        prover.prove_from_frames(&pp, frames, &self.store, None)?;
                     info!("Compressing Nova proof");
                     let proof = proof.compress(&pp)?;
                     assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
@@ -370,7 +370,7 @@ where
 
                     info!("Proving with SuperNovaProver");
                     let (proof, public_inputs, public_outputs, _num_steps) =
-                        prover.prove_from_frames(&pp, frames, &self.store)?;
+                        prover.prove_from_frames(&pp, frames, &self.store, None)?;
                     info!("Compressing SuperNova proof");
                     let proof = proof.compress(&pp)?;
                     assert!(proof.verify(&pp, &public_inputs, &public_outputs)?);

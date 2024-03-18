@@ -159,6 +159,9 @@ macro_rules! op {
     ( emit($v:ident) ) => {
         $crate::lem::Op::Emit($crate::var!($v))
     };
+    ( let $v:ident =! recv() ) => {
+        $crate::lem::Op::Recv($crate::var!($v))
+    };
     ( let $tgt:ident : $kind:ident::$tag:ident = cons2($src1:ident, $src2:ident) ) => {
         $crate::lem::Op::Cons2(
             $crate::var!($tgt),
@@ -498,6 +501,16 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(emit($v))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $v:ident =! recv() ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $v =! recv())
             },
             $($tail)*
         )

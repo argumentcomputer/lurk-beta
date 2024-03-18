@@ -11,7 +11,7 @@ use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
     config::lurk_config,
     coprocessor::Coprocessor,
-    dual_channel::ChannelTerminal,
+    dual_channel::{dummy_terminal, pair_terminals, ChannelTerminal},
     error::{ProofError, ReductionError},
     field::{LanguageField, LurkField},
     lang::Lang,
@@ -720,9 +720,18 @@ fn pad_frames<F: LurkField, C: Coprocessor<F>>(
     size: usize,
     store: &Store<F>,
 ) {
-    let padding_frame = lurk_step
-        .call_simple(input, store, lang, 0)
-        .expect("reduction step failed");
+    let padding_frame = if matches!(input[2].tag(), Tag::Cont(ContTag::StreamPause)) {
+        // we need to allow stuttering for the padding frame
+        let (t1, t2) = pair_terminals();
+        t2.send(store.intern_t()).unwrap(); // anything but `nil` to allow stuttering
+        lurk_step
+            .call_simple(input, store, lang, 0, &t1)
+            .expect("reduction step failed")
+    } else {
+        lurk_step
+            .call_simple(input, store, lang, 0, &dummy_terminal())
+            .expect("reduction step failed")
+    };
     assert_eq!(padding_frame.pc, 0);
     assert_eq!(input, padding_frame.output);
     frames.resize(size, padding_frame);
