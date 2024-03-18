@@ -13,6 +13,7 @@ use nova::{
 };
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
     marker::PhantomData,
@@ -297,24 +298,34 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
             .is_parallel()
         {
             let cc = steps.into_iter().map(Mutex::new).collect::<Vec<_>>();
+            let (folding_idx_sender, folding_idx_receiver) =
+                std::sync::mpsc::channel::<Option<usize>>();
 
             std::thread::scope(|s| {
                 s.spawn(|| {
-                    // Skip the very first circuit's witness, so `prove_step` can begin immediately.
-                    // That circuit's witness will not be cached and will just be computed on-demand.
-                    cc.iter().skip(1).for_each(|mf| {
-                        mf.lock()
-                            .unwrap()
-                            .cache_witness(store)
-                            .expect("witness caching failed");
-                    });
+                    for folding_idx in folding_idx_receiver {
+                        if let Some(folding_idx) = folding_idx {
+                            [1, 2].into_par_iter().for_each(|shift| {
+                                if let Some(mf) = cc.get(folding_idx + shift) {
+                                    mf.lock()
+                                        .unwrap()
+                                        .cache_witness(store)
+                                        .expect("witness caching failed");
+                                }
+                            });
+                        } else {
+                            return;
+                        }
+                    }
                 });
 
                 for (i, step) in cc.iter().enumerate() {
+                    folding_idx_sender.send(Some(i)).unwrap();
                     let mut step = step.lock().unwrap();
                     prove_step(i, &step, &mut recursive_snark_option);
                     step.clear_cached_witness();
                 }
+                folding_idx_sender.send(None).unwrap();
                 recursive_snark_option
             })
         } else {
