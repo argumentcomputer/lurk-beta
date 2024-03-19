@@ -122,40 +122,36 @@ impl<F: LurkField + DeserializeOwned> LurkProofMeta<F> {
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
 pub(crate) enum LurkProofWrapper<
-    'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + Serialize + DeserializeOwned,
 > {
-    Nova(nova::Proof<F, C1LEM<'a, F, C>>),
-    SuperNova(supernova::Proof<F, C1LEM<'a, F, C>>),
+    Nova(nova::Proof<F, C1LEM<F, C>>),
+    SuperNova(supernova::Proof<F, C1LEM<F, C>>),
 }
 
 /// Minimal data structure containing just enough for proof verification
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-pub(crate) struct LurkProof<
-    'a,
-    F: CurveCycleEquipped,
-    C: Coprocessor<F> + Serialize + DeserializeOwned,
-> {
-    pub(crate) proof: LurkProofWrapper<'a, F, C>,
+pub(crate) struct LurkProof<F: CurveCycleEquipped, C: Coprocessor<F> + Serialize + DeserializeOwned>
+{
+    pub(crate) proof: LurkProofWrapper<F, C>,
     pub(crate) public_inputs: Vec<F>,
     pub(crate) public_outputs: Vec<F>,
     pub(crate) rc: usize,
     pub(crate) lang: Lang<F, C>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a + Serialize + DeserializeOwned>
-    HasFieldModulus for LurkProof<'a, F, C>
+impl<F: CurveCycleEquipped, C: Coprocessor<F> + Serialize + DeserializeOwned> HasFieldModulus
+    for LurkProof<F, C>
 {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
     }
 }
 
-impl<'a, F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + DeserializeOwned>
-    LurkProof<'a, F, C>
+impl<F: CurveCycleEquipped + Serialize, C: Coprocessor<F> + Serialize + DeserializeOwned>
+    LurkProof<F, C>
 {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
@@ -167,7 +163,7 @@ impl<
         'a,
         F: CurveCycleEquipped + DeserializeOwned,
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'a,
-    > LurkProof<'a, F, C>
+    > LurkProof<F, C>
 {
     #[inline]
     pub(crate) fn is_cached(proof_key: &str) -> bool {
@@ -179,7 +175,7 @@ impl<
         'a,
         F: CurveCycleEquipped + DeserializeOwned,
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'a,
-    > LurkProof<'a, F, C>
+    > LurkProof<F, C>
 where
     F::Repr: Abomonation,
     <Dual<F> as PrimeField>::Repr: Abomonation,

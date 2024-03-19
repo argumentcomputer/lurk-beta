@@ -138,7 +138,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
     /// Returns an `Instance` for Nova public parameters with the prover's
     /// reduction count and lang
     #[inline]
-    pub fn new_nova(prover: &NovaProver<'_, F, C>, abomonated: bool) -> Self {
+    pub fn new_nova(prover: &NovaProver<F, C>, abomonated: bool) -> Self {
         Self::new(
             prover.reduction_count(),
             prover.lang().clone(),
@@ -150,7 +150,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C> {
     /// Returns an `Instance` for SuperNova public parameters with the prover's
     /// reduction count and lang
     #[inline]
-    pub fn new_supernova(prover: &SuperNovaProver<'_, F, C>, abomonated: bool) -> Self {
+    pub fn new_supernova(prover: &SuperNovaProver<F, C>, abomonated: bool) -> Self {
         Self::new(
             prover.reduction_count(),
             prover.lang().clone(),

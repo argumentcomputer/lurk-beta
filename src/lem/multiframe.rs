@@ -38,9 +38,9 @@ use super::{
 
 /// Holds data from interpretation or nothing in case of blank frames
 #[derive(Clone, Debug)]
-enum InterpretationData<'a, F: LurkField> {
+enum InterpretationData<F: LurkField> {
     Filled {
-        store: &'a Store<F>,
+        store: Arc<Store<F>>,
         input: Vec<Ptr>,
         output: Vec<Ptr>,
         frames: Vec<Frame>,
@@ -48,7 +48,7 @@ enum InterpretationData<'a, F: LurkField> {
     Blank,
 }
 
-impl<'a, F: LurkField> InterpretationData<'a, F> {
+impl<F: LurkField> InterpretationData<F> {
     #[inline]
     fn frames(&self) -> Option<&Vec<Frame>> {
         match self {
@@ -75,8 +75,8 @@ impl<'a, F: LurkField> InterpretationData<'a, F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
-    interpretation_data: InterpretationData<'a, F>,
+pub struct MultiFrame<F: LurkField, C: Coprocessor<F>> {
+    interpretation_data: InterpretationData<F>,
     /// Cached Lurk step function according to the `folding_config`
     lurk_step: Arc<Func>,
     /// Cached coprocessor functions according to the `folding_config`. Holds
@@ -90,7 +90,7 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     next_pc: usize,
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
+impl<F: LurkField, C: Coprocessor<F>> MultiFrame<F, C> {
     fn get_func(&self) -> &Func {
         if self.pc == 0 {
             &self.lurk_step
@@ -217,7 +217,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
     pub fn from_frames(
         frames: &[Frame],
-        store: &'a Store<F>,
+        store: &Arc<Store<F>>,
         folding_config: &Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
         let reduction_count = folding_config.reduction_count();
@@ -227,6 +227,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             FoldingConfig::IVC(lang, _) => {
                 let lurk_step = Arc::new(make_eval_step_from_config(&EvalConfig::new_ivc(lang)));
                 for chunk in frames.chunks(reduction_count) {
+                    let store = store.clone();
                     let output = chunk
                         .last()
                         .expect("chunk must not be empty")
@@ -241,7 +242,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                             &lurk_step,
                             lang,
                             reduction_count,
-                            store,
+                            &*store,
                         );
                         inner_frames
                     } else {
@@ -272,6 +273,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 let cprocs: Arc<[Func]> = make_cprocs_funcs_from_lang(lang).into();
                 let mut chunk_start_idx = 0;
                 while chunk_start_idx < frames.len() {
+                    let store = store.clone();
                     let first_frame = &frames[chunk_start_idx];
 
                     // Variables occurring in both branches
@@ -320,7 +322,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                                 &lurk_step,
                                 lang,
                                 reduction_count,
-                                store,
+                                &*store,
                             );
                         }
 
@@ -412,7 +414,7 @@ impl CEKState<Ptr> for Vec<Ptr> {
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike<Ptr> for MultiFrame<'a, F, C> {
+impl<F: LurkField, C: Coprocessor<F>> FrameLike<Ptr> for MultiFrame<F, C> {
     type FrameIO = Vec<Ptr>;
     #[inline]
     fn input(&self) -> &Vec<Ptr> {
@@ -737,7 +739,7 @@ fn pad_frames<F: LurkField, C: Coprocessor<F>>(
     frames.resize(size, padding_frame);
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
+impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<F, C> {
     fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         let mut synth = |store: &Store<F>, frames: &[Frame], input: &[Ptr], output: &[Ptr]| {
             let mut allocated_input = Vec::with_capacity(input.len());
@@ -814,7 +816,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
+impl<F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<F, C> {
     fn public_inputs(&self) -> Vec<F> {
         let InterpretationData::Filled {
             store,
@@ -851,9 +853,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
-    for MultiFrame<'a, F, C>
-{
+impl<F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F> for MultiFrame<F, C> {
     fn arity(&self) -> usize {
         2 * self.lurk_step.input_params.len()
     }
@@ -919,7 +919,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit::StepCircuit<F>
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> nova::supernova::StepCircuit<F> for MultiFrame<'a, F, C> {
+impl<F: LurkField, C: Coprocessor<F>> nova::supernova::StepCircuit<F> for MultiFrame<F, C> {
     fn arity(&self) -> usize {
         2 * self.lurk_step.input_params.len()
     }
@@ -932,9 +932,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::supernova::StepCircuit<F> for Mu
     ) -> Result<(Option<AllocatedNum<F>>, Vec<AllocatedNum<F>>), SynthesisError> {
         let next_pc =
             AllocatedNum::alloc_infallible(ns!(cs, "next_pc"), || F::from_u64(self.next_pc as u64));
-        let output = <MultiFrame<'_, F, C> as nova::traits::circuit::StepCircuit<F>>::synthesize(
-            self, cs, z,
-        )?;
+        let output =
+            <MultiFrame<F, C> as nova::traits::circuit::StepCircuit<F>>::synthesize(self, cs, z)?;
         Ok((Some(next_pc), output))
     }
 
@@ -943,12 +942,12 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::supernova::StepCircuit<F> for Mu
     }
 }
 
-impl<'a, F, C> NonUniformCircuit<E1<F>> for MultiFrame<'a, F, C>
+impl<F, C> NonUniformCircuit<E1<F>> for MultiFrame<F, C>
 where
     F: CurveCycleEquipped + LurkField,
-    C: Coprocessor<F> + 'a,
+    C: Coprocessor<F>,
 {
-    type C1 = MultiFrame<'a, F, C>;
+    type C1 = MultiFrame<F, C>;
     type C2 = C2<F>;
 
     fn num_circuits(&self) -> usize {
@@ -956,7 +955,7 @@ where
         self.get_lang().coprocessor_count() + 1
     }
 
-    fn primary_circuit(&self, circuit_index: usize) -> MultiFrame<'a, F, C> {
+    fn primary_circuit(&self, circuit_index: usize) -> MultiFrame<F, C> {
         if circuit_index == 0 {
             self.clone()
         } else {

@@ -91,7 +91,7 @@ fn fibonacci_prove<M: measurement::Measurement>(
         true,
         Kind::NovaPublicParams,
     );
-    let store = Store::default();
+    let store = Arc::new(Store::default());
     let pp = public_params(&instance).unwrap();
 
     // Track the number of `Lurk frames / sec`

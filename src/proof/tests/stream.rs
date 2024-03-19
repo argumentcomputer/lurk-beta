@@ -35,7 +35,7 @@ fn test_continued_proof() {
             (let ((counter (+ counter x)))
             (cons counter (add counter))))))
         (add 0))";
-    let store = Store::<Fr>::default();
+    let store = Arc::new(Store::<Fr>::default());
     let callable = get_callable(callable_str, &store);
     let expected_iterations = &expect!["14"];
 

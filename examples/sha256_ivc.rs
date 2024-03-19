@@ -63,10 +63,10 @@ fn main() {
     let args = std::env::args().collect::<Vec<_>>();
     let n = args.get(1).unwrap_or(&"1".into()).parse().unwrap();
 
-    let store = &Store::default();
+    let store = Arc::new(Store::default());
     let cproc_sym = user_sym(&format!("sha256_ivc_{n}"));
 
-    let call = sha256_ivc(store, n, &(0..n).collect::<Vec<_>>());
+    let call = sha256_ivc(&*store, n, &(0..n).collect::<Vec<_>>());
 
     let mut lang = Lang::<Bn, Sha256Coproc<Bn>>::new();
     lang.add_coprocessor(cproc_sym, Sha256Coprocessor::new(n));
@@ -92,7 +92,7 @@ fn main() {
                     &pp,
                     call,
                     store.intern_empty_env(),
-                    store,
+                    &store,
                     10000,
                     &dummy_terminal(),
                 )

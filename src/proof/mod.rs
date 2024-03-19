@@ -30,6 +30,9 @@ use crate::{
 
 use self::{nova::CurveCycleEquipped, supernova::FoldingConfig};
 
+/// A constant indicating the maximum amount of frames to buffer in memory while proving
+const MAX_BUFFERED_FRAMES: usize = 1000;
+
 /// The State of a CEK machine.
 pub trait CEKState<Ptr> {
     /// the expression, or control word (C)
@@ -101,13 +104,15 @@ where
     type ErrorType;
 
     /// Generate the recursive SNARK, encoded in `ProveOutput`
-    fn prove_recursively(
+    fn prove_recursively<I: IntoIterator<Item = M>>(
         pp: &Self::PublicParams,
         z0: &[F],
-        steps: Vec<M>,
+        steps: I,
         store: &Store<F>,
         init: Option<Self::BaseRecursiveSNARK>,
-    ) -> Result<Self, ProofError>;
+    ) -> Result<Self, ProofError>
+    where
+        <I as IntoIterator>::IntoIter: ExactSizeIterator + Send;
 
     /// Compress a proof
     fn compress(&self, pp: &Self::PublicParams) -> Result<Cow<'_, Self>, ProofError>;
@@ -155,9 +160,9 @@ impl FoldingMode {
 }
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, F: CurveCycleEquipped> {
+pub trait Prover<F: CurveCycleEquipped> {
     /// Associated type for a frame-like datatype
-    type Frame: FrameLike<Ptr, FrameIO = Vec<Ptr>>;
+    type Frame: FrameLike<Ptr, FrameIO = Vec<Ptr>> + Send;
 
     /// Associated type for public parameters
     type PublicParams;
@@ -176,7 +181,7 @@ pub trait Prover<'a, F: CurveCycleEquipped> {
         &self,
         pp: &Self::PublicParams,
         steps: Vec<Self::Frame>,
-        store: &'a Store<F>,
+        store: &Store<F>,
         init: Option<
             <Self::RecursiveSNARK as RecursiveSNARKTrait<F, Self::Frame>>::BaseRecursiveSNARK,
         >,
@@ -198,7 +203,7 @@ pub trait Prover<'a, F: CurveCycleEquipped> {
         pp: &Self::PublicParams,
         expr: Ptr,
         env: Ptr,
-        store: &'a Store<F>,
+        store: &Arc<Store<F>>,
         limit: usize,
         ch_terminal: &ChannelTerminal<Ptr>,
     ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError>;
