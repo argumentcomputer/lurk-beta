@@ -360,7 +360,11 @@ where
                     let proof = proof.compress(&pp)?;
                     assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
                     assert!(proof.verify(&pp, &public_inputs, &public_outputs)?);
-                    (LurkProofWrapper::Nova(proof), public_inputs, public_outputs)
+                    (
+                        LurkProofWrapper::Nova(proof.into_owned()),
+                        public_inputs,
+                        public_outputs,
+                    )
                 }
                 Backend::SuperNova => {
                     let prover = SuperNovaProver::<_, C>::new(self.rc, self.lang.clone());
@@ -375,7 +379,7 @@ where
                     let proof = proof.compress(&pp)?;
                     assert!(proof.verify(&pp, &public_inputs, &public_outputs)?);
                     (
-                        LurkProofWrapper::SuperNova(proof),
+                        LurkProofWrapper::SuperNova(proof.into_owned()),
                         public_inputs,
                         public_outputs,
                     )

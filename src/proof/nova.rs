@@ -15,6 +15,7 @@ use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     marker::PhantomData,
     sync::{Arc, Mutex},
 };
@@ -161,7 +162,7 @@ impl<F: CurveCycleEquipped> From<NovaPublicParams<F>> for PublicParams<F> {
 }
 
 /// An enum representing the two types of proofs that can be generated and verified.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(bound = "")]
 pub enum Proof<F: CurveCycleEquipped, S> {
     /// A proof for the intermediate steps of a recursive computation along with
@@ -331,18 +332,20 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         ))
     }
 
-    fn compress(self, pp: &PublicParams<F>) -> Result<Self, ProofError> {
+    fn compress(&self, pp: &PublicParams<F>) -> Result<Cow<'_, Self>, ProofError> {
         match self {
-            Self::Recursive(recursive_snark, num_steps, _phantom) => Ok(Self::Compressed(
-                Box::new(CompressedSNARK::<_, SS1<F>, SS2<F>>::prove(
-                    &pp.pp,
-                    pp.pk(),
-                    &recursive_snark,
-                )?),
-                num_steps,
-                PhantomData,
-            )),
-            Self::Compressed(..) => Ok(self),
+            Self::Recursive(recursive_snark, num_steps, _phantom) => {
+                Ok(Cow::Owned(Self::Compressed(
+                    Box::new(CompressedSNARK::<_, SS1<F>, SS2<F>>::prove(
+                        &pp.pp,
+                        pp.pk(),
+                        recursive_snark,
+                    )?),
+                    *num_steps,
+                    PhantomData,
+                )))
+            }
+            Self::Compressed(..) => Ok(Cow::Borrowed(self)),
         }
     }
 

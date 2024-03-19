@@ -14,6 +14,7 @@ use once_cell::sync::OnceCell;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     marker::PhantomData,
     ops::Index,
     sync::{Arc, Mutex},
@@ -137,7 +138,7 @@ pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>>(
 }
 
 /// An enum representing the two types of proofs that can be generated and verified.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(bound = "")]
 pub enum Proof<F: CurveCycleEquipped, S> {
     /// A proof for the intermediate steps of a recursive computation
@@ -314,14 +315,14 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<
         ))
     }
 
-    fn compress(self, pp: &PublicParams<F>) -> Result<Self, ProofError> {
+    fn compress(&self, pp: &PublicParams<F>) -> Result<Cow<'_, Self>, ProofError> {
         match &self {
             Self::Recursive(recursive_snark, _phantom) => {
                 let snark =
                     CompressedSNARK::<_, SS1<F>, SS2<F>>::prove(&pp.pp, pp.pk(), recursive_snark)?;
-                Ok(Self::Compressed(Box::new(snark), PhantomData))
+                Ok(Cow::Owned(Self::Compressed(Box::new(snark), PhantomData)))
             }
-            Self::Compressed(..) => Ok(self),
+            Self::Compressed(..) => Ok(Cow::Borrowed(self)),
         }
     }
 

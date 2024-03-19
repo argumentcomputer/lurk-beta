@@ -195,7 +195,7 @@ fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a>(
         assert!(res.unwrap());
 
         let compressed: crate::proof::nova::Proof<F, C1LEM<'a, F, C>> =
-            proof.compress(&pp).unwrap();
+            proof.compress(&pp).unwrap().into_owned();
         let res2 = compressed.verify(&pp, &z0, &zi);
 
         assert!(res2.unwrap());
