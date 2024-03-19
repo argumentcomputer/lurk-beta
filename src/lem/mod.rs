@@ -62,7 +62,7 @@
 pub mod circuit;
 pub mod coroutine;
 pub mod eval;
-pub(crate) mod interpreter;
+pub mod interpreter;
 mod macros;
 pub mod multiframe;
 pub mod pointers;
