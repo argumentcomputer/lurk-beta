@@ -202,7 +202,7 @@ ledger2
 
 ;; We can verify the proof..
 
-!(verify "supernova_bn256_10_11882126c5f0dd9a94f76ff58ea5c499cfe2364162585c320c55f53651e16ffd")
+!(verify "supernova_bn256_10_2729492c67fc7d6adbd52705c714152979b65ac304f2679eb11e8eecc0eb09c5")
 
 ;; Unfortunately, this functional commitment doesn't let us maintain state.
 ;; Let's turn our single-transaction function into a chained function.
@@ -223,7 +223,7 @@ ledger2
 
 !(prove)
 
-!(verify "supernova_bn256_10_0b72908859e73ee3014067a5eaa557a995aea262cfb5f3621922024a176b8281")
+!(verify "supernova_bn256_10_176d2e388b909d361746d7b9c5cb0a7c7d8f020e027729d53a8db12d025ed687")
 
 ;; Then we can transfer 5 more, proceeding from the new head of the chain.
 
@@ -231,7 +231,7 @@ ledger2
 
 !(prove)
 
-!(verify "supernova_bn256_10_0d8159faab0d85855d4cf53c7e36a2357a1766a1540afbafb0ef93d7e1537ca8")
+!(verify "supernova_bn256_10_1bca041de218e346bd36ae7a67233919bf748d8bb19fd949e84bfc3399cde03d")
 
 ;; And once more, this time we'll transfer 20 from Turing to Church.
 
@@ -239,4 +239,4 @@ ledger2
 
 !(prove)
 
-!(verify "supernova_bn256_10_0a253296edb4d6c204edd92e63176efed7c30e9f5928b52ba9be2b3f2e6e8b08")
+!(verify "supernova_bn256_10_0c0b590f5a75d3232b270944e681dac76cce7802725d77f9ca06f93cd672a075")

@@ -135,7 +135,10 @@ impl<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> Repl<F, C> 
     }
 
     fn peek1(&self, args: &Ptr) -> Result<Ptr> {
-        let (first, rest) = self.store.car_cdr_simple(args)?;
+        let (first, rest) = self
+            .store
+            .fetch_cons(args)
+            .ok_or(anyhow!("Missing argument"))?;
         if !rest.is_nil() {
             bail!("At most one argument is accepted")
         }
@@ -143,8 +146,14 @@ impl<F: LurkField, C: Coprocessor<F> + Serialize + DeserializeOwned> Repl<F, C> 
     }
 
     fn peek2(&self, args: &Ptr) -> Result<(Ptr, Ptr)> {
-        let (first, rest) = self.store.car_cdr_simple(args)?;
-        let (second, rest) = self.store.car_cdr_simple(&rest)?;
+        let (first, rest) = self
+            .store
+            .fetch_cons(args)
+            .ok_or(anyhow!("Missing first argument"))?;
+        let (second, rest) = self
+            .store
+            .fetch_cons(&rest)
+            .ok_or(anyhow!("Missing second argument"))?;
         if !rest.is_nil() {
             bail!("At most two arguments are accepted")
         }
@@ -219,6 +228,7 @@ where
         }
     }
 
+    #[inline]
     fn lang_setup(&self) -> (&Func, &[Func], &Lang<F, C>) {
         (&self.lurk_step, &self.cprocs, &self.lang)
     }
@@ -556,17 +566,18 @@ where
         Ok((output, iterations))
     }
 
-    /// Evaluates `hash_expr` and returns the resulting commitment hash
+    /// Evaluates `hash_expr` then returns the resulting commitment hash and the
+    /// resulting pointer
     ///
     /// # Errors
     /// Errors when `hash_expr` doesn't reduce to a Num or Comm pointer
-    fn get_comm_hash(&mut self, hash_expr: Ptr) -> Result<&F> {
+    fn get_comm_hash(&mut self, hash_expr: Ptr) -> Result<(F, Ptr)> {
         let io = self.eval_expr(hash_expr)?;
         let (Tag::Expr(ExprTag::Num | ExprTag::Comm), RawPtr::Atom(hash_idx)) = io[0].parts()
         else {
             bail!("Commitment hash expression must reduce to a Num or Comm pointer")
         };
-        Ok(self.store.expect_f(*hash_idx))
+        Ok((*self.store.expect_f(*hash_idx), io[0]))
     }
 
     pub(crate) fn handle_non_meta(&mut self, expr_ptr: Ptr) -> Result<()> {
