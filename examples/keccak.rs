@@ -337,12 +337,12 @@ fn main() {
     let args = std::env::args().collect::<Vec<_>>();
 
     // Initialize store, responsible for handling variables in the lurk context
-    let store: Arc<Store<pallas::Scalar>> = Arc::new(Store::default());
+    let store: &Store<pallas::Scalar> = &Store::default();
 
     // Define the symbol that will call upon our Coprocessor
     let str_to_le_bits_sym = user_sym("str_to_le_bits");
     let keccak_sym = user_sym("keccak_hash");
-    let program = lurk_program(&*store, &args[1]);
+    let program = lurk_program(store, &args[1]);
 
     // Create the Lang. ie the list of corprocessor that will be accessible in our program
     let mut lang = Lang::<pallas::Scalar, KeccakExampleCoproc<pallas::Scalar>>::new();
@@ -360,7 +360,7 @@ fn main() {
     let frames = evaluate(
         Some((&lurk_step, &cprocs, &lang)),
         program,
-        &*store,
+        store,
         1000,
         &dummy_terminal(),
     )
@@ -395,7 +395,7 @@ fn main() {
     let proof_start = Instant::now();
 
     let (proof, z0, zi, _) = supernova_prover
-        .prove_from_frames(&pp, &frames, &store, None)
+        .prove_from_frames(&pp, &frames, store, None)
         .unwrap();
 
     let proof_end = proof_start.elapsed();

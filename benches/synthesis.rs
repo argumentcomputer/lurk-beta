@@ -48,7 +48,7 @@ fn synthesize<M: measurement::Measurement>(
         BenchmarkId::new(name.to_string(), reduction_count),
         &reduction_count,
         |b, reduction_count| {
-            let store = Arc::new(Store::default());
+            let store = Store::default();
             let fib_n = (reduction_count / 3) as u64; // Heuristic, since one fib is 35 iterations.
             let ptr = fib::<Bn>(&store, state.clone(), black_box(fib_n));
             let frames =

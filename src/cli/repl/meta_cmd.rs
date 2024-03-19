@@ -47,6 +47,7 @@ pub(super) struct MetaCmd<F: LurkField, C: Coprocessor<F> + Serialize + Deserial
 }
 
 impl<
+        'a,
         F: CurveCycleEquipped + Serialize + DeserializeOwned,
         C: Coprocessor<F> + Serialize + DeserializeOwned + 'static,
     > MetaCmd<F, C>
@@ -1009,7 +1010,7 @@ where
             let mut z_dag = ZDag::default();
             let z_ptr = z_dag.populate_with(&args, &repl.store, &mut Default::default());
             let args = LurkData { z_ptr, z_dag };
-            let LurkProof { proof, .. } = load::<LurkProof<_, C>>(&proof_path(&proof_key))?;
+            let LurkProof { proof, .. } = load::<LurkProof<'_, _, C>>(&proof_path(&proof_key))?;
             match proof {
                 LurkProofWrapper::Nova(proof) => {
                     assert_eq!(backend, Backend::Nova);
@@ -1053,7 +1054,7 @@ where
             let ProtocolProof {
                 args: LurkData { z_ptr, z_dag },
                 proof,
-            } = load::<ProtocolProof<F, C1LEM<F, C>>>(&path)?;
+            } = load::<ProtocolProof<F, C1LEM<'a, F, C>>>(&path)?;
 
             let args = z_dag.populate_store(&z_ptr, &repl.store, &mut Default::default())?;
 

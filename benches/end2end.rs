@@ -63,8 +63,8 @@ fn end2end_benchmark(c: &mut Criterion) {
     let lang = Lang::<Bn>::new();
     let lang_rc = Arc::new(lang.clone());
 
-    let store = Arc::new(Store::default());
-    let prover: NovaProver<Bn, Coproc<Bn>> = NovaProver::new(reduction_count, lang_rc.clone());
+    let store = Store::default();
+    let prover: NovaProver<'_, Bn, Coproc<Bn>> = NovaProver::new(reduction_count, lang_rc.clone());
 
     // use cached public params
     let instance = Instance::new(reduction_count, lang_rc, true, Kind::NovaPublicParams);
@@ -195,7 +195,7 @@ fn prove_benchmark(c: &mut Criterion) {
     let limit = 1_000_000_000;
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-    let store = Arc::new(Store::default());
+    let store = Store::default();
 
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("prove_go_base_nova", format!("_{}_{}", size.0, size.1));
@@ -216,7 +216,8 @@ fn prove_benchmark(c: &mut Criterion) {
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Bn>(&store, state.clone(), s.0, s.1);
-        let prover: NovaProver<Bn, Coproc<Bn>> = NovaProver::new(reduction_count, lang_rc.clone());
+        let prover: NovaProver<'_, Bn, Coproc<Bn>> =
+            NovaProver::new(reduction_count, lang_rc.clone());
         let frames =
             evaluate::<Bn, Coproc<Bn>>(None, ptr, &store, limit, &dummy_terminal()).unwrap();
 
@@ -241,7 +242,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
 
     set_bench_config();
     let limit = 1_000_000_000;
-    let store = Arc::new(Store::default());
+    let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     let size = (10, 0);
@@ -292,7 +293,7 @@ fn verify_benchmark(c: &mut Criterion) {
 
     set_bench_config();
     let limit = 1_000_000_000;
-    let store = Arc::new(Store::default());
+    let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     let state = State::init_lurk_state().rccell();
@@ -347,7 +348,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
 
     set_bench_config();
     let limit = 1_000_000_000;
-    let store = Arc::new(Store::default());
+    let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     let state = State::init_lurk_state().rccell();

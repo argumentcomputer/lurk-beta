@@ -100,10 +100,10 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
     type ErrorType = SuperNovaError;
 
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
-    fn prove_recursively<I: IntoIterator<Item = Coroutine<'a, F, Q>>>(
+    fn prove_recursively(
         pp: &PublicParams<F>,
         z0: &[F],
-        steps: I,
+        steps: Vec<Coroutine<'a, F, Q>>,
         _store: &Store<F>,
         init: Option<RecursiveSNARK<E1<F>>>,
     ) -> Result<Self, ProofError> {
@@ -136,8 +136,8 @@ impl<'a, F: CurveCycleEquipped, Q: Query<F> + Send + Sync>
 
             recursive_snark_option = Some(recursive_snark);
         };
-        for (i, step) in steps.into_iter().enumerate() {
-            prove_step(i, &step);
+        for (i, step) in steps.iter().enumerate() {
+            prove_step(i, step);
         }
         // This probably should be made unnecessary.
         Ok(Self::Recursive(

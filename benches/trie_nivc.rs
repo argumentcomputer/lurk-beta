@@ -37,7 +37,7 @@ fn prove<M: measurement::Measurement>(
     name: &str,
     reduction_count: usize,
     lang: &Arc<Lang<Fr, TrieCoproc<Fr>>>,
-    store: &Arc<Store<Fr>>,
+    store: &Store<Fr>,
     frames: &[Frame],
     c: &mut BenchmarkGroup<'_, M>,
 ) {
@@ -67,7 +67,7 @@ fn trie_nivc(c: &mut Criterion) {
     install(&state, &mut lang);
     let lang = Arc::new(lang);
 
-    let store = Arc::new(Store::<Fr>::default());
+    let store = Store::<Fr>::default();
     let expr = store.read(state, CODE).unwrap();
 
     let lurk_step = make_eval_step_from_config(&EvalConfig::new_nivc(&lang));

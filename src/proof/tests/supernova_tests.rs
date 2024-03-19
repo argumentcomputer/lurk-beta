@@ -23,7 +23,7 @@ fn test_nil_nil_lang() {
     let lurk_step = make_eval_step_from_config(&eval_config);
     let cprocs = make_cprocs_funcs_from_lang(&lang);
 
-    let store = Arc::new(Store::default());
+    let store = Store::default();
     let expr = store.read_with_default_state("(nil-nil)").unwrap();
     let frames = evaluate(
         Some((&lurk_step, &cprocs, &lang)),

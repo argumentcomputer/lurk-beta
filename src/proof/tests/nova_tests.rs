@@ -19,7 +19,7 @@ use super::{
 
 #[test]
 fn test_prove_self_evaluating() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr_num = "999";
     let expt_num = s.num_u64(999);
 
@@ -52,12 +52,12 @@ fn test_prove_self_evaluating() {
     ]
     .into_iter()
     {
-        test_aux::<_, Coproc<_>>(&s, expr, Some(expt), None, None, None, &expect!["1"], &None);
+        test_aux::<_, Coproc<_>>(s, expr, Some(expt), None, None, None, &expect!["1"], &None);
     }
 
     let fun = s.intern_fun(s.intern_user_symbol("x"), s.list(vec![expt_nil]), expt_nil);
     nova_test_full_aux2::<_, Coproc<_>>(
-        &s,
+        s,
         fun,
         Some(fun),
         None,
@@ -73,11 +73,11 @@ fn test_prove_self_evaluating() {
 
 #[test]
 fn test_prove_binop() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(3);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(+ 1 2)",
         Some(expected),
         None,
@@ -93,11 +93,11 @@ fn test_prove_binop() {
 // This tests the testing mechanism. Since the supplied expected value is wrong,
 // the test should panic on an assertion failure.
 fn test_prove_binop_fail() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(2);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(+ 1 2)",
         Some(expected),
         None,
@@ -111,11 +111,11 @@ fn test_prove_binop_fail() {
 #[test]
 #[ignore]
 fn test_prove_arithmetic_let() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(3);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((a 5)
                   (b 1)
                   (c 2))
@@ -132,11 +132,11 @@ fn test_prove_arithmetic_let() {
 #[test]
 #[ignore]
 fn test_prove_eq() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_lurk_symbol("t");
     let terminal = s.cont_terminal();
     nova_test_full_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(eq 5 5)",
         Some(expected),
         None,
@@ -153,11 +153,11 @@ fn test_prove_eq() {
 #[test]
 #[ignore]
 fn test_prove_num_equal() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_lurk_symbol("t");
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(= 5 5)",
         Some(expected),
         None,
@@ -170,7 +170,7 @@ fn test_prove_num_equal() {
     let expected = s.intern_nil();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(= 5 6)",
         Some(expected),
         None,
@@ -183,11 +183,11 @@ fn test_prove_num_equal() {
 
 #[test]
 fn test_prove_invalid_num_equal() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_nil();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(= 5 nil)",
         Some(expected),
         None,
@@ -199,7 +199,7 @@ fn test_prove_invalid_num_equal() {
 
     let expected = s.num_u64(5);
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(= nil 5)",
         Some(expected),
         None,
@@ -212,13 +212,13 @@ fn test_prove_invalid_num_equal() {
 
 #[test]
 fn test_prove_equal() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let nil = s.intern_nil();
     let t = s.intern_lurk_symbol("t");
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(eq 5 nil)",
         Some(nil),
         None,
@@ -228,7 +228,7 @@ fn test_prove_equal() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(eq nil 5)",
         Some(nil),
         None,
@@ -238,7 +238,7 @@ fn test_prove_equal() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(eq nil nil)",
         Some(t),
         None,
@@ -248,7 +248,7 @@ fn test_prove_equal() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(eq 5 5)",
         Some(t),
         None,
@@ -261,10 +261,10 @@ fn test_prove_equal() {
 
 #[test]
 fn test_prove_quote_end_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(quote (1) (2))",
         None,
         None,
@@ -277,11 +277,11 @@ fn test_prove_quote_end_is_nil_error() {
 
 #[test]
 fn test_prove_if() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(5);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(if t 5 6)",
         Some(expected),
         None,
@@ -294,7 +294,7 @@ fn test_prove_if() {
     let expected = s.num_u64(6);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(if nil 5 6)",
         Some(expected),
         None,
@@ -307,11 +307,11 @@ fn test_prove_if() {
 
 #[test]
 fn test_prove_if_end_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(5);
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(if nil 5 6 7)",
         Some(expected),
         None,
@@ -325,11 +325,11 @@ fn test_prove_if_end_is_nil_error() {
 #[test]
 #[ignore]
 fn test_prove_if_fully_evaluates() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(10);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(if t (+ 5 5) 6)",
         Some(expected),
         None,
@@ -343,11 +343,11 @@ fn test_prove_if_fully_evaluates() {
 #[test]
 #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
 fn test_prove_recursion1() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(25);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((exp (lambda (base)
                            (lambda (exponent)
                              (if (= 0 exponent)
@@ -366,11 +366,11 @@ fn test_prove_recursion1() {
 #[test]
 #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
 fn test_prove_recursion2() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(25);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((exp (lambda (base)
                               (lambda (exponent)
                                  (lambda (acc)
@@ -388,11 +388,11 @@ fn test_prove_recursion2() {
 }
 
 fn test_prove_unop_regression_aux(chunk_count: usize) {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_lurk_symbol("t");
     let terminal = s.cont_terminal();
     nova_test_full_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(atom 123)",
         Some(expected),
         None,
@@ -407,7 +407,7 @@ fn test_prove_unop_regression_aux(chunk_count: usize) {
 
     let expected = s.num_u64(1);
     nova_test_full_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(car '(1 . 2))",
         Some(expected),
         None,
@@ -422,7 +422,7 @@ fn test_prove_unop_regression_aux(chunk_count: usize) {
 
     let expected = s.num_u64(2);
     nova_test_full_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(cdr '(1 . 2))",
         Some(expected),
         None,
@@ -437,7 +437,7 @@ fn test_prove_unop_regression_aux(chunk_count: usize) {
 
     let expected = s.num_u64(123);
     nova_test_full_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(emit 123)",
         Some(expected),
         None,
@@ -464,11 +464,11 @@ fn test_prove_unop_regression() {
 #[test]
 #[ignore]
 fn test_prove_emit_output() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(emit 123)",
         Some(expected),
         None,
@@ -482,11 +482,11 @@ fn test_prove_emit_output() {
 #[test]
 #[ignore]
 fn test_prove_evaluate() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(99);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda (x) x) 99)",
         Some(expected),
         None,
@@ -500,11 +500,11 @@ fn test_prove_evaluate() {
 #[test]
 #[ignore]
 fn test_prove_evaluate2() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(99);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda (y)
                 ((lambda (x) y) 888))
               99)",
@@ -520,11 +520,11 @@ fn test_prove_evaluate2() {
 #[test]
 #[ignore]
 fn test_prove_evaluate3() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(999);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda (y)
                  ((lambda (x)
                     ((lambda (z) z)
@@ -543,11 +543,11 @@ fn test_prove_evaluate3() {
 #[test]
 #[ignore]
 fn test_prove_evaluate4() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(888);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda (y)
                  ((lambda (x)
                     ((lambda (z) z)
@@ -567,11 +567,11 @@ fn test_prove_evaluate4() {
 #[test]
 #[ignore]
 fn test_prove_evaluate5() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(999);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(((lambda (fn)
                   (lambda (x) (fn x)))
                 (lambda (y) y))
@@ -588,11 +588,11 @@ fn test_prove_evaluate5() {
 #[test]
 #[ignore]
 fn test_prove_evaluate_sum() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(9);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(+ 2 (+ 3 4))",
         Some(expected),
         None,
@@ -605,11 +605,11 @@ fn test_prove_evaluate_sum() {
 
 #[test]
 fn test_prove_binop_rest_is_nil() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(9);
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(- 9 8 7)",
         Some(expected),
         None,
@@ -619,7 +619,7 @@ fn test_prove_binop_rest_is_nil() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(= 9 8 7)",
         Some(expected),
         None,
@@ -631,7 +631,7 @@ fn test_prove_binop_rest_is_nil() {
 }
 
 fn op_syntax_error<T: Op + Copy>() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     let test = |op: T| {
         let name = op.symbol_name();
@@ -640,7 +640,7 @@ fn op_syntax_error<T: Op + Copy>() {
             let expr = format!("({name})");
             tracing::debug!("{:?}", &expr);
             test_aux::<_, Coproc<_>>(
-                &s,
+                s,
                 &expr,
                 None,
                 None,
@@ -654,7 +654,7 @@ fn op_syntax_error<T: Op + Copy>() {
             let expr = format!("({name} 123)");
             tracing::debug!("{:?}", &expr);
             test_aux::<_, Coproc<_>>(
-                &s,
+                s,
                 &expr,
                 None,
                 None,
@@ -668,7 +668,7 @@ fn op_syntax_error<T: Op + Copy>() {
             let expr = format!("({name} 123 456)");
             tracing::debug!("{:?}", &expr);
             test_aux::<_, Coproc<_>>(
-                &s,
+                s,
                 &expr,
                 None,
                 None,
@@ -687,7 +687,7 @@ fn op_syntax_error<T: Op + Copy>() {
             } else {
                 &expect!["1"]
             };
-            test_aux::<_, Coproc<_>>(&s, &expr, None, None, Some(error), None, iterations, &None);
+            test_aux::<_, Coproc<_>>(s, &expr, None, None, Some(error), None, iterations, &None);
         }
     };
 
@@ -710,11 +710,11 @@ fn test_prove_binop_syntax_error() {
 
 #[test]
 fn test_prove_diff() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(4);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(- 9 5)",
         Some(expected),
         None,
@@ -728,11 +728,11 @@ fn test_prove_diff() {
 #[test]
 #[ignore]
 fn test_prove_product() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(45);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(* 9 5)",
         Some(expected),
         None,
@@ -746,11 +746,11 @@ fn test_prove_product() {
 #[test]
 #[ignore]
 fn test_prove_quotient() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(7);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(/ 21 3)",
         Some(expected),
         None,
@@ -763,11 +763,11 @@ fn test_prove_quotient() {
 
 #[test]
 fn test_prove_error_div_by_zero() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(0);
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(/ 21 0)",
         Some(expected),
         None,
@@ -780,11 +780,11 @@ fn test_prove_error_div_by_zero() {
 
 #[test]
 fn test_prove_error_invalid_type_and_not_cons() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_nil();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(/ 21 nil)",
         Some(expected),
         None,
@@ -798,11 +798,11 @@ fn test_prove_error_invalid_type_and_not_cons() {
 #[test]
 #[ignore]
 fn test_prove_adder() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(5);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(((lambda (x)
                 (lambda (y)
                   (+ x y)))
@@ -819,11 +819,11 @@ fn test_prove_adder() {
 
 #[test]
 fn test_prove_current_env_simple() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_empty_env();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(current-env)",
         Some(expected),
         None,
@@ -836,11 +836,11 @@ fn test_prove_current_env_simple() {
 
 #[test]
 fn test_prove_current_env_rest_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.read_with_default_state("(current-env a)").unwrap();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(current-env a)",
         Some(expected),
         None,
@@ -854,11 +854,11 @@ fn test_prove_current_env_rest_is_nil_error() {
 #[test]
 #[ignore]
 fn test_prove_let_simple() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(1);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((a 1))
               a)",
         Some(expected),
@@ -872,10 +872,10 @@ fn test_prove_let_simple() {
 
 #[test]
 fn test_prove_let_end_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((a 1 2)) a)",
         None,
         None,
@@ -888,10 +888,10 @@ fn test_prove_let_end_is_nil_error() {
 
 #[test]
 fn test_prove_letrec_end_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((a 1 2)) a)",
         None,
         None,
@@ -904,10 +904,10 @@ fn test_prove_letrec_end_is_nil_error() {
 
 #[test]
 fn test_prove_lambda_empty_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda (x)) 0)",
         None,
         None,
@@ -920,10 +920,10 @@ fn test_prove_lambda_empty_error() {
 
 #[test]
 fn test_prove_let_empty_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let)",
         None,
         None,
@@ -936,10 +936,10 @@ fn test_prove_let_empty_error() {
 
 #[test]
 fn test_prove_let_empty_body_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((a 1)))",
         None,
         None,
@@ -952,10 +952,10 @@ fn test_prove_let_empty_body_error() {
 
 #[test]
 fn test_prove_letrec_empty_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec)",
         None,
         None,
@@ -968,10 +968,10 @@ fn test_prove_letrec_empty_error() {
 
 #[test]
 fn test_prove_letrec_empty_body_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((a 1)))",
         None,
         None,
@@ -984,11 +984,11 @@ fn test_prove_letrec_empty_body_error() {
 
 #[test]
 fn test_prove_let_body_nil() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_lurk_symbol("t");
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(eq nil (let () nil))",
         Some(expected),
         None,
@@ -1001,10 +1001,10 @@ fn test_prove_let_body_nil() {
 
 #[test]
 fn test_prove_let_rest_body_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((a 1)) a 1)",
         None,
         None,
@@ -1017,10 +1017,10 @@ fn test_prove_let_rest_body_is_nil_error() {
 
 #[test]
 fn test_prove_letrec_rest_body_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((a 1)) a 1)",
         None,
         None,
@@ -1034,11 +1034,11 @@ fn test_prove_letrec_rest_body_is_nil_error() {
 #[test]
 #[ignore]
 fn test_prove_let_null_bindings() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(3);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let () (+ 1 2))",
         Some(expected),
         None,
@@ -1051,11 +1051,11 @@ fn test_prove_let_null_bindings() {
 #[test]
 #[ignore]
 fn test_prove_letrec_null_bindings() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(3);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec () (+ 1 2))",
         Some(expected),
         None,
@@ -1069,11 +1069,11 @@ fn test_prove_letrec_null_bindings() {
 #[test]
 #[ignore]
 fn test_prove_let() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(6);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((a 1)
                    (b 2)
                    (c 3))
@@ -1090,11 +1090,11 @@ fn test_prove_let() {
 #[test]
 #[ignore]
 fn test_prove_arithmetic() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(20);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((((lambda (x)
                   (lambda (y)
                     (lambda (z)
@@ -1115,11 +1115,11 @@ fn test_prove_arithmetic() {
 #[test]
 #[ignore]
 fn test_prove_comparison() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_lurk_symbol("t");
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((x 2)
                    (y 3)
                    (z 4))
@@ -1137,11 +1137,11 @@ fn test_prove_comparison() {
 #[test]
 #[ignore]
 fn test_prove_conditional() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(5);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((true (lambda (a)
                            (lambda (b)
                              a)))
@@ -1166,11 +1166,11 @@ fn test_prove_conditional() {
 #[test]
 #[ignore]
 fn test_prove_conditional2() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(6);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((true (lambda (a)
                            (lambda (b)
                              a)))
@@ -1195,11 +1195,11 @@ fn test_prove_conditional2() {
 #[test]
 #[ignore]
 fn test_prove_fundamental_conditional_bug() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(5);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((true (lambda (a)
                            (lambda (b)
                              a)))
@@ -1221,11 +1221,11 @@ fn test_prove_fundamental_conditional_bug() {
 #[test]
 #[ignore]
 fn test_prove_fully_evaluates() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(10);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(if t (+ 5 5) 6)",
         Some(expected),
         None,
@@ -1239,11 +1239,11 @@ fn test_prove_fully_evaluates() {
 #[test]
 #[ignore]
 fn test_prove_recursion() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(25);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((exp (lambda (base)
                                (lambda (exponent)
                                  (if (= 0 exponent)
@@ -1262,11 +1262,11 @@ fn test_prove_recursion() {
 #[test]
 #[ignore]
 fn test_prove_recursion_multiarg() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(25);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((exp (lambda (base exponent)
                                (if (= 0 exponent)
                                    1
@@ -1284,11 +1284,11 @@ fn test_prove_recursion_multiarg() {
 #[test]
 #[ignore]
 fn test_prove_recursion_optimized() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(25);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((exp (lambda (base)
                             (letrec ((base-inner
                                        (lambda (exponent)
@@ -1309,11 +1309,11 @@ fn test_prove_recursion_optimized() {
 #[test]
 #[ignore]
 fn test_prove_tail_recursion() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(25);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((exp (lambda (base)
                                (lambda (exponent-remaining)
                                  (lambda (acc)
@@ -1333,10 +1333,12 @@ fn test_prove_tail_recursion() {
 #[test]
 #[ignore]
 fn test_prove_tail_recursion_somewhat_optimized() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(25);
     let terminal = s.cont_terminal();
-    test_aux::<_, Coproc<_>>( &s, "(letrec ((exp (lambda (base)
+    test_aux::<_, Coproc<_>>(
+        s,
+        "(letrec ((exp (lambda (base)
                                (letrec ((base-inner
                                           (lambda (exponent-remaining)
                                             (lambda (acc)
@@ -1356,11 +1358,11 @@ fn test_prove_tail_recursion_somewhat_optimized() {
 #[test]
 #[ignore]
 fn test_prove_no_mutual_recursion() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_lurk_symbol("t");
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((even (lambda (n)
                               (if (= 0 n)
                                   t
@@ -1382,10 +1384,10 @@ fn test_prove_no_mutual_recursion() {
 #[test]
 #[ignore]
 fn test_prove_no_mutual_recursion_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((even (lambda (n)
                               (if (= 0 n)
                                   t
@@ -1407,11 +1409,11 @@ fn test_prove_no_mutual_recursion_error() {
 #[test]
 #[ignore]
 fn test_prove_cons1() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(1);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(car (cons 1 2))",
         Some(expected),
         None,
@@ -1424,10 +1426,10 @@ fn test_prove_cons1() {
 
 #[test]
 fn test_prove_car_end_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(car (1 2) 3)",
         None,
         None,
@@ -1440,10 +1442,10 @@ fn test_prove_car_end_is_nil_error() {
 
 #[test]
 fn test_prove_cdr_end_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(cdr (1 2) 3)",
         None,
         None,
@@ -1456,10 +1458,10 @@ fn test_prove_cdr_end_is_nil_error() {
 
 #[test]
 fn test_prove_atom_end_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(atom 123 4)",
         None,
         None,
@@ -1472,10 +1474,10 @@ fn test_prove_atom_end_is_nil_error() {
 
 #[test]
 fn test_prove_emit_end_is_nil_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(emit 123 4)",
         None,
         None,
@@ -1488,11 +1490,11 @@ fn test_prove_emit_end_is_nil_error() {
 
 #[test]
 fn test_prove_cons2() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(2);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(cdr (cons 1 2))",
         Some(expected),
         None,
@@ -1505,11 +1507,11 @@ fn test_prove_cons2() {
 
 #[test]
 fn test_prove_zero_arg_lambda1() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda () 123))",
         Some(expected),
         None,
@@ -1522,11 +1524,11 @@ fn test_prove_zero_arg_lambda1() {
 
 #[test]
 fn test_prove_zero_arg_lambda2() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(10);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((x 9) (f (lambda () (+ x 1)))) (f))",
         Some(expected),
         None,
@@ -1539,7 +1541,7 @@ fn test_prove_zero_arg_lambda2() {
 
 #[test]
 fn test_prove_zero_arg_lambda3() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = {
         let args = s.list(vec![s.intern_user_symbol("x")]);
         let num = s.num_u64(123);
@@ -1548,7 +1550,7 @@ fn test_prove_zero_arg_lambda3() {
     };
     let terminal = s.cont_terminal();
     nova_test_full_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda (x) 123))",
         Some(expected),
         None,
@@ -1564,10 +1566,10 @@ fn test_prove_zero_arg_lambda3() {
 
 #[test]
 fn test_prove_zero_arg_lambda4() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda () 123) 1)",
         None,
         None,
@@ -1580,7 +1582,7 @@ fn test_prove_zero_arg_lambda4() {
 
 #[test]
 fn test_prove_nested_let_closure_regression() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let terminal = s.cont_terminal();
     let expected = s.num_u64(6);
     let expr = "(let ((data-function (lambda () 123))
@@ -1588,7 +1590,7 @@ fn test_prove_nested_let_closure_regression() {
                       (data (data-function)))
                   x)";
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -1602,11 +1604,11 @@ fn test_prove_nested_let_closure_regression() {
 #[test]
 #[ignore]
 fn test_prove_minimal_tail_call() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec
                ((f (lambda (x)
                      (if (= x 3)
@@ -1625,11 +1627,11 @@ fn test_prove_minimal_tail_call() {
 #[test]
 #[ignore]
 fn test_prove_cons_in_function1() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(2);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(((lambda (a)
                 (lambda (b)
                   (car (cons a b))))
@@ -1647,11 +1649,11 @@ fn test_prove_cons_in_function1() {
 #[test]
 #[ignore]
 fn test_prove_cons_in_function2() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(3);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(((lambda (a)
                 (lambda (b)
                   (cdr (cons a b))))
@@ -1669,11 +1671,11 @@ fn test_prove_cons_in_function2() {
 #[test]
 #[ignore]
 fn test_prove_multiarg_eval_bug() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(2);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(car (cdr '(1 2 3 4)))",
         Some(expected),
         None,
@@ -1687,11 +1689,11 @@ fn test_prove_multiarg_eval_bug() {
 #[test]
 #[ignore]
 fn test_prove_multiple_letrec_bindings() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec
                ((x 888)
                 (f (lambda (x)
@@ -1711,11 +1713,11 @@ fn test_prove_multiple_letrec_bindings() {
 #[test]
 #[ignore]
 fn test_prove_tail_call2() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec
                ((f (lambda (x)
                      (if (= x 5)
@@ -1735,11 +1737,11 @@ fn test_prove_tail_call2() {
 #[test]
 #[ignore]
 fn test_prove_multiple_letrecstar_bindings() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(13);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((double (lambda (x) (* 2 x)))
                        (square (lambda (x) (* x x))))
                       (+ (square 3) (double 2)))",
@@ -1755,11 +1757,11 @@ fn test_prove_multiple_letrecstar_bindings() {
 #[test]
 #[ignore]
 fn test_prove_multiple_letrecstar_bindings_referencing() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(11);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((double (lambda (x) (* 2 x)))
                        (double-inc (lambda (x) (+ 1 (double x)))))
                       (+ (double 3) (double-inc 2)))",
@@ -1775,11 +1777,11 @@ fn test_prove_multiple_letrecstar_bindings_referencing() {
 #[test]
 #[ignore]
 fn test_prove_multiple_letrecstar_bindings_recursive() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(33);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((exp (lambda (base exponent)
                               (if (= 0 exponent)
                                   1
@@ -1806,11 +1808,11 @@ fn test_prove_multiple_letrecstar_bindings_recursive() {
 #[test]
 #[ignore]
 fn test_prove_dont_discard_rest_env() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(18);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((z 9))
                (letrec ((a 1)
                          (b 2)
@@ -1828,11 +1830,11 @@ fn test_prove_dont_discard_rest_env() {
 #[test]
 #[ignore]
 fn test_prove_fibonacci() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(1);
     let terminal = s.cont_terminal();
     nova_test_full_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((next (lambda (a b n target)
                  (if (eq n target)
                      a
@@ -1859,11 +1861,11 @@ fn test_prove_fibonacci() {
 #[test]
 #[ignore]
 fn test_one_folding() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(4);
     let terminal = s.cont_terminal();
     nova_test_full_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(+ 1 (+ 1 (+ 1 1)))",
         Some(expected),
         None,
@@ -1879,10 +1881,10 @@ fn test_one_folding() {
 
 #[test]
 fn test_prove_terminal_continuation_regression() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((a (lambda (x) (cons 2 2))))
            (a 1))",
         None,
@@ -1897,10 +1899,10 @@ fn test_prove_terminal_continuation_regression() {
 #[test]
 #[ignore]
 fn test_prove_chained_functional_commitment() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((secret 12345)
                   (a (lambda (acc x)
                        (let ((acc (+ acc x)))
@@ -1917,11 +1919,11 @@ fn test_prove_chained_functional_commitment() {
 
 #[test]
 fn test_prove_begin_empty() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_nil();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(begin)",
         Some(expected),
         None,
@@ -1934,12 +1936,12 @@ fn test_prove_begin_empty() {
 
 #[test]
 fn test_prove_begin_emit() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(begin (emit 1) (emit 2) (emit 3))";
     let expected_expr = s.num_u64(3);
     let expected_emitted = vec![s.num_u64(1), s.num_u64(2), s.num_u64(3)];
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected_expr),
         None,
@@ -1952,11 +1954,11 @@ fn test_prove_begin_emit() {
 
 #[test]
 fn test_prove_str_car() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected_a = s.read_with_default_state(r"#\a").unwrap();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(car "apple")"#,
         Some(expected_a),
         None,
@@ -1969,11 +1971,11 @@ fn test_prove_str_car() {
 
 #[test]
 fn test_prove_str_cdr() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected_pple = s.read_with_default_state(r#" "pple" "#).unwrap();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cdr "apple")"#,
         Some(expected_pple),
         None,
@@ -1986,11 +1988,11 @@ fn test_prove_str_cdr() {
 
 #[test]
 fn test_prove_str_car_empty() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected_nil = s.intern_nil();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(car "")"#,
         Some(expected_nil),
         None,
@@ -2003,11 +2005,11 @@ fn test_prove_str_car_empty() {
 
 #[test]
 fn test_prove_str_cdr_empty() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected_empty_str = s.intern_string("");
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cdr "")"#,
         Some(expected_empty_str),
         None,
@@ -2020,11 +2022,11 @@ fn test_prove_str_cdr_empty() {
 
 #[test]
 fn test_prove_strcons() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected_apple = s.read_with_default_state(r#" "apple" "#).unwrap();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(strcons #\a "pple")"#,
         Some(expected_apple),
         None,
@@ -2037,10 +2039,10 @@ fn test_prove_strcons() {
 
 #[test]
 fn test_prove_str_cons_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r"(strcons #\a 123)",
         None,
         None,
@@ -2053,10 +2055,10 @@ fn test_prove_str_cons_error() {
 
 #[test]
 fn test_prove_one_arg_cons_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cons "")"#,
         None,
         None,
@@ -2069,11 +2071,11 @@ fn test_prove_one_arg_cons_error() {
 
 #[test]
 fn test_prove_car_nil() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_nil();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(car nil)"#,
         Some(expected),
         None,
@@ -2086,11 +2088,11 @@ fn test_prove_car_nil() {
 
 #[test]
 fn test_prove_cdr_nil() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_nil();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cdr nil)"#,
         Some(expected),
         None,
@@ -2103,10 +2105,10 @@ fn test_prove_cdr_nil() {
 
 #[test]
 fn test_prove_car_cdr_invalid_tag_error_sym() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(car car)"#,
         None,
         None,
@@ -2116,7 +2118,7 @@ fn test_prove_car_cdr_invalid_tag_error_sym() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cdr car)"#,
         None,
         None,
@@ -2129,10 +2131,10 @@ fn test_prove_car_cdr_invalid_tag_error_sym() {
 
 #[test]
 fn test_prove_car_cdr_invalid_tag_error_char() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r"(car #\a)",
         None,
         None,
@@ -2142,7 +2144,7 @@ fn test_prove_car_cdr_invalid_tag_error_char() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r"(cdr #\a)",
         None,
         None,
@@ -2155,10 +2157,10 @@ fn test_prove_car_cdr_invalid_tag_error_char() {
 
 #[test]
 fn test_prove_car_cdr_invalid_tag_error_num() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(car 42)"#,
         None,
         None,
@@ -2168,7 +2170,7 @@ fn test_prove_car_cdr_invalid_tag_error_num() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cdr 42)"#,
         None,
         None,
@@ -2181,12 +2183,12 @@ fn test_prove_car_cdr_invalid_tag_error_num() {
 
 #[test]
 fn test_prove_car_cdr_of_cons() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let res1 = s.num_u64(1);
     let res2 = s.num_u64(2);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(car (cons 1 2))"#,
         Some(res1),
         None,
@@ -2196,7 +2198,7 @@ fn test_prove_car_cdr_of_cons() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cdr (cons 1 2))"#,
         Some(res2),
         None,
@@ -2209,10 +2211,10 @@ fn test_prove_car_cdr_of_cons() {
 
 #[test]
 fn test_prove_car_cdr_invalid_tag_error_lambda() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(car (lambda (x) x))"#,
         None,
         None,
@@ -2222,7 +2224,7 @@ fn test_prove_car_cdr_invalid_tag_error_lambda() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cdr (lambda (x) x))"#,
         None,
         None,
@@ -2235,12 +2237,12 @@ fn test_prove_car_cdr_invalid_tag_error_lambda() {
 
 #[test]
 fn test_prove_hide_open() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open (hide 123 456))";
     let expected = s.num_u64(456);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2253,29 +2255,20 @@ fn test_prove_hide_open() {
 
 #[test]
 fn test_prove_hide_wrong_secret_type() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(hide 'x 456)";
     let error = s.cont_error();
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["3"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
 fn test_prove_hide_secret() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(secret (hide 123 456))";
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2288,12 +2281,12 @@ fn test_prove_hide_secret() {
 
 #[test]
 fn test_prove_hide_open_sym() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open (hide 123 'x))";
     let x = s.intern_user_symbol("x");
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(x),
         None,
@@ -2306,12 +2299,12 @@ fn test_prove_hide_open_sym() {
 
 #[test]
 fn test_prove_commit_open_sym() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open (commit 'x))";
     let x = s.intern_user_symbol("x");
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(x),
         None,
@@ -2324,12 +2317,12 @@ fn test_prove_commit_open_sym() {
 
 #[test]
 fn test_prove_commit_open() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open (commit 123))";
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2342,80 +2335,44 @@ fn test_prove_commit_open() {
 
 #[test]
 fn test_prove_commit_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(commit 123 456)";
     let error = s.cont_error();
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["1"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
 fn test_prove_open_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open 123 456)";
     let error = s.cont_error();
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["1"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
 }
 
 #[test]
 fn test_prove_open_wrong_type() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open 'asdf)";
     let error = s.cont_error();
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["2"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
 }
 
 #[test]
 fn test_prove_secret_wrong_type() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(secret 'asdf)";
     let error = s.cont_error();
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["2"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
 }
 
 #[test]
 fn test_prove_commit_secret() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(secret (commit 123))";
     let expected = s.num_u64(0);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2428,12 +2385,12 @@ fn test_prove_commit_secret() {
 
 #[test]
 fn test_prove_num() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(num 123)";
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2446,12 +2403,12 @@ fn test_prove_num() {
 
 #[test]
 fn test_prove_num_char() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = r"(num #\a)";
     let expected = s.num_u64(97);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2464,12 +2421,12 @@ fn test_prove_num_char() {
 
 #[test]
 fn test_prove_char_num() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = r#"(char 97)"#;
     let expected_a = s.read_with_default_state(r"#\a").unwrap();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected_a),
         None,
@@ -2482,14 +2439,14 @@ fn test_prove_char_num() {
 
 #[test]
 fn test_prove_char_coercion() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = r#"(char (+ 4294967296 97))"#;
     let expr2 = r#"(char (+ 4294967296 98))"#;
     let expected_a = s.read_with_default_state(r"#\a").unwrap();
     let expected_b = s.read_with_default_state(r"#\b").unwrap();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<Fr>>(
-        &s,
+        s,
         expr,
         Some(expected_a),
         None,
@@ -2499,7 +2456,7 @@ fn test_prove_char_coercion() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(expected_b),
         None,
@@ -2512,11 +2469,11 @@ fn test_prove_char_coercion() {
 
 #[test]
 fn test_prove_commit_num() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(num (commit 123))";
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         None,
         None,
@@ -2529,12 +2486,12 @@ fn test_prove_commit_num() {
 
 #[test]
 fn test_prove_hide_open_comm_num() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open (comm (num (hide 123 456))))";
     let expected = s.num_u64(456);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2547,12 +2504,12 @@ fn test_prove_hide_open_comm_num() {
 
 #[test]
 fn test_prove_hide_secret_comm_num() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(secret (comm (num (hide 123 456))))";
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2565,12 +2522,12 @@ fn test_prove_hide_secret_comm_num() {
 
 #[test]
 fn test_prove_commit_open_comm_num() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open (comm (num (commit 123))))";
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2583,12 +2540,12 @@ fn test_prove_commit_open_comm_num() {
 
 #[test]
 fn test_prove_commit_secret_comm_num() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(secret (comm (num (commit 123))))";
     let expected = s.num_u64(0);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2601,12 +2558,12 @@ fn test_prove_commit_secret_comm_num() {
 
 #[test]
 fn test_prove_commit_num_open() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open (num (commit 123)))";
     let expected = s.num_u64(123);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(expected),
         None,
@@ -2619,23 +2576,14 @@ fn test_prove_commit_num_open() {
 
 #[test]
 fn test_prove_num_invalid_tag() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(num (quote x))";
     let expr1 = "(num \"asdf\")";
     let expr2 = "(num '(1))";
     let error = s.cont_error();
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
     test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["2"],
-        &None,
-    );
-    test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr1,
         None,
         None,
@@ -2645,7 +2593,7 @@ fn test_prove_num_invalid_tag() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         None,
         None,
@@ -2658,23 +2606,14 @@ fn test_prove_num_invalid_tag() {
 
 #[test]
 fn test_prove_comm_invalid_tag() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(comm (quote x))";
     let expr1 = "(comm \"asdf\")";
     let expr2 = "(comm '(1))";
     let error = s.cont_error();
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
     test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["2"],
-        &None,
-    );
-    test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr1,
         None,
         None,
@@ -2684,7 +2623,7 @@ fn test_prove_comm_invalid_tag() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         None,
         None,
@@ -2697,23 +2636,14 @@ fn test_prove_comm_invalid_tag() {
 
 #[test]
 fn test_prove_char_invalid_tag() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(char (quote x))";
     let expr1 = "(char \"asdf\")";
     let expr2 = "(char '(1))";
     let error = s.cont_error();
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["2"], &None);
     test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["2"],
-        &None,
-    );
-    test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr1,
         None,
         None,
@@ -2723,7 +2653,7 @@ fn test_prove_char_invalid_tag() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         None,
         None,
@@ -2736,12 +2666,12 @@ fn test_prove_char_invalid_tag() {
 
 #[test]
 fn test_prove_terminal_sym() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(quote x)";
     let x = s.intern_user_symbol("x");
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(x),
         None,
@@ -2755,30 +2685,30 @@ fn test_prove_terminal_sym() {
 #[test]
 #[should_panic]
 fn test_prove_open_opaque_commit() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(open 123)";
-    test_aux::<_, Coproc<_>>(&s, expr, None, None, None, None, &expect!["2"], &None);
+    test_aux::<_, Coproc<_>>(s, expr, None, None, None, None, &expect!["2"], &None);
 }
 
 #[test]
 #[should_panic]
 fn test_prove_secret_invalid_tag() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(secret 123)";
-    test_aux::<_, Coproc<_>>(&s, expr, None, None, None, None, &expect!["2"], &None);
+    test_aux::<_, Coproc<_>>(s, expr, None, None, None, None, &expect!["2"], &None);
 }
 
 #[test]
 #[should_panic]
 fn test_prove_secret_opaque_commit() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(secret (comm 123))";
-    test_aux::<_, Coproc<_>>(&s, expr, None, None, None, None, &expect!["2"], &None);
+    test_aux::<_, Coproc<_>>(s, expr, None, None, None, None, &expect!["2"], &None);
 }
 
 #[test]
 fn test_str_car_cdr_cons() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let a = s.read_with_default_state(r"#\a").unwrap();
     let apple = s.read_with_default_state(r#" "apple" "#).unwrap();
     let a_pple = s.read_with_default_state(r#" (#\a . "pple") "#).unwrap();
@@ -2789,7 +2719,7 @@ fn test_str_car_cdr_cons() {
     let error = s.cont_error();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(car "apple")"#,
         Some(a),
         None,
@@ -2799,7 +2729,7 @@ fn test_str_car_cdr_cons() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cdr "apple")"#,
         Some(pple),
         None,
@@ -2809,7 +2739,7 @@ fn test_str_car_cdr_cons() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(car "")"#,
         Some(nil),
         None,
@@ -2819,7 +2749,7 @@ fn test_str_car_cdr_cons() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cdr "")"#,
         Some(empty),
         None,
@@ -2829,7 +2759,7 @@ fn test_str_car_cdr_cons() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(cons #\a "pple")"#,
         Some(a_pple),
         None,
@@ -2840,7 +2770,7 @@ fn test_str_car_cdr_cons() {
     );
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(strcons #\a "pple")"#,
         Some(apple),
         None,
@@ -2851,7 +2781,7 @@ fn test_str_car_cdr_cons() {
     );
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r"(strcons #\a #\b)",
         None,
         None,
@@ -2862,7 +2792,7 @@ fn test_str_car_cdr_cons() {
     );
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(strcons "a" "b")"#,
         None,
         None,
@@ -2873,7 +2803,7 @@ fn test_str_car_cdr_cons() {
     );
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         r#"(strcons 1 2)"#,
         None,
         None,
@@ -2884,7 +2814,7 @@ fn test_str_car_cdr_cons() {
     );
 }
 
-fn relational_aux(s: &Arc<Store<Fr>>, op: &str, a: &str, b: &str, res: bool) {
+fn relational_aux(s: &Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
     let expr = &format!("({op} {a} {b})");
     let expected = if res {
         s.intern_lurk_symbol("t")
@@ -2908,7 +2838,7 @@ fn relational_aux(s: &Arc<Store<Fr>>, op: &str, a: &str, b: &str, res: bool) {
 #[ignore]
 #[test]
 fn test_prove_test_relational() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let lt = "<";
     let gt = ">";
     let lte = "<=";
@@ -2921,105 +2851,105 @@ fn test_prove_test_relational() {
     let most_positive = &format!("{}", Num::<Fr>::most_positive());
     let neg_one = &format!("{}", Num::<Fr>::Scalar(Fr::zero() - Fr::one()));
 
-    relational_aux(&s, lt, one, two, true);
-    relational_aux(&s, gt, one, two, false);
-    relational_aux(&s, lte, one, two, true);
-    relational_aux(&s, gte, one, two, false);
+    relational_aux(s, lt, one, two, true);
+    relational_aux(s, gt, one, two, false);
+    relational_aux(s, lte, one, two, true);
+    relational_aux(s, gte, one, two, false);
 
-    relational_aux(&s, lt, two, one, false);
-    relational_aux(&s, gt, two, one, true);
-    relational_aux(&s, lte, two, one, false);
-    relational_aux(&s, gte, two, one, true);
+    relational_aux(s, lt, two, one, false);
+    relational_aux(s, gt, two, one, true);
+    relational_aux(s, lte, two, one, false);
+    relational_aux(s, gte, two, one, true);
 
-    relational_aux(&s, lt, one, one, false);
-    relational_aux(&s, gt, one, one, false);
-    relational_aux(&s, lte, one, one, true);
-    relational_aux(&s, gte, one, one, true);
+    relational_aux(s, lt, one, one, false);
+    relational_aux(s, gt, one, one, false);
+    relational_aux(s, lte, one, one, true);
+    relational_aux(s, gte, one, one, true);
 
-    relational_aux(&s, lt, zero, two, true);
-    relational_aux(&s, gt, zero, two, false);
-    relational_aux(&s, lte, zero, two, true);
-    relational_aux(&s, gte, zero, two, false);
+    relational_aux(s, lt, zero, two, true);
+    relational_aux(s, gt, zero, two, false);
+    relational_aux(s, lte, zero, two, true);
+    relational_aux(s, gte, zero, two, false);
 
-    relational_aux(&s, lt, two, zero, false);
-    relational_aux(&s, gt, two, zero, true);
-    relational_aux(&s, lte, two, zero, false);
-    relational_aux(&s, gte, two, zero, true);
+    relational_aux(s, lt, two, zero, false);
+    relational_aux(s, gt, two, zero, true);
+    relational_aux(s, lte, two, zero, false);
+    relational_aux(s, gte, two, zero, true);
 
-    relational_aux(&s, lt, zero, zero, false);
-    relational_aux(&s, gt, zero, zero, false);
-    relational_aux(&s, lte, zero, zero, true);
-    relational_aux(&s, gte, zero, zero, true);
+    relational_aux(s, lt, zero, zero, false);
+    relational_aux(s, gt, zero, zero, false);
+    relational_aux(s, lte, zero, zero, true);
+    relational_aux(s, gte, zero, zero, true);
 
-    relational_aux(&s, lt, most_negative, zero, true);
-    relational_aux(&s, gt, most_negative, zero, false);
-    relational_aux(&s, lte, most_negative, zero, true);
-    relational_aux(&s, gte, most_negative, zero, false);
+    relational_aux(s, lt, most_negative, zero, true);
+    relational_aux(s, gt, most_negative, zero, false);
+    relational_aux(s, lte, most_negative, zero, true);
+    relational_aux(s, gte, most_negative, zero, false);
 
-    relational_aux(&s, lt, zero, most_negative, false);
-    relational_aux(&s, gt, zero, most_negative, true);
-    relational_aux(&s, lte, zero, most_negative, false);
-    relational_aux(&s, gte, zero, most_negative, true);
+    relational_aux(s, lt, zero, most_negative, false);
+    relational_aux(s, gt, zero, most_negative, true);
+    relational_aux(s, lte, zero, most_negative, false);
+    relational_aux(s, gte, zero, most_negative, true);
 
-    relational_aux(&s, lt, most_negative, most_positive, true);
-    relational_aux(&s, gt, most_negative, most_positive, false);
-    relational_aux(&s, lte, most_negative, most_positive, true);
-    relational_aux(&s, gte, most_negative, most_positive, false);
+    relational_aux(s, lt, most_negative, most_positive, true);
+    relational_aux(s, gt, most_negative, most_positive, false);
+    relational_aux(s, lte, most_negative, most_positive, true);
+    relational_aux(s, gte, most_negative, most_positive, false);
 
-    relational_aux(&s, lt, most_positive, most_negative, false);
-    relational_aux(&s, gt, most_positive, most_negative, true);
-    relational_aux(&s, lte, most_positive, most_negative, false);
-    relational_aux(&s, gte, most_positive, most_negative, true);
+    relational_aux(s, lt, most_positive, most_negative, false);
+    relational_aux(s, gt, most_positive, most_negative, true);
+    relational_aux(s, lte, most_positive, most_negative, false);
+    relational_aux(s, gte, most_positive, most_negative, true);
 
-    relational_aux(&s, lt, most_negative, most_negative, false);
-    relational_aux(&s, gt, most_negative, most_negative, false);
-    relational_aux(&s, lte, most_negative, most_negative, true);
-    relational_aux(&s, gte, most_negative, most_negative, true);
+    relational_aux(s, lt, most_negative, most_negative, false);
+    relational_aux(s, gt, most_negative, most_negative, false);
+    relational_aux(s, lte, most_negative, most_negative, true);
+    relational_aux(s, gte, most_negative, most_negative, true);
 
-    relational_aux(&s, lt, one, most_positive, true);
-    relational_aux(&s, gt, one, most_positive, false);
-    relational_aux(&s, lte, one, most_positive, true);
-    relational_aux(&s, gte, one, most_positive, false);
+    relational_aux(s, lt, one, most_positive, true);
+    relational_aux(s, gt, one, most_positive, false);
+    relational_aux(s, lte, one, most_positive, true);
+    relational_aux(s, gte, one, most_positive, false);
 
-    relational_aux(&s, lt, most_positive, one, false);
-    relational_aux(&s, gt, most_positive, one, true);
-    relational_aux(&s, lte, most_positive, one, false);
-    relational_aux(&s, gte, most_positive, one, true);
+    relational_aux(s, lt, most_positive, one, false);
+    relational_aux(s, gt, most_positive, one, true);
+    relational_aux(s, lte, most_positive, one, false);
+    relational_aux(s, gte, most_positive, one, true);
 
-    relational_aux(&s, lt, one, most_negative, false);
-    relational_aux(&s, gt, one, most_negative, true);
-    relational_aux(&s, lte, one, most_negative, false);
-    relational_aux(&s, gte, one, most_negative, true);
+    relational_aux(s, lt, one, most_negative, false);
+    relational_aux(s, gt, one, most_negative, true);
+    relational_aux(s, lte, one, most_negative, false);
+    relational_aux(s, gte, one, most_negative, true);
 
-    relational_aux(&s, lt, most_negative, one, true);
-    relational_aux(&s, gt, most_negative, one, false);
-    relational_aux(&s, lte, most_negative, one, true);
-    relational_aux(&s, gte, most_negative, one, false);
+    relational_aux(s, lt, most_negative, one, true);
+    relational_aux(s, gt, most_negative, one, false);
+    relational_aux(s, lte, most_negative, one, true);
+    relational_aux(s, gte, most_negative, one, false);
 
-    relational_aux(&s, lt, neg_one, most_positive, true);
-    relational_aux(&s, gt, neg_one, most_positive, false);
-    relational_aux(&s, lte, neg_one, most_positive, true);
-    relational_aux(&s, gte, neg_one, most_positive, false);
+    relational_aux(s, lt, neg_one, most_positive, true);
+    relational_aux(s, gt, neg_one, most_positive, false);
+    relational_aux(s, lte, neg_one, most_positive, true);
+    relational_aux(s, gte, neg_one, most_positive, false);
 
-    relational_aux(&s, lt, most_positive, neg_one, false);
-    relational_aux(&s, gt, most_positive, neg_one, true);
-    relational_aux(&s, lte, most_positive, neg_one, false);
-    relational_aux(&s, gte, most_positive, neg_one, true);
+    relational_aux(s, lt, most_positive, neg_one, false);
+    relational_aux(s, gt, most_positive, neg_one, true);
+    relational_aux(s, lte, most_positive, neg_one, false);
+    relational_aux(s, gte, most_positive, neg_one, true);
 
-    relational_aux(&s, lt, neg_one, most_negative, false);
-    relational_aux(&s, gt, neg_one, most_negative, true);
-    relational_aux(&s, lte, neg_one, most_negative, false);
-    relational_aux(&s, gte, neg_one, most_negative, true);
+    relational_aux(s, lt, neg_one, most_negative, false);
+    relational_aux(s, gt, neg_one, most_negative, true);
+    relational_aux(s, lte, neg_one, most_negative, false);
+    relational_aux(s, gte, neg_one, most_negative, true);
 
-    relational_aux(&s, lt, most_negative, neg_one, true);
-    relational_aux(&s, gt, most_negative, neg_one, false);
-    relational_aux(&s, lte, most_negative, neg_one, true);
-    relational_aux(&s, gte, most_negative, neg_one, false);
+    relational_aux(s, lt, most_negative, neg_one, true);
+    relational_aux(s, gt, most_negative, neg_one, false);
+    relational_aux(s, lte, most_negative, neg_one, true);
+    relational_aux(s, gte, most_negative, neg_one, false);
 }
 
 #[test]
 fn test_relational_edge_case_identity() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     // Normally, a value cannot be less than the result of incrementing it.
     // However, the most positive field element (when viewed as signed)
     // is the exception. Incrementing it yields the most negative element,
@@ -3031,7 +2961,7 @@ fn test_relational_edge_case_identity() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(t),
         None,
@@ -3044,7 +2974,7 @@ fn test_relational_edge_case_identity() {
 
 #[test]
 fn test_prove_test_eval() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(* 3 (eval  (cons '+ (cons 1 (cons 2 nil)))))";
     let expr2 = "(* 5 (eval '(+ 1 a) (let ((a 3)) (current-env))))"; // two-arg eval, optional second arg is env.
     let res = s.num_u64(9);
@@ -3052,7 +2982,7 @@ fn test_prove_test_eval() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3062,7 +2992,7 @@ fn test_prove_test_eval() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res2),
         None,
@@ -3075,7 +3005,7 @@ fn test_prove_test_eval() {
 
 #[test]
 fn test_prove_test_keyword() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = ":asdf";
     let expr2 = "(eq :asdf :asdf)";
@@ -3087,7 +3017,7 @@ fn test_prove_test_keyword() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3097,7 +3027,7 @@ fn test_prove_test_keyword() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res2),
         None,
@@ -3107,7 +3037,7 @@ fn test_prove_test_keyword() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr3,
         Some(res3),
         None,
@@ -3123,7 +3053,7 @@ fn test_prove_test_keyword() {
 
 #[test]
 fn test_prove_functional_commitment() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(let ((f (commit (let ((num 9)) (lambda (f) (f num)))))
                       (inc (lambda (x) (+ x 1))))
@@ -3132,7 +3062,7 @@ fn test_prove_functional_commitment() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3146,7 +3076,7 @@ fn test_prove_functional_commitment() {
 #[test]
 #[ignore]
 fn test_prove_complicated_functional_commitment() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(let ((f (commit (let ((nums '(1 2 3))) (lambda (f) (f nums)))))
                       (in (letrec ((sum-aux (lambda (acc nums)
@@ -3162,7 +3092,7 @@ fn test_prove_complicated_functional_commitment() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3175,7 +3105,7 @@ fn test_prove_complicated_functional_commitment() {
 
 #[test]
 fn test_prove_test_fold_cons_regression() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(letrec ((fold (lambda (op acc l)
                                  (if l
                                      (fold op (op acc (car l)) (cdr l))
@@ -3185,7 +3115,7 @@ fn test_prove_test_fold_cons_regression() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3198,13 +3128,13 @@ fn test_prove_test_fold_cons_regression() {
 
 #[test]
 fn test_prove_test_lambda_args_regression() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(cons (lambda (x y) nil) nil)";
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         None,
         None,
@@ -3217,26 +3147,17 @@ fn test_prove_test_lambda_args_regression() {
 
 #[test]
 fn test_prove_reduce_sym_contradiction_regression() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(eval 'a '(nil))";
     let error = s.cont_error();
 
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["3"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
 fn test_prove_test_self_eval_env_not_nil() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     // NOTE: cond1 shouldn't depend on env-is-not-nil
     // therefore this unit test is not very useful
@@ -3247,7 +3168,7 @@ fn test_prove_test_self_eval_env_not_nil() {
 
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         None,
         None,
@@ -3260,14 +3181,14 @@ fn test_prove_test_self_eval_env_not_nil() {
 
 #[test]
 fn test_prove_test_self_eval_nil() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     // nil doesn't have SYM tag
     let expr = "nil";
 
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         None,
         None,
@@ -3280,44 +3201,26 @@ fn test_prove_test_self_eval_nil() {
 
 #[test]
 fn test_prove_test_env_not_nil_and_binding_nil() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(let ((a 1) (b 2)) c)";
 
     let error = s.cont_error();
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["5"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["5"], &None);
 }
 
 #[test]
 fn test_prove_test_eval_bad_form() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env. This tests for error on malformed env.
     let error = s.cont_error();
 
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["5"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["5"], &None);
 }
 
 #[test]
 fn test_prove_test_u64_mul() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(* (u64 18446744073709551615) (u64 2))";
     let expr2 = "(* 18446744073709551615u64 2u64)";
@@ -3328,7 +3231,7 @@ fn test_prove_test_u64_mul() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3338,7 +3241,7 @@ fn test_prove_test_u64_mul() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res),
         None,
@@ -3348,7 +3251,7 @@ fn test_prove_test_u64_mul() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr3,
         Some(res),
         None,
@@ -3358,7 +3261,7 @@ fn test_prove_test_u64_mul() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr4,
         Some(res2),
         None,
@@ -3371,7 +3274,7 @@ fn test_prove_test_u64_mul() {
 
 #[test]
 fn test_prove_test_u64_add() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(+ 18446744073709551615u64 2u64)";
     let expr2 = "(+ (- 0u64 1u64) 2u64)";
@@ -3379,7 +3282,7 @@ fn test_prove_test_u64_add() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3389,7 +3292,7 @@ fn test_prove_test_u64_add() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res),
         None,
@@ -3402,7 +3305,7 @@ fn test_prove_test_u64_add() {
 
 #[test]
 fn test_prove_test_u64_sub() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(- 2u64 1u64)";
     let expr2 = "(- 0u64 1u64)";
@@ -3413,7 +3316,7 @@ fn test_prove_test_u64_sub() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3423,7 +3326,7 @@ fn test_prove_test_u64_sub() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res2),
         None,
@@ -3433,7 +3336,7 @@ fn test_prove_test_u64_sub() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr3,
         Some(res3),
         None,
@@ -3446,7 +3349,7 @@ fn test_prove_test_u64_sub() {
 
 #[test]
 fn test_prove_test_u64_div() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(/ 100u64 2u64)";
     let res = s.u64(50);
@@ -3460,7 +3363,7 @@ fn test_prove_test_u64_div() {
     let error = s.cont_error();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3470,7 +3373,7 @@ fn test_prove_test_u64_div() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res2),
         None,
@@ -3480,7 +3383,7 @@ fn test_prove_test_u64_div() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr3,
         None,
         None,
@@ -3493,7 +3396,7 @@ fn test_prove_test_u64_div() {
 
 #[test]
 fn test_prove_test_u64_mod() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(% 100u64 2u64)";
     let res = s.u64(0);
@@ -3507,7 +3410,7 @@ fn test_prove_test_u64_mod() {
     let error = s.cont_error();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3517,7 +3420,7 @@ fn test_prove_test_u64_mod() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res2),
         None,
@@ -3527,7 +3430,7 @@ fn test_prove_test_u64_mod() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr3,
         None,
         None,
@@ -3540,7 +3443,7 @@ fn test_prove_test_u64_mod() {
 
 #[test]
 fn test_prove_test_num_mod() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(% 100 3)";
     let expr2 = "(% 100 3u64)";
@@ -3548,18 +3451,9 @@ fn test_prove_test_num_mod() {
 
     let error = s.cont_error();
 
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
     test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["3"],
-        &None,
-    );
-    test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         None,
         None,
@@ -3569,7 +3463,7 @@ fn test_prove_test_num_mod() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr3,
         None,
         None,
@@ -3582,7 +3476,7 @@ fn test_prove_test_num_mod() {
 
 #[test]
 fn test_prove_test_u64_comp() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(< 0u64 1u64)";
     let expr2 = "(< 1u64 0u64)";
@@ -3602,7 +3496,7 @@ fn test_prove_test_u64_comp() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(t),
         None,
@@ -3612,7 +3506,7 @@ fn test_prove_test_u64_comp() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(nil),
         None,
@@ -3622,7 +3516,7 @@ fn test_prove_test_u64_comp() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr3,
         Some(t),
         None,
@@ -3632,7 +3526,7 @@ fn test_prove_test_u64_comp() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr4,
         Some(nil),
         None,
@@ -3643,7 +3537,7 @@ fn test_prove_test_u64_comp() {
     );
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr5,
         Some(nil),
         None,
@@ -3653,7 +3547,7 @@ fn test_prove_test_u64_comp() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr6,
         Some(t),
         None,
@@ -3663,7 +3557,7 @@ fn test_prove_test_u64_comp() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr7,
         Some(nil),
         None,
@@ -3673,7 +3567,7 @@ fn test_prove_test_u64_comp() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr8,
         Some(t),
         None,
@@ -3684,7 +3578,7 @@ fn test_prove_test_u64_comp() {
     );
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr9,
         Some(t),
         None,
@@ -3694,7 +3588,7 @@ fn test_prove_test_u64_comp() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr10,
         Some(t),
         None,
@@ -3707,7 +3601,7 @@ fn test_prove_test_u64_comp() {
 
 #[test]
 fn test_prove_test_u64_conversion() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(+ 0 1u64)";
     let expr2 = "(num 1u64)";
@@ -3719,7 +3613,7 @@ fn test_prove_test_u64_conversion() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3729,7 +3623,7 @@ fn test_prove_test_u64_conversion() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res),
         None,
@@ -3739,7 +3633,7 @@ fn test_prove_test_u64_conversion() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr3,
         Some(res2),
         None,
@@ -3749,7 +3643,7 @@ fn test_prove_test_u64_conversion() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr4,
         Some(res3),
         None,
@@ -3762,7 +3656,7 @@ fn test_prove_test_u64_conversion() {
 
 #[test]
 fn test_prove_test_u64_num_comparison() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(= 1 1u64)";
     let expr2 = "(= 1 2u64)";
@@ -3771,7 +3665,7 @@ fn test_prove_test_u64_num_comparison() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(t),
         None,
@@ -3781,7 +3675,7 @@ fn test_prove_test_u64_num_comparison() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(nil),
         None,
@@ -3794,7 +3688,7 @@ fn test_prove_test_u64_num_comparison() {
 
 #[test]
 fn test_prove_test_u64_num_cons() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(cons 1 1u64)";
     let expr2 = "(cons 1u64 1)";
@@ -3803,7 +3697,7 @@ fn test_prove_test_u64_num_cons() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3813,7 +3707,7 @@ fn test_prove_test_u64_num_cons() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res2),
         None,
@@ -3826,63 +3720,36 @@ fn test_prove_test_u64_num_cons() {
 
 #[test]
 fn test_prove_test_hide_u64_secret() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(hide 0u64 123)";
     let error = s.cont_error();
 
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["3"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
 fn test_prove_test_mod_by_zero_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let expr = "(% 0 0)";
     let error = s.cont_error();
 
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["3"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
 fn test_prove_dotted_syntax_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
     let error = s.cont_error();
 
-    test_aux::<_, Coproc<_>>(
-        &s,
-        expr,
-        None,
-        None,
-        Some(error),
-        None,
-        &expect!["3"],
-        &None,
-    );
+    test_aux::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["3"], &None);
 }
 
 #[test]
 fn test_prove_call_literal_fun() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let empty_env = s.intern_empty_env();
     let args = s.list(vec![s.intern_user_symbol("x")]);
     let body = s.read_with_default_state("(+ x 1)").unwrap();
@@ -3894,7 +3761,7 @@ fn test_prove_call_literal_fun() {
     let lang: Arc<Lang<Fr, Coproc<Fr>>> = Arc::new(Lang::new());
 
     nova_test_full_aux2::<_, Coproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -3910,11 +3777,11 @@ fn test_prove_call_literal_fun() {
 
 #[test]
 fn test_prove_lambda_body_syntax() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
 
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda ()))",
         None,
         None,
@@ -3924,7 +3791,7 @@ fn test_prove_lambda_body_syntax() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda () 1 2))",
         None,
         None,
@@ -3934,7 +3801,7 @@ fn test_prove_lambda_body_syntax() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda (x)) 1)",
         None,
         None,
@@ -3944,7 +3811,7 @@ fn test_prove_lambda_body_syntax() {
         &None,
     );
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda (x) 1 2) 1)",
         None,
         None,
@@ -3958,7 +3825,7 @@ fn test_prove_lambda_body_syntax() {
 #[test]
 #[ignore]
 fn test_prove_non_symbol_binding_error() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
 
     let test = |x| {
@@ -3967,7 +3834,7 @@ fn test_prove_non_symbol_binding_error() {
         let expr3 = format!("(lambda ({x}) {x})");
 
         test_aux::<_, Coproc<_>>(
-            &s,
+            s,
             &expr,
             None,
             None,
@@ -3977,7 +3844,7 @@ fn test_prove_non_symbol_binding_error() {
             &None,
         );
         test_aux::<_, Coproc<_>>(
-            &s,
+            s,
             &expr2,
             None,
             None,
@@ -3987,7 +3854,7 @@ fn test_prove_non_symbol_binding_error() {
             &None,
         );
         test_aux::<_, Coproc<_>>(
-            &s,
+            s,
             &expr3,
             None,
             None,
@@ -4007,7 +3874,7 @@ fn test_prove_non_symbol_binding_error() {
 
 #[test]
 fn test_prove_head_with_sym_mimicking_value() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let error = s.cont_error();
 
     let mk_expr = |s: &Store<Fr>, state: StateRcCell, name, args| {
@@ -4019,101 +3886,38 @@ fn test_prove_head_with_sym_mimicking_value() {
     let state = State::init_lurk_state().rccell();
     {
         // binop
-        let expr = mk_expr(&s, state.clone(), "+", "(1 1)");
-        test_aux_ptr::<_, Coproc<_>>(
-            &s,
-            expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "+", "(1 1)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // unop
-        let expr = mk_expr(&s, state.clone(), "car", "('(1 . 2))");
-        test_aux_ptr::<_, Coproc<_>>(
-            &s,
-            expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "car", "('(1 . 2))");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // let_or_letrec
-        let expr = mk_expr(&s, state.clone(), "let", "(((a 1)) a)");
-        test_aux_ptr::<_, Coproc<_>>(
-            &s,
-            expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "let", "(((a 1)) a)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // current-env
-        let expr = mk_expr(&s, state.clone(), "current-env", "nil");
-        test_aux_ptr::<_, Coproc<_>>(
-            &s,
-            expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "current-env", "nil");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // lambda
-        let expr = mk_expr(&s, state.clone(), "lambda", "((x) 123)");
-        test_aux_ptr::<_, Coproc<_>>(
-            &s,
-            expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "lambda", "((x) 123)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // quote
-        let expr = mk_expr(&s, state.clone(), "quote", "(asdf)");
-        test_aux_ptr::<_, Coproc<_>>(
-            &s,
-            expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "quote", "(asdf)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
     {
         // if
-        let expr = mk_expr(&s, state.clone(), "if", "(t 123 456)");
-        test_aux_ptr::<_, Coproc<_>>(
-            &s,
-            expr,
-            None,
-            None,
-            Some(error),
-            None,
-            &expect!["1"],
-            &None,
-        );
+        let expr = mk_expr(s, state.clone(), "if", "(t 123 456)");
+        test_aux_ptr::<_, Coproc<_>>(s, expr, None, None, Some(error), None, &expect!["1"], &None);
     }
 }
 
@@ -4121,7 +3925,7 @@ fn test_prove_head_with_sym_mimicking_value() {
 fn test_dumb_lang() {
     use crate::coprocessor::test::DumbCoprocessor;
 
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
 
     let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
     let name = user_sym("cproc-dumb");
@@ -4159,7 +3963,7 @@ fn test_dumb_lang() {
     let lang = Arc::new(lang);
 
     test_aux::<_, DumbCoprocessor<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -4169,7 +3973,7 @@ fn test_dumb_lang() {
         &Some(lang.clone()),
     );
     test_aux::<_, DumbCoprocessor<_>>(
-        &s,
+        s,
         expr2,
         Some(res),
         None,
@@ -4179,7 +3983,7 @@ fn test_dumb_lang() {
         &Some(lang.clone()),
     );
     test_aux::<_, DumbCoprocessor<_>>(
-        &s,
+        s,
         expr3,
         Some(res),
         None,
@@ -4189,7 +3993,7 @@ fn test_dumb_lang() {
         &Some(lang.clone()),
     );
     test_aux::<_, DumbCoprocessor<_>>(
-        &s,
+        s,
         expr4,
         Some(error4),
         None,
@@ -4199,7 +4003,7 @@ fn test_dumb_lang() {
         &Some(lang.clone()),
     );
     test_aux::<_, DumbCoprocessor<_>>(
-        &s,
+        s,
         expr5,
         Some(error5),
         None,
@@ -4209,7 +4013,7 @@ fn test_dumb_lang() {
         &Some(lang.clone()),
     );
     test_aux::<_, DumbCoprocessor<_>>(
-        &s,
+        s,
         expr6,
         Some(error6),
         None,
@@ -4219,7 +4023,7 @@ fn test_dumb_lang() {
         &Some(lang.clone()),
     );
     test_aux::<_, DumbCoprocessor<_>>(
-        &s,
+        s,
         expr6_,
         Some(error6),
         None,
@@ -4229,7 +4033,7 @@ fn test_dumb_lang() {
         &Some(lang.clone()),
     );
     test_aux::<_, DumbCoprocessor<_>>(
-        &s,
+        s,
         expr7,
         Some(error7),
         None,
@@ -4248,7 +4052,7 @@ fn test_terminator_lang() {
     let dumb = Terminator::new();
     let name = user_sym("terminate");
 
-    let s = Arc::new(Store::default());
+    let s = &Store::default();
     lang.add_coprocessor(name, dumb);
 
     let expr = "(terminate)";
@@ -4257,7 +4061,7 @@ fn test_terminator_lang() {
     let terminal = s.cont_terminal();
 
     test_aux::<_, Terminator<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -4276,14 +4080,14 @@ fn test_hello_world_lang() {
     let hello_world = HelloWorld::new();
     let name = user_sym("hello-world");
 
-    let s = Arc::new(Store::default());
+    let s = &Store::default();
     lang.add_coprocessor(name, hello_world);
 
-    let res = HelloWorld::intern_hello_world(&*s);
+    let res = HelloWorld::intern_hello_world(s);
     let terminal = s.cont_terminal();
 
     test_aux::<_, HelloWorld<_>>(
-        &s,
+        s,
         "(hello-world)",
         Some(res),
         None,
@@ -4298,7 +4102,7 @@ fn test_hello_world_lang() {
 fn test_trie_lang() {
     use crate::coprocessor::trie::{install, TrieCoproc};
 
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let state = State::init_lurk_state().rccell();
     let mut lang = Lang::new();
     install(&state, &mut lang);
@@ -4315,7 +4119,7 @@ fn test_trie_lang() {
         )
         .unwrap();
     nova_test_full_aux2::<_, TrieCoproc<_>>(
-        &s,
+        s,
         expr,
         Some(res),
         None,
@@ -4333,7 +4137,7 @@ fn test_trie_lang() {
     let expr2 = s.read(state.clone(), expr2).unwrap();
     let res2 = s.comm(Fr::zero());
     nova_test_full_aux2::<_, TrieCoproc<_>>(
-        &s,
+        s,
         expr2,
         Some(res2),
         None,
@@ -4355,7 +4159,7 @@ fn test_trie_lang() {
         )
         .unwrap();
     nova_test_full_aux2::<_, TrieCoproc<_>>(
-        &s,
+        s,
         expr3,
         Some(res3),
         None,
@@ -4373,7 +4177,7 @@ fn test_trie_lang() {
     let expr4 = s.read(state.clone(), expr4).unwrap();
     let res4 = s.comm(Fr::from(456));
     nova_test_full_aux2::<_, TrieCoproc<_>>(
-        &s,
+        s,
         expr4,
         Some(res4),
         None,
@@ -4386,7 +4190,7 @@ fn test_trie_lang() {
         lang.clone(),
     );
 
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let terminal = s.cont_terminal();
     let expr5 = "(let ((trie (.lurk.trie.new))
                        (found (.lurk.trie.lookup trie 123)))
@@ -4394,7 +4198,7 @@ fn test_trie_lang() {
     let expr5 = s.read(state.clone(), expr5).unwrap();
     let res5 = s.comm(Fr::zero());
     nova_test_full_aux2::<_, TrieCoproc<_>>(
-        &s,
+        s,
         expr5,
         Some(res5),
         None,
@@ -4413,7 +4217,7 @@ fn test_trie_lang() {
     let expr6 = s.read(state.clone(), expr6).unwrap();
     let res6 = s.comm(Fr::from(456));
     nova_test_full_aux2::<_, TrieCoproc<_>>(
-        &s,
+        s,
         expr6,
         Some(res6),
         None,
@@ -4423,18 +4227,18 @@ fn test_trie_lang() {
         DEFAULT_REDUCTION_COUNT,
         false,
         None,
-        lang,
+        lang.clone(),
     );
 }
 
 // This is related to issue #426
 #[test]
 fn test_prove_lambda_body_nil() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.intern_nil();
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "((lambda (x) nil) 0)",
         Some(expected),
         None,
@@ -4448,11 +4252,11 @@ fn test_prove_lambda_body_nil() {
 // The following 3 tests are related to issue #424
 #[test]
 fn test_letrec_let_nesting() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(2);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((x (let ((z 0)) 1))) 2)",
         Some(expected),
         None,
@@ -4464,11 +4268,11 @@ fn test_letrec_let_nesting() {
 }
 #[test]
 fn test_let_sequencing() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(1);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(let ((x 0) (y x)) 1)",
         Some(expected),
         None,
@@ -4480,11 +4284,11 @@ fn test_let_sequencing() {
 }
 #[test]
 fn test_letrec_sequencing() {
-    let s = Arc::new(Store::<Fr>::default());
+    let s = &Store::<Fr>::default();
     let expected = s.num_u64(3);
     let terminal = s.cont_terminal();
     test_aux::<_, Coproc<_>>(
-        &s,
+        s,
         "(letrec ((x 0) (y (letrec ((inner 1)) 2))) 3)",
         Some(expected),
         None,
