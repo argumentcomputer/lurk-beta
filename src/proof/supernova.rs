@@ -262,8 +262,12 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<F, C
 
             std::thread::scope(|s| {
                 s.spawn(move || {
-                    for mut step in steps {
-                        step.cache_witness(store).expect("witness caching failed");
+                    for (i, mut step) in steps.enumerate() {
+                        // Skip the very first circuit's witness, so `prove_step` can begin immediately.
+                        // That circuit's witness will not be cached and will just be computed on-demand.
+                        if i > 0 {
+                            step.cache_witness(store).expect("witness caching failed");
+                        }
                         if step_sender.send(step).is_err() {
                             // The main thread has dropped the receiver, so we can stop
                             return;
