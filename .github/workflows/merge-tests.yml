@@ -60,15 +60,16 @@ jobs:
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
   mac-m1:
-    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
+    #if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     runs-on: macos-latest-xlarge
     steps:
       - uses: actions/checkout@v4
         with:
           repository: lurk-lab/ci-workflows
-      - uses: ./.github/actions/install-deps
-        with:
-          packages: 'pkg-config libssl-dev protobuf-compiler libprotobuf-dev'
+      - name: Install dependencies
+        run: |
+          brew install protobuf
+          protoc --version
       - uses: actions/checkout@v4
         with:
           submodules: recursive
