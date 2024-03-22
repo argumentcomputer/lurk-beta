@@ -369,30 +369,36 @@ impl<F: LurkField> ZStore<F> {
         Ok(store)
     }
 
-    pub fn to_store_and_ptr(&self, z_ptr: &ZPtr<F>) -> Result<(Store<F>, Ptr)> {
+    pub fn to_store_and_ptr(
+        &self,
+        z_ptr: &ZPtr<F>,
+    ) -> Result<(Store<F>, Ptr, HashMap<ZPtr<F>, Ptr>)> {
         let store = Store::default();
-        let cache = &mut HashMap::default();
+        let mut cache = HashMap::default();
         for (FWrap(hash), (secret, z_payload)) in &self.comms {
-            let payload = self.populate_store(z_payload, &store, cache)?;
+            let payload = self.populate_store(z_payload, &store, &mut cache)?;
             store.add_comm(*hash, *secret, payload);
         }
-        let ptr = self.populate_store(z_ptr, &store, cache)?;
-        Ok((store, ptr))
+        let ptr = self.populate_store(z_ptr, &store, &mut cache)?;
+        Ok((store, ptr, cache))
     }
 
-    pub fn from_store_and_ptr(store: &Store<F>, ptr: &Ptr) -> (Self, ZPtr<F>) {
+    pub fn from_store_and_ptr(
+        store: &Store<F>,
+        ptr: &Ptr,
+    ) -> (Self, ZPtr<F>, HashMap<Ptr, ZPtr<F>>) {
         let mut z_store = ZStore::default();
-        let cache = &mut HashMap::default();
+        let mut cache = HashMap::default();
         for (FWrap(hash), img) in store.comms.clone().into_tuple_vec() {
-            let payload = z_store.populate_with(&img.1, store, cache);
+            let payload = z_store.populate_with(&img.1, store, &mut cache);
             z_store.add_comm(hash, img.0, payload)
         }
-        let z_ptr = z_store.populate_with(ptr, store, cache);
-        (z_store, z_ptr)
+        let z_ptr = z_store.populate_with(ptr, store, &mut cache);
+        (z_store, z_ptr, cache)
     }
 
     #[inline]
-    pub(crate) fn populate_with(
+    pub fn populate_with(
         &mut self,
         ptr: &Ptr,
         store: &Store<F>,
@@ -408,7 +414,7 @@ impl<F: LurkField> ZStore<F> {
     }
 
     #[inline]
-    pub(crate) fn populate_store(
+    pub fn populate_store(
         &self,
         z_ptr: &ZPtr<F>,
         store: &Store<F>,

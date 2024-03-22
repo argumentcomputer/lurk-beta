@@ -38,6 +38,7 @@ fn assert_start_stream(
         start_stream_simple::<Fr, Coproc<Fr>>(None, callable, store, LIMIT, &t1).unwrap();
     let (result, _) = store.fetch_cons(&output[0]).unwrap();
     assert_eq!(result, expected_result);
+    assert_eq!(output[1], store.intern_empty_env());
     expect_eq(iterations, expected_iterations);
     output
 }
@@ -56,6 +57,7 @@ fn assert_resume_stream(
         resume_stream_simple::<Fr, Coproc<Fr>>(None, input, store, LIMIT, &t1).unwrap();
     let (result, _) = store.fetch_cons(&output[0]).unwrap();
     assert_eq!(result, expected_result);
+    assert_eq!(output[1], store.intern_empty_env());
     expect_eq(iterations, expected_iterations);
     output
 }

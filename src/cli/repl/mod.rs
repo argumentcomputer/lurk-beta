@@ -13,12 +13,7 @@ use rustyline::{
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
-    cell::OnceCell,
-    collections::HashMap,
-    fs::read_to_string,
-    io::Write,
-    sync::{Arc, Mutex},
-    thread,
+    cell::OnceCell, collections::HashMap, fs::read_to_string, io::Write, sync::Arc, thread,
     time::Duration,
 };
 use tracing::info;
@@ -506,15 +501,6 @@ where
     /// if the final continuation is terminal or error
     fn eval_expr_collecting_emitted(&self, expr: Ptr) -> Result<Vec<Ptr>> {
         let (t1, t2) = pair_terminals::<Ptr>();
-        let store_clone = self.store.clone();
-        let emitted = Arc::new(Mutex::new(vec![]));
-        let emitted_clone = emitted.clone();
-        thread::spawn(move || {
-            for ptr in t2.iter() {
-                println!("{}", ptr.fmt_to_string_simple(&store_clone));
-                emitted_clone.lock().unwrap().push(ptr);
-            }
-        });
         let (ptrs, iterations) = evaluate_simple_with_env::<F, C>(
             Some(self.lang_setup()),
             expr,
@@ -523,9 +509,12 @@ where
             self.limit,
             &t1,
         )?;
-        thread::sleep(Duration::from_millis(10)); // wait for last t2 iteration
+        let emitted_vec = t2.collect();
+        for emitted in emitted_vec.iter() {
+            println!("{}", emitted.fmt_to_string_simple(&self.store));
+        }
         if matches!(ptrs[2].tag(), Tag::Cont(ContTag::Terminal | ContTag::Error)) {
-            Ok(emitted.lock().unwrap().to_owned())
+            Ok(emitted_vec)
         } else {
             bail!(
                 "Limit reached after {}",

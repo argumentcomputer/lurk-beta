@@ -11,7 +11,7 @@ use std::{
 use tonic::Request;
 
 use lurk::{
-    cli::field_data::{de, ser, LurkData},
+    cli::field_data::{de, ser},
     lang::{Coproc, Lang},
     lem::store::Store,
     proof::{
@@ -34,7 +34,7 @@ use chain_prover::{
     ConfigResponse,
 };
 
-use chain_server::{ChainRequestData, ChainResponseData};
+use chain_server::{ChainRequestData, ChainResponseData, ConfigResponseData};
 
 fn verify(
     proof: &CompressedSNARK<E1<Fr>, SS1<Fr>, SS2<Fr>>,
@@ -54,18 +54,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let port = env::args().collect::<Vec<_>>()[1].parse::<u16>()?;
     let mut client = ChainProverClient::connect(format!("http://127.0.0.1:{port}")).await?;
 
-    let ConfigResponse { rc, callable } = client
+    let ConfigResponse {
+        config_response_data,
+    } = client
         .config(Request::new(ConfigRequest {}))
         .await?
         .into_inner();
-    let rc = usize::try_from(rc)?;
+    let config_response_data = de::<ConfigResponseData<Fr>>(&config_response_data)?;
+    let rc = config_response_data.get_rc();
 
     let store = Store::<Fr>::default();
-    let mut callable = de::<LurkData<Fr>>(&callable).and_then(|ld| ld.interned(&store))?;
+
+    let (mut callable, stream_init_callable) = config_response_data.interned(&store)?;
 
     let empty_env = store.intern_empty_env();
-    let cont_outermost = store.cont_outermost();
-    let cont_terminal = store.cont_terminal();
+
+    let (cont_in, cont_out) = if stream_init_callable.is_some() {
+        (store.cont_stream_start(), store.cont_stream_pause())
+    } else {
+        (store.cont_outermost(), store.cont_terminal())
+    };
 
     let instance = Instance::new(
         rc,
@@ -89,9 +97,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } = client.chain(request).await?.into_inner();
                 let chain_response_data = de::<ChainResponseData<Fr>>(&chain_response_data)?;
                 let (result, next_callable) = chain_response_data.interned(&store)?;
-                let proof = chain_response_data.extract_proof();
+                let proof = chain_response_data.get_proof();
 
-                let expr_in = store.list([callable, argument]);
+                let expr_in =
+                    stream_init_callable.unwrap_or_else(|| store.list([callable, argument]));
+
                 let expr_out = store.cons(result, next_callable);
 
                 print!(
@@ -101,9 +111,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
                 stdout.flush()?;
 
-                let public_inputs = store.to_scalar_vector(&[expr_in, empty_env, cont_outermost]);
-                let public_outputs = store.to_scalar_vector(&[expr_out, empty_env, cont_terminal]);
-                if verify(&proof, &pp, &public_inputs, &public_outputs)? {
+                let public_inputs = store.to_scalar_vector(&[expr_in, empty_env, cont_in]);
+                let public_outputs = store.to_scalar_vector(&[expr_out, empty_env, cont_out]);
+                if verify(proof, &pp, &public_inputs, &public_outputs)? {
                     println!(" ✓");
                 } else {
                     println!(" ✗\nServer's proof didn't verify!");
