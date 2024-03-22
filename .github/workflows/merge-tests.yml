@@ -60,7 +60,7 @@ jobs:
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
   mac-m1:
-    #if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
+    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     runs-on: macos-latest-xlarge
     steps:
       - uses: actions/checkout@v4
