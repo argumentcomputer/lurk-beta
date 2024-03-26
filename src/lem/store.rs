@@ -742,23 +742,33 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    fn cont_atom(&self, cont_tag: ContTag) -> Ptr {
+        Ptr::new(Tag::Cont(cont_tag), RawPtr::Atom(self.hash8zeros_idx))
+    }
+
+    #[inline]
     pub fn cont_outermost(&self) -> Ptr {
-        Ptr::new(Tag::Cont(Outermost), RawPtr::Atom(self.hash8zeros_idx))
+        self.cont_atom(Outermost)
     }
 
     #[inline]
     pub fn cont_error(&self) -> Ptr {
-        Ptr::new(Tag::Cont(ContTag::Error), RawPtr::Atom(self.hash8zeros_idx))
+        self.cont_atom(ContTag::Error)
     }
 
     #[inline]
     pub fn cont_terminal(&self) -> Ptr {
-        Ptr::new(Tag::Cont(Terminal), RawPtr::Atom(self.hash8zeros_idx))
+        self.cont_atom(Terminal)
     }
 
     #[inline]
     pub fn cont_stream_start(&self) -> Ptr {
-        Ptr::new(Tag::Cont(StreamStart), RawPtr::Atom(self.hash8zeros_idx))
+        self.cont_atom(StreamStart)
+    }
+
+    #[inline]
+    pub fn cont_stream_pause(&self) -> Ptr {
+        self.cont_atom(StreamPause)
     }
 
     /// Function specialized on deconstructing `Cons` pointers into their car/cdr

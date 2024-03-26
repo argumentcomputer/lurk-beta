@@ -300,7 +300,7 @@ pub fn start_stream<F: LurkField, C: Coprocessor<F>>(
     start_stream_with_env(
         lang_setup,
         callable,
-        store.intern_nil(),
+        store.intern_empty_env(),
         store,
         limit,
         ch_terminal,
@@ -328,26 +328,6 @@ pub fn resume_stream<F: LurkField, C: Coprocessor<F>>(
 }
 
 #[inline]
-pub fn start_stream_simple_with_env<F: LurkField, C: Coprocessor<F>>(
-    lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
-    callable: Ptr,
-    env: Ptr,
-    store: &Store<F>,
-    limit: usize,
-    ch_terminal: &ChannelTerminal<Ptr>,
-) -> Result<(Vec<Ptr>, usize)> {
-    evaluate_simple_with_env_and_cont(
-        lang_setup,
-        callable,
-        env,
-        store.cont_stream_start(),
-        store,
-        limit,
-        ch_terminal,
-    )
-}
-
-#[inline]
 pub fn start_stream_simple<F: LurkField, C: Coprocessor<F>>(
     lang_setup: Option<(&Func, &[Func], &Lang<F, C>)>,
     callable: Ptr,
@@ -355,10 +335,11 @@ pub fn start_stream_simple<F: LurkField, C: Coprocessor<F>>(
     limit: usize,
     ch_terminal: &ChannelTerminal<Ptr>,
 ) -> Result<(Vec<Ptr>, usize)> {
-    start_stream_simple_with_env(
+    evaluate_simple_with_env_and_cont(
         lang_setup,
         callable,
-        store.intern_nil(),
+        store.intern_empty_env(),
+        store.cont_stream_start(),
         store,
         limit,
         ch_terminal,
@@ -1441,7 +1422,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         match result.tag {
                             Expr::Cons => {
                                 let cont: Cont::StreamPause = HASH_8_ZEROS;
-                                return (result, env, cont, ret);
+                                return (result, empty_env, cont, ret);
                             }
                         };
                         return (result, env, err, errctrl);
@@ -1936,16 +1917,16 @@ fn make_thunk() -> Func {
     aux_func!(make_thunk(expr, env, cont, ctrl): 3 => {
         match ctrl.value {
             Symbol("make-thunk") => {
+                // We erase the environment as to not leak any information about internal variables.
+                let empty_env: Expr::Env;
                 match cont.tag {
                     Cont::Outermost => {
                         let cont: Cont::Terminal = HASH_8_ZEROS;
-                        // We erase the environment as to not leak any information about internal variables.
-                        let empty_env: Expr::Env;
                         return (expr, empty_env, cont)
                     }
                     Cont::StreamDispatch => {
                         let cont: Cont::StreamPause = HASH_8_ZEROS;
-                        return (expr, env, cont);
+                        return (expr, empty_env, cont);
                     }
                 };
                 let thunk: Expr::Thunk = cons2(expr, cont);

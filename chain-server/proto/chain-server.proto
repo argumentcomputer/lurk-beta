@@ -10,8 +10,7 @@ service ChainProver {
 message ConfigRequest {}
 
 message ConfigResponse {
-  uint64 rc = 1;
-  bytes callable = 2;
+  bytes config_response_data = 1;
 }
 
 message ChainRequest {
