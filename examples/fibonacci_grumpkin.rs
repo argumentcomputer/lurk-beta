@@ -5,10 +5,11 @@ use anyhow::anyhow;
 use halo2curves::bn256;
 
 use lurk::{
-    eval::lang::{Coproc, Lang},
+    dual_channel::dummy_terminal,
     field::LurkField,
+    lang::{Coproc, Lang},
     lem::{eval::evaluate, pointers::Ptr, store::Store},
-    proof::{nova::NovaProver, RecursiveSNARKTrait},
+    proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
@@ -65,8 +66,8 @@ fn rc_env() -> anyhow::Result<Vec<usize>> {
 
 fn fibonacci_prove(prove_params: ProveParams, state: &Rc<RefCell<State>>) {
     let limit = fib_limit(prove_params.fib_n, prove_params.rc);
-    let lang_pallas = Lang::<bn256::Fr, Coproc<bn256::Fr>>::new();
-    let lang_rc = Arc::new(lang_pallas.clone());
+    let lang_bn256 = Lang::<bn256::Fr, Coproc<bn256::Fr>>::new();
+    let lang_rc = Arc::new(lang_bn256.clone());
 
     // use cached public params
     let instance = Instance::new(
@@ -77,21 +78,26 @@ fn fibonacci_prove(prove_params: ProveParams, state: &Rc<RefCell<State>>) {
     );
     let pp = public_params(&instance).unwrap();
 
-    let store = Store::default();
+    let store = Arc::new(Store::default());
 
     let ptr = fib::<bn256::Fr>(&store, state.clone(), prove_params.fib_n as u64);
     let prover = NovaProver::new(prove_params.rc, lang_rc.clone());
 
-    let frames = evaluate::<bn256::Fr, Coproc<bn256::Fr>>(None, ptr, &store, limit)
-        .unwrap();
+    let frames =
+        evaluate::<bn256::Fr, Coproc<bn256::Fr>>(None, ptr, &store, limit, &dummy_terminal())
+            .unwrap();
     let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
-        .in_scope(|| prover.prove_from_frames(&pp, &frames, &store).unwrap());
+        .in_scope(|| {
+            prover
+                .prove_from_frames(&pp, &frames, &store, None)
+                .unwrap()
+        });
 
     let res = proof.verify(&pp, &z0, &zi).unwrap();
     assert!(res);
 }
 
-/// RUST_LOG=info LURK_RC=900 LURK_PERF=max-parallel-simple cargo run --release --example fibonacci --features "cuda"
+/// RUST_LOG=info LURK_RC=900 LURK_PERF=max-parallel-simple cargo run --release --example fibonacci_grumpkin --features "cuda"
 fn main() {
     let subscriber = Registry::default()
         .with(fmt::layer().pretty())

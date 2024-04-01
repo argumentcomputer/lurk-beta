@@ -5,10 +5,11 @@ use anyhow::anyhow;
 use pasta_curves::pallas;
 
 use lurk::{
-    eval::lang::{Coproc, Lang},
+    dual_channel::dummy_terminal,
     field::LurkField,
+    lang::{Coproc, Lang},
     lem::{eval::evaluate, pointers::Ptr, store::Store},
-    proof::{nova::NovaProver, RecursiveSNARKTrait},
+    proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         public_params,
@@ -77,15 +78,25 @@ fn fibonacci_prove(prove_params: ProveParams, state: &Rc<RefCell<State>>) {
     );
     let pp = public_params(&instance).unwrap();
 
-    let store = Store::default();
+    let store = Arc::new(Store::default());
 
     let ptr = fib::<pasta_curves::Fq>(&store, state.clone(), prove_params.fib_n as u64);
     let prover = NovaProver::new(prove_params.rc, lang_rc.clone());
 
-    let frames = evaluate::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>(None, ptr, &store, limit)
-        .unwrap();
+    let frames = evaluate::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>(
+        None,
+        ptr,
+        &store,
+        limit,
+        &dummy_terminal(),
+    )
+    .unwrap();
     let (proof, z0, zi, _num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
-        .in_scope(|| prover.prove_from_frames(&pp, &frames, &store).unwrap());
+        .in_scope(|| {
+            prover
+                .prove_from_frames(&pp, &frames, &store, None)
+                .unwrap()
+        });
 
     let res = proof.verify(&pp, &z0, &zi).unwrap();
     assert!(res);
