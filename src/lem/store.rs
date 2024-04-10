@@ -400,53 +400,54 @@ impl<F: LurkField> Store<F> {
         self.fetch_tag(tag).map(|tag| Ptr::new(tag, raw))
     }
 
+    /// Interns 3 pointers using only 4 raw pointers by ignoring the tags of the
+    /// first and third pointers
+    fn intern_compact(&self, a: Ptr, b: Ptr, c: Ptr, tag: Tag) -> Ptr {
+        let (_, a_raw) = a.into_parts();
+        let (b_tag, b_raw) = b.into_parts();
+        let (_, c_raw) = c.into_parts();
+        let raw = self.intern_raw_ptrs([a_raw, self.tag(b_tag), b_raw, c_raw]);
+        Ptr::new(tag, raw)
+    }
+
+    /// Fetches 3 pointers that were interned with `intern_compact`
+    fn fetch_compact(&self, ptr: &Ptr, a_tag: Tag, c_tag: Tag) -> Option<[Ptr; 3]> {
+        let idx = ptr.get_index2()?;
+        let [a_raw, b_tag, b_raw, c_raw] = self.fetch_raw_ptrs(idx)?;
+        let b_tag = self.fetch_tag(b_tag)?;
+        let a = Ptr::new(a_tag, *a_raw);
+        let b = Ptr::new(b_tag, *b_raw);
+        let c = Ptr::new(c_tag, *c_raw);
+        Some([a, b, c])
+    }
+
     #[inline]
     pub fn push_binding(&self, sym: Ptr, val: Ptr, env: Ptr) -> Ptr {
-        let (sym_tag, sym_raw) = sym.into_parts();
-        let (val_tag, val_raw) = val.into_parts();
-        let (env_tag, env_raw) = env.into_parts();
-        assert_eq!(sym_tag, Tag::Expr(Sym));
-        assert_eq!(env_tag, Tag::Expr(Env));
-        let raw = self.intern_raw_ptrs([sym_raw, self.tag(val_tag), val_raw, env_raw]);
-        Ptr::new(Tag::Expr(Env), raw)
+        assert_eq!(sym.tag(), &Tag::Expr(Sym));
+        assert_eq!(env.tag(), &Tag::Expr(Env));
+        self.intern_compact(sym, val, env, Tag::Expr(Env))
     }
 
     #[inline]
     pub fn pop_binding(&self, env: &Ptr) -> Option<[Ptr; 3]> {
         assert_eq!(env.tag(), &Tag::Expr(Env));
-        let idx = env.get_index2()?;
-        let [sym_pay, val_tag, val_pay, env_pay] = self.fetch_raw_ptrs(idx)?;
-        let val_tag = self.fetch_tag(val_tag)?;
-        let sym = Ptr::new(Tag::Expr(Sym), *sym_pay);
-        let val = Ptr::new(val_tag, *val_pay);
-        let env = Ptr::new(Tag::Expr(Env), *env_pay);
-        Some([sym, val, env])
+        self.fetch_compact(env, Tag::Expr(Sym), Tag::Expr(Env))
     }
 
     #[inline]
     pub fn intern_provenance(&self, query: Ptr, val: Ptr, deps: Ptr) -> Ptr {
-        let (query_tag, query_raw) = query.into_parts();
-        let (val_tag, val_raw) = val.into_parts();
-        let (deps_tag, deps_raw) = deps.into_parts();
-        assert_eq!(query_tag, Tag::Expr(Cons));
+        assert_eq!(query.tag(), &Tag::Expr(Cons));
         // TODO: Deps must be a single Prov or a list (later, an N-ary tuple), but we discard the type tag. This is
         // arguably okay, but it means that in order to recover the preimage we will need to know the expected arity
         // based on the query.
-        assert!(matches!(deps_tag, Tag::Expr(Prov | Cons | Nil)));
-        let raw = self.intern_raw_ptrs([query_raw, self.tag(val_tag), val_raw, deps_raw]);
-        Ptr::new(Tag::Expr(Prov), raw)
+        assert!(matches!(deps.tag(), Tag::Expr(Prov | Cons | Nil)));
+        self.intern_compact(query, val, deps, Tag::Expr(Prov))
     }
 
     #[inline]
-    pub fn deconstruct_provenance(&self, prov: Ptr) -> Option<[Ptr; 3]> {
+    pub fn deconstruct_provenance(&self, prov: &Ptr) -> Option<[Ptr; 3]> {
         assert_eq!(prov.tag(), &Tag::Expr(Prov));
-        let idx = prov.get_index2()?;
-        let [query_pay, val_tag, val_pay, deps_pay] = self.fetch_raw_ptrs::<4>(idx)?;
-        let val_tag = self.fetch_tag(val_tag)?;
-        let query = Ptr::new(Tag::Expr(Cons), *query_pay);
-        let val = Ptr::new(val_tag, *val_pay);
-        let deps = Ptr::new(Tag::Expr(Cons), *deps_pay);
-        Some([query, val, deps])
+        self.fetch_compact(prov, Tag::Expr(Cons), Tag::Expr(Cons))
     }
 
     #[inline]
