@@ -23,7 +23,7 @@ use lurk::{
         pointers::Ptr,
         store::Store,
     },
-    proof::{nova::NovaProver, supernova::SuperNovaProver, RecursiveSNARKTrait},
+    proof::{nova::NovaProver, supernova::SuperNovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         instance::{Instance, Kind},
         public_params, supernova_public_params,

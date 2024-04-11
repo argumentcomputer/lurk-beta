@@ -7,6 +7,7 @@ use lurk::{
     lang::{Coproc, Lang},
     lem::{eval::evaluate, store::Store},
     proof::nova::{public_params, NovaProver, PublicParams},
+    proof::Prover,
 };
 use num_traits::ToPrimitive;
 use statrs::statistics::Statistics;
