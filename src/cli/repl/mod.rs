@@ -29,7 +29,7 @@ use crate::{
             make_eval_step_from_config, EvalConfig,
         },
         interpreter::Frame,
-        pointers::{Ptr, RawPtr},
+        pointers::{IVal, Ptr},
         store::Store,
         tag::Tag,
         Func,
@@ -322,7 +322,10 @@ where
             &self.store,
             (input[0], output[0]),
             (input[1], output[1]),
-            (cont.parts(), cont_out.parts()),
+            (
+                (cont.tag_field(), *cont.hash()),
+                (cont_out.tag_field(), *cont_out.hash()),
+            ),
         );
 
         let claim_comm = Commitment::new(None, claim, &self.store);
@@ -555,8 +558,7 @@ where
     /// Errors when `hash_expr` doesn't reduce to a Num or Comm pointer
     fn get_comm_hash(&mut self, hash_expr: Ptr) -> Result<&F> {
         let io = self.eval_expr(hash_expr)?;
-        let (Tag::Expr(ExprTag::Num | ExprTag::Comm), RawPtr::Atom(hash_idx)) = io[0].parts()
-        else {
+        let (Tag::Expr(ExprTag::Num | ExprTag::Comm), IVal::Atom(hash_idx)) = io[0].parts() else {
             bail!("Commitment hash expression must reduce to a Num or Comm pointer")
         };
         Ok(self.store.expect_f(*hash_idx))

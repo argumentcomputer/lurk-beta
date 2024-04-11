@@ -309,7 +309,7 @@ impl<F: LurkField> CircomGadget<F> for CircomKeccak<F> {
         let bytes_to_hash = bits_to_bytes(
             &z_bits
                 .iter()
-                .map(|ptr| ptr.value() != &F::ZERO)
+                .map(|ptr| ptr.hash() != &F::ZERO)
                 .collect::<Vec<_>>(),
         );
 
@@ -371,7 +371,7 @@ fn main() {
             .unwrap()
             .0
             .iter()
-            .map(|ptr| ptr.raw().get_atom().unwrap() == 1)
+            .map(|ptr| ptr.val().get_atom_idx().unwrap() == 1)
             .collect::<Vec<_>>(),
     );
 

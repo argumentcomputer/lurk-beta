@@ -1,9 +1,9 @@
 use anyhow::{anyhow, bail, Context, Result};
 
 use super::{
-    pointers::{Ptr, RawPtr},
+    pointers::{IVal, Ptr},
     slot::{SlotData, Val},
-    store::{fetch_ptrs, intern_ptrs, Store},
+    store::Store,
     tag::Tag,
     var_map::VarMap,
     Block, Ctrl, Func, Lit, Op, Var,
@@ -206,7 +206,7 @@ impl Block {
                     let b = bindings.get_ptr(b)?;
                     // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
                     // compound data with opaque data in either element's transitive closure.
-                    let c = store.hash_ptr(&a).value() == store.hash_ptr(&b).value();
+                    let c = store.hash_ptr(&a).val() == store.hash_ptr(&b).val();
                     bindings.insert_bool(tgt.clone(), c);
                 }
                 Op::Not(tgt, a) => {
@@ -224,9 +224,9 @@ impl Block {
                     bindings.insert_bool(tgt.clone(), a || b);
                 }
                 Op::Add(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.raw();
-                    let b = *bindings.get_ptr(b)?.raw();
-                    let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                    let a = *bindings.get_ptr(a)?.val();
+                    let b = *bindings.get_ptr(b)?.val();
+                    let c = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                         let (f, g) = (store.expect_f(f), store.expect_f(g));
                         store.intern_atom(Tag::Expr(Num), *f + *g)
                     } else {
@@ -235,9 +235,9 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Sub(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.raw();
-                    let b = *bindings.get_ptr(b)?.raw();
-                    let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                    let a = *bindings.get_ptr(a)?.val();
+                    let b = *bindings.get_ptr(b)?.val();
+                    let c = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                         let (f, g) = (store.expect_f(f), store.expect_f(g));
                         store.intern_atom(Tag::Expr(Num), *f - *g)
                     } else {
@@ -246,9 +246,9 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Mul(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.raw();
-                    let b = *bindings.get_ptr(b)?.raw();
-                    let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                    let a = *bindings.get_ptr(a)?.val();
+                    let b = *bindings.get_ptr(b)?.val();
+                    let c = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                         let (f, g) = (store.expect_f(f), store.expect_f(g));
                         store.intern_atom(Tag::Expr(Num), *f * *g)
                     } else {
@@ -257,9 +257,9 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Div(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.raw();
-                    let b = *bindings.get_ptr(b)?.raw();
-                    let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                    let a = *bindings.get_ptr(a)?.val();
+                    let b = *bindings.get_ptr(b)?.val();
+                    let c = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                         let (f, g) = (store.expect_f(f), store.expect_f(g));
                         if g == &F::ZERO {
                             bail!("Can't divide by zero")
@@ -271,20 +271,20 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Lt(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.raw();
-                    let b = *bindings.get_ptr(b)?.raw();
-                    let c = if let (RawPtr::Atom(f_idx), RawPtr::Atom(g_idx)) = (a, b) {
+                    let a = *bindings.get_ptr(a)?.val();
+                    let b = *bindings.get_ptr(b)?.val();
+                    let c = if let (IVal::Atom(f_idx), IVal::Atom(g_idx)) = (a, b) {
                         let f = *store.expect_f(f_idx);
                         let g = *store.expect_f(g_idx);
                         let diff = f - g;
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(RawPtr::Atom(store.intern_f(f + f).0))],
+                            vals: vec![Val::Num(IVal::Atom(store.intern_f(f + f).0))],
                         }));
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(RawPtr::Atom(store.intern_f(g + g).0))],
+                            vals: vec![Val::Num(IVal::Atom(store.intern_f(g + g).0))],
                         }));
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(RawPtr::Atom(store.intern_f(diff + diff).0))],
+                            vals: vec![Val::Num(IVal::Atom(store.intern_f(diff + diff).0))],
                         }));
                         let f = BaseNum::Scalar(f);
                         let g = BaseNum::Scalar(g);
@@ -296,11 +296,11 @@ impl Block {
                 }
                 Op::Trunc(tgt, a, n) => {
                     assert!(*n <= 64);
-                    let a = *bindings.get_ptr(a)?.raw();
-                    let c = if let RawPtr::Atom(f_idx) = a {
+                    let a = *bindings.get_ptr(a)?.val();
+                    let c = if let IVal::Atom(f_idx) = a {
                         let f = *store.expect_f(f_idx);
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(RawPtr::Atom(f_idx))],
+                            vals: vec![Val::Num(IVal::Atom(f_idx))],
                         }));
                         let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                         store.intern_atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
@@ -310,9 +310,9 @@ impl Block {
                     bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::DivRem64(tgt, a, b) => {
-                    let a = *bindings.get_ptr(a)?.raw();
-                    let b = *bindings.get_ptr(b)?.raw();
-                    let (c1, c2) = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                    let a = *bindings.get_ptr(a)?.val();
+                    let b = *bindings.get_ptr(b)?.val();
+                    let (c1, c2) = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                         let f = *store.expect_f(f);
                         let g = *store.expect_f(g);
                         if g == F::ZERO {
@@ -339,28 +339,33 @@ impl Block {
                 }
                 Op::Cons2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
-                    let tgt_ptr = intern_ptrs!(store, *tag, preimg_ptrs[0], preimg_ptrs[1]);
+                    let tgt_ptr = store.intern_tuple2([preimg_ptrs[0], preimg_ptrs[1]], *tag, None);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
                     hints.hash4.push(Some(SlotData { vals }));
                 }
                 Op::Cons3(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
-                    let tgt_ptr =
-                        intern_ptrs!(store, *tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
+                    let tgt_ptr = store.intern_tuple3(
+                        [preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]],
+                        *tag,
+                        None,
+                    );
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
                     hints.hash6.push(Some(SlotData { vals }));
                 }
                 Op::Cons4(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_ptr(preimg)?;
-                    let tgt_ptr = intern_ptrs!(
-                        store,
+                    let tgt_ptr = store.intern_tuple4(
+                        [
+                            preimg_ptrs[0],
+                            preimg_ptrs[1],
+                            preimg_ptrs[2],
+                            preimg_ptrs[3],
+                        ],
                         *tag,
-                        preimg_ptrs[0],
-                        preimg_ptrs[1],
-                        preimg_ptrs[2],
-                        preimg_ptrs[3]
+                        None,
                     );
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
@@ -368,44 +373,44 @@ impl Block {
                 }
                 Op::Decons2(preimg, img) => {
                     let img_ptr = bindings.get_ptr(img)?;
-                    let Some(idx) = img_ptr.get_index2() else {
+                    let Some(idx) = img_ptr.get_tuple2_idx() else {
                         bail!("{img} isn't a Tree2 pointer");
                     };
-                    let Some(preimg_ptrs) = fetch_ptrs!(store, 2, idx) else {
+                    let Some(preimg_ptrs) = store.fetch_tuple2(idx) else {
                         bail!("Couldn't fetch {img}'s children")
                     };
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), *ptr);
                     }
-                    let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
+                    let vals = preimg_ptrs.iter().map(|x| Val::Pointer(*x)).collect();
                     hints.hash4.push(Some(SlotData { vals }));
                 }
                 Op::Decons3(preimg, img) => {
                     let img_ptr = bindings.get_ptr(img)?;
-                    let Some(idx) = img_ptr.get_index3() else {
+                    let Some(idx) = img_ptr.get_tuple3_idx() else {
                         bail!("{img} isn't a Tree3 pointer");
                     };
-                    let Some(preimg_ptrs) = fetch_ptrs!(store, 3, idx) else {
+                    let Some(preimg_ptrs) = store.fetch_tuple3(idx) else {
                         bail!("Couldn't fetch {img}'s children")
                     };
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), *ptr);
                     }
-                    let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
+                    let vals = preimg_ptrs.iter().map(|x| Val::Pointer(*x)).collect();
                     hints.hash6.push(Some(SlotData { vals }));
                 }
                 Op::Decons4(preimg, img) => {
                     let img_ptr = bindings.get_ptr(img)?;
-                    let Some(idx) = img_ptr.get_index4() else {
+                    let Some(idx) = img_ptr.get_tuple4_idx() else {
                         bail!("{img} isn't a Tree4 pointer");
                     };
-                    let Some(preimg_ptrs) = fetch_ptrs!(store, 4, idx) else {
+                    let Some(preimg_ptrs) = store.fetch_tuple4(idx) else {
                         bail!("Couldn't fetch {img}'s children")
                     };
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), *ptr);
                     }
-                    let vals = preimg_ptrs.into_iter().map(Val::Pointer).collect();
+                    let vals = preimg_ptrs.iter().map(|x| Val::Pointer(*x)).collect();
                     hints.hash8.push(Some(SlotData { vals }));
                 }
                 Op::PushBinding(img, preimg) => {
@@ -414,9 +419,9 @@ impl Block {
                         store.push_binding(preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
                     let vals = vec![
-                        Val::Num(*preimg_ptrs[0].raw()),
+                        Val::Num(*preimg_ptrs[0].val()),
                         Val::Pointer(preimg_ptrs[1]),
-                        Val::Num(*preimg_ptrs[2].raw()),
+                        Val::Num(*preimg_ptrs[2].val()),
                     ];
                     hints.hash4.push(Some(SlotData { vals }));
                 }
@@ -429,27 +434,27 @@ impl Block {
                         bindings.insert_ptr(var.clone(), *ptr);
                     }
                     let vals = vec![
-                        Val::Num(*preimg_ptrs[0].raw()),
+                        Val::Num(*preimg_ptrs[0].val()),
                         Val::Pointer(preimg_ptrs[1]),
-                        Val::Num(*preimg_ptrs[2].raw()),
+                        Val::Num(*preimg_ptrs[2].val()),
                     ];
                     hints.hash4.push(Some(SlotData { vals }));
                 }
                 Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get_ptr(src)?;
                     let sec_ptr = bindings.get_ptr(sec)?;
-                    let (Tag::Expr(Num), RawPtr::Atom(secret_idx)) = sec_ptr.parts() else {
+                    let (Tag::Expr(Num), IVal::Atom(secret_idx)) = sec_ptr.parts() else {
                         bail!("{sec} is not a numeric pointer")
                     };
                     let secret = *store.expect_f(*secret_idx);
                     let tgt_ptr = store.hide(secret, src_ptr);
-                    let vals = vec![Val::Num(RawPtr::Atom(*secret_idx)), Val::Pointer(src_ptr)];
+                    let vals = vec![Val::Num(IVal::Atom(*secret_idx)), Val::Pointer(src_ptr)];
                     hints.commitment.push(Some(SlotData { vals }));
                     bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
                 Op::Open(tgt_secret, tgt_ptr, comm) => {
                     let comm_ptr = bindings.get_ptr(comm)?;
-                    let (Tag::Expr(Comm), RawPtr::Atom(hash)) = comm_ptr.parts() else {
+                    let (Tag::Expr(Comm), IVal::Atom(hash)) = comm_ptr.parts() else {
                         bail!("{comm} is not a comm pointer")
                     };
                     let hash = *store.expect_f(*hash);
@@ -459,10 +464,10 @@ impl Block {
                     bindings.insert_ptr(tgt_ptr.clone(), *ptr);
                     bindings.insert_ptr(
                         tgt_secret.clone(),
-                        store.intern_atom(Tag::Expr(Num), *secret),
+                        store.intern_atom(Tag::Expr(Num), secret.0),
                     );
-                    let secret_idx = store.intern_f(*secret).0;
-                    let vals = vec![Val::Num(RawPtr::Atom(secret_idx)), Val::Pointer(*ptr)];
+                    let secret_idx = store.intern_f(secret.0).0;
+                    let vals = vec![Val::Num(IVal::Atom(secret_idx)), Val::Pointer(*ptr)];
                     hints.commitment.push(Some(SlotData { vals }));
                 }
                 Op::Unit(f) => f(),

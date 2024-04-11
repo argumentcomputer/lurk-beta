@@ -29,7 +29,7 @@ fn assert_start_stream(
     callable: Ptr,
     arg: Ptr,
     store: &Store<Fr>,
-    expected_result: Ptr,
+    expected_result: &Ptr,
     expected_iterations: &Expect,
 ) -> Vec<Ptr> {
     let (t1, t2) = pair_terminals();
@@ -47,7 +47,7 @@ fn assert_resume_stream(
     input: Vec<Ptr>,
     arg: Ptr,
     store: &Store<Fr>,
-    expected_result: Ptr,
+    expected_result: &Ptr,
     expected_iterations: &Expect,
 ) -> Vec<Ptr> {
     let (t1, t2) = pair_terminals();
@@ -76,21 +76,21 @@ fn test_comm_callable() {
         callable,
         store.num_u64(123),
         &store,
-        store.num_u64(123),
+        &store.num_u64(123),
         expected_iterations,
     );
     let output = assert_resume_stream(
         output,
         store.num_u64(321),
         &store,
-        store.num_u64(444),
+        &store.num_u64(444),
         expected_iterations,
     );
     assert_resume_stream(
         output,
         store.num_u64(111),
         &store,
-        store.num_u64(555),
+        &store.num_u64(555),
         expected_iterations,
     );
 }
@@ -109,21 +109,21 @@ fn test_fun_callable() {
         callable,
         store.num_u64(123),
         &store,
-        store.num_u64(123),
+        &store.num_u64(123),
         expected_iterations,
     );
     let output = assert_resume_stream(
         output,
         store.num_u64(321),
         &store,
-        store.num_u64(444),
+        &store.num_u64(444),
         expected_iterations,
     );
     assert_resume_stream(
         output,
         store.num_u64(111),
         &store,
-        store.num_u64(555),
+        &store.num_u64(555),
         expected_iterations,
     );
 }

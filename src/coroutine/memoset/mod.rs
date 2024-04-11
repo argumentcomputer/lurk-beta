@@ -52,12 +52,11 @@ use crate::field::LurkField;
 use crate::lem::circuit::GlobalAllocator;
 use crate::lem::tag::Tag;
 use crate::lem::{
-    pointers::Ptr,
+    pointers::{Ptr, ZPtr},
     store::{Store, WithStore},
 };
 use crate::symbol::Symbol;
 use crate::tag::{ExprTag, Tag as XTag};
-use crate::z_ptr::ZPtr;
 
 use multiset::MultiSet;
 pub use query::{CircuitQuery, Query};
@@ -107,7 +106,7 @@ impl<F: LurkField> Transcript<F> {
     fn r(&self, s: &Store<F>) -> F {
         let z_ptr = s.hash_ptr(&self.acc);
         assert_eq!(Tag::Expr(ExprTag::Cons), *z_ptr.tag());
-        *z_ptr.value()
+        *z_ptr.hash()
     }
 
     #[allow(dead_code)]
@@ -183,7 +182,7 @@ impl<F: LurkField> CircuitTranscript<F> {
 
     #[allow(dead_code)]
     fn dbg(&self, s: &Store<F>) {
-        let z = self.acc.get_value::<Tag>().unwrap();
+        let z = self.acc.get_value().unwrap();
         let transcript = s.to_ptr(&z);
 
         tracing::debug!("transcript: {}", transcript.fmt_to_string_simple(s));
@@ -328,7 +327,7 @@ pub struct Scope<Q: Query<F>, M, F: LurkField> {
     /// unique keys: query-index -> [key]
     unique_inserted_keys: IndexMap<usize, Vec<Ptr>>,
     // This may become an explicit map or something allowing more fine-grained control.
-    provenances: OnceCell<IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
+    provenances: OnceCell<IndexMap<ZPtr<F>, ZPtr<F>>>,
     default_rc: usize,
     pub(crate) store: Arc<Store<F>>,
     pub(crate) runtime_data: Q::RD,
@@ -424,7 +423,7 @@ pub struct CircuitScope<'a, F: LurkField, CM, RD> {
     /// k -> allocated v
     transcript: CircuitTranscript<F>,
     /// k -> prov
-    provenances: Option<&'a IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
+    provenances: Option<&'a IndexMap<ZPtr<F>, ZPtr<F>>>,
     acc: Option<AllocatedPtr<F>>,
     pub(crate) runtime_data: RD,
 }
@@ -444,7 +443,7 @@ pub struct CoroutineCircuit<'a, F: LurkField, M, Q: Query<F>> {
 struct WitnessData<'a, F: LurkField, M> {
     keys: &'a [Ptr],
     memoset: &'a M,
-    provenances: &'a IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>,
+    provenances: &'a IndexMap<ZPtr<F>, ZPtr<F>>,
     next_query_index: usize,
 }
 
@@ -631,7 +630,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
         transcript
     }
 
-    fn provenances(&self) -> &IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
+    fn provenances(&self) -> &IndexMap<ZPtr<F>, ZPtr<F>> {
         self.provenances.get_or_init(|| self.compute_provenances())
     }
 
@@ -647,7 +646,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     //     }
     // }
 
-    // fn dbg_provenances_zptrs(store: &Store<F>, provenances: &IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>) {
+    // fn dbg_provenances_zptrs(store: &Store<F>, provenances: &IndexMap<ZPtr<F>, ZPtr<F>>) {
     //     for (q, provenance) in provenances {
     //         dbg!(
     //             store.to_ptr(q).fmt_to_string_simple(store),
@@ -656,7 +655,7 @@ impl<F: LurkField, Q: Query<F>> Scope<Q, LogMemo<F>, F> {
     //     }
     // }
 
-    fn compute_provenances(&self) -> IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>> {
+    fn compute_provenances(&self) -> IndexMap<ZPtr<F>, ZPtr<F>> {
         let mut provenances = IndexMap::default();
         let mut ready = HashSet::new();
 
@@ -924,7 +923,7 @@ impl<'a, F: LurkField, RD> CircuitScope<'a, F, LogMemoCircuit<'a, F>, RD> {
         g: &GlobalAllocator<F>,
         s: &Store<F>,
         memoset: LogMemoCircuit<'a, F>,
-        provenances: Option<&'a IndexMap<ZPtr<Tag, F>, ZPtr<Tag, F>>>,
+        provenances: Option<&'a IndexMap<ZPtr<F>, ZPtr<F>>>,
         runtime_data: RD,
     ) -> Self {
         Self {
@@ -1380,8 +1379,8 @@ impl<F: LurkField> LogMemo<F> {
     }
 
     fn acc_add(&self, acc: &Ptr, kv: &Ptr, store: &Store<F>) -> Ptr {
-        let acc_num = store.expect_f(acc.get_atom().unwrap());
-        let kv_num = store.hash_raw_ptr(kv.raw()).0;
+        let acc_num = store.expect_f(acc.get_atom_idx().unwrap());
+        let kv_num = store.hash_ptr_val(kv.val()).0;
         let element = self.map_to_element(kv_num).unwrap();
         store.num(*acc_num + element)
     }

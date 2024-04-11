@@ -19,8 +19,7 @@ use crate::{
     field::LurkField,
     lem::{
         eval::evaluate_with_env_and_cont,
-        pointers::{Ptr, RawPtr},
-        store::expect_ptrs,
+        pointers::{IVal, Ptr},
         tag::Tag,
     },
     package::{Package, SymbolRef},
@@ -272,7 +271,7 @@ where
             let second_io = repl
                 .eval_expr(second)
                 .with_context(|| "evaluating second arg")?;
-            let (Tag::Expr(ExprTag::Num), RawPtr::Atom(secret)) = first_io[0].parts() else {
+            let (Tag::Expr(ExprTag::Num), IVal::Atom(secret)) = first_io[0].parts() else {
                 bail!(
                     "Secret must be a number. Got {}",
                     first_io[0].fmt_to_string(&repl.store, &repl.state.borrow())
@@ -589,7 +588,7 @@ where
                 .store
                 .fetch_cons(result)
                 .ok_or_else(|| anyhow!("Chained function must return a cons expression"))?;
-            let (Tag::Expr(ExprTag::Comm), RawPtr::Atom(hash)) = comm.parts() else {
+            let (Tag::Expr(ExprTag::Comm), IVal::Atom(hash)) = comm.parts() else {
                 bail!("Second component of a chain must be a commitment")
             };
             let hash = *repl.store.expect_f(*hash);
@@ -598,7 +597,7 @@ where
                 .store
                 .open(hash)
                 .expect("data must have been committed");
-            repl.hide(*secret, *fun)
+            repl.hide(secret.0, *fun)
         },
     };
 
@@ -822,7 +821,7 @@ where
         };
 
         let (car, _) = repl.store.car_cdr_simple(&rest)?;
-        let (Tag::Expr(ExprTag::Num), RawPtr::Atom(rc_idx)) = car.parts() else {
+        let (Tag::Expr(ExprTag::Num), IVal::Atom(rc_idx)) = car.parts() else {
             bail!("Reduction count must be a Num")
         };
         let Some(rc) = repl.store.expect_f(*rc_idx).to_u64().map(|u| u as usize) else {
@@ -868,13 +867,13 @@ where
             .eval_expr_with_env(apply_call, repl.store.intern_empty_env())
             .with_context(|| "evaluating protocol function call")?;
 
-        let (Tag::Expr(ExprTag::Cons), RawPtr::Hash4(idx)) = &io[0].parts() else {
+        let (Tag::Expr(ExprTag::Cons), IVal::Tuple2(idx)) = &io[0].parts() else {
             bail!(
                 "Protocol function must return a pair. Got {}",
                 io[0].fmt_to_string(&repl.store, &repl.state.borrow())
             )
         };
-        let [pre_verify, post_verify] = &expect_ptrs!(repl.store, 2, *idx);
+        let [pre_verify, post_verify] = repl.store.expect_tuple2(*idx);
 
         if pre_verify.is_nil() {
             bail!("Pre-verification predicate rejected the input")

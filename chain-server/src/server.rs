@@ -173,8 +173,8 @@ where
 
                 // produce the data for the response
                 let chain_response_data = ser(ChainResponseData::new(
-                    &result,
-                    &next_callable,
+                    result,
+                    next_callable,
                     &self.store,
                     compressed_proof,
                 ))
@@ -182,13 +182,13 @@ where
 
                 // save the session
                 if let Some(session) = &self.session {
-                    let session_data = SessionData::pack_standalone(self, &next_callable);
+                    let session_data = SessionData::pack_standalone(self, next_callable);
                     dump(session_data, session).map_err(|e| Status::internal(e.to_string()))?;
                 }
 
                 // now it's safe to set the new callable state since no error
                 // has occurred so far
-                *callable_state = next_callable;
+                *callable_state = *next_callable;
 
                 Ok(Response::new(ChainResponse {
                     chain_response_data,
@@ -371,8 +371,8 @@ where
 
                 // produce the data for the response
                 let chain_response_data = ser(ChainResponseData::new(
-                    &result,
-                    &next_callable,
+                    result,
+                    next_callable,
                     &self.store,
                     compressed_proof,
                 ))
@@ -382,16 +382,16 @@ where
                 if let Some(session) = &self.session {
                     let session_data = SessionData::pack_stream(
                         self,
-                        &next_callable,
-                        Some((&result, recursive_proof.clone())),
+                        next_callable,
+                        Some((result, recursive_proof.clone())),
                     );
                     dump(session_data, session).map_err(|e| Status::internal(e.to_string()))?;
                 }
 
                 // now it's safe to set the new state since no error has occurred so far
                 *state = StreamState {
-                    callable: next_callable,
-                    result_and_proof: Some((result, recursive_proof)),
+                    callable: *next_callable,
+                    result_and_proof: Some((*result, recursive_proof)),
                 };
 
                 Ok(Response::new(ChainResponse {
@@ -643,7 +643,7 @@ fn get_service_and_address<
             let callable = if init_args.comm {
                 let hash_ptr = store.read_with_default_state(&init_args.callable)?;
                 let hash = store
-                    .fetch_f(&hash_ptr)
+                    .fetch_f_by_val(hash_ptr.val())
                     .ok_or("Failed to parse callable hash")?;
                 fetch_comm(hash, &store)?;
                 hash_ptr.cast(Tag::Expr(lurk::tag::ExprTag::Comm))

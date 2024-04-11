@@ -9,9 +9,11 @@ use crate::{
     self as lurk,
     circuit::gadgets::pointer::AllocatedPtr,
     field::LurkField,
-    lem::{pointers::Ptr, store::Store},
+    lem::{
+        pointers::{Ptr, ZPtr},
+        store::Store,
+    },
     tag::{ExprTag, Tag},
-    z_ptr::ZPtr,
 };
 
 use super::{CoCircuit, Coprocessor};
@@ -61,14 +63,14 @@ fn synthesize_sha256<F: LurkField, CS: ConstraintSystem<F>>(
     )
 }
 
-fn compute_sha256<F: LurkField, T: Tag>(n: usize, z_ptrs: &[ZPtr<T, F>]) -> F {
+fn compute_sha256<F: LurkField>(n: usize, z_ptrs: &[ZPtr<F>]) -> F {
     let mut hasher = Sha256::new();
 
     let mut input = vec![0u8; 64 * n];
 
     for (i, z_ptr) in z_ptrs.iter().enumerate() {
         let tag_zptr: F = z_ptr.tag().to_field();
-        let hash_zptr = z_ptr.value();
+        let hash_zptr = z_ptr.hash();
         input[(64 * i)..(64 * i + 32)].copy_from_slice(&tag_zptr.to_bytes());
         input[(64 * i + 32)..(64 * (i + 1))].copy_from_slice(&hash_zptr.to_bytes());
     }

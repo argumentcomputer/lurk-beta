@@ -4,9 +4,8 @@ use super::toplevel::ToplevelQuery;
 
 use crate::coroutine::memoset::{LogMemo, Query, Scope};
 use crate::field::LurkField;
-use crate::lem::pointers::{Ptr, RawPtr};
+use crate::lem::pointers::{IVal, Ptr};
 use crate::lem::slot::Val;
-use crate::lem::store::{fetch_ptrs, intern_ptrs};
 use crate::lem::tag::Tag;
 use crate::lem::var_map::VarMap;
 use crate::lem::{Block, Ctrl, Func, Lit, Op};
@@ -85,7 +84,7 @@ fn run<F: LurkField>(
                 let b = bindings.get_ptr(b)?;
                 // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
                 // compound data with opaque data in either element's transitive closure.
-                let c = scope.store.hash_ptr(&a).value() == scope.store.hash_ptr(&b).value();
+                let c = scope.store.hash_ptr(&a).hash() == scope.store.hash_ptr(&b).hash();
                 bindings.insert_bool(tgt.clone(), c);
             }
             Op::Not(tgt, a) => {
@@ -103,9 +102,9 @@ fn run<F: LurkField>(
                 bindings.insert_bool(tgt.clone(), a || b);
             }
             Op::Add(tgt, a, b) => {
-                let a = *bindings.get_ptr(a)?.raw();
-                let b = *bindings.get_ptr(b)?.raw();
-                let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                let a = *bindings.get_ptr(a)?.val();
+                let b = *bindings.get_ptr(b)?.val();
+                let c = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                     let (f, g) = (scope.store.expect_f(f), scope.store.expect_f(g));
                     scope.store.intern_atom(Tag::Expr(Num), *f + *g)
                 } else {
@@ -114,9 +113,9 @@ fn run<F: LurkField>(
                 bindings.insert_ptr(tgt.clone(), c);
             }
             Op::Sub(tgt, a, b) => {
-                let a = *bindings.get_ptr(a)?.raw();
-                let b = *bindings.get_ptr(b)?.raw();
-                let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                let a = *bindings.get_ptr(a)?.val();
+                let b = *bindings.get_ptr(b)?.val();
+                let c = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                     let (f, g) = (scope.store.expect_f(f), scope.store.expect_f(g));
                     scope.store.intern_atom(Tag::Expr(Num), *f - *g)
                 } else {
@@ -125,9 +124,9 @@ fn run<F: LurkField>(
                 bindings.insert_ptr(tgt.clone(), c);
             }
             Op::Mul(tgt, a, b) => {
-                let a = *bindings.get_ptr(a)?.raw();
-                let b = *bindings.get_ptr(b)?.raw();
-                let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                let a = *bindings.get_ptr(a)?.val();
+                let b = *bindings.get_ptr(b)?.val();
+                let c = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                     let (f, g) = (scope.store.expect_f(f), scope.store.expect_f(g));
                     scope.store.intern_atom(Tag::Expr(Num), *f * *g)
                 } else {
@@ -136,9 +135,9 @@ fn run<F: LurkField>(
                 bindings.insert_ptr(tgt.clone(), c);
             }
             Op::Div(tgt, a, b) => {
-                let a = *bindings.get_ptr(a)?.raw();
-                let b = *bindings.get_ptr(b)?.raw();
-                let c = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                let a = *bindings.get_ptr(a)?.val();
+                let b = *bindings.get_ptr(b)?.val();
+                let c = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                     let (f, g) = (scope.store.expect_f(f), scope.store.expect_f(g));
                     if g == &F::ZERO {
                         bail!("Can't divide by zero")
@@ -152,9 +151,9 @@ fn run<F: LurkField>(
                 bindings.insert_ptr(tgt.clone(), c);
             }
             Op::Lt(tgt, a, b) => {
-                let a = *bindings.get_ptr(a)?.raw();
-                let b = *bindings.get_ptr(b)?.raw();
-                let c = if let (RawPtr::Atom(f_idx), RawPtr::Atom(g_idx)) = (a, b) {
+                let a = *bindings.get_ptr(a)?.val();
+                let b = *bindings.get_ptr(b)?.val();
+                let c = if let (IVal::Atom(f_idx), IVal::Atom(g_idx)) = (a, b) {
                     let f = *scope.store.expect_f(f_idx);
                     let g = *scope.store.expect_f(g_idx);
                     let f = BaseNum::Scalar(f);
@@ -167,8 +166,8 @@ fn run<F: LurkField>(
             }
             Op::Trunc(tgt, a, n) => {
                 assert!(*n <= 64);
-                let a = *bindings.get_ptr(a)?.raw();
-                let c = if let RawPtr::Atom(f_idx) = a {
+                let a = *bindings.get_ptr(a)?.val();
+                let c = if let IVal::Atom(f_idx) = a {
                     let f = *scope.store.expect_f(f_idx);
                     let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                     scope
@@ -180,9 +179,9 @@ fn run<F: LurkField>(
                 bindings.insert_ptr(tgt.clone(), c);
             }
             Op::DivRem64(tgt, a, b) => {
-                let a = *bindings.get_ptr(a)?.raw();
-                let b = *bindings.get_ptr(b)?.raw();
-                let (c1, c2) = if let (RawPtr::Atom(f), RawPtr::Atom(g)) = (a, b) {
+                let a = *bindings.get_ptr(a)?.val();
+                let b = *bindings.get_ptr(b)?.val();
+                let (c1, c2) = if let (IVal::Atom(f), IVal::Atom(g)) = (a, b) {
                     let f = *scope.store.expect_f(f);
                     let g = *scope.store.expect_f(g);
                     if g == F::ZERO {
@@ -207,38 +206,41 @@ fn run<F: LurkField>(
             Op::Recv(_) => todo!("not supported yet"),
             Op::Cons2(img, tag, preimg) => {
                 let preimg_ptrs = bindings.get_many_ptr(preimg)?;
-                let tgt_ptr = intern_ptrs!(scope.store, *tag, preimg_ptrs[0], preimg_ptrs[1]);
+                let tgt_ptr =
+                    scope
+                        .store
+                        .intern_tuple2([preimg_ptrs[0], preimg_ptrs[1]], *tag, None);
                 bindings.insert_ptr(img.clone(), tgt_ptr);
             }
             Op::Cons3(img, tag, preimg) => {
                 let preimg_ptrs = bindings.get_many_ptr(preimg)?;
-                let tgt_ptr = intern_ptrs!(
-                    scope.store,
+                let tgt_ptr = scope.store.intern_tuple3(
+                    [preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]],
                     *tag,
-                    preimg_ptrs[0],
-                    preimg_ptrs[1],
-                    preimg_ptrs[2]
+                    None,
                 );
                 bindings.insert_ptr(img.clone(), tgt_ptr);
             }
             Op::Cons4(img, tag, preimg) => {
                 let preimg_ptrs = bindings.get_many_ptr(preimg)?;
-                let tgt_ptr = intern_ptrs!(
-                    scope.store,
+                let tgt_ptr = scope.store.intern_tuple4(
+                    [
+                        preimg_ptrs[0],
+                        preimg_ptrs[1],
+                        preimg_ptrs[2],
+                        preimg_ptrs[3],
+                    ],
                     *tag,
-                    preimg_ptrs[0],
-                    preimg_ptrs[1],
-                    preimg_ptrs[2],
-                    preimg_ptrs[3]
+                    None,
                 );
                 bindings.insert_ptr(img.clone(), tgt_ptr);
             }
             Op::Decons2(preimg, img) => {
                 let img_ptr = bindings.get_ptr(img)?;
-                let Some(idx) = img_ptr.get_index2() else {
+                let Some(idx) = img_ptr.get_tuple2_idx() else {
                     bail!("{img} isn't a Tree2 pointer");
                 };
-                let Some(preimg_ptrs) = fetch_ptrs!(scope.store, 2, idx) else {
+                let Some(preimg_ptrs) = scope.store.fetch_tuple2(idx) else {
                     bail!("Couldn't fetch {img}'s children")
                 };
                 for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
@@ -247,10 +249,10 @@ fn run<F: LurkField>(
             }
             Op::Decons3(preimg, img) => {
                 let img_ptr = bindings.get_ptr(img)?;
-                let Some(idx) = img_ptr.get_index3() else {
+                let Some(idx) = img_ptr.get_tuple3_idx() else {
                     bail!("{img} isn't a Tree3 pointer");
                 };
-                let Some(preimg_ptrs) = fetch_ptrs!(scope.store, 3, idx) else {
+                let Some(preimg_ptrs) = scope.store.fetch_tuple3(idx) else {
                     bail!("Couldn't fetch {img}'s children")
                 };
                 for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
@@ -259,10 +261,10 @@ fn run<F: LurkField>(
             }
             Op::Decons4(preimg, img) => {
                 let img_ptr = bindings.get_ptr(img)?;
-                let Some(idx) = img_ptr.get_index4() else {
+                let Some(idx) = img_ptr.get_tuple4_idx() else {
                     bail!("{img} isn't a Tree4 pointer");
                 };
-                let Some(preimg_ptrs) = fetch_ptrs!(scope.store, 4, idx) else {
+                let Some(preimg_ptrs) = scope.store.fetch_tuple4(idx) else {
                     bail!("Couldn't fetch {img}'s children")
                 };
                 for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
@@ -283,14 +285,14 @@ fn run<F: LurkField>(
                     .store
                     .pop_binding(&img_ptr)
                     .context("cannot extract {img}'s binding")?;
-                for (var, ptr) in preimg.iter().zip(preimg_ptrs.into_iter()) {
-                    bindings.insert_ptr(var.clone(), ptr);
+                for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
+                    bindings.insert_ptr(var.clone(), *ptr);
                 }
             }
             Op::Hide(tgt, sec, src) => {
                 let src_ptr = bindings.get_ptr(src)?;
                 let sec_ptr = bindings.get_ptr(sec)?;
-                let (Tag::Expr(Num), RawPtr::Atom(secret_idx)) = sec_ptr.parts() else {
+                let (Tag::Expr(Num), IVal::Atom(secret_idx)) = sec_ptr.parts() else {
                     bail!("{sec} is not a numeric pointer")
                 };
                 let secret = *scope.store.expect_f(*secret_idx);
@@ -299,7 +301,7 @@ fn run<F: LurkField>(
             }
             Op::Open(tgt_secret, tgt_ptr, comm) => {
                 let comm_ptr = bindings.get_ptr(comm)?;
-                let (Tag::Expr(Comm), RawPtr::Atom(hash)) = comm_ptr.parts() else {
+                let (Tag::Expr(Comm), IVal::Atom(hash)) = comm_ptr.parts() else {
                     bail!("{comm} is not a comm pointer")
                 };
                 let hash = *scope.store.expect_f(*hash);
@@ -309,7 +311,7 @@ fn run<F: LurkField>(
                 bindings.insert_ptr(tgt_ptr.clone(), *ptr);
                 bindings.insert_ptr(
                     tgt_secret.clone(),
-                    scope.store.intern_atom(Tag::Expr(Num), *secret),
+                    scope.store.intern_atom(Tag::Expr(Num), secret.0),
                 );
             }
             Op::Unit(f) => f(),

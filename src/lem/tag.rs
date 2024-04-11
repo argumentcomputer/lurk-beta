@@ -1,17 +1,13 @@
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
-use strum::EnumCount;
 
 use crate::{
     field::LurkField,
-    tag::{
-        ContTag, ExprTag, Op1, Op2, Tag as TagTrait, CONT_TAG_INIT, EXPR_TAG_INIT, OP1_TAG_INIT,
-        OP2_TAG_INIT,
-    },
+    tag::{ContTag, ExprTag, Op1, Op2, Tag as TagTrait},
 };
 
 /// The LEM `Tag` is a wrapper around other types that are used as tags
-#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Tag {
     Expr(ExprTag),
     Cont(ContTag),
@@ -68,47 +64,6 @@ impl Tag {
             Self::Op2(tag) => tag.to_field(),
         }
     }
-
-    pub fn pos(i: usize) -> Option<Self> {
-        let mut last = 0;
-        if (last..last + ExprTag::COUNT).contains(&i) {
-            let j = i + EXPR_TAG_INIT as usize - last;
-            let expr_tag = (j as u16).try_into().expect("unreachable");
-            return Some(Tag::Expr(expr_tag));
-        }
-        last += ExprTag::COUNT;
-        if (last..last + ContTag::COUNT).contains(&i) {
-            let j = i + CONT_TAG_INIT as usize - last;
-            let cont_tag = (j as u16).try_into().expect("unreachable");
-            return Some(Tag::Cont(cont_tag));
-        }
-        last += ContTag::COUNT;
-        if (last..last + Op1::COUNT).contains(&i) {
-            let j = i + OP1_TAG_INIT as usize - last;
-            let op1_tag = (j as u16).try_into().expect("unreachable");
-            return Some(Tag::Op1(op1_tag));
-        }
-        last += Op1::COUNT;
-        if (last..last + Op2::COUNT).contains(&i) {
-            let j = i + OP2_TAG_INIT as usize - last;
-            let op2_tag = (j as u16).try_into().expect("unreachable");
-            return Some(Tag::Op2(op2_tag));
-        }
-        None
-    }
-
-    pub fn index(&self) -> usize {
-        match self {
-            Self::Expr(tag) => *tag as usize - EXPR_TAG_INIT as usize,
-            Self::Cont(tag) => *tag as usize - CONT_TAG_INIT as usize + ExprTag::COUNT,
-            Self::Op1(tag) => {
-                *tag as usize - OP1_TAG_INIT as usize + ExprTag::COUNT + ContTag::COUNT
-            }
-            Self::Op2(tag) => {
-                *tag as usize - OP2_TAG_INIT as usize + ExprTag::COUNT + ContTag::COUNT + Op1::COUNT
-            }
-        }
-    }
 }
 
 impl std::fmt::Display for Tag {
@@ -119,47 +74,6 @@ impl std::fmt::Display for Tag {
             Cont(tag) => write!(f, "cont.{}", tag),
             Op1(tag) => write!(f, "op1.{}", tag),
             Op2(tag) => write!(f, "op2.{}", tag),
-        }
-    }
-}
-
-#[cfg(test)]
-pub(crate) mod tests {
-    use super::*;
-    use strum::IntoEnumIterator;
-
-    #[test]
-    fn pos_index_roundtrip() {
-        for i in 0.. {
-            let Some(tag) = Tag::pos(i) else {
-                break;
-            };
-            let j = tag.index();
-            assert_eq!(i, j);
-        }
-
-        for expr_tag in ExprTag::iter() {
-            let tag = Tag::Expr(expr_tag);
-            let tag_2 = Tag::pos(tag.index()).unwrap();
-            assert_eq!(tag, tag_2);
-        }
-
-        for cont_tag in ContTag::iter() {
-            let tag = Tag::Cont(cont_tag);
-            let tag_2 = Tag::pos(tag.index()).unwrap();
-            assert_eq!(tag, tag_2);
-        }
-
-        for op1_tag in Op1::iter() {
-            let tag = Tag::Op1(op1_tag);
-            let tag_2 = Tag::pos(tag.index()).unwrap();
-            assert_eq!(tag, tag_2);
-        }
-
-        for op2_tag in Op2::iter() {
-            let tag = Tag::Op2(op2_tag);
-            let tag_2 = Tag::pos(tag.index()).unwrap();
-            assert_eq!(tag, tag_2);
         }
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     lang::Lang,
     lem::{
         eval::{evaluate, make_cprocs_funcs_from_lang, make_eval_step_from_config, EvalConfig},
-        store::{expect_ptrs, intern_ptrs, Store},
+        store::Store,
         Tag,
     },
     state::user_sym,
@@ -89,14 +89,13 @@ fn test_nivc_steps() {
     let env = cproc_input.pop().unwrap();
     let expr = cproc_input.pop().unwrap();
 
-    let idx = expr.get_index2().unwrap();
-    let [_, args] = expect_ptrs!(store, 2, idx);
+    let idx = expr.get_tuple2_idx().unwrap();
+    let [_, args] = store.expect_tuple2(idx);
     let new_name = user_sym("cproc-dumb-not");
-    let new_expr = intern_ptrs!(
-        store,
+    let new_expr = store.intern_tuple2(
+        [store.intern_symbol(&new_name), *args],
         Tag::Expr(ExprTag::Cproc),
-        store.intern_symbol(&new_name),
-        args
+        None,
     );
 
     // `cproc` can't reduce the altered cproc input (with the wrong name)

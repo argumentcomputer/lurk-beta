@@ -56,7 +56,7 @@ pub struct NewCoprocessor<F> {
 
 impl<F: LurkField> Coprocessor<F> for NewCoprocessor<F> {
     fn evaluate_simple(&self, s: &Store<F>, _args: &[Ptr]) -> Ptr {
-        let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
+        let trie: StandardTrie<'_, F> = Trie::new(&s.core.hasher, &s.inverse_poseidon_cache);
         // TODO: Use a custom type.
         s.num(trie.root)
     }
@@ -81,7 +81,7 @@ impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
         _not_dummy: &Boolean,
         _args: &[AllocatedPtr<F>],
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        let trie: StandardTrie<'_, F> = Trie::new(&s.poseidon_cache, &s.inverse_poseidon_cache);
+        let trie: StandardTrie<'_, F> = Trie::new(&s.core.hasher, &s.inverse_poseidon_cache);
 
         // TODO: Use a custom type.
         let root = s.num(trie.root);
@@ -102,10 +102,10 @@ impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
         let key_ptr = &args[1];
 
         // TODO: Check tags.
-        let root_scalar = *s.hash_ptr(root_ptr).value();
-        let key_scalar = *s.hash_ptr(key_ptr).value();
+        let root_scalar = *s.hash_ptr(root_ptr).hash();
+        let key_scalar = *s.hash_ptr(key_ptr).hash();
         let trie: StandardTrie<'_, F> =
-            Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
+            Trie::new_with_root(&s.core.hasher, &s.inverse_poseidon_cache, root_scalar);
 
         s.comm(trie.lookup_aux(key_scalar).unwrap())
     }
@@ -176,7 +176,7 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
             root_ptr,
             key_ptr,
             not_dummy,
-            &s.poseidon_cache,
+            &s.core.hasher,
             &s.inverse_poseidon_cache,
         )?;
 
@@ -208,11 +208,11 @@ impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
         let val_ptr = &args[2];
-        let root_scalar = *s.hash_ptr(root_ptr).value();
-        let key_scalar = *s.hash_ptr(key_ptr).value();
-        let val_scalar = *s.hash_ptr(val_ptr).value();
+        let root_scalar = *s.hash_ptr(root_ptr).hash();
+        let key_scalar = *s.hash_ptr(key_ptr).hash();
+        let val_scalar = *s.hash_ptr(val_ptr).hash();
         let mut trie: StandardTrie<'_, F> =
-            Trie::new_with_root(&s.poseidon_cache, &s.inverse_poseidon_cache, root_scalar);
+            Trie::new_with_root(&s.core.hasher, &s.inverse_poseidon_cache, root_scalar);
         trie.insert(key_scalar, val_scalar).unwrap();
 
         s.num(trie.root)
@@ -290,7 +290,7 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
             key_ptr,
             val_ptr,
             not_dummy,
-            &s.poseidon_cache,
+            &s.core.hasher,
             &s.inverse_poseidon_cache,
         )?;
 

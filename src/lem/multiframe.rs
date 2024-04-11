@@ -485,7 +485,7 @@ fn assert_eq_ptrs_aptrs<F: LurkField>(
                 return Err(SynthesisError::AssignmentMissing);
             };
             assert_eq!(alloc_ptr_tag, z_ptr.tag().to_field());
-            assert_eq!(&alloc_ptr_hash, z_ptr.value());
+            assert_eq!(&alloc_ptr_hash, z_ptr.hash());
         }
     }
     Ok(())
@@ -754,7 +754,7 @@ impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<F, C> {
 
                 let allocated_hash = AllocatedNum::alloc_infallible(
                     ns!(cs, format!("allocated hash for input {i}")),
-                    || *z_ptr.value(),
+                    || *z_ptr.hash(),
                 );
                 allocated_hash.inputize(ns!(cs, format!("inputized hash for input {i}")))?;
 
@@ -773,7 +773,7 @@ impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<F, C> {
 
                 let allocated_hash = AllocatedNum::alloc_infallible(
                     ns!(cs, format!("allocated hash for output {i}")),
-                    || *z_ptr.value(),
+                    || *z_ptr.hash(),
                 );
                 allocated_hash.inputize(ns!(cs, format!("inputized hash for output {i}")))?;
 
@@ -831,12 +831,12 @@ impl<F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<F, C> {
         for ptr in input {
             let z_ptr = store.hash_ptr(ptr);
             res.push(z_ptr.tag().to_field());
-            res.push(*z_ptr.value());
+            res.push(*z_ptr.hash());
         }
         for ptr in output {
             let z_ptr = store.hash_ptr(ptr);
             res.push(z_ptr.tag().to_field());
-            res.push(*z_ptr.value());
+            res.push(*z_ptr.hash());
         }
         res
     }
@@ -1085,7 +1085,7 @@ mod tests {
             let z_ptr = store.hash_ptr(ptr);
             let allocated_tag = AllocatedNum::alloc_infallible(&mut cs, || z_ptr.tag_field());
             allocated_tag.inputize(&mut cs).unwrap();
-            let allocated_hash = AllocatedNum::alloc_infallible(&mut cs, || *z_ptr.value());
+            let allocated_hash = AllocatedNum::alloc_infallible(&mut cs, || *z_ptr.hash());
             allocated_hash.inputize(&mut cs).unwrap();
             input.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
         }

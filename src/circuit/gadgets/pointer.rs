@@ -5,8 +5,9 @@ use ff::PrimeField;
 
 use crate::{
     field::LurkField,
+    lem::pointers::ZPtr,
     tag::{ExprTag, Tag},
-    z_ptr::{ZContPtr, ZExprPtr, ZPtr},
+    z_ptr::{ZContPtr, ZExprPtr},
 };
 
 use super::{
@@ -50,17 +51,17 @@ impl<F: LurkField> Debug for AllocatedPtr<F> {
 }
 
 impl<F: LurkField> AllocatedPtr<F> {
-    pub fn alloc<Fo, CS: ConstraintSystem<F>, T: Tag>(
+    pub fn alloc<Fo, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         value: Fo,
     ) -> Result<Self, SynthesisError>
     where
-        Fo: FnOnce() -> Result<ZPtr<T, F>, SynthesisError>,
+        Fo: FnOnce() -> Result<ZPtr<F>, SynthesisError>,
     {
         let mut hash = None;
         let alloc_tag = AllocatedNum::alloc(ns!(cs, "tag"), || {
             let ptr = value()?;
-            hash = Some(*ptr.value());
+            hash = Some(*ptr.hash());
             Ok(ptr.tag_field())
         })?;
 
@@ -74,14 +75,14 @@ impl<F: LurkField> AllocatedPtr<F> {
         })
     }
 
-    pub fn alloc_infallible<Fo, CS: ConstraintSystem<F>, T: Tag>(cs: &mut CS, value: Fo) -> Self
+    pub fn alloc_infallible<Fo, CS: ConstraintSystem<F>>(cs: &mut CS, value: Fo) -> Self
     where
-        Fo: FnOnce() -> ZPtr<T, F>,
+        Fo: FnOnce() -> ZPtr<F>,
     {
         let mut hash = None;
         let alloc_tag = AllocatedNum::alloc_infallible(ns!(cs, "tag"), || {
             let ptr = value();
-            hash = Some(*ptr.value());
+            hash = Some(*ptr.hash());
             ptr.tag_field()
         });
 
@@ -106,12 +107,12 @@ impl<F: LurkField> AllocatedPtr<F> {
         })
     }
 
-    pub fn alloc_constant<CS: ConstraintSystem<F>, T: Tag>(
+    pub fn alloc_constant<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        value: ZPtr<T, F>,
+        value: ZPtr<F>,
     ) -> Result<Self, SynthesisError> {
         let alloc_tag = allocate_constant(ns!(cs, "tag"), value.tag_field());
-        let alloc_hash = allocate_constant(ns!(cs, "hash"), *value.value());
+        let alloc_hash = allocate_constant(ns!(cs, "hash"), *value.hash());
 
         Ok(AllocatedPtr {
             tag: alloc_tag,
@@ -131,7 +132,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         &self.hash
     }
 
-    pub fn get_value<T: Tag>(&self) -> Option<ZPtr<T, F>> {
+    pub fn get_value(&self) -> Option<ZPtr<F>> {
         self.tag.get_value().and_then(|tag| {
             self.hash
                 .get_value()

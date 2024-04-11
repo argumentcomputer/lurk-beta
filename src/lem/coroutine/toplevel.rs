@@ -274,7 +274,6 @@ mod test {
     use super::*;
     use crate::coroutine::memoset::prove::MemosetProver;
     use crate::coroutine::memoset::CoroutineCircuit;
-    use crate::lem::tag::Tag;
     use crate::proof::RecursiveSNARKTrait;
     use crate::{func, state::user_sym};
 
@@ -393,12 +392,12 @@ mod test {
             CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(index, 1, &s, &toplevel);
         let mut cs = BenchCS::new();
         let dummy = [
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
         ];
         factorial_circuit
             .supernova_synthesize(&mut cs, &dummy)
@@ -410,12 +409,12 @@ mod test {
             CoroutineCircuit::<_, _, ToplevelQuery<_>>::blank(index, 1, &s, &toplevel);
         let mut cs = BenchCS::new();
         let dummy = [
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
-            AllocatedPtr::alloc_infallible::<_, _, Tag>(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
+            AllocatedPtr::alloc_infallible(&mut cs, || unreachable!()),
         ];
         even_circuit.supernova_synthesize(&mut cs, &dummy).unwrap();
         expect!("1772").assert_eq(&cs.num_constraints().to_string());
