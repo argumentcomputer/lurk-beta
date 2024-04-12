@@ -195,12 +195,6 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> SuperNovaProver<F, C> {
         let steps = C1LEM::<F, C>::from_frames(frames, store, &folding_config.into());
         self.prove(pp, steps, store, init)
     }
-
-    #[inline]
-    /// Returns the `Lang` wrapped with `Arc` for cheap cloning
-    pub fn lang(&self) -> &Arc<Lang<F, C>> {
-        &self.lang
-    }
 }
 
 impl<F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<F, C>>
@@ -323,7 +317,7 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> RecursiveSNARKTrait<F, C1LEM<F, C
     }
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> Prover<F> for SuperNovaProver<F, C> {
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> Prover<F, C> for SuperNovaProver<F, C> {
     type Frame = C1LEM<F, C>;
     type PublicParams = PublicParams<F>;
     type RecursiveSNARK = Proof<F, C1LEM<F, C>>;
@@ -351,6 +345,19 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> Prover<F> for SuperNovaProver<F, 
         let frames =
             C1LEM::<F, C>::build_frames(expr, env, store, limit, &eval_config, ch_terminal)?;
         self.prove_from_frames(pp, &frames, store, None)
+    }
+
+    fn from_frames(
+        frames: &[Frame],
+        store: &Arc<Store<F>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
+    ) -> Vec<Self::Frame> {
+        C1LEM::<F, C>::from_frames(frames, store, folding_config)
+    }
+
+    #[inline]
+    fn lang(&self) -> &Arc<Lang<F, C>> {
+        &self.lang
     }
 }
 

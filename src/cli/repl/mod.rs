@@ -38,7 +38,7 @@ use crate::{
     proof::{
         nova::{CurveCycleEquipped, Dual, NovaProver},
         supernova::SuperNovaProver,
-        RecursiveSNARKTrait,
+        Prover, RecursiveSNARKTrait,
     },
     public_parameters::{instance::Instance, public_params, supernova_public_params},
     state::{State, StateRcCell},

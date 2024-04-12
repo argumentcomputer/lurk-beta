@@ -11,6 +11,7 @@ use lurk::{
     lang::{Coproc, Lang},
     lem::{eval::evaluate, store::Store},
     proof::nova::NovaProver,
+    proof::Prover,
     public_parameters::{
         instance::{Instance, Kind},
         public_params,

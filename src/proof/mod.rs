@@ -160,7 +160,7 @@ impl FoldingMode {
 }
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<F: CurveCycleEquipped> {
+pub trait Prover<F: CurveCycleEquipped, C: Coprocessor<F>> {
     /// Associated type for a frame-like datatype
     type Frame: FrameLike<Ptr, FrameIO = Vec<Ptr>> + Send;
 
@@ -215,4 +215,31 @@ pub trait Prover<F: CurveCycleEquipped> {
         let unfull_multiframe_frame_count = raw_iterations % rc;
         full_multiframe_count + usize::from(unfull_multiframe_frame_count != 0)
     }
+
+    /// Generate a proof from a sequence of frames
+    fn prove_from_frames(
+        &self,
+        pp: &Self::PublicParams,
+        frames: &[crate::lem::interpreter::Frame],
+        store: &Arc<Store<F>>,
+        init: Option<
+            <Self::RecursiveSNARK as RecursiveSNARKTrait<F, Self::Frame>>::BaseRecursiveSNARK,
+        >,
+    ) -> Result<(Self::RecursiveSNARK, Vec<F>, Vec<F>, usize), ProofError> {
+        let folding_config = self
+            .folding_mode()
+            .folding_config(self.lang().clone(), self.reduction_count());
+        let steps = Self::from_frames(frames, store, &folding_config.into());
+        self.prove(pp, steps, store, init)
+    }
+
+    /// Returns the `Lang` wrapped with `Arc` for cheap cloning
+    fn lang(&self) -> &Arc<Lang<F, C>>;
+
+    /// Converts input into Self::Frames according to the rules of the Prover
+    fn from_frames(
+        frames: &[crate::lem::interpreter::Frame],
+        store: &Arc<Store<F>>,
+        folding_config: &Arc<FoldingConfig<F, C>>,
+    ) -> Vec<Self::Frame>;
 }

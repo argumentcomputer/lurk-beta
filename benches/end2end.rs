@@ -13,7 +13,7 @@ use lurk::{
         pointers::Ptr,
         store::Store,
     },
-    proof::{nova::NovaProver, RecursiveSNARKTrait},
+    proof::{nova::NovaProver, Prover, RecursiveSNARKTrait},
     public_parameters::{
         self,
         instance::{Instance, Kind},
