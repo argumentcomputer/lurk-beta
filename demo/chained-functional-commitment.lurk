@@ -21,7 +21,7 @@
 
 ;; We can verify the proof.
 
-!(verify "supernova_bn256_10_0f54f9e56fa6c436618597c971daa7b525ad80ac48be11226284fd4f8167e60a")
+!(verify "supernova_bn256_10_258ef770ae37ce944a5c3e32c104f6715150276963dc3476af55407f0ed83a88")
 
 ;; Now let's chain another call to the new head, adding 12 to the counter.
 
@@ -35,7 +35,7 @@
 
 ;; And verify.
 
-!(verify "supernova_bn256_10_281771b7af2f96cac51cb7579d94f0a6f56e9a9d951b753f8514b2b4ec6ce4db")
+!(verify "supernova_bn256_10_180a27de7a650743500a90dd43517143f3cf65e813c8aa45cda7d03b1a572873")
 
 ;; One more time, we'll add 14 to the head commitment's internal state.
 
@@ -49,7 +49,7 @@
 
 ;; Verify.
 
-!(verify "supernova_bn256_10_22ab68c1fa6e75f54d213a3ada71edd21331bf58826263a79e3fdd32f1c4c62d")
+!(verify "supernova_bn256_10_01018a9231e97b1743ef5882beff1d0b4e2dec196de16e11b5af1a63efd3b171")
 
 ;; Repeat indefinitely.
 

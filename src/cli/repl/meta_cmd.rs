@@ -76,7 +76,7 @@ where
         format: "!(def <binding> <body>)",
         description: &[
             "Gets macroexpanded to this: (let ((foo (lambda () 123))) (current-env))",
-            "The state's env is set to the result.",
+            "The REPL's env is set to the result.",
         ],
         example: &["!(def foo (lambda () 123))"],
         run: |repl, args, _path| {
@@ -84,10 +84,10 @@ where
             let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
             let l = repl.store.intern_lurk_symbol("let");
             let current_env = repl.store.intern_lurk_symbol("current-env");
-            let binding = repl.store.list(vec![first, second]);
-            let bindings = repl.store.list(vec![binding]);
-            let current_env_call = repl.store.list(vec![current_env]);
-            let expanded = repl.store.list(vec![l, bindings, current_env_call]);
+            let binding = repl.store.list([first, second]);
+            let bindings = repl.store.list([binding]);
+            let current_env_call = repl.store.list([current_env]);
+            let expanded = repl.store.list([l, bindings, current_env_call]);
             let expanded_io = repl.eval_expr(expanded)?;
             repl.env = expanded_io[0];
             println!("{new_name}");
@@ -101,7 +101,7 @@ where
         format: "!(defrec <binding> <body>)",
         description: &[
             "Gets macroexpanded to this: (letrec ((foo (lambda () 123))) (current-env))",
-            "The state's env is set to the result.",
+            "The REPL's env is set to the result.",
         ],
         example: &[
             "!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))",
@@ -112,10 +112,10 @@ where
             let new_name = first.fmt_to_string(&repl.store, &repl.state.borrow());
             let l = repl.store.intern_lurk_symbol("letrec");
             let current_env = repl.store.intern_lurk_symbol("current-env");
-            let binding = repl.store.list(vec![first, second]);
-            let bindings = repl.store.list(vec![binding]);
-            let current_env_call = repl.store.list(vec![current_env]);
-            let expanded = repl.store.list(vec![l, bindings, current_env_call]);
+            let binding = repl.store.list([first, second]);
+            let bindings = repl.store.list([binding]);
+            let current_env_call = repl.store.list([current_env]);
+            let expanded = repl.store.list([l, bindings, current_env_call]);
             let expanded_io = repl.eval_expr(expanded)?;
             repl.env = expanded_io[0];
             println!("{new_name}");
@@ -295,7 +295,7 @@ where
         ],
         run: |repl, args, _path| {
             let hash_expr = repl.peek1(args)?;
-            let hash = *repl.get_comm_hash(hash_expr)?;
+            let (hash, _) = repl.get_comm_hash(hash_expr)?;
             repl.fetch(&hash, false)
         },
     };
@@ -311,7 +311,7 @@ where
         ],
         run: |repl, args, _path| {
             let hash_expr = repl.peek1(args)?;
-            let hash = *repl.get_comm_hash(hash_expr)?;
+            let (hash, _) = repl.get_comm_hash(hash_expr)?;
             repl.fetch(&hash, true)
         },
     };
@@ -530,29 +530,24 @@ where
 
     fn call(repl: &mut Repl<F, C>, args: &Ptr, _path: &Utf8Path) -> Result<()> {
         let (hash_expr, args) = repl.store.car_cdr_simple(args)?;
-        let hash = *repl.get_comm_hash(hash_expr)?;
+        let arg = repl.peek1(&args)?;
+        let (hash, call_head) = repl.get_comm_hash(hash_expr)?;
         // check if the data is already available on the store before trying to
         // fetch it from the file system
         if repl.store.open(hash).is_none() {
             repl.fetch(&hash, false)?;
         }
-        let open = repl.store.intern_lurk_symbol("open");
-        let open_expr = repl.store.list(vec![open, repl.store.num(hash)]);
-        let (args_vec, _) = repl
-            .store
-            .fetch_list(&args)
-            .expect("list of arguments must have been interned");
-        let mut expr_vec = Vec::with_capacity(args_vec.len() + 1);
-        expr_vec.push(open_expr);
-        expr_vec.extend(args_vec);
-        repl.handle_non_meta(repl.store.list(expr_vec))
+        repl.handle_non_meta(repl.store.list([call_head, arg]))
     }
 
     const CALL: MetaCmd<F, C> = MetaCmd {
         name: "call",
-        summary: "Open a functional commitment then apply arguments to it",
-        format: "!(call <hash> <args>)",
-        description: &[],
+        summary: "Open a functional commitment then apply an argument to it",
+        format: "!(call <hash> <arg>)",
+        description: &[
+            "Open a functional commitment then apply an argument to it.",
+            "If the commitment is not in memory, it will look for a persisted commitment.",
+        ],
         example: &[
             "(commit (lambda (x) x))",
             "!(call 0x2f31ee658b82c09daebbd2bd976c9d6669ad3bd6065056763797d5aaf4a3001b 0)",
@@ -562,12 +557,14 @@ where
 
     const CHAIN: MetaCmd<F, C> = MetaCmd {
         name: "chain",
-        summary: "Chain a functional commitment by applying the provided arguments to it",
-        format: "!(chain <hash> <args>)",
+        summary: "Chain a functional commitment by applying an argument to it",
+        format: "!(chain <hash> <arg>)",
         description: &[
-            "Chain a functional commitment by applying the provided arguments to it.",
+            "Chain a functional commitment by applying an argument to it.",
+            "If the commitment is not in memory, it will look for a persisted commitment.",
             "The chained function must return a pair whose first component is the actual result",
             "  and the second is a commitment to the next function",
+            "Important: the commitment to the next function is persisted",
         ],
         example: &[
             "!(commit (letrec ((add (lambda (counter x)
@@ -588,16 +585,17 @@ where
             let (_, comm) = repl
                 .store
                 .fetch_cons(result)
-                .ok_or_else(|| anyhow!("Chained function must return a cons expression"))?;
-            let (Tag::Expr(ExprTag::Comm), RawPtr::Atom(hash)) = comm.parts() else {
+                .ok_or(anyhow!("Chained function must return a cons expression"))?;
+            let (Tag::Expr(ExprTag::Comm), RawPtr::Atom(hash)) = comm.into_parts() else {
                 bail!("Second component of a chain must be a commitment")
             };
-            let hash = *repl.store.expect_f(*hash);
-            // retrieve from store to persist
+            let hash = *repl.store.expect_f(hash);
+            // retrieve from store
             let (secret, fun) = repl
                 .store
                 .open(hash)
-                .expect("data must have been committed");
+                .ok_or(anyhow!("Could not open the next functional commitment"))?;
+            // and then persist
             repl.hide(*secret, *fun)
         },
     };
@@ -737,7 +735,7 @@ where
                 )
             }
 
-            let lambda = repl.store.list(vec![repl.store.intern_lurk_symbol("lambda"), vars, body]);
+            let lambda = repl.store.list([repl.store.intern_lurk_symbol("lambda"), vars, body]);
             let io = repl.eval_expr_with_env(lambda, repl.store.intern_empty_env())?;
             let fun = io[0];
             if !fun.is_fun() {
@@ -791,7 +789,7 @@ where
             )?;
 
             // the standard format for a processed protocol as Lurk data
-            let protocol = repl.store.list(vec![fun, backend, rc, lang, description]);
+            let protocol = repl.store.list([fun, backend, rc, lang, description]);
             repl.env = repl.store.push_binding(name, protocol, repl.env);
             Ok(())
         },
@@ -897,7 +895,7 @@ where
     /// * If the predicate rejects the proof (evaluation returns nil)
     fn post_verify_check(repl: &Repl<F, C>, post_verify: Ptr) -> Result<()> {
         if !post_verify.is_nil() {
-            let call = repl.store.list(vec![post_verify]);
+            let call = repl.store.list([post_verify]);
             let io = repl
                 .eval_expr_with_env(call, repl.store.intern_empty_env())
                 .with_context(|| "evaluating post-verify call")?;
