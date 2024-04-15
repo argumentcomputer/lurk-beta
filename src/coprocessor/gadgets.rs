@@ -263,7 +263,7 @@ pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
     let prov_ptr = s.to_ptr(&prov_zptr);
 
     let (a, b, c, d) = {
-        if let Some([q, res, deps]) = s.deconstruct_provenance(prov_ptr) {
+        if let Some([q, res, deps]) = s.deconstruct_provenance(&prov_ptr) {
             let q_zptr = s.hash_ptr(&q);
             let res_zptr = s.hash_ptr(&res);
             let deps_zptr = s.hash_ptr(&deps);

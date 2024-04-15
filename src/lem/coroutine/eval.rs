@@ -283,8 +283,8 @@ fn run<F: LurkField>(
                     .store
                     .pop_binding(&img_ptr)
                     .context("cannot extract {img}'s binding")?;
-                for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
-                    bindings.insert_ptr(var.clone(), *ptr);
+                for (var, ptr) in preimg.iter().zip(preimg_ptrs.into_iter()) {
+                    bindings.insert_ptr(var.clone(), ptr);
                 }
             }
             Op::Hide(tgt, sec, src) => {
