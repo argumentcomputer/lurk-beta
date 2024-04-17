@@ -6,11 +6,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use crate::{
     field::{FWrap, LurkField},
     lem::{
-        pointers::{Ptr, RawPtr, ZPtr},
-        store::{expect_ptrs, intern_ptrs_hydrated, Store},
-        tag::Tag,
+        pointers::{IVal, Ptr, ZPtr},
+        store::Store,
+        store_core::StoreHasher,
     },
-    tag::ExprTag::Env,
 };
 
 use super::field_data::HasFieldModulus;
@@ -24,7 +23,7 @@ pub(crate) enum ZPtrType<F: LurkField> {
     Tuple2(ZPtr<F>, ZPtr<F>),
     Tuple3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
     Tuple4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
-    Env(ZPtr<F>, ZPtr<F>, ZPtr<F>),
+    Compact(ZPtr<F>, ZPtr<F>, ZPtr<F>),
 }
 
 /// Holds a mapping from `ZPtr`s to their `ZPtrType`s
@@ -43,86 +42,54 @@ impl<F: LurkField> ZDag<F> {
                 *z_ptr
             } else {
                 let tag = ptr.tag();
-                let z_ptr = match ptr.raw() {
-                    RawPtr::Atom(idx) => {
+                let z_ptr = match ptr.val() {
+                    IVal::Atom(idx) => {
                         let f = store.expect_f(*idx);
                         let z_ptr = ZPtr::from_parts(*tag, *f);
                         self.0.insert(z_ptr, ZPtrType::Atom);
                         z_ptr
                     }
-                    RawPtr::Hash4(idx) => {
-                        if matches!(tag, Tag::Expr(Env)) {
-                            let [sym, val, env] = store.expect_env_components(*idx);
-                            let sym = self.populate_with(&sym, store, cache);
-                            let val = self.populate_with(&val, store, cache);
-                            let env = self.populate_with(&env, store, cache);
-                            let z_ptr = ZPtr::from_parts(
-                                *tag,
-                                store.poseidon_cache.hash4(&[
-                                    *sym.value(),
-                                    val.tag_field(),
-                                    *val.value(),
-                                    *env.value(),
-                                ]),
-                            );
-                            self.0.insert(z_ptr, ZPtrType::Env(sym, val, env));
-                            z_ptr
-                        } else {
-                            let [a, b] = expect_ptrs!(store, 2, *idx);
-                            let a = self.populate_with(&a, store, cache);
-                            let b = self.populate_with(&b, store, cache);
-                            let z_ptr = ZPtr::from_parts(
-                                *tag,
-                                store.poseidon_cache.hash4(&[
-                                    a.tag_field(),
-                                    *a.value(),
-                                    b.tag_field(),
-                                    *b.value(),
-                                ]),
-                            );
-                            self.0.insert(z_ptr, ZPtrType::Tuple2(a, b));
-                            z_ptr
-                        }
+                    IVal::Tuple2(idx) => {
+                        let [a, b] = store.expect_tuple2(*idx);
+                        let a = self.populate_with(a, store, cache);
+                        let b = self.populate_with(b, store, cache);
+                        let z_ptr = ZPtr::new(*tag, store.core.hasher.hash_ptrs(vec![a, b]));
+                        self.0.insert(z_ptr, ZPtrType::Tuple2(a, b));
+                        z_ptr
                     }
-                    RawPtr::Hash6(idx) => {
-                        let [a, b, c] = expect_ptrs!(store, 3, *idx);
-                        let a = self.populate_with(&a, store, cache);
-                        let b = self.populate_with(&b, store, cache);
-                        let c = self.populate_with(&c, store, cache);
-                        let z_ptr = ZPtr::from_parts(
-                            *tag,
-                            store.poseidon_cache.hash6(&[
-                                a.tag_field(),
-                                *a.value(),
-                                b.tag_field(),
-                                *b.value(),
-                                c.tag_field(),
-                                *c.value(),
-                            ]),
-                        );
+                    IVal::Tuple3(idx) => {
+                        let [a, b, c] = store.expect_tuple3(*idx);
+                        let a = self.populate_with(a, store, cache);
+                        let b = self.populate_with(b, store, cache);
+                        let c = self.populate_with(c, store, cache);
+                        let z_ptr = ZPtr::new(*tag, store.core.hasher.hash_ptrs(vec![a, b, c]));
                         self.0.insert(z_ptr, ZPtrType::Tuple3(a, b, c));
                         z_ptr
                     }
-                    RawPtr::Hash8(idx) => {
-                        let [a, b, c, d] = expect_ptrs!(store, 4, *idx);
-                        let a = self.populate_with(&a, store, cache);
-                        let b = self.populate_with(&b, store, cache);
-                        let c = self.populate_with(&c, store, cache);
-                        let d = self.populate_with(&d, store, cache);
-                        let z_ptr = ZPtr::from_parts(
-                            *tag,
-                            store.poseidon_cache.hash8(&[
-                                a.tag_field(),
-                                *a.value(),
-                                b.tag_field(),
-                                *b.value(),
-                                c.tag_field(),
-                                *c.value(),
-                                d.tag_field(),
-                                *d.value(),
-                            ]),
-                        );
+                    IVal::Tuple4(idx) => {
+                        let [a, b, c, d] = store.expect_tuple4(*idx);
+                        let a = self.populate_with(a, store, cache);
+                        let b = self.populate_with(b, store, cache);
+                        let c = self.populate_with(c, store, cache);
+                        let d = self.populate_with(d, store, cache);
+                        let z_ptr = ZPtr::new(*tag, store.core.hasher.hash_ptrs(vec![a, b, c, d]));
                         self.0.insert(z_ptr, ZPtrType::Tuple4(a, b, c, d));
+                        z_ptr
+                    }
+                    IVal::Compact(idx) => {
+                        let [a, b, c] = store.expect_tuple3(*idx);
+                        let a = self.populate_with(a, store, cache);
+                        let b = self.populate_with(b, store, cache);
+                        let c = self.populate_with(c, store, cache);
+                        let (b_tag, b_val) = b.into_parts();
+                        let z_ptr = ZPtr::new(
+                            *tag,
+                            store
+                                .core
+                                .hasher
+                                .hash_compact(*a.val(), b_tag, b_val, *c.val()),
+                        );
+                        self.0.insert(z_ptr, ZPtrType::Compact(a, b, c));
                         z_ptr
                     }
                 };
@@ -134,7 +101,7 @@ impl<F: LurkField> ZDag<F> {
         let mut stack = vec![*ptr];
         macro_rules! feed_loop {
             ($x:expr) => {
-                if $x.raw().is_hash() {
+                if $x.val().is_compound() {
                     if !cache.contains_key(&$x) {
                         if dag.insert($x) {
                             stack.push($x);
@@ -144,27 +111,21 @@ impl<F: LurkField> ZDag<F> {
             };
         }
         while let Some(ptr) = stack.pop() {
-            match ptr.raw() {
-                RawPtr::Atom(..) => (),
-                RawPtr::Hash4(idx) => {
-                    if matches!(ptr.tag(), Tag::Expr(Env)) {
-                        for ptr in store.expect_env_components(*idx) {
-                            feed_loop!(ptr)
-                        }
-                    } else {
-                        for ptr in expect_ptrs!(store, 2, *idx) {
-                            feed_loop!(ptr)
-                        }
+            match ptr.val() {
+                IVal::Atom(..) => (),
+                IVal::Tuple2(idx) => {
+                    for ptr in store.expect_tuple2(*idx) {
+                        feed_loop!(*ptr)
                     }
                 }
-                RawPtr::Hash6(idx) => {
-                    for ptr in expect_ptrs!(store, 3, *idx) {
-                        feed_loop!(ptr)
+                IVal::Tuple3(idx) | IVal::Compact(idx) => {
+                    for ptr in store.expect_tuple3(*idx) {
+                        feed_loop!(*ptr)
                     }
                 }
-                RawPtr::Hash8(idx) => {
-                    for ptr in expect_ptrs!(store, 4, *idx) {
-                        feed_loop!(ptr)
+                IVal::Tuple4(idx) => {
+                    for ptr in store.expect_tuple4(*idx) {
+                        feed_loop!(*ptr)
                     }
                 }
             }
@@ -191,7 +152,9 @@ impl<F: LurkField> ZDag<F> {
             None => bail!("Couldn't find ZPtr on ZStore"),
             Some(ZPtrType::Atom) => Ok(vec![]),
             Some(ZPtrType::Tuple2(z1, z2)) => Ok(vec![z1, z2]),
-            Some(ZPtrType::Tuple3(z1, z2, z3) | ZPtrType::Env(z1, z2, z3)) => Ok(vec![z1, z2, z3]),
+            Some(ZPtrType::Tuple3(z1, z2, z3) | ZPtrType::Compact(z1, z2, z3)) => {
+                Ok(vec![z1, z2, z3])
+            }
             Some(ZPtrType::Tuple4(z1, z2, z3, z4)) => Ok(vec![z1, z2, z3, z4]),
         }
     }
@@ -208,35 +171,34 @@ impl<F: LurkField> ZDag<F> {
             } else {
                 let ptr = match self.get_type(z_ptr) {
                     None => bail!("Couldn't find ZPtr on ZStore"),
-                    Some(ZPtrType::Atom) => store.intern_atom(*z_ptr.tag(), *z_ptr.value()),
+                    Some(ZPtrType::Atom) => store.intern_atom(*z_ptr.tag(), *z_ptr.hash()),
                     Some(ZPtrType::Tuple2(z1, z2)) => {
                         let ptr1 = self.populate_store(z1, store, cache)?;
                         let ptr2 = self.populate_store(z2, store, cache)?;
-                        intern_ptrs_hydrated!(store, *z_ptr.tag(), *z_ptr, ptr1, ptr2)
+                        store.intern_tuple2([ptr1, ptr2], *z_ptr.tag(), Some(*z_ptr.hash()))
                     }
                     Some(ZPtrType::Tuple3(z1, z2, z3)) => {
                         let ptr1 = self.populate_store(z1, store, cache)?;
                         let ptr2 = self.populate_store(z2, store, cache)?;
                         let ptr3 = self.populate_store(z3, store, cache)?;
-                        intern_ptrs_hydrated!(store, *z_ptr.tag(), *z_ptr, ptr1, ptr2, ptr3)
+                        store.intern_tuple3([ptr1, ptr2, ptr3], *z_ptr.tag(), Some(*z_ptr.hash()))
                     }
                     Some(ZPtrType::Tuple4(z1, z2, z3, z4)) => {
                         let ptr1 = self.populate_store(z1, store, cache)?;
                         let ptr2 = self.populate_store(z2, store, cache)?;
                         let ptr3 = self.populate_store(z3, store, cache)?;
                         let ptr4 = self.populate_store(z4, store, cache)?;
-                        intern_ptrs_hydrated!(store, *z_ptr.tag(), *z_ptr, ptr1, ptr2, ptr3, ptr4)
+                        store.intern_tuple4(
+                            [ptr1, ptr2, ptr3, ptr4],
+                            *z_ptr.tag(),
+                            Some(*z_ptr.hash()),
+                        )
                     }
-                    Some(ZPtrType::Env(sym, val, env)) => {
-                        let (_, sym_raw) = self.populate_store(sym, store, cache)?.into_parts();
-                        let (val_tag, val_raw) =
-                            self.populate_store(val, store, cache)?.into_parts();
-                        let (_, env_raw) = self.populate_store(env, store, cache)?.into_parts();
-                        let raw = store.intern_raw_ptrs_hydrated(
-                            [sym_raw, store.tag(val_tag), val_raw, env_raw],
-                            FWrap(*z_ptr.value()),
-                        );
-                        Ptr::new(Tag::Expr(Env), raw)
+                    Some(ZPtrType::Compact(z1, z2, z3)) => {
+                        let ptr1 = self.populate_store(z1, store, cache)?;
+                        let ptr2 = self.populate_store(z2, store, cache)?;
+                        let ptr3 = self.populate_store(z3, store, cache)?;
+                        store.intern_compact([ptr1, ptr2, ptr3], *z_ptr.tag(), Some(*z_ptr.hash()))
                     }
                 };
                 cache.insert(*z_ptr, ptr);
@@ -308,11 +270,11 @@ impl<F: LurkField> ZDag<F> {
                         self.populate_z_dag(z4, z_dag, cache)?;
                         z_dag.0.insert(*z_ptr, ZPtrType::Tuple4(*z1, *z2, *z3, *z4));
                     }
-                    Some(ZPtrType::Env(sym, val, env)) => {
-                        self.populate_z_dag(sym, z_dag, cache)?;
-                        self.populate_z_dag(val, z_dag, cache)?;
-                        self.populate_z_dag(env, z_dag, cache)?;
-                        z_dag.0.insert(*z_ptr, ZPtrType::Env(*sym, *val, *env));
+                    Some(ZPtrType::Compact(z1, z2, z3)) => {
+                        self.populate_z_dag(z1, z_dag, cache)?;
+                        self.populate_z_dag(z2, z_dag, cache)?;
+                        self.populate_z_dag(z3, z_dag, cache)?;
+                        z_dag.0.insert(*z_ptr, ZPtrType::Compact(*z1, *z2, *z3));
                     }
                 };
                 cache.insert(*z_ptr);
@@ -389,9 +351,9 @@ impl<F: LurkField> ZStore<F> {
     ) -> (Self, ZPtr<F>, HashMap<Ptr, ZPtr<F>>) {
         let mut z_store = ZStore::default();
         let mut cache = HashMap::default();
-        for (FWrap(hash), img) in store.comms.clone().into_tuple_vec() {
+        for (FWrap(hash), img) in store.core.comms.clone().into_tuple_vec() {
             let payload = z_store.populate_with(&img.1, store, &mut cache);
-            z_store.add_comm(hash, img.0, payload)
+            z_store.add_comm(hash, img.0 .0, payload)
         }
         let z_ptr = z_store.populate_with(ptr, store, &mut cache);
         (z_store, z_ptr, cache)
@@ -440,11 +402,7 @@ mod tests {
 
     use crate::{
         field::LurkField,
-        lem::{
-            pointers::Ptr,
-            store::{intern_ptrs, Store},
-            tag::Tag,
-        },
+        lem::{pointers::Ptr, store::Store, tag::Tag},
         tag::{
             ContTag, ExprTag, Op1, Op2, CONT_TAG_INIT, EXPR_TAG_INIT, OP1_TAG_INIT, OP2_TAG_INIT,
         },
@@ -466,40 +424,46 @@ mod tests {
             3 => Tag::Op2(Op2::try_from((rnd % Op2::COUNT) as u16 + OP2_TAG_INIT).unwrap()),
             _ => unreachable!(),
         };
-        if matches!(tag, Tag::Expr(ExprTag::Env)) {
-            let mut env = store.intern_empty_env();
-            for _ in 0..max_depth {
-                let sym = store.intern_user_symbol("foo");
-                let val = rng_interner(rng, max_depth - 1, store);
-                env = store.push_binding(sym, val, env);
-            }
-            return env;
-        }
         if max_depth == 0 {
             store.intern_atom(tag, Bn::from_u64(rnd.try_into().unwrap()))
         } else {
-            match rnd % 4 {
+            match rnd % 5 {
                 0 => store.intern_atom(tag, Bn::from_u64(rnd.try_into().unwrap())),
-                1 => intern_ptrs!(
-                    store,
+                1 => store.intern_tuple2(
+                    [
+                        rng_interner(rng, max_depth - 1, store),
+                        rng_interner(rng, max_depth - 1, store),
+                    ],
                     tag,
-                    rng_interner(rng, max_depth - 1, store),
-                    rng_interner(rng, max_depth - 1, store)
+                    None,
                 ),
-                2 => intern_ptrs!(
-                    store,
+                2 => store.intern_tuple3(
+                    [
+                        rng_interner(rng, max_depth - 1, store),
+                        rng_interner(rng, max_depth - 1, store),
+                        rng_interner(rng, max_depth - 1, store),
+                    ],
                     tag,
-                    rng_interner(rng, max_depth - 1, store),
-                    rng_interner(rng, max_depth - 1, store),
-                    rng_interner(rng, max_depth - 1, store)
+                    None,
                 ),
-                3 => intern_ptrs!(
-                    store,
+                3 => store.intern_tuple4(
+                    [
+                        rng_interner(rng, max_depth - 1, store),
+                        rng_interner(rng, max_depth - 1, store),
+                        rng_interner(rng, max_depth - 1, store),
+                        rng_interner(rng, max_depth - 1, store),
+                    ],
                     tag,
-                    rng_interner(rng, max_depth - 1, store),
-                    rng_interner(rng, max_depth - 1, store),
-                    rng_interner(rng, max_depth - 1, store),
-                    rng_interner(rng, max_depth - 1, store)
+                    None,
+                ),
+                4 => store.intern_compact(
+                    [
+                        rng_interner(rng, max_depth - 1, store),
+                        rng_interner(rng, max_depth - 1, store),
+                        rng_interner(rng, max_depth - 1, store),
+                    ],
+                    tag,
+                    None,
                 ),
                 _ => unreachable!(),
             }

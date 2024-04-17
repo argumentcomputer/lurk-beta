@@ -145,8 +145,8 @@ impl<F: LurkField> GlobalAllocator<F> {
         cs: &mut CS,
         z_ptr: ZPtr<F>,
     ) -> AllocatedPtr<F> {
-        let crate::z_ptr::ZPtr(tag, hash) = z_ptr;
-        self.alloc_z_ptr_from_parts(cs, &tag, hash)
+        let (tag, hash) = z_ptr.into_parts();
+        self.alloc_z_ptr_from_parts(cs, &tag, hash.0)
     }
 
     #[inline]
@@ -221,22 +221,22 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
             SlotType::Hash4 => AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
-                store.poseidon_cache.constants.c4(),
+                store.core.hasher.constants.c4(),
             )?),
             SlotType::Hash6 => AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
-                store.poseidon_cache.constants.c6(),
+                store.core.hasher.constants.c6(),
             )?),
             SlotType::Hash8 => AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
-                store.poseidon_cache.constants.c8(),
+                store.core.hasher.constants.c8(),
             )?),
             SlotType::Commitment => AllocatedVal::Number(poseidon_hash(
                 cs,
                 preallocated_preimg,
-                store.poseidon_cache.constants.c3(),
+                store.core.hasher.constants.c3(),
             )?),
             SlotType::BitDecomp => {
                 AllocatedVal::Bits(preallocated_preimg[0].to_bits_le_strict(cs)?)
@@ -275,8 +275,8 @@ pub(crate) fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
                     preallocated_preimg.push(alloc_ptr.tag().clone());
                     preallocated_preimg.push(alloc_ptr.hash().clone());
                 }
-                Val::Num(raw) => {
-                    let f = store.hash_raw_ptr(raw).0;
+                Val::Num(ptr_val) => {
+                    let f = store.hash_ptr_val(ptr_val).0;
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         ns!(cs, format!("component {component_idx} slot {slot}")),
                         || f,
@@ -690,7 +690,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                         if not_dummy_and_not_blank {
                             let z_ptr = &collected_z_ptrs[i];
                             if ptr.tag().get_value() != Some(z_ptr.tag_field())
-                                || ptr.hash().get_value() != Some(*z_ptr.value())
+                                || ptr.hash().get_value() != Some(*z_ptr.hash())
                             {
                                 bail!("Mismatch between evaluate and synthesize outputs for coprocessor {sym} (pointer {i})")
                             }
@@ -1346,7 +1346,7 @@ fn synthesize_block<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             let mut cases_vec = Vec::with_capacity(cases.len());
             for (lit, block) in cases {
                 let lit_ptr = lit.to_ptr(ctx.store);
-                let lit_hash = *ctx.store.hash_ptr(&lit_ptr).value();
+                let lit_hash = *ctx.store.hash_ptr(&lit_ptr).hash();
                 cases_vec.push((lit_hash, block));
             }
 
@@ -1572,7 +1572,7 @@ impl Func {
                         let lit_ptr = lit.to_ptr(store);
                         let lit_z_ptr = store.hash_ptr(&lit_ptr);
                         globals.insert(FWrap(lit_z_ptr.tag_field()));
-                        globals.insert(FWrap(*lit_z_ptr.value()));
+                        globals.insert(FWrap(*lit_z_ptr.hash()));
                     }
                     Op::Cast(_, tag, _) => {
                         globals.insert(FWrap(tag.to_field()));

@@ -17,6 +17,7 @@ use crate::circuit::gadgets::constraints::{
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::coroutine::memoset::{CircuitQuery, CircuitScope, LogMemoCircuit};
 use crate::lem::circuit::{BoundAllocations, GlobalAllocator};
+use crate::lem::pointers::{IVal, Ptr};
 use crate::lem::store::Store;
 use crate::lem::tag::Tag;
 use crate::lem::{Block, Ctrl, Func, Op, Var};
@@ -54,7 +55,7 @@ fn allocate_return<F: LurkField, CS: ConstraintSystem<F>>(
     let (_, selected_branch_output) = &branches[selected_index.unwrap_or(0)];
     let mut output = Vec::with_capacity(selected_branch_output.len());
     for (i, z) in selected_branch_output.iter().enumerate() {
-        let z_ptr = || z.get_value::<Tag>().ok_or(AssignmentMissing);
+        let z_ptr = || z.get_value().ok_or(AssignmentMissing);
         let ptr = AllocatedPtr::alloc(ns!(cs, format!("matched output {i}")), z_ptr)?;
         output.push(ptr);
     }
@@ -194,7 +195,7 @@ fn synthesize_run<'a, F: LurkField, CS: ConstraintSystem<F>>(
                 let res = poseidon_hash(
                     ns!(cs, "poseidon_hash"),
                     preimg,
-                    store.poseidon_cache.constants.c4(),
+                    store.core.hasher.constants.c4(),
                 )?;
                 let tag = g.alloc_tag_cloned(&mut cs, &Env);
                 let ptr = AllocatedPtr::from_parts(tag, res);
@@ -202,17 +203,17 @@ fn synthesize_run<'a, F: LurkField, CS: ConstraintSystem<F>>(
             }
             Op::PopBinding(preimg, img) => {
                 let img = bound_allocations.get_ptr(img)?;
-                let preimg_alloc_nums = if let Some(img_val) = img.get_value::<Tag>() {
-                    let raw_ptr = store.to_raw_ptr(&FWrap(*img_val.value()));
-                    let idx = raw_ptr.get_hash4().unwrap();
-                    store
-                        .expect_raw_ptrs::<4>(idx)
-                        .iter()
+                let preimg_alloc_nums = if let Some(img_val) = img.get_value() {
+                    let [a, b, c] = store.pop_binding(&store.to_ptr(&img_val)).unwrap();
+                    let a = store.hash_ptr(a);
+                    let b = store.hash_ptr(b);
+                    let c = store.hash_ptr(c);
+                    [*a.hash(), b.tag_field(), *b.hash(), *c.hash()]
+                        .into_iter()
                         .enumerate()
-                        .map(|(i, raw)| {
+                        .map(|(i, f)| {
                             let cs = ns!(cs, format!("preimg {i}"));
-                            let z = store.hash_raw_ptr(raw).0;
-                            AllocatedNum::alloc_infallible(cs, || z)
+                            AllocatedNum::alloc_infallible(cs, || f)
                         })
                         .collect::<Vec<_>>()
                 } else {
@@ -227,7 +228,7 @@ fn synthesize_run<'a, F: LurkField, CS: ConstraintSystem<F>>(
                 let hash = poseidon_hash(
                     ns!(cs, "poseidon_hash"),
                     preimg_alloc_nums.clone(),
-                    store.poseidon_cache.constants.c6(),
+                    store.core.hasher.constants.c6(),
                 )?;
 
                 implies_equal(
@@ -468,7 +469,7 @@ fn synthesize_run<'a, F: LurkField, CS: ConstraintSystem<F>>(
                 let hash = poseidon_hash(
                     ns!(cs, "poseidon_hash"),
                     preimg,
-                    store.poseidon_cache.constants.c3(),
+                    store.core.hasher.constants.c3(),
                 )?;
 
                 implies_equal(
@@ -483,35 +484,32 @@ fn synthesize_run<'a, F: LurkField, CS: ConstraintSystem<F>>(
             }
             Op::Open(sec, pay, comm) => {
                 let comm = bound_allocations.get_ptr(comm)?;
-                let comm_tag = g.alloc_tag(&mut cs, &Comm);
-                let preimg_alloc_nums = if let Some(comm_val) = comm.get_value::<Tag>() {
-                    let raw_ptr = store.to_raw_ptr(&FWrap(*comm_val.value()));
-                    let idx = raw_ptr.get_hash4().unwrap();
-                    store
-                        .expect_raw_ptrs::<4>(idx)
-                        .iter()
-                        .enumerate()
-                        .map(|(i, raw)| {
-                            let cs = ns!(cs, format!("preimg {i}"));
-                            let z = store.hash_raw_ptr(raw).0;
-                            AllocatedNum::alloc_infallible(cs, || z)
-                        })
-                        .collect::<Vec<_>>()
+                let preimg_alloc_nums = if let Some(hash) = comm.hash().get_value() {
+                    let (FWrap(secret), payload) = store.open(hash).unwrap();
+                    let (payload_tag, FWrap(payload_hash)) = store.hash_ptr(payload).into_parts();
+                    let mut alloc = |idx, f| {
+                        AllocatedNum::alloc_infallible(ns!(cs, format!("preimg {idx}")), || f)
+                    };
+                    let secret = alloc(0, *secret);
+                    let payload_tag = alloc(1, payload_tag.to_field());
+                    let payload_hash = alloc(2, payload_hash);
+                    vec![secret, payload_tag, payload_hash]
                 } else {
-                    (0..4)
+                    (0..3)
                         .map(|i| {
                             let cs = ns!(cs, format!("preimg {i}"));
                             AllocatedNum::alloc_infallible(cs, || F::ZERO)
                         })
-                        .collect::<Vec<_>>()
+                        .collect()
                 };
 
                 let hash = poseidon_hash(
                     ns!(cs, "poseidon_hash"),
                     preimg_alloc_nums.clone(),
-                    store.poseidon_cache.constants.c6(),
+                    store.core.hasher.constants.c3(),
                 )?;
 
+                let comm_tag = g.alloc_tag(&mut cs, &Comm);
                 implies_equal(
                     ns!(cs, "implies equal comm.tag"),
                     not_dummy,
@@ -691,7 +689,7 @@ fn synthesize_run<'a, F: LurkField, CS: ConstraintSystem<F>>(
             let mut cases_vec = Vec::with_capacity(cases.len());
             for (lit, block) in cases {
                 let lit_ptr = lit.to_ptr(store);
-                let lit_hash = *store.hash_ptr(&lit_ptr).value();
+                let lit_hash = *store.hash_ptr(&lit_ptr).hash();
                 cases_vec.push((lit_hash, block));
             }
 
@@ -732,7 +730,7 @@ fn synthesize_cons<const N: usize, F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocator<F>,
 ) -> Result<()> {
     let preimg = retrieve_nums(preimg, bound_allocations)?;
-    let constants = &store.poseidon_cache.constants;
+    let constants = &store.core.hasher.constants;
     let hash = match N {
         2 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg, constants.c4())?,
         3 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg, constants.c6())?,
@@ -755,30 +753,38 @@ fn synthesize_decons<const N: usize, F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<()> {
     let img = bound_allocations.get_ptr(img)?;
     let preimg_alloc_nums = if Some(true) == not_dummy.get_value() {
-        let img_val = img.get_value::<Tag>().unwrap();
-        let raw_ptr = store.to_raw_ptr(&FWrap(*img_val.value()));
-        let idx = raw_ptr.get_hash4().unwrap();
-        store
-            .expect_raw_ptrs::<4>(idx)
-            .iter()
-            .enumerate()
-            .map(|(i, raw)| {
-                let cs = ns!(cs, format!("preimg {i}"));
-                let z = store.hash_raw_ptr(raw).0;
-                AllocatedNum::alloc_infallible(cs, || z)
-            })
-            .collect::<Vec<_>>()
+        let img_z_ptr = img.get_value().unwrap();
+        let ptrs: &[Ptr] = match store.to_ptr_val(img_z_ptr.val()) {
+            IVal::Tuple2(idx) => store.expect_tuple2(idx),
+            IVal::Tuple3(idx) => store.expect_tuple3(idx),
+            IVal::Tuple4(idx) => store.expect_tuple4(idx),
+            _ => panic!("Invalid decons"),
+        };
+        assert_eq!(ptrs.len(), N);
+        let mut allocations = Vec::with_capacity(2 * N);
+        for (i, ptr) in ptrs.iter().enumerate() {
+            let (tag, FWrap(hash)) = store.hash_ptr(ptr).into_parts();
+            allocations.push(AllocatedNum::alloc_infallible(
+                ns!(cs, format!("preimg {}", 2 * i)),
+                || tag.to_field(),
+            ));
+            allocations.push(AllocatedNum::alloc_infallible(
+                ns!(cs, format!("preimg {}", 2 * i + 1)),
+                || hash,
+            ));
+        }
+        allocations
     } else {
-        (0..4)
+        (0..2 * N)
             .map(|i| {
                 let cs = ns!(cs, format!("preimg {i}"));
                 AllocatedNum::alloc_infallible(cs, || F::ZERO)
             })
-            .collect::<Vec<_>>()
+            .collect()
     };
 
     let preimg_clone = preimg_alloc_nums.clone();
-    let constants = &store.poseidon_cache.constants;
+    let constants = &store.core.hasher.constants;
     let hash = match N {
         2 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg_clone, constants.c4())?,
         3 => poseidon_hash(ns!(cs, "poseidon_hash"), preimg_clone, constants.c6())?,

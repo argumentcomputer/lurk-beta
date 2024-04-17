@@ -34,11 +34,11 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         match self {
             Self::Lookup(var, env) => {
                 if let Some([v, val, new_env]) = s.pop_binding(env) {
-                    if s.ptr_eq(var, &v) {
+                    if s.ptr_eq(var, v) {
                         let t = s.intern_t();
-                        s.cons(val, t)
+                        s.cons(*val, t)
                     } else {
-                        self.recursive_eval(scope, Self::Lookup(*var, new_env))
+                        self.recursive_eval(scope, Self::Lookup(*var, *new_env))
                     }
                 } else {
                     let nil = s.intern_nil();
@@ -86,9 +86,9 @@ impl<F: LurkField> Query<F> for EnvQuery<F> {
         match self {
             EnvQuery::Lookup(var, env) => {
                 let allocated_var =
-                    AllocatedNum::alloc_infallible(ns!(cs, "var"), || *s.hash_ptr(var).value());
+                    AllocatedNum::alloc_infallible(ns!(cs, "var"), || *s.hash_ptr(var).hash());
                 let allocated_env =
-                    AllocatedNum::alloc_infallible(ns!(cs, "env"), || *s.hash_ptr(env).value());
+                    AllocatedNum::alloc_infallible(ns!(cs, "env"), || *s.hash_ptr(env).hash());
                 Self::CQ::Lookup(allocated_var, allocated_env)
             }
             _ => unreachable!(),

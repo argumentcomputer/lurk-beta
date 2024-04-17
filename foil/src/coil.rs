@@ -85,8 +85,8 @@ fn lookup_vertex_id<F: LurkField>(store: &Store<F>, env: &Ptr, var: &Ptr) -> Res
         return Ok(None);
     };
 
-    if *var == bound_var {
-        match store.fetch_num(&id) {
+    if var == bound_var {
+        match store.fetch_num(id) {
             Some(f) => Ok(f.to_u64().map(|u| {
                 let n = u as Id;
                 info!("found {n}");
@@ -97,7 +97,7 @@ fn lookup_vertex_id<F: LurkField>(store: &Store<F>, env: &Ptr, var: &Ptr) -> Res
             }
         }
     } else {
-        lookup_vertex_id(store, &rest_env, var)
+        lookup_vertex_id(store, rest_env, var)
     }
 }
 
@@ -127,9 +127,9 @@ impl Context {
         let [_var, id, rest_env] = store
             .pop_binding(&self.env)
             .ok_or(anyhow!("failed to pop binding"))?;
-        self.env = rest_env;
+        self.env = *rest_env;
 
-        Ok(match store.fetch_num(&id) {
+        Ok(match store.fetch_num(id) {
             Some(f) => f
                 .to_u64()
                 .map(|u| u as Id)

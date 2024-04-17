@@ -4,10 +4,7 @@ use std::sync::Arc;
 
 use crate::{
     lang::{Coproc, Lang},
-    lem::{
-        store::{intern_ptrs, Store},
-        tag::Tag,
-    },
+    lem::{store::Store, tag::Tag},
     num::Num,
     state::{user_sym, State, StateRcCell},
     tag::{ExprTag, Op, Op1, Op2},
@@ -3886,7 +3883,7 @@ fn test_prove_call_literal_fun() {
     let empty_env = s.intern_empty_env();
     let args = s.list(vec![s.intern_user_symbol("x")]);
     let body = s.read_with_default_state("(+ x 1)").unwrap();
-    let fun = intern_ptrs!(s, Tag::Expr(ExprTag::Fun), args, body, empty_env, s.dummy());
+    let fun = s.intern_fun(args, body, empty_env);
     let input = s.num_u64(9);
     let expr = s.list(vec![fun, input]);
     let res = s.num_u64(10);

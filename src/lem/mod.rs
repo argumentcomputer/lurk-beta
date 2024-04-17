@@ -68,6 +68,7 @@ pub mod multiframe;
 pub mod pointers;
 mod slot;
 pub mod store;
+pub mod store_core;
 pub mod tag;
 mod var_map;
 

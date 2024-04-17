@@ -1,102 +1,106 @@
+use match_opt::match_opt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    field::LurkField,
-    tag::ExprTag::{Cons, Fun, Nil, Num, Str, Sym},
+    field::{FWrap, LurkField},
+    tag::{
+        ExprTag::{Cons, Fun, Nil, Num, Str, Sym},
+        Tag as TagTrait,
+    },
 };
 
 use super::Tag;
 
-/// `RawPtr` is the basic pointer type of the LEM store. An `Atom` points to a field
-/// element, and a `HashN` points to `N` children, which are also raw pointers. Thus,
-/// they are a building block for graphs that represent Lurk data.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub enum RawPtr {
-    Atom(usize),
-    Hash4(usize),
-    Hash6(usize),
-    Hash8(usize),
+/// An ergonomic pair type for tagged pointer semantics
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct GPtr<T, V> {
+    pub tag: T,
+    pub val: V,
 }
 
-impl RawPtr {
+impl<T, V> GPtr<T, V> {
     #[inline]
-    pub fn is_hash(&self) -> bool {
-        matches!(
-            self,
-            RawPtr::Hash4(..) | RawPtr::Hash6(..) | RawPtr::Hash8(..)
-        )
+    pub fn new(tag: T, val: V) -> Self {
+        Self { tag, val }
     }
 
     #[inline]
-    pub fn get_atom(&self) -> Option<usize> {
-        match self {
-            RawPtr::Atom(x) => Some(*x),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn get_hash4(&self) -> Option<usize> {
-        match self {
-            RawPtr::Hash4(x) => Some(*x),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn get_hash6(&self) -> Option<usize> {
-        match self {
-            RawPtr::Hash6(x) => Some(*x),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn get_hash8(&self) -> Option<usize> {
-        match self {
-            RawPtr::Hash8(x) => Some(*x),
-            _ => None,
-        }
-    }
-}
-
-/// `Ptr` is a tagged pointer. The tag is there to say what kind of data it encodes.
-/// Since tags can be encoded as field elements, they are also able to be expressed
-/// as raw pointers. A `Ptr` can thus be seen as a tuple of `RawPtr`s.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct Ptr {
-    tag: Tag,
-    raw: RawPtr,
-}
-
-impl Ptr {
-    #[inline]
-    pub fn new(tag: Tag, raw: RawPtr) -> Self {
-        Ptr { tag, raw }
-    }
-
-    #[inline]
-    pub fn tag(&self) -> &Tag {
+    pub fn tag(&self) -> &T {
         &self.tag
     }
 
     #[inline]
-    pub fn raw(&self) -> &RawPtr {
-        &self.raw
+    pub fn val(&self) -> &V {
+        &self.val
     }
 
     #[inline]
-    pub fn parts(&self) -> (&Tag, &RawPtr) {
-        let Ptr { tag, raw } = self;
-        (tag, raw)
+    pub fn parts(&self) -> (&T, &V) {
+        let Self { tag, val } = self;
+        (tag, val)
     }
 
     #[inline]
-    pub fn into_parts(self) -> (Tag, RawPtr) {
-        let Ptr { tag, raw } = self;
-        (tag, raw)
+    pub fn into_parts(self) -> (T, V) {
+        let Self { tag, val } = self;
+        (tag, val)
+    }
+}
+
+/// Encoding for pointer children that are stored in index-based data structures
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum IVal {
+    Atom(usize),
+    Tuple2(usize),
+    Tuple3(usize),
+    Tuple4(usize),
+    Compact(usize),
+}
+
+impl IVal {
+    #[inline]
+    pub fn is_atom(&self) -> bool {
+        matches!(self, IVal::Atom(_))
     }
 
+    #[inline]
+    pub fn is_compound(&self) -> bool {
+        !self.is_atom()
+    }
+
+    #[inline]
+    pub fn get_atom_idx(&self) -> Option<usize> {
+        match_opt!(self, IVal::Atom(idx) => *idx)
+    }
+
+    #[inline]
+    pub fn get_tuple2_idx(&self) -> Option<usize> {
+        match_opt!(self, IVal::Tuple2(idx) => *idx)
+    }
+
+    #[inline]
+    pub fn get_tuple3_idx(&self) -> Option<usize> {
+        match_opt!(self, IVal::Tuple3(idx) => *idx)
+    }
+
+    #[inline]
+    pub fn get_tuple4_idx(&self) -> Option<usize> {
+        match_opt!(self, IVal::Tuple4(idx) => *idx)
+    }
+
+    #[inline]
+    pub fn get_compact_idx(&self) -> Option<usize> {
+        match_opt!(self, IVal::Compact(idx) => *idx)
+    }
+}
+
+/// A `GPtr` that is generic on the `tag` type and uses `IVal` as the `val` type
+pub type IPtr<T> = GPtr<T, IVal>;
+
+/// Specialization of `IPtr` that uses LEM tags
+pub type Ptr = IPtr<Tag>;
+
+impl Ptr {
     #[inline]
     pub fn has_tag(&self, tag: &Tag) -> bool {
         self.tag() == tag
@@ -144,56 +148,68 @@ impl Ptr {
 
     #[inline]
     pub fn cast(self, tag: Tag) -> Self {
-        Ptr { tag, raw: self.raw }
+        Ptr { tag, val: self.val }
     }
 
     #[inline]
-    pub fn get_atom(&self) -> Option<usize> {
-        self.raw().get_atom()
+    pub fn get_atom_idx(&self) -> Option<usize> {
+        self.val().get_atom_idx()
     }
 
     #[inline]
-    pub fn get_index2(&self) -> Option<usize> {
-        self.raw().get_hash4()
+    pub fn get_tuple2_idx(&self) -> Option<usize> {
+        self.val().get_tuple2_idx()
     }
 
     #[inline]
-    pub fn get_index3(&self) -> Option<usize> {
-        self.raw().get_hash6()
+    pub fn get_tuple3_idx(&self) -> Option<usize> {
+        self.val().get_tuple3_idx()
     }
 
     #[inline]
-    pub fn get_index4(&self) -> Option<usize> {
-        self.raw().get_hash8()
+    pub fn get_tuple4_idx(&self) -> Option<usize> {
+        self.val().get_tuple4_idx()
     }
 
     #[inline]
     pub fn atom(tag: Tag, idx: usize) -> Ptr {
         Ptr {
             tag,
-            raw: RawPtr::Atom(idx),
+            val: IVal::Atom(idx),
         }
     }
 }
 
-/// A `ZPtr` is the result of "hydrating" a `Ptr`, which is a process of replacing
-/// indices by hashes. That is, a `ZPtr` is a content-addressed, tagged, pointer.
-/// By analogy, we can view ordinary field elements as hydrated raw pointers.
-///
-/// With `ZPtr`s we are able to content-address arbitrary DAGs, and thus be able to
-/// represent these data structures as field elements. This is how we can prove facts
-/// about data structures only using field elements. `ZPtr`s are also useful when we
-/// want to content-address the store.
+/// A `ZPtr` is the content-addressed representation of a `Ptr` that is used to
+/// uniquely identify arbitrary DAGs with raw field elements (modulo unlikely
+/// hash collisions).
 ///
 /// In principle, `ZPtr`s could be used in place of `Ptr`, but it is important to
 /// note that content-addressing can be expensive, especially in the context of
 /// interpretation, because of the Poseidon hashes. That's why we operate on `Ptr`s
 /// when interpreting LEMs and delay the need for `ZPtr`s as much as possible.
-pub type ZPtr<F> = crate::z_data::z_ptr::ZPtr<Tag, F>;
+pub type ZPtr<F> = GPtr<Tag, FWrap<F>>;
 
 impl<F: LurkField> ZPtr<F> {
     #[inline]
     pub fn dummy() -> Self {
-        Self(Tag::Expr(Nil), F::ZERO)
+        GPtr::new(Tag::Expr(Nil), FWrap(F::ZERO))
+    }
+
+    #[inline]
+    pub fn hash(&self) -> &F {
+        self.val().get()
+    }
+
+    #[inline]
+    pub fn from_parts(tag: Tag, hash: F) -> Self {
+        Self::new(tag, FWrap(hash))
+    }
+}
+
+impl<T: TagTrait, F: LurkField> GPtr<T, FWrap<F>> {
+    #[inline]
+    pub fn tag_field(&self) -> F {
+        self.tag().to_field()
     }
 }

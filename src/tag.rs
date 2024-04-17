@@ -3,7 +3,7 @@ use lurk_macros::TryFromRepr;
 use proptest_derive::Arbitrary;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::{convert::TryFrom, fmt};
-use strum::{EnumCount, EnumIter};
+use strum::EnumCount;
 
 use crate::field::LurkField;
 
@@ -30,11 +30,12 @@ pub(crate) const EXPR_TAG_INIT: u16 = 0b0000_0000_0000_0000;
     PartialEq,
     Eq,
     Hash,
+    PartialOrd,
+    Ord,
     Serialize_repr,
     Deserialize_repr,
     TryFromRepr,
     EnumCount,
-    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
@@ -118,9 +119,10 @@ pub(crate) const CONT_TAG_INIT: u16 = 0b0001_0000_0000_0000;
     PartialEq,
     Eq,
     Hash,
+    PartialOrd,
+    Ord,
     TryFromRepr,
     EnumCount,
-    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
@@ -209,14 +211,14 @@ pub(crate) const OP1_TAG_INIT: u16 = 0b0010_0000_0000_0000;
     Clone,
     Debug,
     PartialEq,
-    PartialOrd,
     Eq,
     Hash,
+    PartialOrd,
+    Ord,
     Serialize_repr,
     Deserialize_repr,
     TryFromRepr,
     EnumCount,
-    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
@@ -341,14 +343,14 @@ pub(crate) const OP2_TAG_INIT: u16 = 0b0011_0000_0000_0000;
     Clone,
     Debug,
     PartialEq,
-    PartialOrd,
     Eq,
     Hash,
+    PartialOrd,
+    Ord,
     Serialize_repr,
     Deserialize_repr,
     TryFromRepr,
     EnumCount,
-    EnumIter,
 )]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]

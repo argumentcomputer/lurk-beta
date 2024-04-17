@@ -1879,7 +1879,7 @@ fn hide_opaque_open_available() {
     let (output, ..) =
         evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, 10, &dummy_terminal()).unwrap();
 
-    let c = *s.hash_ptr(&output[0]).value();
+    let c = *s.hash_ptr(&output[0]).hash();
     let comm = s.comm(c);
 
     let open = s.intern_lurk_symbol("open");
@@ -1914,7 +1914,7 @@ fn hide_opaque_open_unavailable() {
     let (output, ..) =
         evaluate_simple::<Fr, Coproc<Fr>>(None, expr, s, 10, &dummy_terminal()).unwrap();
 
-    let c = *s.hash_ptr(&output[0]).value();
+    let c = *s.hash_ptr(&output[0]).hash();
 
     let s2 = &Store::<Fr>::default();
     let comm = s.comm(c);
@@ -3433,11 +3433,11 @@ fn test_sym_hash_values() {
 
     // Symbol and keyword scalar hash values are the same as
     // those of the name string consed onto the parent symbol.
-    assert_eq!(cons_z_ptr.value(), sym_z_ptr.value());
-    assert_eq!(cons_z_ptr.value(), key_z_ptr.value());
+    assert_eq!(cons_z_ptr.hash(), sym_z_ptr.hash());
+    assert_eq!(cons_z_ptr.hash(), key_z_ptr.hash());
 
     // Toplevel symbols also have this property, and their parent symbol is the root symbol.
-    assert_eq!(consed_with_root_z_ptr.value(), toplevel_z_ptr.value());
+    assert_eq!(consed_with_root_z_ptr.hash(), toplevel_z_ptr.hash());
 
     // The tags differ though.
     use crate::tag::ExprTag::{Key, Sym};

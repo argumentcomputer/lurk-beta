@@ -56,7 +56,7 @@ fn test_continued_proof() {
         expect_eq(frames.len(), expected_iterations);
         let output = &frames.last().unwrap().output;
         let (result, _) = store.fetch_cons(&output[0]).unwrap();
-        assert_eq!(result, store.num_u64(123));
+        assert_eq!(result, &store.num_u64(123));
 
         let (proof, ..) = prover
             .prove_from_frames(&pp, &frames, &store, None)
@@ -78,7 +78,7 @@ fn test_continued_proof() {
         expect_eq(frames.len(), expected_iterations);
         let output = &frames.last().unwrap().output;
         let (result, _) = store.fetch_cons(&output[0]).unwrap();
-        assert_eq!(result, store.num_u64(444));
+        assert_eq!(result, &store.num_u64(444));
 
         let (proof, ..) = prover
             .prove_from_frames(&pp, &frames, &store, base_snark)

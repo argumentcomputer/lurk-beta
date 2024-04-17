@@ -38,7 +38,7 @@ pub(crate) fn fib_limit(n: usize, rc: usize) -> usize {
     rc * (frame / rc + usize::from(frame % rc != 0))
 }
 
-fn lurk_fib<F: LurkField>(store: &Store<F>, n: usize) -> Ptr {
+fn lurk_fib<F: LurkField>(store: &Store<F>, n: usize) -> &Ptr {
     let frame_idx = fib_frame(n);
     let limit = frame_idx;
     let fib_expr = fib_expr(store);
@@ -59,7 +59,7 @@ fn lurk_fib<F: LurkField>(store: &Store<F>, n: usize) -> Ptr {
     //               body: (.lurk.user.fib), continuation: Outermost }
 
     let [_, _, rest_bindings] = store.pop_binding(target_env).unwrap();
-    let [_, val, _] = store.pop_binding(&rest_bindings).unwrap();
+    let [_, val, _] = store.pop_binding(rest_bindings).unwrap();
     val
 }
 
@@ -109,7 +109,7 @@ pub(crate) fn test_fib_io_matches() {
     let fib_9 = store.num_u64(34);
     let fib_10 = store.num_u64(55);
     let fib_11 = store.num_u64(89);
-    assert_eq!(fib_9, lurk_fib(&store, 9));
-    assert_eq!(fib_10, lurk_fib(&store, 10));
-    assert_eq!(fib_11, lurk_fib(&store, 11));
+    assert_eq!(&fib_9, lurk_fib(&store, 9));
+    assert_eq!(&fib_10, lurk_fib(&store, 10));
+    assert_eq!(&fib_11, lurk_fib(&store, 11));
 }

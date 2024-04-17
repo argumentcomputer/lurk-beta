@@ -32,7 +32,7 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
         match self {
             Self::Factorial(n) => {
                 let n_zptr = scope.store.hash_ptr(n);
-                let n = n_zptr.value();
+                let n = n_zptr.hash();
 
                 if *n == F::ZERO {
                     scope.store.num(F::ONE)
@@ -40,7 +40,7 @@ impl<F: LurkField> Query<F> for DemoQuery<F> {
                     let sub_query = Self::Factorial(scope.store.num(*n - F::ONE));
                     let m_ptr = self.recursive_eval(scope, sub_query);
                     let m_zptr = scope.store.hash_ptr(&m_ptr);
-                    let m = m_zptr.value();
+                    let m = m_zptr.hash();
 
                     scope.store.num(*n * m)
                 }

@@ -106,7 +106,7 @@
 use match_opt::match_opt;
 
 use super::{
-    pointers::{Ptr, RawPtr},
+    pointers::{IVal, Ptr},
     Block, Ctrl, Op,
 };
 
@@ -246,7 +246,7 @@ impl Block {
 /// take only 0 or 1 values.
 pub enum Val {
     Pointer(Ptr),
-    Num(RawPtr),
+    Num(IVal),
     Boolean(bool),
 }
 

@@ -13,7 +13,7 @@ use crate::{
     lem::{
         circuit::GlobalAllocator,
         pointers::{Ptr, ZPtr},
-        store::{expect_ptrs, Store},
+        store::Store,
         tag,
     },
     tag::{ExprTag, Tag},
@@ -38,7 +38,7 @@ pub(crate) fn construct_tuple2<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
             b.tag().clone(),
             b.hash().clone(),
         ],
-        store.poseidon_cache.constants.c4(),
+        store.core.hasher.constants.c4(),
     )?;
 
     Ok(AllocatedPtr::from_parts(tag, hash))
@@ -67,7 +67,7 @@ pub(crate) fn construct_tuple3<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
             c.tag().clone(),
             c.hash().clone(),
         ],
-        store.poseidon_cache.constants.c6(),
+        store.core.hasher.constants.c6(),
     )?;
 
     Ok(AllocatedPtr::from_parts(tag, hash))
@@ -99,7 +99,7 @@ pub(crate) fn construct_tuple4<F: LurkField, CS: ConstraintSystem<F>, T: Tag>(
             d.tag().clone(),
             d.hash().clone(),
         ],
-        store.poseidon_cache.constants.c8(),
+        store.core.hasher.constants.c8(),
     )?;
 
     Ok(AllocatedPtr::from_parts(tag, hash))
@@ -167,7 +167,7 @@ pub(crate) fn construct_env<F: LurkField, CS: ConstraintSystem<F>>(
             val.hash().clone(),
             next_env.clone(),
         ],
-        store.poseidon_cache.constants.c4(),
+        store.core.hasher.constants.c4(),
     )?;
 
     Ok(AllocatedPtr::from_parts(tag, hash))
@@ -192,7 +192,7 @@ pub(crate) fn construct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
             result.hash().clone(),
             deps.clone(),
         ],
-        store.poseidon_cache.constants.c4(),
+        store.core.hasher.constants.c4(),
     )?;
 
     Ok(AllocatedPtr::from_parts(tag, hash))
@@ -213,14 +213,14 @@ pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
 
     let (a, b, c, d) = {
         if let Some([v, val, new_env]) = s.pop_binding(&env_ptr) {
-            let v_zptr = s.hash_ptr(&v);
-            let val_zptr = s.hash_ptr(&val);
-            let new_env_zptr = s.hash_ptr(&new_env);
+            let v_zptr = s.hash_ptr(v);
+            let val_zptr = s.hash_ptr(val);
+            let new_env_zptr = s.hash_ptr(new_env);
             (
-                *v_zptr.value(),
+                *v_zptr.hash(),
                 val_zptr.tag().to_field::<F>(),
-                *val_zptr.value(),
-                *new_env_zptr.value(),
+                *val_zptr.hash(),
+                *new_env_zptr.hash(),
             )
         } else {
             (F::ZERO, F::ZERO, F::ZERO, F::ZERO)
@@ -240,7 +240,7 @@ pub(crate) fn deconstruct_env<F: LurkField, CS: ConstraintSystem<F>>(
             val_hash.clone(),
             new_env_hash.clone(),
         ],
-        s.poseidon_cache.constants.c4(),
+        s.core.hasher.constants.c4(),
     )?;
 
     let val = AllocatedPtr::from_parts(val_tag, val_hash);
@@ -264,14 +264,14 @@ pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
 
     let (a, b, c, d) = {
         if let Some([q, res, deps]) = s.deconstruct_provenance(&prov_ptr) {
-            let q_zptr = s.hash_ptr(&q);
-            let res_zptr = s.hash_ptr(&res);
-            let deps_zptr = s.hash_ptr(&deps);
+            let q_zptr = s.hash_ptr(q);
+            let res_zptr = s.hash_ptr(res);
+            let deps_zptr = s.hash_ptr(deps);
             (
-                *q_zptr.value(),
+                *q_zptr.hash(),
                 res_zptr.tag().to_field::<F>(),
-                *res_zptr.value(),
-                *deps_zptr.value(),
+                *res_zptr.hash(),
+                *deps_zptr.hash(),
             )
         } else {
             (F::ZERO, F::ZERO, F::ZERO, F::ZERO)
@@ -291,7 +291,7 @@ pub(crate) fn deconstruct_provenance<F: LurkField, CS: ConstraintSystem<F>>(
             res_hash.clone(),
             deps_tuple_hash.clone(),
         ],
-        s.poseidon_cache.constants.c4(),
+        s.core.hasher.constants.c4(),
     )?;
 
     let res = AllocatedPtr::from_parts(res_tag, res_hash);
@@ -332,8 +332,10 @@ pub fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
     tuple: &AllocatedPtr<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
     let (a, b) = if not_dummy.get_value() == Some(true) {
-        let idx = get_ptr(tuple, store)?.get_index2().expect("invalid Ptr");
-        let [a, b] = &expect_ptrs!(store, 2, idx);
+        let idx = get_ptr(tuple, store)?
+            .get_tuple2_idx()
+            .expect("invalid Ptr");
+        let [a, b] = store.expect_tuple2(idx);
         (store.hash_ptr(a), store.hash_ptr(b))
     } else {
         (ZPtr::dummy(), ZPtr::dummy())
@@ -350,7 +352,7 @@ pub fn deconstruct_tuple2<F: LurkField, CS: ConstraintSystem<F>>(
             b.tag().clone(),
             b.hash().clone(),
         ],
-        store.poseidon_cache.constants.c4(),
+        store.core.hasher.constants.c4(),
     )?;
 
     implies_equal(ns!(cs, "hash equality"), not_dummy, tuple.hash(), &hash);
@@ -370,8 +372,10 @@ pub(crate) fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
     tuple: &AllocatedPtr<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
     let (a, b, c) = if not_dummy.get_value() == Some(true) {
-        let idx = get_ptr(tuple, store)?.get_index3().expect("invalid Ptr");
-        let [a, b, c] = &expect_ptrs!(store, 3, idx);
+        let idx = get_ptr(tuple, store)?
+            .get_tuple3_idx()
+            .expect("invalid Ptr");
+        let [a, b, c] = store.expect_tuple3(idx);
         (store.hash_ptr(a), store.hash_ptr(b), store.hash_ptr(c))
     } else {
         (ZPtr::dummy(), ZPtr::dummy(), ZPtr::dummy())
@@ -391,7 +395,7 @@ pub(crate) fn deconstruct_tuple3<F: LurkField, CS: ConstraintSystem<F>>(
             c.tag().clone(),
             c.hash().clone(),
         ],
-        store.poseidon_cache.constants.c6(),
+        store.core.hasher.constants.c6(),
     )?;
 
     implies_equal(ns!(cs, "hash equality"), not_dummy, tuple.hash(), &hash);
@@ -419,8 +423,10 @@ pub(crate) fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
     SynthesisError,
 > {
     let (a, b, c, d) = if not_dummy.get_value() == Some(true) {
-        let idx = get_ptr(tuple, store)?.get_index4().expect("invalid Ptr");
-        let [a, b, c, d] = &expect_ptrs!(store, 4, idx);
+        let idx = get_ptr(tuple, store)?
+            .get_tuple4_idx()
+            .expect("invalid Ptr");
+        let [a, b, c, d] = store.expect_tuple4(idx);
         (
             store.hash_ptr(a),
             store.hash_ptr(b),
@@ -448,7 +454,7 @@ pub(crate) fn deconstruct_tuple4<F: LurkField, CS: ConstraintSystem<F>>(
             d.tag().clone(),
             d.hash().clone(),
         ],
-        store.poseidon_cache.constants.c8(),
+        store.core.hasher.constants.c8(),
     )?;
 
     implies_equal(ns!(cs, "hash equality"), not_dummy, tuple.hash(), &hash);
@@ -558,7 +564,7 @@ pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
                 cdr.tag().clone(),
                 cdr.hash().clone(),
             ],
-            store.poseidon_cache.constants.c4(),
+            store.core.hasher.constants.c4(),
         )?;
 
         implies_equal(
@@ -620,7 +626,7 @@ pub(crate) fn car_cdr_simple<F: LurkField, CS: ConstraintSystem<F>>(
                 cdr.tag().clone(),
                 cdr.hash().clone(),
             ],
-            store.poseidon_cache.constants.c4(),
+            store.core.hasher.constants.c4(),
         )?;
 
         implies_equal(
@@ -719,17 +725,11 @@ pub fn chain_car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 #[inline]
-pub fn a_ptr_as_z_ptr<T: Tag, F: LurkField>(
-    a: &AllocatedPtr<F>,
-) -> Option<crate::z_ptr::ZPtr<T, F>> {
+pub fn a_ptr_as_z_ptr<F: LurkField>(a: &AllocatedPtr<F>) -> Option<ZPtr<F>> {
     a.tag()
         .get_value()
         .and_then(|t| Tag::from_field(&t))
-        .and_then(|tag| {
-            a.hash()
-                .get_value()
-                .map(|hash| crate::z_ptr::ZPtr::from_parts(tag, hash))
-        })
+        .and_then(|tag| a.hash().get_value().map(|hash| ZPtr::from_parts(tag, hash)))
 }
 
 #[cfg(test)]
@@ -745,10 +745,7 @@ mod test {
             deconstruct_tuple4,
         },
         field::LurkField,
-        lem::{
-            circuit::GlobalAllocator,
-            store::{intern_ptrs, Store},
-        },
+        lem::{circuit::GlobalAllocator, store::Store},
     };
 
     use super::{a_ptr_as_z_ptr, chain_car_cdr, construct_list, deconstruct_tuple2};
@@ -763,13 +760,13 @@ mod test {
         let a_nil = g.alloc_ptr(&mut cs, &nil, &store);
 
         let nil2 = construct_tuple2(ns!(cs, "nil2"), &g, &store, nil_tag, &a_nil, &a_nil).unwrap();
-        let nil2_ptr = intern_ptrs!(store, *nil_tag, nil, nil);
+        let nil2_ptr = store.intern_tuple2([nil, nil], *nil_tag, None);
         let z_nil2_ptr = store.hash_ptr(&nil2_ptr);
         assert_eq!(a_ptr_as_z_ptr(&nil2), Some(z_nil2_ptr));
 
         let nil3 =
             construct_tuple3(ns!(cs, "nil3"), &g, &store, nil_tag, &a_nil, &a_nil, &a_nil).unwrap();
-        let nil3_ptr = intern_ptrs!(store, *nil_tag, nil, nil, nil);
+        let nil3_ptr = store.intern_tuple3([nil, nil, nil], *nil_tag, None);
         let z_nil3_ptr = store.hash_ptr(&nil3_ptr);
         assert_eq!(a_ptr_as_z_ptr(&nil3), Some(z_nil3_ptr));
 
@@ -784,7 +781,7 @@ mod test {
             &a_nil,
         )
         .unwrap();
-        let nil4_ptr = intern_ptrs!(store, *nil_tag, nil, nil, nil, nil);
+        let nil4_ptr = store.intern_tuple4([nil, nil, nil, nil], *nil_tag, None);
         let z_nil4_ptr = store.hash_ptr(&nil4_ptr);
         assert_eq!(a_ptr_as_z_ptr(&nil4), Some(z_nil4_ptr));
     }
@@ -818,7 +815,7 @@ mod test {
         let nil_tag = *nil.tag();
         let not_dummy = Boolean::Constant(true);
 
-        let tuple2 = intern_ptrs!(store, nil_tag, nil, nil);
+        let tuple2 = store.intern_tuple2([nil, nil], nil_tag, None);
         let z_tuple2 = store.hash_ptr(&tuple2);
         let a_tuple2 = AllocatedPtr::alloc_infallible(ns!(cs, "tuple2"), || z_tuple2);
         let (a, b) =
@@ -827,7 +824,7 @@ mod test {
         assert_eq!(a_ptr_as_z_ptr(&a), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&b), Some(z_nil));
 
-        let tuple3 = intern_ptrs!(store, nil_tag, nil, nil, nil);
+        let tuple3 = store.intern_tuple3([nil, nil, nil], nil_tag, None);
         let z_tuple3 = store.hash_ptr(&tuple3);
         let a_tuple3 = AllocatedPtr::alloc_infallible(ns!(cs, "tuple3"), || z_tuple3);
         let (a, b, c) =
@@ -837,7 +834,7 @@ mod test {
         assert_eq!(a_ptr_as_z_ptr(&b), Some(z_nil));
         assert_eq!(a_ptr_as_z_ptr(&c), Some(z_nil));
 
-        let tuple4 = intern_ptrs!(store, nil_tag, nil, nil, nil, nil);
+        let tuple4 = store.intern_tuple4([nil, nil, nil, nil], nil_tag, None);
         let z_tuple4 = store.hash_ptr(&tuple4);
         let a_tuple4 = AllocatedPtr::alloc_infallible(ns!(cs, "tuple4"), || z_tuple4);
         let (a, b, c, d) =

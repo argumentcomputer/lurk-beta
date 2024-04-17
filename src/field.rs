@@ -285,6 +285,15 @@ impl LurkField for GrumpkinScalar {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FWrap<F>(pub F);
 
+impl<F> FWrap<F> {
+    /// Returns a reference to the wrapped value
+    #[inline]
+    pub fn get(&self) -> &F {
+        let Self(f) = self;
+        f
+    }
+}
+
 impl<F: LurkField> Copy for FWrap<F> {}
 
 #[cfg(not(target_arch = "wasm32"))]
