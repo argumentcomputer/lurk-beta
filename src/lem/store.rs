@@ -126,10 +126,10 @@ impl<F: LurkField> Default for Store<F> {
         let hash6zeros = core.hasher.hash6(&[F::ZERO; 6]);
         let hash8zeros = core.hasher.hash8(&[F::ZERO; 8]);
 
-        let (hash3zeros_idx, _) = core.intern_digest(FWrap(hash3zeros));
-        let (hash4zeros_idx, _) = core.intern_digest(FWrap(hash4zeros));
-        let (hash6zeros_idx, _) = core.intern_digest(FWrap(hash6zeros));
-        let (hash8zeros_idx, _) = core.intern_digest(FWrap(hash8zeros));
+        let hash3zeros_idx = core.intern_digest(FWrap(hash3zeros));
+        let hash4zeros_idx = core.intern_digest(FWrap(hash4zeros));
+        let hash6zeros_idx = core.intern_digest(FWrap(hash6zeros));
+        let hash8zeros_idx = core.intern_digest(FWrap(hash8zeros));
 
         Self {
             core,
@@ -149,7 +149,7 @@ impl<F: LurkField> Default for Store<F> {
 // Handling to the core
 impl<F: LurkField> Store<F> {
     #[inline]
-    pub fn intern_f(&self, f: F) -> (usize, bool) {
+    pub fn intern_f(&self, f: F) -> usize {
         self.core.intern_digest(FWrap(f))
     }
 

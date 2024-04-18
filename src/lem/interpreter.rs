@@ -278,13 +278,13 @@ impl Block {
                         let g = *store.expect_f(g_idx);
                         let diff = f - g;
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(IVal::Atom(store.intern_f(f + f).0))],
+                            vals: vec![Val::Num(IVal::Atom(store.intern_f(f + f)))],
                         }));
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(IVal::Atom(store.intern_f(g + g).0))],
+                            vals: vec![Val::Num(IVal::Atom(store.intern_f(g + g)))],
                         }));
                         hints.bit_decomp.push(Some(SlotData {
-                            vals: vec![Val::Num(IVal::Atom(store.intern_f(diff + diff).0))],
+                            vals: vec![Val::Num(IVal::Atom(store.intern_f(diff + diff)))],
                         }));
                         let f = BaseNum::Scalar(f);
                         let g = BaseNum::Scalar(g);
@@ -466,7 +466,7 @@ impl Block {
                         tgt_secret.clone(),
                         store.intern_atom(Tag::Expr(Num), secret.0),
                     );
-                    let secret_idx = store.intern_f(secret.0).0;
+                    let secret_idx = store.intern_f(secret.0);
                     let vals = vec![Val::Num(IVal::Atom(secret_idx)), Val::Pointer(*ptr)];
                     hints.commitment.push(Some(SlotData { vals }));
                 }

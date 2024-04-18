@@ -50,10 +50,16 @@ impl<T, V> GPtr<T, V> {
 /// Encoding for pointer children that are stored in index-based data structures
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IVal {
+    /// Holds the index of leaf data
     Atom(usize),
+    /// Holds the index of two children
     Tuple2(usize),
+    /// Holds the index of three children
     Tuple3(usize),
+    /// Holds the index of four children
     Tuple4(usize),
+    /// Similar to `Tuple3`, but ignores the tags of the first and third children
+    /// for content-addressing
     Compact(usize),
 }
 
