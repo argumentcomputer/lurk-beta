@@ -13,8 +13,8 @@ pub trait StoreHasher<T, D> {
     fn hash_commitment(&self, secret: D, payload: GPtr<T, D>) -> D;
 }
 
-/// A data structure used to efficiently encode data as DAGs of tagged pointers
-/// that can eventually be content-addressed by a custom hasher
+/// Append-only threadsafe data structure used to efficiently encode data as DAGs
+/// of tagged pointers that can be content-addressed by a custom hasher on demand
 #[derive(Debug)]
 pub struct StoreCore<T, D, H: StoreHasher<T, D>> {
     /// Holds leaf (non-compound) data
@@ -47,8 +47,8 @@ pub struct StoreCore<T, D, H: StoreHasher<T, D>> {
 }
 
 impl<
-        T: PartialEq + std::cmp::Eq + std::hash::Hash,
-        D: PartialEq + std::cmp::Eq + std::hash::Hash,
+        T: PartialEq + Eq + std::hash::Hash,
+        D: PartialEq + Eq + std::hash::Hash,
         H: StoreHasher<T, D> + Default,
     > Default for StoreCore<T, D, H>
 {
@@ -68,14 +68,14 @@ impl<
 }
 
 impl<
-        T: Copy + PartialEq + std::cmp::Eq + std::hash::Hash + Send + Sync,
-        D: Copy + PartialEq + std::cmp::Eq + std::hash::Hash + Send + Sync,
+        T: Copy + PartialEq + Eq + std::hash::Hash + Send + Sync,
+        D: Copy + PartialEq + Eq + std::hash::Hash + Send + Sync,
         H: StoreHasher<T, D> + Sync,
     > StoreCore<T, D, H>
 {
     #[inline]
-    pub fn intern_digest(&self, d: D) -> (usize, bool) {
-        self.atom.insert_probe(Box::new(d))
+    pub fn intern_digest(&self, digest: D) -> usize {
+        self.atom.insert_probe(Box::new(digest)).0
     }
 
     #[inline]
@@ -88,17 +88,26 @@ impl<
         self.fetch_digest(idx).expect("Digest wasn't interned")
     }
 
+    /// Performs the side-effects of interning then returns the pointer
+    fn finalize_interning(
+        &self,
+        tag: T,
+        ptr_val: IVal,
+        digest: Option<D>,
+        inserted: bool,
+    ) -> IPtr<T> {
+        if let Some(digest) = digest {
+            self.z_cache.insert(ptr_val, Box::new(digest));
+            self.inverse_z_cache.insert(digest, Box::new(ptr_val));
+        } else if inserted {
+            self.dehydrated.load().push(Box::new(ptr_val));
+        }
+        IPtr::new(tag, ptr_val)
+    }
+
     pub fn intern_tuple2(&self, ptrs: [IPtr<T>; 2], tag: T, digest: Option<D>) -> IPtr<T> {
         let (idx, inserted) = self.tuple2.insert_probe(Box::new(ptrs));
-        let ptr = IPtr::new(tag, IVal::Tuple2(idx));
-        if let Some(digest) = digest {
-            let val = *ptr.val();
-            self.z_cache.insert(val, Box::new(digest));
-            self.inverse_z_cache.insert(digest, Box::new(val));
-        } else if inserted {
-            self.dehydrated.load().push(Box::new(*ptr.val()));
-        }
-        ptr
+        self.finalize_interning(tag, IVal::Tuple2(idx), digest, inserted)
     }
 
     #[inline]
@@ -119,19 +128,12 @@ impl<
         compact: bool,
     ) -> IPtr<T> {
         let (idx, inserted) = self.tuple3.insert_probe(Box::new(ptrs));
-        let ptr = if compact {
-            IPtr::new(tag, IVal::Compact(idx))
+        let ptr_val = if compact {
+            IVal::Compact(idx)
         } else {
-            IPtr::new(tag, IVal::Tuple3(idx))
+            IVal::Tuple3(idx)
         };
-        if let Some(digest) = digest {
-            let val = *ptr.val();
-            self.z_cache.insert(val, Box::new(digest));
-            self.inverse_z_cache.insert(digest, Box::new(val));
-        } else if inserted {
-            self.dehydrated.load().push(Box::new(*ptr.val()));
-        }
-        ptr
+        self.finalize_interning(tag, ptr_val, digest, inserted)
     }
 
     #[inline]
@@ -151,15 +153,7 @@ impl<
 
     pub fn intern_tuple4(&self, ptrs: [IPtr<T>; 4], tag: T, digest: Option<D>) -> IPtr<T> {
         let (idx, inserted) = self.tuple4.insert_probe(Box::new(ptrs));
-        let ptr = IPtr::new(tag, IVal::Tuple4(idx));
-        if let Some(digest) = digest {
-            let val = *ptr.val();
-            self.z_cache.insert(val, Box::new(digest));
-            self.inverse_z_cache.insert(digest, Box::new(val));
-        } else if inserted {
-            self.dehydrated.load().push(Box::new(*ptr.val()));
-        }
-        ptr
+        self.finalize_interning(tag, IVal::Tuple4(idx), digest, inserted)
     }
 
     #[inline]
@@ -259,10 +253,10 @@ impl<
     /// limit in `hash_ptr_val_unsafe`. So we move in smaller chunks from left to
     /// right, populating the `z_cache`, which can rescue `hash_ptr_val_unsafe`
     /// from deep recursions
-    fn hydrate_z_cache_with_ptr_vals(&self, ptrs: &[&IVal]) {
-        ptrs.chunks(256).for_each(|chunk| {
-            chunk.par_iter().for_each(|ptr| {
-                self.hash_ptr_val_unsafe(ptr);
+    fn hydrate_z_cache_with_ptr_vals(&self, ptr_vals: &[&IVal]) {
+        ptr_vals.chunks(256).for_each(|chunk| {
+            chunk.par_iter().for_each(|ptr_val| {
+                self.hash_ptr_val_unsafe(ptr_val);
             });
         });
     }
@@ -287,9 +281,9 @@ impl<
         }
     }
 
-    /// Safe version of `hash_ptr_val_unsafe` that doesn't hit a stack overflow
-    /// by precomputing the pointers that need to be hashed in order to hash the
-    /// provided `ptr`
+    /// Safe version of `hash_ptr_val_unsafe` that doesn't hit a stack overflow.
+    /// It precomputes the `IVal`s that need to be hashed in order to hash the
+    /// provided `ptr_val`
     pub fn hash_ptr_val(&self, ptr_val: &IVal) -> D {
         if self.is_below_safe_threshold() {
             // just run `hash_ptr_val_unsafe` for extra speed when the dehydrated
@@ -362,15 +356,15 @@ impl<
         self.open(digest).is_some()
     }
 
-    /// `IPtr` equality w.r.t. their content-addressed versions
+    /// Pointer equality w.r.t. their content-addressed versions
     #[inline]
     pub fn ptr_eq(&self, a: &IPtr<T>, b: &IPtr<T>) -> bool {
         self.hash_ptr(a) == self.hash_ptr(b)
     }
 
     #[inline]
-    pub fn intern_atom(&self, tag: T, d: D) -> IPtr<T> {
-        IPtr::new(tag, IVal::Atom(self.intern_digest(d).0))
+    pub fn intern_atom(&self, tag: T, digest: D) -> IPtr<T> {
+        IPtr::new(tag, IVal::Atom(self.intern_digest(digest)))
     }
 
     /// Creates an atom pointer from a ZPtr, with its hash. Hashing
@@ -386,7 +380,7 @@ impl<
         self.inverse_z_cache
             .get(digest)
             .cloned()
-            .unwrap_or_else(|| IVal::Atom(self.intern_digest(*digest).0))
+            .unwrap_or_else(|| IVal::Atom(self.intern_digest(*digest)))
     }
 
     /// Attempts to recover the `Ptr` from `inverse_z_cache`. If the mapping is
