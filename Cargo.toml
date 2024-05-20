@@ -26,7 +26,7 @@ fxhash = "0.2.1"
 generic-array = "1.0"
 hex = { version = "0.4.3", features = ["serde"] }
 indexmap = { version = "2.1.0", features = ["rayon", "serde"] }
-itertools = "0.12"
+itertools = "0.13"
 lurk-macros = { version = "0.2.0", path = "lurk-macros" }
 lurk-metrics = { version = "0.2.0", path = "lurk-metrics" }
 neptune = { workspace = true, features = ["arity2", "arity4", "arity8", "arity16", "pasta"] }
