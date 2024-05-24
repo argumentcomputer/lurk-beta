@@ -93,7 +93,7 @@ fn compute_coeffs<F: LurkField>(store: &Store<F>) -> (usize, usize) {
         let frame = step_func
             .call_simple(&input, store, &lang, 0, &dummy_terminal())
             .unwrap();
-        input = frame.output.clone();
+        input.clone_from(&frame.output);
         iteration += 1;
     }
     (coef_lin, coef_ang)

@@ -171,18 +171,18 @@ impl<'a> ser::Serializer for &'a Serializer {
     }
 
     #[inline]
-    fn serialize_newtype_struct<T: ?Sized>(
+    fn serialize_newtype_struct<T>(
         self,
         _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
         value.serialize(self)
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T>(
         self,
         _name: &'static str,
         variant_index: u32,
@@ -190,7 +190,7 @@ impl<'a> ser::Serializer for &'a Serializer {
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
         // Assuming # of variants < 256
         Ok(ZData::Cell(vec![
@@ -205,9 +205,9 @@ impl<'a> ser::Serializer for &'a Serializer {
     }
 
     #[inline]
-    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
         Ok(ZData::Cell(vec![value.serialize(self)?]))
     }
@@ -292,9 +292,9 @@ impl ser::SerializeSeq for SerializeCell {
     type Ok = ZData;
     type Error = SerdeError;
 
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
         self.cell.push(value.serialize(&Serializer)?);
         Ok(())
@@ -309,9 +309,9 @@ impl ser::SerializeTuple for SerializeCell {
     type Ok = ZData;
     type Error = SerdeError;
 
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
         ser::SerializeSeq::serialize_element(self, value)
     }
@@ -325,9 +325,9 @@ impl ser::SerializeTupleStruct for SerializeCell {
     type Ok = ZData;
     type Error = SerdeError;
 
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
         ser::SerializeSeq::serialize_element(self, value)
     }
@@ -341,9 +341,9 @@ impl ser::SerializeTupleVariant for SerializeTupleVariant {
     type Ok = ZData;
     type Error = SerdeError;
 
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
         self.cell.push(value.serialize(&Serializer)?);
         Ok(())
@@ -362,17 +362,17 @@ impl ser::SerializeMap for SerializeMap {
     type Ok = ZData;
     type Error = SerdeError;
 
-    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
         self.next_key = Some(key.serialize(&Serializer)?);
         Ok(())
     }
 
-    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
         let key = self
             .next_key
