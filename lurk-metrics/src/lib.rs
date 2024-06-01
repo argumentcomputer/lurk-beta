@@ -32,7 +32,7 @@ thread_local! {
     /// allows us not to think about contention on a global metrics sink among threads.
     ///
     /// A global metrics sink must be installed before any thread-local sinks can be accessed.
-    static LOCAL_SINK: OnceCell<ThreadMetricsSinkHandle> = OnceCell::new();
+    static LOCAL_SINK: OnceCell<ThreadMetricsSinkHandle> = const { OnceCell::new() };
 }
 
 /// A global metrics sink that keeps a list of thread-local sinks to aggregate from

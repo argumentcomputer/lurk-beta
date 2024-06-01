@@ -249,6 +249,7 @@ impl From<Op1> for u64 {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) trait Op
 where
     Self: 'static,

@@ -5,6 +5,7 @@ use std::fmt::Debug;
 
 /// Initialized map entry for a fixed `key` with
 /// an allocated `value` computed at runtime.
+#[allow(dead_code)]
 pub(crate) struct CaseClause<'a, F: LurkField> {
     pub(crate) key: F,
     pub(crate) value: &'a AllocatedNum<F>,

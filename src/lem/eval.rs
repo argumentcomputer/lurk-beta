@@ -109,7 +109,7 @@ fn build_frames<F: LurkField, C: Coprocessor<F>>(
             compute_frame(lurk_step, cprocs, &input, store, lang, ch_terminal, pc)?;
 
         iterations += 1;
-        input = frame.output.clone();
+        input.clone_from(&frame.output);
         tracing::info!("{}", &log_fmt(iterations, &input, store));
         let expr = frame.output[0];
         frames.push(frame);
@@ -139,7 +139,7 @@ fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
             compute_frame(lurk_step, cprocs, &input, store, lang, ch_terminal, pc)?;
 
         iterations += 1;
-        input = frame.output.clone();
+        input.clone_from(&frame.output);
 
         if must_break {
             break;
