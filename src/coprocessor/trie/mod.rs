@@ -785,8 +785,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
             .iter()
             .zip(preimage_path)
             .rev()
-            .enumerate()
-            .map(|(_i, (path_index, existing_preimage))| {
+            .map(|(path_index, existing_preimage)| {
                 let mut new_preimage = *existing_preimage;
                 new_preimage[*path_index] = value;
                 let new_hash = self.register_hash(new_preimage);
