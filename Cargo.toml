@@ -20,7 +20,7 @@ bytecount = "0.6.7"
 camino = { workspace = true, features = ["serde1"] }
 clap = { workspace = true, features = ["derive"] }
 config = "0.14.0"
-dashmap = "5.5.0"
+dashmap = "6.0.1"
 ff = { workspace = true }
 fxhash = "0.2.1"
 generic-array = "1.0"
