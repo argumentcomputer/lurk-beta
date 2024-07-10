@@ -13,7 +13,7 @@ bellpepper = { workspace = true }
 bellpepper-core = { workspace = true }
 ff = { workspace = true }
 indexmap = { version = "2.2.3", features = ["rayon"] }
-generic-array = "0.14.7"
+generic-array = "1.1.0"
 lurk = { path = "../" }
 lurk-macros = { path = "../lurk-macros" }
 tracing = { workspace = true }
