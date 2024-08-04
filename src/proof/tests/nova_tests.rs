@@ -1851,7 +1851,7 @@ fn test_prove_fibonacci() {
     );
 }
 
-/// This test is a follow up to https://github.com/lurk-lab/lurk-rs/pull/931,
+/// This test is a follow up to https://github.com/argumentcomputer/lurk-rs/pull/931,
 /// which reverts a PR that made the "parallel steps" flow break
 #[test]
 #[ignore]

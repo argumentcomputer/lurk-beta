@@ -12,4 +12,4 @@ on:
 
 jobs:
   docs:
-    uses: lurk-lab/ci-workflows/.github/workflows/docs.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/docs.yml@main

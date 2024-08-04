@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: lurk-lab/ci-workflows
+          repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/install-deps
         with:
           packages: 'pkg-config libssl-dev protobuf-compiler libprotobuf-dev'
@@ -42,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: lurk-lab/ci-workflows
+          repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/install-deps
         with:
           packages: 'pkg-config libssl-dev protobuf-compiler libprotobuf-dev'
@@ -65,7 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: lurk-lab/ci-workflows
+          repository: argumentcomputer/ci-workflows
       - name: Install dependencies
         run: |
           brew install protobuf

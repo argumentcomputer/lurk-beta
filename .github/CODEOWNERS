@@ -1,22 +1,22 @@
 # Global Owners: @porcuquine, @huitseeker
-* @lurk-lab/lurk-noncircuit
+* @argumentcomputer/lurk-noncircuit
 
 # CI maintenance
-/.circleci/** @lurk-lab/lurk-ci
-/.config/** @lurk-lab/lurk-ci
-/.github/** @lurk-lab/lurk-ci
+/.circleci/** @argumentcomputer/lurk-ci
+/.config/** @argumentcomputer/lurk-ci
+/.github/** @argumentcomputer/lurk-ci
 
 # Benchmarks
-/benches/** @lurk-lab/lurk-benches
+/benches/** @argumentcomputer/lurk-benches
 
 # CLI tools
-/src/cli/** @lurk-lab/lurk-cli-tools
+/src/cli/** @argumentcomputer/lurk-cli-tools
 
 # Circuit
-/src/circuit/** @lurk-lab/lurk-circuit
-/src/lem/circuit.rs @lurk-lab/lurk-circuit
-/src/coprocessor/** @lurk-lab/lurk-circuit
-/src/coroutine/** @lurk-lab/lurk-circuit
+/src/circuit/** @argumentcomputer/lurk-circuit
+/src/lem/circuit.rs @argumentcomputer/lurk-circuit
+/src/coprocessor/** @argumentcomputer/lurk-circuit
+/src/coroutine/** @argumentcomputer/lurk-circuit
 
 # Evaluation model
-/src/lem/eval.rs @lurk-lab/lurk-lem
+/src/lem/eval.rs @argumentcomputer/lurk-lem

@@ -5,7 +5,7 @@
 //! Declare a `CircomGadget` implementing a `reference` pointing to a valid Circom Gadget repository
 //! and an existing release `version`. If the `CircomCoprocessor` can not find it locally it will directly
 //! fetch the r1cs and wasm files from Github. When doing so, the files will be fetched from the repository
-//! `https://github.com/lurk-lab/keccak-circom-gadget` and the release `v0.1.0`.
+//! `https://github.com/argumentcomputer/keccak-circom-gadget` and the release `v0.1.0`.
 use bellpepper_core::boolean::{AllocatedBit, Boolean};
 use bellpepper_core::num::AllocatedNum;
 use bellpepper_core::{ConstraintSystem, SynthesisError};
@@ -234,7 +234,7 @@ impl<F: LurkField> CircomKeccak<F> {
         CircomKeccak {
             n,
             _p: PhantomData,
-            reference: CircomGadgetReference::new("lurk-lab/keccak-circom-gadget").unwrap(),
+            reference: CircomGadgetReference::new("argumentcomputer/keccak-circom-gadget").unwrap(),
         }
     }
 }

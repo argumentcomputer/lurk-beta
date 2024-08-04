@@ -68,19 +68,19 @@ Welcome to the Lurk-rs project! Here's an introduction to the branch organizatio
 
 ### Major Dependencies
 
-The main repo is [lurk-rs](https://github.com/lurk-lab/lurk-rs) with major dependencies:
+The main repo is [lurk-rs](https://github.com/argumentcomputer/lurk-rs) with major dependencies:
 
-- [bellpepper](https://github.com/lurk-lab/bellpepper)
-- [neptune](https://github.com/lurk-lab/neptune)
-- [arecibo](https://github.com/lurk-lab/arecibo) - a fork of the upstream repo [nova](https://github.com/microsoft/Nova)
+- [bellpepper](https://github.com/argumentcomputer/bellpepper)
+- [neptune](https://github.com/argumentcomputer/neptune)
+- [arecibo](https://github.com/argumentcomputer/arecibo) - a fork of the upstream repo [nova](https://github.com/microsoft/Nova)
 
 ### Forked Dependencies
 
 Additionally, Lurk-rs depends on the following forked repositories:
 
-- [pasta_curves](https://github.com/lurk-lab/pasta_curves) (forked from [zcash/pasta_curves](https://github.com/zcash/pasta_curves))
-- [pasta-msm](https://github.com/lurk-lab/pasta-msm) (forked from [supranational/pasta-msm](https://github.com/supranational/pasta-msm))
-- [ec-gpu](https://github.com/lurk-lab/ec-gpu) (forked from [filecoin-project/ec-gpu](https://github.com/filecoin-project/ec-gpu))
+- [pasta_curves](https://github.com/argumentcomputer/pasta_curves) (forked from [zcash/pasta_curves](https://github.com/zcash/pasta_curves))
+- [pasta-msm](https://github.com/argumentcomputer/pasta-msm) (forked from [supranational/pasta-msm](https://github.com/supranational/pasta-msm))
+- [ec-gpu](https://github.com/argumentcomputer/ec-gpu) (forked from [filecoin-project/ec-gpu](https://github.com/filecoin-project/ec-gpu))
 
 For rapid iterations and to address issues in these dependencies, Lurk's **main** branch directly depends on the **dev** branch of its dependencies (transitively).
 
@@ -129,7 +129,7 @@ To trigger a benchmark:
 
 Then, check the following link for the benchmark reports:
 
-https://lurk-lab.github.io/lurk-rs/benchmarks/criterion/reports/
+https://argumentcomputer.github.io/lurk-rs/benchmarks/criterion/reports/
 
 Ask a maintainer for a benchmark report if you can't find a recent one.
 
