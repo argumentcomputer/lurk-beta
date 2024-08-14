@@ -4,7 +4,7 @@
 This document contains general notes about the soundness of Lurk proofs.
 
 We choose a somewhat elaborate functional commitment code example (lightly modified from [A Programmer's Introduction to
-Lurk](https://blog.lurk-lang.org/posts/prog-intro/)) because it exercises many language features.
+Lurk](https://argument.xyz/blog/prog-intro/)) because it exercises many language features.
 
 ```
 > (letrec ((reduce (lambda (acc f list)

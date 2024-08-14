@@ -16,7 +16,7 @@ For support and discussions, please visit our [Zulip forum](https://zulip.argume
 
 # Overview
 
-Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A reference implementation focused on describing and developing the core language can be found in the [`lurk`](https://github.com/argumentcomputer/lurk-lisp) repo.
+Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A reference implementation focused on describing and developing the core language can be found in the [`lurk-lisp`](https://github.com/argumentcomputer/lurk-lisp) repo.
 
 Lurk's distinguishing feature relative to most programming languages is that correct execution of Lurk programs can be directly proved using zk-SNARKs. The resulting proofs are succinct: they are relatively small, can be verified quickly, and they reveal only the information explicitly contained in the statement to be proved.
 
@@ -29,7 +29,7 @@ Lurk's distinguishing feature relative to most zk-SNARK authoring languages is t
 Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience still have room for significant optimization and improvement, but simple examples can be found in the [demo example directory](demo/).
 
 # Backends
-- Nova is Lurk's officially-supported IVC backend. It uses Argument Computer Corporation's Arecibo fork of the [Nova proving system](https://github.com/argumentcomputer/arecibo) and the Pasta Curves.
+- Nova is Lurk's officially-supported IVC backend. It uses Argument's Arecibo fork of the [Nova proving system](https://github.com/argumentcomputer/arecibo) and the Pasta Curves.
 - SuperNova is Lurk's in-development NIVC backend. It uses Arecibo's [SuperNova extension to the Nova proving system](https://github.com/argumentcomputer/arecibo/tree/dev/src/supernova) and the Pasta Curves.
 - Future work may target Halo2 or other proving systems.
 

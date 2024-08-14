@@ -378,7 +378,7 @@ cfg_if::cfg_if! {
             targets =
                 nivc_prove_benchmarks
                 // TODO: Add when compressed SNARK is implemented for SuperNova
-                // https://github.com/argumentcomputer/arecibo/issues/27https://github.com/argumentcomputer/arecibo/issues/27
+                // https://github.com/argumentcomputer/arecibo/issues/27
                 // nivc_prove_compressed_benchmarks
          }
     } else {
@@ -399,7 +399,7 @@ cfg_if::cfg_if! {
              targets =
                  nivc_prove_benchmarks
                  // TODO: Add when compressed SNARK is implemented for SuperNova
-                 // https://github.com/argumentcomputer/arecibo/issues/27https://github.com/argumentcomputer/arecibo/issues/27
+                 // https://github.com/argumentcomputer/arecibo/issues/27
                  // nivc_prove_compressed_benchmarks
           }
     }

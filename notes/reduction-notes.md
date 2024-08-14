@@ -3,7 +3,7 @@
 This document contains general notes about the design, rationale, and implementation of the Lurk reduction step. For a
 more normalized (but still WIP) specification, see the [Eval Spec](eval.md)
 
-The [Lurk Language Specification](https://github.com/argumentcomputer/lurk/blob/master/spec/v0-1.md) defines evaluation
+The [Lurk Language Specification](https://github.com/argumentcomputer/lurk-lisp/blob/master/spec/v0-1.md) defines evaluation
 semantics without specifying the internal data structures or computational steps which an implementation must use to
 calculate an evaluation. `lurk-rs` implements a concrete instance of the Lurk language for which proofs of correct
 evaluation can be generated. `lurk-rs` generates zk-SNARK proofs for multiple backends, and verification of these
@@ -44,7 +44,7 @@ Taking these one at a time:
 
 
 As a matter of interest, we note that the `lurk-rs` evaluator runs about 7x faster than the one implemented in [Common
-Lisp](https://github.com/argumentcomputer/lurk/blob/master/api/api.lisp). The latter's design does not target speed, and we
+Lisp](https://github.com/argumentcomputer/lurk-lisp/blob/master/api/api.lisp). The latter's design does not target speed, and we
 make this observation only to support our suggestion that the `lurk-rs` evaluator performs well relative to the cost of
 proving. It makes sense to evaluate many frames at a time before proving because doing so is cheap.
 
