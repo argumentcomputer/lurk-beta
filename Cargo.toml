@@ -100,7 +100,7 @@ tap = "1.0.1"
 tempfile = { workspace = true }
 
 [build-dependencies]
-vergen = { version = "8", features = ["build", "git", "gitcl"] }
+vergen = { version = "9", features = ["build", "git", "gitcl"] }
 
 [features]
 default = []
