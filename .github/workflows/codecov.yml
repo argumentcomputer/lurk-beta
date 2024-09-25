@@ -5,4 +5,4 @@ on:
     
 jobs:
   codecov-grcov:
-    uses: lurk-lab/ci-workflows/.github/workflows/codecov.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/codecov.yml@main

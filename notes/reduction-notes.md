@@ -3,17 +3,17 @@
 This document contains general notes about the design, rationale, and implementation of the Lurk reduction step. For a
 more normalized (but still WIP) specification, see the [Eval Spec](eval.md)
 
-The [Lurk Language Specification](https://github.com/lurk-lab/lurk/blob/master/spec/v0-1.md) defines evaluation
+The [Lurk Language Specification](https://github.com/argumentcomputer/lurk-lisp/blob/master/spec/v0-1.md) defines evaluation
 semantics without specifying the internal data structures or computational steps which an implementation must use to
-calculate an evaluation. `lurk-rs` implements a concrete instance of the Lurk language for which proofs of correct
-evaluation can be generated. `lurk-rs` generates zk-SNARK proofs for multiple backends, and verification of these
+calculate an evaluation. `lurk-beta` implements a concrete instance of the Lurk language for which proofs of correct
+evaluation can be generated. `lurk-beta` generates zk-SNARK proofs for multiple backends, and verification of these
 proofs requires reference to a verification key whose identity is derived from the computation encoded in the
 corresponding arithmetic circuit. The initial Lurk circuit implementation is specified as a Rank-1 Constraint System
 (R1CS), from which Nova or SuperNova proofs are created.
 
 Because the circuit must check the computation to be proved, many aspects of the implementation itself must be fully
 specified. The reference implementation of Lurk expression evaluation in
-[`eval.rs`](https://github.com/lurk-lab/lurk-rs/blob/main/src/lem/eval.rs) provides an intermediate step between the
+[`eval.rs`](https://github.com/argumentcomputer/lurk-beta/blob/main/src/lem/eval.rs) provides an intermediate step between the
 high-level specification and the low-level circuit. Not every aspect of the implementation is essential, but every part
 which directly corresponds to the layout of the constraint system is.
 
@@ -29,10 +29,10 @@ This is true in three distinct ways:
 3. When parallelizing synthesis (not currently implemented) of many logically sequential steps.
 
 Taking these one at a time:
-1. Because the SNARK-friendly Poseidon hashes (provided by the [Neptune](https://github.com/lurk-lab/neptune)
+1. Because the SNARK-friendly Poseidon hashes (provided by the [Neptune](https://github.com/argumentcomputer/neptune)
    library) are relatively expensive, and because Lurk does not provide explicit access to the hash values, we avoid
    computing them during evaluation -- instead relying on the
-   [Store](https://github.com/lurk-lab/lurk-rs/blob/main/src/lem/store.rs) to manage cheaper expression pointers in a way
+   [Store](https://github.com/argumentcomputer/lurk-beta/blob/main/src/lem/store.rs) to manage cheaper expression pointers in a way
    that preserves equality. All such pointers are resolved to content-addressable tagged hashes before circuit
    synthesis. The Store is used during synthesis when the preimage of a hash known at synthesis needs to be 'looked
    up'.
@@ -43,9 +43,9 @@ Taking these one at a time:
    can then be fully parallelized as desired.
 
 
-As a matter of interest, we note that the `lurk-rs` evaluator runs about 7x faster than the one implemented in [Common
-Lisp](https://github.com/lurk-lab/lurk/blob/master/api/api.lisp). The latter's design does not target speed, and we
-make this observation only to support our suggestion that the `lurk-rs` evaluator performs well relative to the cost of
+As a matter of interest, we note that the `lurk-beta` evaluator runs about 7x faster than the one implemented in [Common
+Lisp](https://github.com/argumentcomputer/lurk-lisp/blob/master/api/api.lisp). The latter's design does not target speed, and we
+make this observation only to support our suggestion that the `lurk-beta` evaluator performs well relative to the cost of
 proving. It makes sense to evaluate many frames at a time before proving because doing so is cheap.
 
 
@@ -64,9 +64,9 @@ Read from lurk-lib/example/fib.lurk: (LETREC
 bin/lurk lurk-lib/example/fib.lurk  2.02s user 0.32s system 98% cpu 2.366 total
 ```
 
-## `lurk-rs` (Rust), `(fib 5400)`
+## `lurk-beta` (Rust), `(fib 5400)`
 ```
-➜  lurk-rs git:(spec) ✗ time bin/lurk ../lurk/lurk-lib/example/fib.lurk
+➜  lurk-beta git:(spec) ✗ time bin/lurk ../lurk/lurk-lib/example/fib.lurk
     Finished release [optimized] target(s) in 0.06s
      Running `target/release/examples/lurk ../lurk/lurk-lib/example/fib.lurk`
 Lurk REPL welcomes you.
@@ -86,7 +86,7 @@ Evaled: 0x1c5d87e5252b038cb7badf6ba7618014c7c16b1541ebece39ab9a40d4f030cbd
 bin/lurk ../lurk/lurk-lib/example/fib.lurk  0.21s user 0.04s system 74% cpu 0.335 total
 ```
 
-Because it also highlights an important detail of the formal reduction algorithm, we note that `lurk-rs` evaluation
+Because it also highlights an important detail of the formal reduction algorithm, we note that `lurk-beta` evaluation
 automatically performs tail-call elimination, which the Common Lisp implementation currently does not. For that reason,
 the CL implementation encounters a stack overflow by `(fib 5500)`.
 
@@ -108,10 +108,10 @@ This is probably due to heavily nested or infinitely recursive function
 calls, or a tail call that SBCL cannot or has not optimized away.
 ```
 
-Meanwhile, `lurk-rs` happily computes `(fib 500000)` in 12 seconds.
+Meanwhile, `lurk-beta` happily computes `(fib 500000)` in 12 seconds.
 
 ```
-➜  lurk-rs git:(spec) ✗ time bin/lurk ../lurk/lurk-lib/example/fib.lurk
+➜  lurk-beta git:(spec) ✗ time bin/lurk ../lurk/lurk-lib/example/fib.lurk
     Finished release [optimized] target(s) in 0.06s
      Running `target/release/examples/lurk ../lurk/lurk-lib/example/fib.lurk`
 Lurk REPL welcomes you.

@@ -6,7 +6,7 @@ use lurk::config::lurk_config;
 use once_cell::sync::Lazy;
 
 /// Edit this path to use a config file specific to benchmarking
-/// E.g. `Utf8PathBuf::from("/home/<user>/lurk-rs/lurk-bench.toml");`
+/// E.g. `Utf8PathBuf::from("/home/<user>/lurk-beta/lurk-bench.toml");`
 pub(crate) static BENCH_CONFIG_PATH: Lazy<Utf8PathBuf> =
     Lazy::new(|| lurk_default_dir().join("lurk.toml"));
 

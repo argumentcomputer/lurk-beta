@@ -13,11 +13,11 @@ concurrency:
 
 jobs:
   linux:
-    runs-on: buildjet-16vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-x64-16x
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: lurk-lab/ci-workflows
+          repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/ci-env
       - uses: ./.github/actions/install-deps
         with:
@@ -37,26 +37,26 @@ jobs:
 
   # Rustfmt, clippy, doctests
   code-quality:
-    uses: lurk-lab/ci-workflows/.github/workflows/lints.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/lints.yml@main
     with:
       packages: 'protobuf-compiler libprotobuf-dev'
 
   # Checks `cargo build --target wasm32-unknown-unknown`
   wasm:
-    uses: lurk-lab/ci-workflows/.github/workflows/wasm.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/wasm.yml@main
 
   # Checks MSRV specified by `rust-version` in `Cargo.toml`
   msrv:
-    uses: lurk-lab/ci-workflows/.github/workflows/msrv.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/msrv.yml@main
     with:
       packages: 'protobuf-compiler libprotobuf-dev'
 
   # Check documentation links aren't broken
   link-checker:
-    uses: lurk-lab/ci-workflows/.github/workflows/links-check.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/links-check.yml@main
     with: 
       fail-fast: true
 
-  # Lint dependencies for licensing and auditing issues as per https://github.com/lurk-lab/lurk-rs/blob/main/deny.toml
+  # Lint dependencies for licensing and auditing issues as per https://github.com/argumentcomputer/lurk-beta/blob/main/deny.toml
   licenses-audits:
-    uses: lurk-lab/ci-workflows/.github/workflows/licenses-audits.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/licenses-audits.yml@main

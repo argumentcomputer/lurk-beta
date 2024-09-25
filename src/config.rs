@@ -17,7 +17,7 @@ pub static LURK_CONFIG_FILE: OnceCell<Utf8PathBuf> = OnceCell::new();
 
 /// Gets the `LURK_CONFIG` settings. If uninitialized, sets the global variable
 /// in the following order (greatest to least precedence):
-/// - `settings` map if provided, e.g. with key ("public_params_dir", "$HOME/lurk-rs/public_params")
+/// - `settings` map if provided, e.g. with key ("public_params_dir", "$HOME/lurk-beta/public_params")
 /// - Env var per setting, e.g. `LURK_PUBLIC_PARAMS_DIR`
 /// - Config file, which also has a configurable location (see `lurk_config_file()`),
 ///   and has the following syntax for e.g. TOML:
@@ -36,7 +36,7 @@ pub fn lurk_config(
 
 /// Gets the `LURK_CONFIG_FILE` path. If uninitialized, sets the global variable
 /// in the following order (greatest to least precedence):
-/// - `config_file` parameter if provided, e.g. "$HOME/lurk-rs/lurk-local.toml"
+/// - `config_file` parameter if provided, e.g. "$HOME/lurk-beta/lurk-local.toml"
 /// - `LURK_CONFIG_FILE` env var
 /// - Default location at `$HOME/.lurk/lurk.toml` or `<current_dir>/.config/lurk.toml` on WASM.
 pub fn lurk_config_file(config_file: Option<&Utf8PathBuf>) -> &'static Utf8PathBuf {

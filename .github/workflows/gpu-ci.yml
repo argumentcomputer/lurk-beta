@@ -15,4 +15,4 @@ concurrency:
 jobs:
   gpu-ci:
     name: Rust GPU tests
-    uses: lurk-lab/ci-workflows/.github/workflows/gpu-ci-cuda.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/gpu-ci-cuda.yml@main

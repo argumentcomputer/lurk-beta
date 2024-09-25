@@ -9,11 +9,11 @@ on:
 
 jobs:
   linux_exhaustive:
-    runs-on: buildjet-16vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-x64-32x
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: lurk-lab/ci-workflows
+          repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/ci-env
       - uses: actions/checkout@v4
         with:
@@ -52,15 +52,15 @@ jobs:
 
       - name: Amend MESSAGE for tests
         if: steps.tests.outcome != 'success'
-        run: echo "MESSAGE=${{ env.MESSAGE }} Exhaustive test run failed in https://github.com/lurk-lab/lurk-rs/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+        run: echo "MESSAGE=${{ env.MESSAGE }} Exhaustive test run failed in https://github.com/argumentcomputer/lurk-beta/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: Amend MESSAGE for benches
         if: steps.benches.outcome != 'success'
-        run: echo "MESSAGE=${{ env.MESSAGE }} Bench compilation failed in https://github.com/lurk-lab/lurk-rs/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+        run: echo "MESSAGE=${{ env.MESSAGE }} Bench compilation failed in https://github.com/argumentcomputer/lurk-beta/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: Amend MESSAGE for doctests
         if: steps.doctests.outcome != 'success'
-        run: echo "MESSAGE=${{ env.MESSAGE }} Doc test run failed in https://github.com/lurk-lab/lurk-rs/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+        run: echo "MESSAGE=${{ env.MESSAGE }} Doc test run failed in https://github.com/argumentcomputer/lurk-beta/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: Find the last report issue open
         id: last_issue
@@ -103,12 +103,12 @@ jobs:
             automated issue
 
   unused-dependencies:
-    uses: lurk-lab/ci-workflows/.github/workflows/unused-deps.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/unused-deps.yml@main
     with:
       packages: 'protobuf-compiler libprotobuf-dev'
 
   rust-version-check:
-    uses: lurk-lab/ci-workflows/.github/workflows/rust-version-check.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/rust-version-check.yml@main
 
   typos:
-    uses: lurk-lab/ci-workflows/.github/workflows/typos.yml@main
+    uses: argumentcomputer/ci-workflows/.github/workflows/typos.yml@main

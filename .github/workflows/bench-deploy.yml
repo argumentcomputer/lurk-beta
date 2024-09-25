@@ -15,7 +15,7 @@ jobs:
       # Install deps
       - uses: actions/checkout@v4
         with:
-          repository: lurk-lab/ci-workflows
+          repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/gpu-setup
         with:
           gpu-framework: 'cuda'

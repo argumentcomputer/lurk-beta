@@ -62,25 +62,25 @@ flowchart TD
 ## Issues
 We use GitHub issues to track public bugs. Please ensure your description is clear and has sufficient instructions to be able to reproduce the issue.
 
-## Lurk-rs Repository Organization and Dependency Management
+## Lurk-beta Repository Organization and Dependency Management
 
-Welcome to the Lurk-rs project! Here's an introduction to the branch organization and the chain of dependencies in the Lurk-rs repository.
+Welcome to the Lurk-beta project! Here's an introduction to the branch organization and the chain of dependencies in the Lurk-beta repository.
 
 ### Major Dependencies
 
-The main repo is [lurk-rs](https://github.com/lurk-lab/lurk-rs) with major dependencies:
+The main repo is [lurk-beta](https://github.com/argumentcomputer/lurk-beta) with major dependencies:
 
-- [bellpepper](https://github.com/lurk-lab/bellpepper)
-- [neptune](https://github.com/lurk-lab/neptune)
-- [arecibo](https://github.com/lurk-lab/arecibo) - a fork of the upstream repo [nova](https://github.com/microsoft/Nova)
+- [bellpepper](https://github.com/argumentcomputer/bellpepper)
+- [neptune](https://github.com/argumentcomputer/neptune)
+- [arecibo](https://github.com/argumentcomputer/arecibo) - a fork of the upstream repo [nova](https://github.com/microsoft/Nova)
 
 ### Forked Dependencies
 
-Additionally, Lurk-rs depends on the following forked repositories:
+Additionally, Lurk-beta depends on the following forked repositories:
 
-- [pasta_curves](https://github.com/lurk-lab/pasta_curves) (forked from [zcash/pasta_curves](https://github.com/zcash/pasta_curves))
-- [pasta-msm](https://github.com/lurk-lab/pasta-msm) (forked from [supranational/pasta-msm](https://github.com/supranational/pasta-msm))
-- [ec-gpu](https://github.com/lurk-lab/ec-gpu) (forked from [filecoin-project/ec-gpu](https://github.com/filecoin-project/ec-gpu))
+- [pasta_curves](https://github.com/argumentcomputer/pasta_curves) (forked from [zcash/pasta_curves](https://github.com/zcash/pasta_curves))
+- [pasta-msm](https://github.com/argumentcomputer/pasta-msm) (forked from [supranational/pasta-msm](https://github.com/supranational/pasta-msm))
+- [ec-gpu](https://github.com/argumentcomputer/ec-gpu) (forked from [filecoin-project/ec-gpu](https://github.com/filecoin-project/ec-gpu))
 
 For rapid iterations and to address issues in these dependencies, Lurk's **main** branch directly depends on the **dev** branch of its dependencies (transitively).
 
@@ -105,7 +105,7 @@ For rapid iterations and to address issues in these dependencies, Lurk's **main*
 
 ```mermaid
 graph TD
-    LURK[lurk-rs] --> BELL[bellpepper]
+    LURK[lurk-beta] --> BELL[bellpepper]
     LURK --> NEPT[neptune]
     LURK --> AREC[arecibo]
     AREC --> NOVA[nova]
@@ -129,9 +129,9 @@ To trigger a benchmark:
 
 Then, check the following link for the benchmark reports:
 
-https://lurk-lab.github.io/lurk-rs/benchmarks/criterion/reports/
+https://argumentcomputer.github.io/lurk-beta/benchmarks/criterion/reports/
 
 Ask a maintainer for a benchmark report if you can't find a recent one.
 
 ## License
-By contributing to lurk-lang, you agree that your contributions will be licensed under both [MIT](https://opensource.org/license/MIT) and [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0) licenses.
+By contributing to `lurk-beta`, you agree that your contributions will be licensed under both [MIT](https://opensource.org/license/MIT) and [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0) licenses.
