@@ -42,6 +42,7 @@ use lurk::{
 
 pub mod chain_prover {
     #![allow(unreachable_pub)]
+    #![allow(clippy::derive_partial_eq_without_eq)]
     tonic::include_proto!("chain_prover");
 }
 

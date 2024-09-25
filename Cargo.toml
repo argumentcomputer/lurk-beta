@@ -7,7 +7,7 @@ repository.workspace = true
 authors.workspace = true
 homepage.workspace = true
 license.workspace = true
-rust-version = "1.74.1" # allows msrv verify to work in CI
+rust-version = "1.79" # allows msrv verify to work in CI
 
 [dependencies]
 anyhow = { workspace = true }
@@ -146,8 +146,9 @@ tracing-subscriber = "0.3.17"
 authors = ["Argument Engineering <engineering@argument.xyz>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
+homepage = "https://argument.xyz"
 repository = "https://github.com/argumentcomputer/lurk-beta"
-rust-version = "1.74.1"
+rust-version = "1.79"
 
 [[bin]]
 name = "lurk"
