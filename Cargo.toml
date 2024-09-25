@@ -145,9 +145,8 @@ tracing-subscriber = "0.3.17"
 [workspace.package]
 authors = ["Argument Engineering <engineering@argument.xyz>"]
 edition = "2021"
-homepage = "https://lurk-lang.org/"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/argumentcomputer/lurk-rs"
+repository = "https://github.com/argumentcomputer/lurk-beta"
 rust-version = "1.74.1"
 
 [[bin]]

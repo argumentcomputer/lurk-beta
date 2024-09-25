@@ -17,7 +17,7 @@ pub(crate) static CLI_CONFIG: OnceCell<CliSettings> = OnceCell::new();
 
 /// Gets the `CLI_CONFIG` settings. If uninitialized, sets the global variable
 /// in the following order (greatest to least precedence):
-/// - `settings` map if provided, e.g. with key ("proofs", "$HOME/lurk-rs/proofs")
+/// - `settings` map if provided, e.g. with key ("proofs", "$HOME/lurk-beta/proofs")
 ///   This contains any CLI args, set e.g. by `lurk --proofs-dir /path/to/proofs_dir`
 /// - Env var per setting, e.g. `LURK_PROOFS_DIR`
 /// - Config file, which also has a configurable location (see `lurk_config_file()`),

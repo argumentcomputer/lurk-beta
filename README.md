@@ -1,16 +1,17 @@
 # Lurk
 
-![lurk-rs](https://github.com/argumentcomputer/lurk-rs/actions/workflows/ci.yml/badge.svg)
+![lurk-beta](https://github.com/argumentcomputer/lurk-beta/actions/workflows/ci.yml/badge.svg)
 ![minimum rustc 1.70][msrv-image]
-[![dependency status](https://deps.rs/repo/github/argumentcomputer/lurk-rs/status.svg)](https://deps.rs/repo/github/argumentcomputer/lurk-rs)
+[![dependency status](https://deps.rs/repo/github/argumentcomputer/lurk-beta/status.svg)](https://deps.rs/repo/github/argumentcomputer/lurk-beta)
 ![crates.io][crates-image]
 
 [msrv-image]: https://img.shields.io/badge/rustc-1.70+-blue.svg
 [crates-image]: https://img.shields.io/crates/v/lurk.svg
 
-# Status (Beta)
+# Status
+> [!NOTE] This repository is in maintenance mode. Development has moved to https://github.com/argumentcomputer/lurk.
 
-Lurk is currently in [Beta](https://blog.lurk-lang.org/posts/lurk-beta/), which is backwards compatible with code that ran in Lurk Alpha and is expected to be compatible with Lurk 1.0. However, some low-level data representations are anticipated to change, and we will be refactoring the evaluation model (and consequently its circuit) for efficiency purposes. Also note that since Lurk inherits some security properties from the underlying proving system, those who would rely on Lurk should investigate the security and status of Nova/SuperNova itself. We encourage early adopters to begin writing real applications taking advantage of Lurk so you can begin to familiarize yourself with the programming model. Likewise, we welcome your feedback -- which will help ensure ongoing development meets user need.
+This repository contains the implementation for [Lurk Beta](https://argument.xyz/blog/lurk-beta/), which is backwards compatible with code that ran in Lurk Alpha and is expected to be compatible with Lurk 1.0. However, some low-level data representations are anticipated to change, and we will be refactoring the evaluation model (and consequently its circuit) for efficiency purposes. Also note that since Lurk inherits some security properties from the underlying proving system, those who would rely on Lurk should investigate the security and status of Nova/SuperNova itself. We encourage early adopters to begin writing real applications taking advantage of Lurk so you can begin to familiarize yourself with the programming model. Likewise, we welcome your feedback -- which will help ensure ongoing development meets user need.
 
 For support and discussions, please visit our [Zulip forum](https://zulip.argument.xyz/).
 
@@ -40,12 +41,11 @@ It is an explicit design goal that statements about the evaluation of Lurk progr
 Lurk backend integration is still immature, so current performance is not representative. As a rough approximation, we estimate that for entirely general computation using Lurk's universal circuit, Nova proving throughput will be on the order of 1,000 iterations per second per GPU. We expect that most compute-heavy applications will use optimized 'coprocessor' circuits, which will  dramatically improve performance. Planned improvements to Nova will allow for smaller inner circuits, further improving throughput -- and for full parallelization of reduction proofs.
 
 # Specs
-- [Lurk Spec](https://blog.lurk-lang.org/posts/circuit-spec)
 - [Evaluation Spec](notes/eval.md)
 - [Reduction Notes](notes/reduction-notes.md)
 
 # Security Audit
-Lurk's Alpha release has undergone a [security audit](https://blog.lurk-lang.org/posts/alpha-audit/inference-security-assessment-3-2023.pdf) as of 03/29/2023, performed by [Inference](https://inference.ag/about-us/).
+Lurk's Alpha release has undergone a [security audit](https://argument.xyz/inference-security-assessment-3-2023.pdf) as of 03/29/2023, performed by [Inference](https://inference.ag/about-us/).
 
 # Versioning
 
@@ -96,7 +96,7 @@ Set the environment variable `LURK_FIELD` to specify the scalar field of the Lur
 - `LURK_FIELD=VESTA`: scalar field of Vesta
 
 ```ignore
-➜  lurk-rs ✗ bin/lurk
+➜  lurk-beta ✗ bin/lurk
     Finished release [optimized] target(s) in 0.06s
      Running `target/release/lurk`
 Lurk REPL welcomes you.
@@ -107,7 +107,7 @@ Lurk REPL welcomes you.
 
 Or enable `info` log-level for a trace of reduction frames:
 ```ignore
-➜  lurk-rs ✗ RUST_LOG=lurk::lem::eval=info bin/lurk
+➜  lurk-beta ✗ RUST_LOG=lurk::lem::eval=info bin/lurk
     Finished release [optimized] target(s) in 0.05s
      Running `target/release/lurk`
 Lurk REPL welcomes you.

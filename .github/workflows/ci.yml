@@ -57,6 +57,6 @@ jobs:
     with: 
       fail-fast: true
 
-  # Lint dependencies for licensing and auditing issues as per https://github.com/argumentcomputer/lurk-rs/blob/main/deny.toml
+  # Lint dependencies for licensing and auditing issues as per https://github.com/argumentcomputer/lurk-beta/blob/main/deny.toml
   licenses-audits:
     uses: argumentcomputer/ci-workflows/.github/workflows/licenses-audits.yml@main

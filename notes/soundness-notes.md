@@ -158,7 +158,7 @@ from the expression. Immediate values are derived with the identity function, an
 their constituents (both type and value elements) using a hash of appropriate arity and a type-specific preimage layout.
 
 For example, an actual Lurk cons has type tag
-[`0x01`](https://github.com/argumentcomputer/lurk-rs/blob/a1242270a1285c15b7edb0ab1440f2247f950ead/src/store.rs#L2790), and its
+[`0x01`](https://github.com/argumentcomputer/lurk-beta/blob/a1242270a1285c15b7edb0ab1440f2247f950ead/src/store.rs#L2790), and its
 value is `P4(t0, v0, t1, v1)` -- where `P4` is a 4-ary Poseidon hash, `t0` is the type tag of the first paired
 expression, `v0` is the value element of the first paired expression, `t1` is the type tag of the second paired
 expression, and `v1` is the value element of the second paired expression.
