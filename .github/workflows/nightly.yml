@@ -9,7 +9,7 @@ on:
 
 jobs:
   linux_exhaustive:
-    runs-on: buildjet-16vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-x64-32x
     steps:
       - uses: actions/checkout@v4
         with:

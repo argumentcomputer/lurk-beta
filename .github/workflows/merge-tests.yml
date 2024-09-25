@@ -14,7 +14,7 @@ concurrency:
 jobs:
   linux-ignored:
     if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
-    runs-on: buildjet-16vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-x64-16x
     env:
       RUSTFLAGS: -D warnings
     steps:
@@ -36,7 +36,7 @@ jobs:
 
   linux-arm:
     if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
-    runs-on: buildjet-16vcpu-ubuntu-2204-arm
+    runs-on: warp-ubuntu-latest-arm64-16x
     env:
       RUSTFLAGS: -D warnings
     steps:
