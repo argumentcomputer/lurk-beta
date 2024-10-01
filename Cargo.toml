@@ -65,7 +65,7 @@ tracing-texray = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 elsa = { version = "1.9.0", git = "https://github.com/argumentcomputer/elsa", branch = "sync_frozen", features = ["indexmap"] }
 arc-swap = "1.6.0"
-halo2curves = { version = "0.6.0", features = ["bits", "derive_serde"] }
+halo2curves = { version = "0.7.0", features = ["bits", "derive_serde"] }
 
 [target.'cfg(not(target_arch = "x86_64"))'.dependencies]
 nova = { workspace = true }
