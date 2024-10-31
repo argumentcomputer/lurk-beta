@@ -9,7 +9,8 @@
 [crates-image]: https://img.shields.io/crates/v/lurk.svg
 
 # Status
-> [!NOTE] This repository is in maintenance mode. Development has moved to https://github.com/argumentcomputer/lurk.
+> [!NOTE]
+> This repository is in maintenance mode. Development has moved to https://github.com/argumentcomputer/lurk.
 
 This repository contains the implementation for [Lurk Beta](https://argument.xyz/blog/lurk-beta/), which is backwards compatible with code that ran in Lurk Alpha and is expected to be compatible with Lurk 1.0. However, some low-level data representations are anticipated to change, and we will be refactoring the evaluation model (and consequently its circuit) for efficiency purposes. Also note that since Lurk inherits some security properties from the underlying proving system, those who would rely on Lurk should investigate the security and status of Nova/SuperNova itself. We encourage early adopters to begin writing real applications taking advantage of Lurk so you can begin to familiarize yourself with the programming model. Likewise, we welcome your feedback -- which will help ensure ongoing development meets user need.
 
