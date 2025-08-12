@@ -13,14 +13,14 @@ jobs:
     name: Manual GPU bench
     runs-on: [self-hosted, gpu-bench]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/gpu-setup
         with:
           gpu-framework: 'cuda'
       - uses: ./.github/actions/ci-env
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Install dependencies
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2

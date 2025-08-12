@@ -11,11 +11,11 @@ jobs:
   linux_exhaustive:
     runs-on: warp-ubuntu-2404-x64-32x
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/ci-env
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: Install dependencies

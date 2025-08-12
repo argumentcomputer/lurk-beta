@@ -15,14 +15,14 @@ jobs:
   linux:
     runs-on: warp-ubuntu-2404-x64-16x
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/ci-env
       - uses: ./.github/actions/install-deps
         with:
           packages: 'pkg-config libssl-dev protobuf-compiler libprotobuf-dev'
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
