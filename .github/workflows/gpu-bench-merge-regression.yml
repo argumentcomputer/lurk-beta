@@ -18,14 +18,14 @@ jobs:
     name: GPU bench regression check
     runs-on: [self-hosted, gpu-bench]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/gpu-setup
         with:
           gpu-framework: 'cuda'
       - uses: ./.github/actions/ci-env
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Install dependencies
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -49,7 +49,7 @@ jobs:
           envFile: 'benches/bench.env'
       # Checkout gh-pages to check for cached bench result
       - name: Checkout gh-pages
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: gh-pages
           path: gh-pages
@@ -65,7 +65,7 @@ jobs:
           fi
         working-directory: ${{ github.workspace }}/gh-pages
       # Checkout base branch for comparative bench
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.cached-bench.outputs.cached == 'false'
         with:
           ref: main

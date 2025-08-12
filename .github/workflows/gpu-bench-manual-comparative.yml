@@ -14,15 +14,15 @@ jobs:
     name: Manual GPU bench comparison
     runs-on: [self-hosted, gpu-bench]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: argumentcomputer/ci-workflows
       - uses: ./.github/actions/gpu-setup
         with:
           gpu-framework: 'cuda'
       - uses: ./.github/actions/ci-env
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           ref: main
           path: main
