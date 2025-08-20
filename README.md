@@ -1,6 +1,6 @@
 # Lurk
 
-![lurk-beta](https://github.com/argumentcomputer/lurk-beta/actions/workflows/ci.yml/badge.svg)
+[![lurk-beta](https://github.com/argumentcomputer/lurk-beta/actions/workflows/ci.yml/badge.svg)](https://github.com/lurk-lab/lurk-beta/actions/workflows/ci.yml)
 ![minimum rustc 1.70][msrv-image]
 [![dependency status](https://deps.rs/repo/github/argumentcomputer/lurk-beta/status.svg)](https://deps.rs/repo/github/argumentcomputer/lurk-beta)
 ![crates.io][crates-image]
